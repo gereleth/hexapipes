@@ -14,6 +14,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "next",
+		"@sveltejs/adapter-static": "*",
 		"@sveltejs/kit": "next",
 		"@types/cookie": "^0.5.1",
 		"prettier": "^2.6.2",

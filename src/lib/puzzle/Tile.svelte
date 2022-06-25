@@ -15,7 +15,7 @@
     const dispatch = createEventDispatcher();
 
     let rotationAnimate = tweened(rotations, {
-		duration: 100,
+		duration: 75,
 		easing: cubicOut
 	})
 
@@ -36,7 +36,7 @@
     function onClick(event) {
         if (locked) {return}
         // const {x, width} = event.target.getBoundingClientRect()
-        rotate(true)        
+        rotate(!event.ctrlKey)        
     }
     /**
     * @param {clockwise} boolean
@@ -104,5 +104,6 @@
     <circle {cx} {cy} r="0.4" fill="rgba(1,1,1,0.0)" 
         on:click={onClick}
         on:contextmenu|preventDefault={()=> locked = !locked}
+        on:mousedown|preventDefault={()=>{}}
         />
 {/if}

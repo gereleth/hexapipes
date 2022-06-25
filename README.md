@@ -1,3 +1,5 @@
-# sveltejs-kit-template-default-u3h8qq
+# Hexapipes
 
-[Edit on StackBlitz ⚡️](https://stackblitz.com/edit/sveltejs-kit-template-default-u3h8qq)
+This is a little static site for playing the pipes puzzle.
+
+Made with Svelte Kit, currently deployed at [hexapipes.vercel.app](www.hexapipes.vercel.app/hexagonal/5/1).
