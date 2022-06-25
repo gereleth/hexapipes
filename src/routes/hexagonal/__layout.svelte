@@ -6,7 +6,7 @@
 
 <div class="sizes">
   <span> Choose a size:</span>
-  {#each [5,7,10] as size}
+  {#each [5,7,10,15] as size}
     <a href="/hexagonal/{size}" class:active={$page.url.pathname.includes(`/hexagonal/${size}`)}> {size}x{size} </a>
   {/each}
 </div>
