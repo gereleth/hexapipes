@@ -2,14 +2,17 @@
   import {page} from '$app/stores'
 </script>
 
-<h1> Hexagonal pipes </h1>
+<div class="container">
+  <h1> Hexagonal pipes </h1>
 
-<div class="sizes">
-  <span> Choose a size:</span>
-  {#each [5,7,10,15] as size}
-    <a href="/hexagonal/{size}" class:active={$page.url.pathname.includes(`/hexagonal/${size}`)}> {size}x{size} </a>
-  {/each}
+  <div class="sizes">
+    <span> Choose a size:</span>
+    {#each [5,7,10,15] as size}
+      <a href="/hexagonal/{size}" class:active={$page.url.pathname.includes(`/hexagonal/${size}`)}> {size}x{size} </a>
+    {/each}
+  </div>
 </div>
+
 <slot />
 
 <style>

@@ -8,9 +8,9 @@
       await goto(`/hexagonal/${size}/1`)
   })
 </script>
-
-<p> This should redirect to a puzzle page soon. </p>
-
+<div class="container">
+  <p> This should redirect to a puzzle page soon. </p>
+</div>
 <style>
 p {
   text-align: center;

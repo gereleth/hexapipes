@@ -105,3 +105,8 @@ button:focus:not(:focus-visible) {
 		font-size: 2.4rem;
 	}
 }
+
+.container {
+	max-width: 992px;
+	margin: auto;
+}

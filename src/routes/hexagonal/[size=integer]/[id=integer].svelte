@@ -8,14 +8,16 @@
   $: $page.params, solved = false
 </script>
 
-<div class="info">
+<div class="info container">
 <h2> Hexagonal pipes {$page.params.size}x{$page.params.size} puzzle #{$page.params.id}</h2>
 
 <p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
+
 {#key $page.params.size, $page.params.id}
   <Puzzle {width} {height} {tiles} on:solved={()=>{solved=true}}/>
 {/key}
+
 {#if solved} 
     <div class="congrat"> 
       Solved! 

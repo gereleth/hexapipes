@@ -20,7 +20,18 @@
 
     let grid = new HexaGrid(width, height)
     let connections = new Map([])
-    let scale = 1
+    let pxPerCell = 100
+    
+    let innerWidth = 500
+    let innerHeight = 500
+
+    $: pxPerCell = resize(innerWidth, innerHeight)
+
+    function resize(innerWidth, innerHeight) {
+        const wpx = innerWidth / (width + 2.1)
+        const hpx = innerHeight / (YSTEP*(height + 0.5))
+        return Math.min(100, Math.min(wpx, hpx))
+    }
 
     function handleConnections(event) {
         const {tileIndex, dirIn, dirOut} = event.detail
@@ -101,14 +112,15 @@
                 tileIndex: index,
             }})
         })
-        // console.log(connections)
     })
 </script>
 
-<div class="container">
+<svelte:window bind:innerWidth bind:innerHeight />
+
+<div class="puzzle">
     <svg 
-        width="{100*width}" 
-        height="{100*height*YSTEP}"
+        width="{pxPerCell*width}" 
+        height="{pxPerCell*height*YSTEP}"
         viewBox="-0.8 {0.5*YSTEP} {width + 1.3} {height*YSTEP}"
         >
         {#each tiles as tile, i (i)}

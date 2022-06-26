@@ -6,8 +6,9 @@
       await goto(`/hexagonal/5/1`)
   })
 </script>
-
-<p> This should redirect to a puzzle page soon. </p>
+<div class="container">
+  <p> This should redirect to a puzzle page soon. </p>
+</div>
 
 <style>
 p {

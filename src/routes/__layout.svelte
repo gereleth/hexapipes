@@ -1,20 +1,25 @@
 <script>
 	import Header from '$lib/header/Header.svelte';
+	import Footer from '$lib/footer/Footer.svelte';
 	import styles from '../app.css';
 </script>
 
 
 <div class="container">
-
-<Header />
-	<main>
-		<slot />
-	</main>
+	<Header />
 </div>
 
-<style>
+<main>
+	<slot />
+</main>
+
+<div class="container">
+	<Footer />
+</div>
+
+<!-- <style>
     .container {
         margin: auto;
         max-width: 1000px;
     }
-</style>
+</style> -->

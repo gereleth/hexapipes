@@ -4,15 +4,16 @@
 
 <slot />
 
-
-<div class="links">
-  <p>Other {$page.params.size}x{$page.params.size} puzzles:</p>
-  {#each Array(100) as _, i}
-    <a href="/hexagonal/{$page.params.size}/{i+1}" 
-      class:active={$page.url.pathname === `/hexagonal/${$page.params.size}/${i+1}`}> 
-      {i+1} 
-    </a>
-  {/each}
+<div class="container">
+  <div class="links">
+    <p>Other {$page.params.size}x{$page.params.size} puzzles:</p>
+    {#each Array(100) as _, i}
+      <a href="/hexagonal/{$page.params.size}/{i+1}" 
+        class:active={$page.url.pathname === `/hexagonal/${$page.params.size}/${i+1}`}> 
+        {i+1} 
+      </a>
+    {/each}
+  </div>
 </div>
 
 <style>
