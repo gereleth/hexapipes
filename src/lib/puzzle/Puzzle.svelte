@@ -11,8 +11,6 @@
     export let width = 0// = 5
     export let height = 0// = 5
     export let tiles = [
-        // 1,4,44,9,8,10,9,32,12,4,3,22,38,40,57,1,5,9,11,4,6,9,28,2,1,
-        //2,18,28,32,1,12,20,10,6,10,8,44,33,12,20,12,21,11,35,32,2,3,8,33,17
     ]
     let solved = false
 
@@ -24,11 +22,12 @@
     
     let innerWidth = 500
     let innerHeight = 500
+    let startCheckAtIndex = 0
 
     $: pxPerCell = resize(innerWidth, innerHeight)
 
     function resize(innerWidth, innerHeight) {
-        const wpx = innerWidth / (width + 2.1)
+        const wpx = innerWidth / (width + 1.6)
         const hpx = innerHeight / (YSTEP*(height + 0.5))
         return Math.min(100, Math.min(wpx, hpx))
     }
@@ -57,7 +56,8 @@
 
     function isSolved() {
         // console.log('=================== Solved check ======================')
-        let toCheck = new Set([{fromIndex: -1, tileIndex: 0}])
+        let toCheck = new Set([{fromIndex: -1, tileIndex: startCheckAtIndex}])
+        console.log('start at', startCheckAtIndex)
         const checked = new Set([])
         while (toCheck.size > 0) {
             // console.log('toCheck = ', toCheck)
@@ -71,6 +71,7 @@
                     if (neighbour===-1) {
                         // not solved if any tiles point outside
                         // console.log('not solved for outside connection in tile', tileIndex)
+                        startCheckAtIndex = tileIndex
                         return false
                     }
                     const neighbourConnections = connections.get(neighbour)
@@ -78,12 +79,14 @@
                     if (!neighbourConnections.has(tileIndex)) {
                         // not solved if a connection is not mutual
                         // console.log('not solved for non-mutual connection between tiles', tileIndex, neighbour)
+                        startCheckAtIndex = tileIndex
                         return false
                     }
                     if (neighbour!==fromIndex) {
                         if (checked.has(neighbour)) {
                             // it's a loop
                             // console.log('not solved because of loop detected at tile', tileIndex)
+                            startCheckAtIndex = tileIndex
                             return false
                         } else {
                             newChecks.add({fromIndex: tileIndex, tileIndex: neighbour})
@@ -121,7 +124,7 @@
     <svg 
         width="{pxPerCell*width}" 
         height="{pxPerCell*height*YSTEP}"
-        viewBox="-0.8 {0.5*YSTEP} {width + 1.3} {height*YSTEP}"
+        viewBox="-0.6 {0.5*YSTEP} {width + 1.0} {height*YSTEP}"
         >
         {#each tiles as tile, i (i)}
             <Tile {tile} {i} {grid} {solved} fillColor={solved ? '#7DF9FF' : 'white'}
