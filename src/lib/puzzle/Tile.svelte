@@ -29,6 +29,7 @@
     }
     const isSink = (myDirections.length === 1)
     
+    const hexagon = `M ${cx} ${cy} ` + grid.tilePath
     
     /**
     * @param {MouseEvent} event
@@ -72,38 +73,39 @@
     }
 </script>
 
-<!-- Tile circle -->
-<circle {cx} {cy} r="0.5" stroke="#aaa" stroke-width="0.03" fill="{locked ? '#bbb' : '#ddd'}" />
+<!-- Tile hexagon -->
+<path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{locked ? '#bbb' : '#ddd'}" />
 
-<!-- Pipe outline -->
-<path 
-    d={path} 
-    stroke="#888" 
-    stroke-width="0.14"    
-    stroke-linejoin="bevel" 
-    stroke-linecap="round"
-    transform="rotate({-60*$rotationAnimate}, {cx}, {cy})"
-    >
-</path>
-<!-- Sink circle -->
-{#if isSink}
-    <circle {cx} {cy} r="0.12" fill={fillColor} stroke="#888" stroke-width="0.03"/>
-{/if}
-<!-- Pipe inside -->
-<path 
-    d={path} 
-    stroke={fillColor} 
-    stroke-width="0.08" 
-    stroke-linejoin="round" 
-    stroke-linecap="round"
-    transform="rotate({-60*$rotationAnimate}, {cx}, {cy})"
-    >
-</path>
+<!-- Pipe shape -->
+<g transform="rotate({-60*$rotationAnimate}, {cx}, {cy})">
+    <!-- Pipe outline -->
+    <path 
+        d={path} 
+        stroke="#888" 
+        stroke-width="0.14"    
+        stroke-linejoin="bevel" 
+        stroke-linecap="round"
+        >
+    </path>
+    <!-- Sink circle -->
+    {#if isSink}
+        <circle {cx} {cy} r="0.12" fill={fillColor} stroke="#888" stroke-width="0.03"/>
+    {/if}
+    <!-- Pipe inside -->
+    <path 
+        d={path} 
+        stroke={fillColor} 
+        stroke-width="0.08" 
+        stroke-linejoin="round" 
+        stroke-linecap="round"
+        >
+    </path>
+</g>
 {#if !solved}
     <!-- Invisible circle for clicking to rotate -->
-    <circle {cx} {cy} r="0.4" fill="rgba(1,1,1,0.0)" 
+    <path d={hexagon} fill="rgba(1,1,1,0.0)" 
         on:click={onClick}
         on:contextmenu|preventDefault={()=> locked = !locked}
         on:mousedown|preventDefault={()=>{}}
-        />
+    />
 {/if}

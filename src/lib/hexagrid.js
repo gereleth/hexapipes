@@ -123,5 +123,17 @@ export function HexaGrid(width, height) {
 	this.getDirections = function (tile) {
 		return DIRECTIONS.filter((direction) => (direction & tile) > 0);
 	};
+
+	this.tilePath = '';
+	for (let p = 0; p < 6; p++) {
+		const angle = (Math.PI * (2 * p + 1)) / 6;
+		const dx = (0.5 * Math.cos(angle)) / YSTEP;
+		const dy = (-0.5 * Math.sin(angle)) / YSTEP;
+		if (this.tilePath === '') {
+			this.tilePath += ` m ${dx - 0.5} ${dy + YSTEP}`;
+		}
+		this.tilePath += ` l ${dx} ${dy}`;
+	}
+	this.tilePath += ' z';
 	return this;
 }
