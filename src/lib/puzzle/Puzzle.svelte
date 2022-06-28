@@ -15,34 +15,29 @@
     ]
     let solved = false
 
-    let tileComponents = new Map([])
+    let grid = new HexaGrid(width, height)
+
+    // tile index => set of neighbours that it points to
+    let connections = new Map([])
+
+    // tile index => component
     let components = new Map([
-       [ -1, {id: -1, color: 'white', tiles: new Set([])}]
+       [ -1, {color: 'white', tiles: new Set([])}]
     ])
 
     const dispatch = createEventDispatcher()
 
-    let grid = new HexaGrid(width, height)
-    let connections = new Map([])
     let pxPerCell = 100
     
     let innerWidth = 500
     let innerHeight = 500
-    let startCheckAtIndex = 0
     let initialized = false
-    let componentCounter = 1
 
     $: pxPerCell = resize(innerWidth, innerHeight)
 
-    function getTileComponent(tileIndex) {
-        const componentIndex = tileComponents.get(tileIndex)
-        const component = components.get(componentIndex)
-        return component
-    }
-
     function mergeComponents(fromIndex, toIndex) {
-        const fromComponent = getTileComponent(fromIndex)
-        const toComponent = getTileComponent(toIndex)
+        const fromComponent = components.get(fromIndex)
+        const toComponent = components.get(toIndex)
         if (fromComponent === toComponent) {
             if (initialized) {
                 // console.log('merge component to itself, its a loop')
@@ -53,7 +48,7 @@
         const constantComponent = fromIsBigger ? fromComponent : toComponent
         const changedComponent = fromIsBigger ? toComponent : fromComponent
         for (let changedTile of changedComponent.tiles) {
-            tileComponents.set(changedTile, constantComponent.id)
+            components.set(changedTile, constantComponent)
             constantComponent.tiles.add(changedTile)
         }
         if (initialized) {
@@ -66,13 +61,12 @@
             }
             constantComponent.color = newColor
         }
-        components.delete(changedComponent.id)
     }
 
 
     function findConnectedTiles(fromIndex, toIndex) {
         let toCheck = new Set([{fromIndex: fromIndex, tileIndex: toIndex}])
-        const myComponent = tileComponents.get(toIndex)
+        const myComponent = components.get(toIndex)
         const checked = new Set([])
         while (toCheck.size > 0) {
             const newChecks = new Set([])
@@ -83,7 +77,7 @@
                         // no neighbour
                         continue
                     }
-                    if (tileComponents.get(neighbour)!==myComponent) {
+                    if (components.get(neighbour)!==myComponent) {
                         // not from this component, will be handled during merge phase
                         continue
                     }
@@ -110,7 +104,7 @@
     }
 
     function disconnectComponents(fromIndex, toIndex) {
-        const bigComponent = getTileComponent(fromIndex)
+        const bigComponent = components.get(fromIndex)
         const fromTiles = findConnectedTiles(toIndex, fromIndex)
         const toTiles = findConnectedTiles(fromIndex, toIndex)
         if ([...fromTiles].some(tile=>toTiles.has(tile))) {
@@ -122,15 +116,12 @@
         const leaveTiles = fromIsBigger ? fromTiles : toTiles
         const changeTiles = fromIsBigger ? toTiles : fromTiles
         const newComponent = {
-                id: componentCounter,
                 color: randomColor(),
                 tiles: changeTiles,
             }
-        components.set(newComponent.id, newComponent)
-        componentCounter += 1
         
         for (let tileIndex of changeTiles) {
-            tileComponents.set(tileIndex, newComponent.id)
+            components.set(tileIndex, newComponent)
             bigComponent.tiles.delete(tileIndex)
         }
         // console.log('created new component', newComponent.id, 'with tiles', [...changeTiles])
@@ -151,8 +142,8 @@
             const neighbour = grid.find_neighbour(tileIndex, direction)
             if (neighbour===-1) {return}
             tileConnections.delete(neighbour)
-            const neighbourComponent = components.get(tileComponents.get(neighbour))
-            const tileComponent = components.get(tileComponents.get(tileIndex))
+            const neighbourComponent = components.get(neighbour)
+            const tileComponent = components.get(tileIndex)
             if (tileComponent===neighbourComponent) {
                 // console.log('disconnecting components between tiles', tileIndex, neighbour)
                 disconnectComponents(tileIndex, neighbour)
@@ -166,8 +157,8 @@
             if (!neighbourConnections.has(tileIndex)) {
                 return // non-mutual link shouldn't lead to merging
             }
-            const tileComponent = components.get(tileComponents.get(tileIndex))
-            const neighbourComponent = components.get(tileComponents.get(neighbour))
+            const tileComponent = components.get(tileIndex)
+            const neighbourComponent = components.get(neighbour)
             if (tileComponent!==neighbourComponent) {
                 // console.log('merging components of tiles', tileIndex, neighbour)
                 mergeComponents(tileIndex, neighbour)
@@ -228,7 +219,7 @@
         //     // it's an island
         //     return false
         // }
-        if (components.size === 1) {
+        if (components.get(0).tiles.size === grid.total) {
             // there might be loops, so not a sure check
             // works for now I guess?
             // not deleting old code just in case
@@ -250,13 +241,10 @@
             connections.get(index).delete(-1)
 
             const component = {
-                id: componentCounter,
                 color: 'white',
                 tiles: new Set([index])
             }
-            tileComponents.set(index, component.id)
-            components.set(component.id, component)
-            componentCounter += 1
+            components.set(index, component)
         })
         // merge initial components of connected tiles
         tiles.forEach((tile, index) => {
@@ -273,7 +261,6 @@
     onMount(()=>{
         initializeBoard()
     })
-    // $: console.log(components, tileComponents)
 </script>
 
 <svelte:window bind:innerWidth bind:innerHeight />
@@ -286,7 +273,7 @@
         >
         {#each tiles as tile, i (i)}
             <Tile {tile} {i} {grid} {solved} 
-                fillColor={solved ? '#7DF9FF' : components.get(tileComponents.get(i)||-1).color}
+                fillColor={solved ? '#7DF9FF' : (components.get(i)||components.get(-1)).color}
                 on:connections={handleConnections}/>
         {/each}
     </svg>
