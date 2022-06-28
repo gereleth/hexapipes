@@ -105,7 +105,6 @@
     <!-- Invisible circle for clicking to rotate -->
     <path d={hexagon} fill="rgba(1,1,1,0.0)" 
         on:click={onClick}
-        on:contextmenu|preventDefault={()=> locked = !locked}
-        on:mousedown|preventDefault={()=>{}}
+        on:contextmenu|stopPropagation|preventDefault={()=> locked = !locked}
     />
 {/if}

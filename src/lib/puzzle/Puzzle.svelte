@@ -270,6 +270,8 @@
         width="{pxPerCell*width}" 
         height="{pxPerCell*height*YSTEP}"
         viewBox="-0.6 {0.5*YSTEP} {width + 1.0} {height*YSTEP}"
+        on:mousedown|preventDefault={()=>{}}
+        on:contextmenu|preventDefault={()=>{}}
         >
         {#each tiles as tile, i (i)}
             <Tile {tile} {i} {grid} {solved} 
