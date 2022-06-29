@@ -35,7 +35,7 @@
     * @param {MouseEvent} event
     */
     function onClick(event) {
-        if (locked) {return}
+        if (locked||solved) {return}
         // const {x, width} = event.target.getBoundingClientRect()
         rotate(!event.ctrlKey)        
     }
@@ -73,6 +73,10 @@
     }
 </script>
 
+<g
+    on:click={onClick}
+    on:contextmenu|preventDefault={()=>locked=!locked} 
+>
 <!-- Tile hexagon -->
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{locked ? '#bbb' : '#ddd'}" />
 
@@ -101,10 +105,5 @@
         >
     </path>
 </g>
-{#if !solved}
-    <!-- Invisible circle for clicking to rotate -->
-    <path d={hexagon} fill="rgba(1,1,1,0.0)" 
-        on:click={onClick}
-        on:contextmenu|stopPropagation|preventDefault={()=> locked = !locked}
-    />
-{/if}
+
+</g>

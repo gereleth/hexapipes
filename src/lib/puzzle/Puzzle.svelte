@@ -1,4 +1,5 @@
 <script>
+    import { browser } from '$app/env'
     import { HexaGrid, YSTEP } from "$lib/hexagrid";
     import Tile from '$lib/puzzle/Tile.svelte';
     import { onMount, createEventDispatcher } from 'svelte';
@@ -261,6 +262,9 @@
     onMount(()=>{
         initializeBoard()
     })
+
+    let isTouching = false
+    $: if (browser) document.body.classList.toggle('no-selection', isTouching);
 </script>
 
 <svelte:window bind:innerWidth bind:innerHeight />
@@ -272,6 +276,8 @@
         viewBox="-0.6 {0.5*YSTEP} {width + 1.0} {height*YSTEP}"
         on:mousedown|preventDefault={()=>{}}
         on:contextmenu|preventDefault={()=>{}}
+        on:touchstart={()=>isTouching=true}
+        on:touchend={()=>isTouching=false}
         >
         {#each tiles as tile, i (i)}
             <Tile {tile} {i} {grid} {solved} 
