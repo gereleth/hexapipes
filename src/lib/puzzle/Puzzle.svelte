@@ -172,62 +172,61 @@
     }
 
     function isSolved() {
-
-        // // console.log('=================== Solved check ======================')
-        // let toCheck = new Set([{fromIndex: -1, tileIndex: startCheckAtIndex}])
-        // console.log('start at', startCheckAtIndex)
-        // const checked = new Set([])
-        // while (toCheck.size > 0) {
-        //     // console.log('toCheck = ', toCheck)
-        //     const newChecks = new Set([])
-        //     for (let{fromIndex, tileIndex} of toCheck) {
-        //         // console.log('checking tile', tileIndex, 'coming from', fromIndex)
-        //         const neighbours = connections.get(tileIndex)
-        //         // console.log('tile neighbours', neighbours)
-        //         for (let neighbour of neighbours) {
-        //             // console.log('checking neighbour', neighbour)
-        //             if (neighbour===-1) {
-        //                 // not solved if any tiles point outside
-        //                 // console.log('not solved for outside connection in tile', tileIndex)
-        //                 startCheckAtIndex = tileIndex
-        //                 return false
-        //             }
-        //             const neighbourConnections = connections.get(neighbour)
-        //             // console.log('neighbour connections', neighbourConnections)
-        //             if (!neighbourConnections.has(tileIndex)) {
-        //                 // not solved if a connection is not mutual
-        //                 // console.log('not solved for non-mutual connection between tiles', tileIndex, neighbour)
-        //                 startCheckAtIndex = tileIndex
-        //                 return false
-        //             }
-        //             if (neighbour!==fromIndex) {
-        //                 if (checked.has(neighbour)) {
-        //                     // it's a loop
-        //                     // console.log('not solved because of loop detected at tile', tileIndex)
-        //                     startCheckAtIndex = tileIndex
-        //                     return false
-        //                 } else {
-        //                     newChecks.add({fromIndex: tileIndex, tileIndex: neighbour})
-        //                 }
-        //             }
-        //         }
-        //         checked.add(tileIndex)
-        //         toCheck = newChecks
-        //     }
-        // }
-        // if (checked.size < grid.total) {
-        //     // console.log('not solved because only', checked.size, 'of', grid.total, 'were reached')
-        //     // it's an island
-        //     return false
-        // }
-        if (components.get(0).tiles.size === grid.total) {
-            // there might be loops, so not a sure check
-            // works for now I guess?
-            // not deleting old code just in case
-            dispatch('solved')
-            return true
+        // console.log('=================== Solved check ======================')
+        if (components.get(0).tiles.size < grid.total) {
+            // console.log('not everything connected yet')
+            // not everything connected yet
+            return false
         }
-        return false
+        let startCheckAtIndex = 0
+        let toCheck = new Set([{fromIndex: -1, tileIndex: startCheckAtIndex}])
+        // console.log('start at', startCheckAtIndex)
+        const checked = new Set([])
+        while (toCheck.size > 0) {
+            // console.log('toCheck = ', toCheck)
+            const newChecks = new Set([])
+            for (let{fromIndex, tileIndex} of toCheck) {
+                // console.log('checking tile', tileIndex, 'coming from', fromIndex)
+                const neighbours = connections.get(tileIndex)
+                // console.log('tile neighbours', neighbours)
+                for (let neighbour of neighbours) {
+                    // console.log('checking neighbour', neighbour)
+                    if (neighbour===-1) {
+                        // not solved if any tiles point outside
+                        // console.log('not solved for outside connection in tile', tileIndex)
+                        startCheckAtIndex = tileIndex
+                        return false
+                    }
+                    const neighbourConnections = connections.get(neighbour)
+                    // console.log('neighbour connections', neighbourConnections)
+                    if (!neighbourConnections.has(tileIndex)) {
+                        // not solved if a connection is not mutual
+                        // console.log('not solved for non-mutual connection between tiles', tileIndex, neighbour)
+                        startCheckAtIndex = tileIndex
+                        return false
+                    }
+                    if (neighbour!==fromIndex) {
+                        if (checked.has(neighbour)) {
+                            // it's a loop
+                            // console.log('not solved because of loop detected at tile', tileIndex)
+                            startCheckAtIndex = tileIndex
+                            return false
+                        } else {
+                            newChecks.add({fromIndex: tileIndex, tileIndex: neighbour})
+                        }
+                    }
+                }
+                checked.add(tileIndex)
+                toCheck = newChecks
+            }
+        }
+        if (checked.size < grid.total) {
+            // console.log('not solved because only', checked.size, 'of', grid.total, 'were reached')
+            // it's an island
+            return false
+        }
+        dispatch('solved')
+        return true
     }
 
     function initializeBoard() {

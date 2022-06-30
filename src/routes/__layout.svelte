@@ -13,13 +13,7 @@
 	<slot />
 </main>
 
+
 <div class="container">
 	<Footer />
 </div>
-
-<!-- <style>
-    .container {
-        margin: auto;
-        max-width: 1000px;
-    }
-</style> -->

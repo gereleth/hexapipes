@@ -1,5 +1,35 @@
+<script context="module">
+
+  import { puzzleCounts } from '$lib/stores'
+
+  export async function load({ params, fetch }) {
+  const url = `/data.json`;
+  const response = await fetch(url);
+
+  if (response.ok) {
+    const data = await response.json()
+    
+    puzzleCounts.set(data.totalPuzzles)
+
+    return {
+      status: response.status,
+      props: {
+        totalPuzzles: data.totalPuzzles,
+      }
+    }
+  } else {
+    return {
+    status: response.status,
+  };
+  }
+}
+</script>
+
 <script>
   import {page} from '$app/stores'
+  /* type Number[] */
+  let sizes = []
+  $: sizes = [...Object.entries($puzzleCounts)].map(item => Number(item[0].split('x')[0])).sort((a, b) => a - b)
 </script>
 
 <div class="container">
@@ -7,8 +37,11 @@
 
   <div class="sizes">
     <span> Choose a size:</span>
-    {#each [5,7,10,15] as size}
-      <a href="/hexagonal/{size}" class:active={$page.url.pathname.includes(`/hexagonal/${size}`)}> {size}x{size} </a>
+    {#each sizes as size}
+      <a href="/hexagonal/{size}" 
+        class:active={$page.url.pathname.includes(`/hexagonal/${size}`)}> 
+        {size}x{size}
+      </a>
     {/each}
   </div>
 </div>
@@ -18,9 +51,10 @@
 <style>
 .sizes {
   display: flex;
+  flex-wrap: wrap;
   column-gap: 20px;
   margin: auto;
-  width: max-content;
+  justify-content: center;
 }
 .sizes a, .sizes span {
   display: block;
