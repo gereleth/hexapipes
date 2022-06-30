@@ -12,7 +12,7 @@
 
 <h2> Changelog </h2>
 <ul>
-<li><em>2022-06-30</em> Added a thousand puzzle instances for each size up to 30x30.
+<li><em>2022-06-30</em> Added a thousand puzzle instances for sizes up to 40x40.
      Reworked navigation to show random puzzles.</li>
 <li><em>2022-06-28</em> Made tiles look like actual hexagons instead of circles</li>
 <li><em>2022-06-27</em> Added flow visualisation with random colors</li>
