@@ -48,6 +48,16 @@
 
 <slot />
 
+
+<div class="controls">
+  <h2>Controls</h2>
+  <ul>
+    <li>Click / touch - rotate tile clockwise</li>
+    <li>Right click / long press - pin tile</li>
+    <li>Ctrl-click - rotate tile counter-clockwise</li>
+  </ul>
+</div>
+
 <style>
 .sizes {
   display: flex;
@@ -62,5 +72,10 @@
 }
 .active {
   outline: 1px solid  var(--accent-color);
+}
+.controls {
+  margin: 2em 0;
+  text-align: center;
+  color: var(--text-color)
 }
 </style>

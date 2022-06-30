@@ -58,7 +58,7 @@
                 newColor = changedComponent.color
             }
             if (newColor==='white') {
-                newColor = randomColor()
+                newColor = randomColor({luminosity: 'light'})
             }
             constantComponent.color = newColor
         }
@@ -117,7 +117,7 @@
         const leaveTiles = fromIsBigger ? fromTiles : toTiles
         const changeTiles = fromIsBigger ? toTiles : fromTiles
         const newComponent = {
-                color: randomColor(),
+                color: randomColor({luminosity: 'light'}),
                 tiles: changeTiles,
             }
         

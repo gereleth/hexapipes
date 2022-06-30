@@ -86,20 +86,20 @@
     <path 
         d={path} 
         stroke="#888" 
-        stroke-width="0.14"    
+        stroke-width="0.20"    
         stroke-linejoin="bevel" 
         stroke-linecap="round"
         >
     </path>
     <!-- Sink circle -->
     {#if isSink}
-        <circle {cx} {cy} r="0.12" fill={fillColor} stroke="#888" stroke-width="0.03"/>
+        <circle {cx} {cy} r="0.15" fill={fillColor} stroke="#777" stroke-width="0.05"/>
     {/if}
     <!-- Pipe inside -->
     <path 
         d={path} 
         stroke={fillColor} 
-        stroke-width="0.08" 
+        stroke-width="0.10" 
         stroke-linejoin="round" 
         stroke-linecap="round"
         >
