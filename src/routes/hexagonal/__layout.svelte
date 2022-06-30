@@ -54,7 +54,7 @@
   flex-wrap: wrap;
   column-gap: 20px;
   margin: auto;
-  width: max-content;
+  justify-content: center;
 }
 .sizes a, .sizes span {
   display: block;
