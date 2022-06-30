@@ -3,11 +3,11 @@
   import {goto} from '$app/navigation'
 
   onMount(async () => {
-      await goto(`/hexagonal/5/1`)
+      await goto(`/hexagonal/5`)
   })
 </script>
 <div class="container">
-  <p> This should redirect to a puzzle page soon. </p>
+  <p> This should redirect to a random puzzle page soon. </p>
 </div>
 
 <style>
