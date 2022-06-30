@@ -1,6 +1,11 @@
 
 <div class="footer">
-  <a href="https://github.com/gereleth/hexapipes">github</a>
+  <h2>Controls</h2>
+  <ul>
+    <li>Click / touch - rotate tile clockwise</li>
+    <li>Right click / long press - pin tile</li>
+    <li>Ctrl-click - rotate tile counter-clockwise</li>
+  </ul>
 </div>
 
 <style>
@@ -8,7 +13,7 @@
     margin: 2em 0;
     text-align: center;
   }
-  a {
-    color: var(--primary-color)
+  ul {
+    color: var(--text-color)
   }
 </style>
