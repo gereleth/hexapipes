@@ -12,7 +12,3 @@
 <main>
 	<slot />
 </main>
-
-<div class="container">
-	<Footer />
-</div>
