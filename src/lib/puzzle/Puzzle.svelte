@@ -10,8 +10,8 @@
      * @param {Number} width
      * @param {Number} height
      */
-    export let width = 0// = 5
-    export let height = 0// = 5
+    export let width = 0
+    export let height = 0
     export let tiles = [
     ]
     let solved = false
@@ -34,7 +34,7 @@
     let innerHeight = 500
     let initialized = false
 
-    $: pxPerCell = resize(innerWidth, innerHeight)
+    // $: pxPerCell = resize(innerWidth, innerHeight)
 
     function mergeComponents(fromIndex, toIndex) {
         const fromComponent = components.get(fromIndex)
@@ -260,6 +260,7 @@
     }
     onMount(()=>{
         initializeBoard()
+        pxPerCell = resize(innerWidth, innerHeight)
     })
 
     let isTouching = false
