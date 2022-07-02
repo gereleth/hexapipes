@@ -1,17 +1,14 @@
 <script>
     import { browser } from '$app/env'
     import { HexaGrid, YSTEP } from "$lib/hexagrid";
+    import { settings } from '$lib/stores';
     import Tile from '$lib/puzzle/Tile.svelte';
     import { onMount, createEventDispatcher } from 'svelte';
     import {randomColor} from 'randomcolor';
 
-    /**
-     * @param {Number[]} tiles
-     * @param {Number} width
-     * @param {Number} height
-     */
     export let width = 0
     export let height = 0
+    /** @type {Number[]} */
     export let tiles = [
     ]
     let solved = false
@@ -23,9 +20,14 @@
 
     // tile index => component
     let components = new Map([
-       [ -1, {color: 'white', tiles: new Set([])}]
+       [ -1, {color: 'white', tiles: new Set([-1])}]
     ])
-
+    let displayTiles = tiles.map((tile, index) => { 
+        return {
+            tile: tile,
+            color: 'white',
+        }
+    })
     const dispatch = createEventDispatcher()
 
     let pxPerCell = 100
@@ -36,9 +38,20 @@
 
     // $: pxPerCell = resize(innerWidth, innerHeight)
 
+    /**
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {void}
+     */
     function mergeComponents(fromIndex, toIndex) {
         const fromComponent = components.get(fromIndex)
         const toComponent = components.get(toIndex)
+        // makes jsdoc stop complaining about
+        // "object is possibly undefined"
+        if ((fromComponent===undefined)||(toComponent===undefined)) {
+            // console.log('could not find component for tile')
+            return
+        }
         if (fromComponent === toComponent) {
             if (initialized) {
                 // console.log('merge component to itself, its a loop')
@@ -48,10 +61,6 @@
         const fromIsBigger = fromComponent.tiles.size >= toComponent.tiles.size
         const constantComponent = fromIsBigger ? fromComponent : toComponent
         const changedComponent = fromIsBigger ? toComponent : fromComponent
-        for (let changedTile of changedComponent.tiles) {
-            components.set(changedTile, constantComponent)
-            constantComponent.tiles.add(changedTile)
-        }
         if (initialized) {
             let newColor = constantComponent.color
             if (newColor==='white') {
@@ -60,16 +69,32 @@
             if (newColor==='white') {
                 newColor = randomColor({luminosity: 'light'})
             }
+            if (constantComponent.color !== newColor) {
+                constantComponent.tiles.forEach(tileIndex => {
+                    displayTiles[tileIndex].color = newColor
+                })
+            }
             constantComponent.color = newColor
+        }
+        for (let changedTile of changedComponent.tiles) {
+            components.set(changedTile, constantComponent)
+            constantComponent.tiles.add(changedTile)
+            displayTiles[changedTile].color = constantComponent.color
         }
     }
 
-
+    /**
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {Set<Number>}
+     */
     function findConnectedTiles(fromIndex, toIndex) {
         let toCheck = new Set([{fromIndex: fromIndex, tileIndex: toIndex}])
         const myComponent = components.get(toIndex)
+        /** @type {Set<Number>} */
         const checked = new Set([])
         while (toCheck.size > 0) {
+            /** @type {Set<{fromIndex: Number, tileIndex: Number}>} */
             const newChecks = new Set([])
             for (let{fromIndex, tileIndex} of toCheck) {
                 const neighbours = connections.get(tileIndex)
@@ -104,8 +129,14 @@
         return checked
     }
 
+    /**
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {void}
+     */
     function disconnectComponents(fromIndex, toIndex) {
         const bigComponent = components.get(fromIndex)
+        if (bigComponent===undefined) {return} // this shouldn't really happen, jsdoc
         const fromTiles = findConnectedTiles(toIndex, fromIndex)
         const toTiles = findConnectedTiles(fromIndex, toIndex)
         if ([...fromTiles].some(tile=>toTiles.has(tile))) {
@@ -114,7 +145,7 @@
             return
         }
         const fromIsBigger = fromTiles.size >= toTiles.size
-        const leaveTiles = fromIsBigger ? fromTiles : toTiles
+        // const leaveTiles = fromIsBigger ? fromTiles : toTiles
         const changeTiles = fromIsBigger ? toTiles : fromTiles
         const newComponent = {
                 color: randomColor({luminosity: 'light'}),
@@ -124,16 +155,30 @@
         for (let tileIndex of changeTiles) {
             components.set(tileIndex, newComponent)
             bigComponent.tiles.delete(tileIndex)
+            displayTiles[tileIndex].color = newComponent.color
         }
         // console.log('created new component', newComponent.id, 'with tiles', [...changeTiles])
     }
 
+    /**
+     * @param {Number} innerWidth
+     * @param {Number} innerHeight
+     * @returns {Number}
+     */
     function resize(innerWidth, innerHeight) {
         const wpx = innerWidth / (width + 1.6)
         const hpx = innerHeight / (YSTEP*(height + 0.5))
         return Math.min(100, Math.min(wpx, hpx))
     }
 
+    /**
+     * @param {{detail: {
+     *  tileIndex: Number,
+     *  dirIn: Number[],
+     *  dirOut: Number[],
+     * }}} event
+     * @returns {void}
+     */
     function handleConnections(event) {
         const {tileIndex, dirIn, dirOut} = event.detail
         // console.log('==========================')
@@ -168,12 +213,16 @@
         if (initialized) {
             solved = isSolved()
         }
-        components = components
     }
 
+    /**
+     * @returns {boolean}
+     */
     function isSolved() {
         // console.log('=================== Solved check ======================')
-        if (components.get(0).tiles.size < grid.total) {
+        const component = components.get(0)
+        if (component===undefined) {return false}
+        if (component.tiles.size < grid.total) {
             // console.log('not everything connected yet')
             // not everything connected yet
             return false
@@ -181,9 +230,11 @@
         let startCheckAtIndex = 0
         let toCheck = new Set([{fromIndex: -1, tileIndex: startCheckAtIndex}])
         // console.log('start at', startCheckAtIndex)
+        /** @type Set<Number> */
         const checked = new Set([])
         while (toCheck.size > 0) {
             // console.log('toCheck = ', toCheck)
+            /** @type {Set<{fromIndex: Number, tileIndex: Number}>} */
             const newChecks = new Set([])
             for (let{fromIndex, tileIndex} of toCheck) {
                 // console.log('checking tile', tileIndex, 'coming from', fromIndex)
@@ -279,9 +330,10 @@
         on:touchstart={()=>isTouching=true}
         on:touchend={()=>isTouching=false}
         >
-        {#each tiles as tile, i (i)}
-            <Tile {tile} {i} {grid} {solved} 
-                fillColor={solved ? '#7DF9FF' : (components.get(i)||components.get(-1)).color}
+        {#each displayTiles as displayTile, i (i)}
+            <Tile tile={displayTile.tile} {i} {grid} {solved} 
+                controlMode={$settings.controlMode}
+                fillColor={solved ? '#7DF9FF' : displayTile.color}
                 on:connections={handleConnections}/>
         {/each}
     </svg>
