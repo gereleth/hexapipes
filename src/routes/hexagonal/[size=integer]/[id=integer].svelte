@@ -55,18 +55,19 @@
   <p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
 
+<div class="container">
+  <div class="congrat"> 
+    {#if solved} 
+      Solved! 
+      <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
+    {/if}
+  </div>
+</div>
+
 {#key $page.params}
   <Puzzle {width} {height} {tiles} on:solved={()=>{solved=true}}/>
 {/key}
 
-<div class="container">
-  {#if solved} 
-    <div class="congrat"> 
-      Solved! 
-      <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
-    </div>
-  {/if}
-</div>
 
 <style>
 .congrat {
@@ -74,6 +75,7 @@
     font-size: 150%;
     color: var(--primary-color);
     text-align: center;
+    min-height: 30px;
 }
 .info {
   text-align: center;
