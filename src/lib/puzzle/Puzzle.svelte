@@ -1,6 +1,7 @@
 <script>
     import { browser } from '$app/env'
     import { HexaGrid, YSTEP } from "$lib/hexagrid";
+    import { settings } from '$lib/stores';
     import Tile from '$lib/puzzle/Tile.svelte';
     import { onMount, createEventDispatcher } from 'svelte';
     import {randomColor} from 'randomcolor';
@@ -21,7 +22,12 @@
     let components = new Map([
        [ -1, {color: 'white', tiles: new Set([-1])}]
     ])
-
+    let displayTiles = tiles.map((tile, index) => { 
+        return {
+            tile: tile,
+            color: 'white',
+        }
+    })
     const dispatch = createEventDispatcher()
 
     let pxPerCell = 100
@@ -55,10 +61,6 @@
         const fromIsBigger = fromComponent.tiles.size >= toComponent.tiles.size
         const constantComponent = fromIsBigger ? fromComponent : toComponent
         const changedComponent = fromIsBigger ? toComponent : fromComponent
-        for (let changedTile of changedComponent.tiles) {
-            components.set(changedTile, constantComponent)
-            constantComponent.tiles.add(changedTile)
-        }
         if (initialized) {
             let newColor = constantComponent.color
             if (newColor==='white') {
@@ -67,7 +69,17 @@
             if (newColor==='white') {
                 newColor = randomColor({luminosity: 'light'})
             }
+            if (constantComponent.color !== newColor) {
+                constantComponent.tiles.forEach(tileIndex => {
+                    displayTiles[tileIndex].color = newColor
+                })
+            }
             constantComponent.color = newColor
+        }
+        for (let changedTile of changedComponent.tiles) {
+            components.set(changedTile, constantComponent)
+            constantComponent.tiles.add(changedTile)
+            displayTiles[changedTile].color = constantComponent.color
         }
     }
 
@@ -143,6 +155,7 @@
         for (let tileIndex of changeTiles) {
             components.set(tileIndex, newComponent)
             bigComponent.tiles.delete(tileIndex)
+            displayTiles[tileIndex].color = newComponent.color
         }
         // console.log('created new component', newComponent.id, 'with tiles', [...changeTiles])
     }
@@ -200,7 +213,6 @@
         if (initialized) {
             solved = isSolved()
         }
-        components = components
     }
 
     /**
@@ -318,9 +330,10 @@
         on:touchstart={()=>isTouching=true}
         on:touchend={()=>isTouching=false}
         >
-        {#each tiles as tile, i (i)}
-            <Tile {tile} {i} {grid} {solved} 
-                fillColor={solved ? '#7DF9FF' : (components.get(i)||components.get(-1)).color}
+        {#each displayTiles as displayTile, i (i)}
+            <Tile tile={displayTile.tile} {i} {grid} {solved} 
+                controlMode={$settings.controlMode}
+                fillColor={solved ? '#7DF9FF' : displayTile.color}
                 on:connections={handleConnections}/>
         {/each}
     </svg>
