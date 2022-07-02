@@ -27,6 +27,7 @@
 
 <script>
   import {page} from '$app/stores'
+import Settings from '$lib/Settings.svelte';
   /* type Number[] */
   let sizes = []
   $: sizes = [...Object.entries($puzzleCounts)].map(item => Number(item[0].split('x')[0])).sort((a, b) => a - b)
@@ -45,18 +46,8 @@
     {/each}
   </div>
 </div>
-
+<Settings />
 <slot />
-
-
-<div class="controls">
-  <h2>Controls</h2>
-  <ul>
-    <li>Click / touch - rotate tile clockwise</li>
-    <li>Right click / long press - pin tile</li>
-    <li>Ctrl-click - rotate tile counter-clockwise</li>
-  </ul>
-</div>
 
 <style>
 .sizes {
@@ -72,10 +63,5 @@
 }
 .active {
   outline: 1px solid  var(--accent-color);
-}
-.controls {
-  margin: 2em 0;
-  text-align: center;
-  color: var(--text-color)
 }
 </style>
