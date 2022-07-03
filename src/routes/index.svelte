@@ -12,6 +12,11 @@
 
 <h2> Changelog </h2>
 <ul>
+<li><em>2022-07-03</em> Added edge marks - now it's possible to mark an edge as 
+a connection or a wall.</li>
+<li><em>2022-07-02</em> Added a new control mode - click to orient. It takes less 
+clicks than the default "click to rotate" but requires more precision with 
+where you click.</li>
 <li><em>2022-06-30</em> Added a thousand puzzle instances for sizes up to 40x40.
      Reworked navigation to show random puzzles.</li>
 <li><em>2022-06-28</em> Made tiles look like actual hexagons instead of circles</li>
@@ -19,3 +24,9 @@
 <li><em>2022-06-25</em> Initial release of hexagonal pipes puzzles</li>
 </ul>
 </div>
+
+<style>
+    ul {
+        color: var(--text-color)
+    }
+</style>
