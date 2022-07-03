@@ -1,8 +1,9 @@
 <script>
     import { browser } from '$app/env'
-    import { HexaGrid, YSTEP } from "$lib/hexagrid";
+    import { DIRECTIONS, HexaGrid, YSTEP } from "$lib/hexagrid";
     import { settings } from '$lib/stores';
     import Tile from '$lib/puzzle/Tile.svelte';
+    import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
     import { onMount, createEventDispatcher } from 'svelte';
     import {randomColor} from 'randomcolor';
 
@@ -36,8 +37,22 @@
     let innerHeight = 500
     let initialized = false
 
-    // $: pxPerCell = resize(innerWidth, innerHeight)
-
+    let edgeMarks = []
+    for (let i=0; i<grid.total; i++) {
+        const [x, y] = grid.index_to_xy(i)
+        for (let direction of DIRECTIONS) {
+            const neighbour = grid.find_neighbour(i, direction)
+            if (neighbour > i) {
+                const [nx, ny] = grid.index_to_xy(neighbour)
+                edgeMarks.push({
+                    x: (x+nx)/2,
+                    y: (grid.height)*YSTEP -(y+ny)/2,
+                    direction: direction,
+                    state: 'none',
+                })
+            }
+        }
+    }
     /**
      * @param {Number} fromIndex
      * @param {Number} toIndex
@@ -335,6 +350,14 @@
                 controlMode={$settings.controlMode}
                 fillColor={solved ? '#7DF9FF' : displayTile.color}
                 on:connections={handleConnections}/>
+        {/each}
+        {#each edgeMarks as mark}
+             <EdgeMark 
+                x={mark.x} 
+                y={mark.y} 
+                state={mark.state} 
+                direction={mark.direction}
+                />
         {/each}
     </svg>
 </div>
