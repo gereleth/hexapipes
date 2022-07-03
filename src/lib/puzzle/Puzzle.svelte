@@ -351,14 +351,16 @@
                 fillColor={solved ? '#7DF9FF' : displayTile.color}
                 on:connections={handleConnections}/>
         {/each}
-        {#each edgeMarks as mark}
-             <EdgeMark 
-                x={mark.x} 
-                y={mark.y} 
-                state={mark.state} 
-                direction={mark.direction}
-                />
-        {/each}
+        {#if !solved}
+            {#each edgeMarks as mark}
+                <EdgeMark 
+                    x={mark.x} 
+                    y={mark.y} 
+                    state={mark.state} 
+                    direction={mark.direction}
+                    />
+            {/each}
+        {/if}
     </svg>
 </div>
 
