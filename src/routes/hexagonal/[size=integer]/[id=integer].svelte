@@ -32,14 +32,22 @@
   export let height
   export let tiles
   let solved = false
-  let nextPuzzleId = 0
+  let nextPuzzleId = 1
+
+  function chooseNextPuzzle() {
+    const size = $page.params.size
+    const currentPuzzleId = Number($page.params.id)
+    nextPuzzleId = currentPuzzleId
+    while (nextPuzzleId===currentPuzzleId) {
+      nextPuzzleId = Math.ceil(Math.random() * $puzzleCounts[`${size}x${size}`])
+    }
+    return nextPuzzleId
+  }
 
   $: if ($page.params) {
     solved = false
-    const size = $page.params.size
-    nextPuzzleId = Math.ceil(Math.random() * $puzzleCounts[`${size}x${size}`])
+    nextPuzzleId = chooseNextPuzzle()
   }
-
 </script>
 
 <svelte:head>
