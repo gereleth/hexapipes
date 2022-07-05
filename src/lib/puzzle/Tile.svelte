@@ -12,6 +12,8 @@
     export let fillColor = 'white'
     export let solved = false
     export let controlMode = 'click_to_rotate'
+    export let isPartOfLoop = false
+    let bgColor = '#aaa'
 
     const dispatch = createEventDispatcher();
 
@@ -110,6 +112,16 @@
         })
         myDirections = newDirections
     }
+
+    function chooseBgColor() {
+        if (isPartOfLoop) {
+            bgColor = locked ? '#f77' : '#f99'
+        } else {
+            bgColor = locked ? '#bbb' : '#ddd'
+        }
+    }
+
+    $: chooseBgColor(locked, isPartOfLoop)
 </script>
 
 <g class='tile'
@@ -117,7 +129,7 @@
     on:contextmenu|preventDefault={()=>locked=!locked} 
 >
 <!-- Tile hexagon -->
-<path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{locked ? '#bbb' : '#ddd'}" />
+<path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
 
 <!-- Pipe shape -->
 <g transform="rotate({-60*$rotationAnimate}, {cx}, {cy})">
@@ -132,10 +144,10 @@
     </path>
     <!-- Sink circle -->
     {#if isSink}
-        <circle {cx} {cy} r="0.15" fill={fillColor} stroke="#777" stroke-width="0.05"/>
+        <circle {cx} {cy} r="0.15" fill={fillColor} stroke="#888" stroke-width="0.05" class='inside'/>
     {/if}
     <!-- Pipe inside -->
-    <path 
+    <path class='inside'
         d={path} 
         stroke={fillColor} 
         stroke-width="0.10" 
