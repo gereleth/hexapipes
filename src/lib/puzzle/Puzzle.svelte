@@ -440,7 +440,7 @@
 
 <svelte:window bind:innerWidth bind:innerHeight />
 
-<div class="puzzle">
+<div class="puzzle" class:solved>
     <svg 
         width="{pxPerCell*width}" 
         height="{pxPerCell*height*YSTEP}"
@@ -454,7 +454,7 @@
             <Tile tile={displayTile.tile} {i} {grid} {solved}
                 isPartOfLoop={displayTile.isPartOfLoop}
                 controlMode={$settings.controlMode}
-                fillColor={solved ? '#7DF9FF' : displayTile.color}
+                fillColor={displayTile.color}
                 on:connections={handleConnections}/>
         {/each}
         {#if !solved}
@@ -474,5 +474,10 @@
     svg {
         display: block;
         margin: auto;
+    }
+    /* win animation */
+    .solved :global(.inside) {
+        filter: hue-rotate(360deg);
+        transition: filter 2s;
     }
 </style>

@@ -144,10 +144,10 @@
     </path>
     <!-- Sink circle -->
     {#if isSink}
-        <circle {cx} {cy} r="0.15" fill={fillColor} stroke="#777" stroke-width="0.05"/>
+        <circle {cx} {cy} r="0.15" fill={fillColor} stroke="#888" stroke-width="0.05" class='inside'/>
     {/if}
     <!-- Pipe inside -->
-    <path 
+    <path class='inside'
         d={path} 
         stroke={fillColor} 
         stroke-width="0.10" 
