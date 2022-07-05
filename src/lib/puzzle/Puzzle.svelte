@@ -27,6 +27,7 @@
         return {
             tile: tile,
             color: 'white',
+            isPartOfLoop: false,
         }
     })
     const dispatch = createEventDispatcher()
@@ -68,8 +69,10 @@
             return
         }
         if (fromComponent === toComponent) {
-            if (initialized) {
-                // console.log('merge component to itself, its a loop')
+            // console.log('merge component to itself, its a loop', fromIndex, toIndex)
+            const loopTiles = detectLoops(fromComponent.tiles)
+            for (let tile of fromComponent.tiles) {
+                displayTiles[tile].isPartOfLoop = loopTiles.has(tile)
             }
             return
         }
@@ -104,14 +107,14 @@
      * @returns {Set<Number>}
      */
     function findConnectedTiles(fromIndex, toIndex) {
-        let toCheck = new Set([{fromIndex: fromIndex, tileIndex: toIndex}])
+        let tileToCheck = new Set([{fromIndex: fromIndex, tileIndex: toIndex}])
         const myComponent = components.get(toIndex)
         /** @type {Set<Number>} */
         const checked = new Set([])
-        while (toCheck.size > 0) {
+        while (tileToCheck.size > 0) {
             /** @type {Set<{fromIndex: Number, tileIndex: Number}>} */
             const newChecks = new Set([])
-            for (let{fromIndex, tileIndex} of toCheck) {
+            for (let{fromIndex, tileIndex} of tileToCheck) {
                 const neighbours = connections.get(tileIndex)
                 for (let neighbour of neighbours) {
                     if (neighbour===-1) {
@@ -138,7 +141,7 @@
                     newChecks.add({fromIndex: tileIndex, tileIndex: neighbour})
                 }
                 checked.add(tileIndex)
-                toCheck = newChecks
+                tileToCheck = newChecks
             }
         }
         return checked
@@ -156,7 +159,11 @@
         const toTiles = findConnectedTiles(fromIndex, toIndex)
         if ([...fromTiles].some(tile=>toTiles.has(tile))) {
             // it was a loop or maybe it still is
-            // console.log('not disconnecting because of other connection')
+            // console.log('not disconnecting because of other connection', fromIndex, toIndex)
+            const loopTiles = detectLoops(bigComponent.tiles)
+            for (let tile of bigComponent.tiles) {
+                displayTiles[tile].isPartOfLoop = loopTiles.has(tile)
+            }
             return
         }
         const fromIsBigger = fromTiles.size >= toTiles.size
@@ -203,6 +210,10 @@
             const neighbour = grid.find_neighbour(tileIndex, direction)
             if (neighbour===-1) {return}
             tileConnections.delete(neighbour)
+            const neighbourConnections = connections.get(neighbour)
+            if (!neighbourConnections.has(tileIndex)) {
+                return // this connection wasn't mutual, no action needed
+            }
             const neighbourComponent = components.get(neighbour)
             const tileComponent = components.get(tileIndex)
             if (tileComponent===neighbourComponent) {
@@ -218,12 +229,8 @@
             if (!neighbourConnections.has(tileIndex)) {
                 return // non-mutual link shouldn't lead to merging
             }
-            const tileComponent = components.get(tileIndex)
-            const neighbourComponent = components.get(neighbour)
-            if (tileComponent!==neighbourComponent) {
-                // console.log('merging components of tiles', tileIndex, neighbour)
-                mergeComponents(tileIndex, neighbour)
-            }
+            // console.log('merging components of tiles', tileIndex, neighbour)
+            mergeComponents(tileIndex, neighbour)
         })
         if (initialized) {
             solved = isSolved()
@@ -295,6 +302,104 @@
         return true
     }
 
+    
+    /**
+     * @param {Set<Number>} tilesSet
+     * @returns {Set<Number>}
+     */
+    function detectLoops(tilesSet) {
+        // console.log('detect loops in set', tilesSet)
+        const myConnections = new Map()
+        let toPrune = new Set()
+        for (let tile of tilesSet) {
+            const tileConnections = connections.get(tile)
+            const inComponent = new Set(
+                [...tileConnections]
+                .filter(x=>(tilesSet.has(x))&&(connections.get(x).has(tile))
+            ))
+            myConnections.set(tile, inComponent)
+            if (inComponent.size === 1) {
+                toPrune.add(tile)
+            }
+        }
+
+        function pruneTile(tile) {
+            const neighbours = myConnections.get(tile)
+            if (neighbours.size <= 1) {
+                myConnections.delete(tile)
+                neighbours.forEach(neighbour => {
+                    myConnections.get(neighbour).delete(tile)
+                })
+                return neighbours
+            }
+            return new Set()
+        }
+
+        function pruneDeadEnds() {
+            while (toPrune.size > 0) {
+                const tile = toPrune.values().next().value
+                toPrune.delete(tile)
+                const changedNeighbours = pruneTile(tile)
+                changedNeighbours.forEach(n => toPrune.add(n))
+            }
+        }
+        pruneDeadEnds()
+        // at this point we have all the loops but maybe also
+        // some bridges between loops
+        // need to prune them too
+        const inLoops = new Set()
+
+        function traceLoopPath(fromTile, throughTile) {
+            let paths = [[fromTile, throughTile]]
+            while (paths.length > 0) {
+                const path = paths.pop()
+                const lastTile = path[path.length - 1]
+                const neighbours = myConnections.get(lastTile)
+                for (let neighbour of neighbours) {
+                    if (neighbour === fromTile) {
+                        if (path.length>2) {
+                            // successful loop
+                            return path
+                        } else {
+                            continue
+                        }
+                    }
+                    if (path.slice(1).some(x=>x===neighbour)) {
+                        // already been here
+                        continue
+                    }
+                    paths.push([...path, neighbour])
+                }
+            }
+            return []
+        }
+        while (inLoops.size < myConnections.size) {
+            // console.log('myconnections', myConnections.size, ', in loops', inLoops.size)
+            let tileToCheck = -1
+            for (let tile of myConnections.keys()) {
+                if (!inLoops.has(tile)) {
+                    tileToCheck = tile
+                    break
+                }
+            }
+            // console.log('checking tile', tileToCheck)
+            const neighbour = myConnections.get(tileToCheck).values().next().value
+            // console.log('checking neighbour', neighbour)
+            const loop = traceLoopPath(tileToCheck, neighbour)
+            // console.log('found loop', loop)
+            if (loop.length === 0) {
+                // no loop found
+                myConnections.get(tileToCheck).delete(neighbour)
+                myConnections.get(neighbour).delete(tileToCheck)
+                toPrune.add(neighbour).add(tileToCheck)
+                pruneDeadEnds()
+            } else {
+                loop.forEach(i=>inLoops.add(i))
+            }
+        }
+        return inLoops
+    }
+    
     function initializeBoard() {
         // create components and fill in connections data
         tiles.forEach((tile, index) => {
@@ -346,7 +451,8 @@
         on:touchend={()=>isTouching=false}
         >
         {#each displayTiles as displayTile, i (i)}
-            <Tile tile={displayTile.tile} {i} {grid} {solved} 
+            <Tile tile={displayTile.tile} {i} {grid} {solved}
+                isPartOfLoop={displayTile.isPartOfLoop}
                 controlMode={$settings.controlMode}
                 fillColor={solved ? '#7DF9FF' : displayTile.color}
                 on:connections={handleConnections}/>
