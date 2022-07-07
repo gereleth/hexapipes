@@ -127,10 +127,10 @@ export function HexaGrid(width, height) {
 	this.tilePath = '';
 	for (let p = 0; p < 6; p++) {
 		const angle = (Math.PI * (2 * p + 1)) / 6;
-		const dx = (0.5 * Math.cos(angle)) / YSTEP;
-		const dy = (-0.5 * Math.sin(angle)) / YSTEP;
+		const dx = (0.49 * Math.cos(angle)) / YSTEP;
+		const dy = (-0.49 * Math.sin(angle)) / YSTEP;
 		if (this.tilePath === '') {
-			this.tilePath += ` m ${dx - 0.5} ${dy + YSTEP}`;
+			this.tilePath += ` m ${dx - 0.49} ${dy + 0.98*YSTEP}`;
 		}
 		this.tilePath += ` l ${dx} ${dy}`;
 	}
