@@ -25,14 +25,24 @@
 </script>
 
 <script>
+  import { onMount } from 'svelte'
   import { page } from '$app/stores';
   import Puzzle from '$lib/puzzle/Puzzle.svelte';
-  import {puzzleCounts} from '$lib/stores';
+  import Timer from '$lib/Timer.svelte';
+  import {getSolves, puzzleCounts} from '$lib/stores';
   export let width
   export let height
   export let tiles
   let solved = false
   let nextPuzzleId = 1
+  
+  let solves // a store of puzzles solve times
+  let solve = {
+        puzzleId: -1,
+        startedAt: -1,
+        finishedAt: -1,
+        elapsedTime: -1,
+    }
 
   function chooseNextPuzzle() {
     const size = $page.params.size
@@ -47,6 +57,24 @@
   $: if ($page.params) {
     solved = false
     nextPuzzleId = chooseNextPuzzle()
+  }
+
+  onMount(() => {
+    solves = getSolves($page.url.pathname)
+    start()
+  });
+
+  function start() {
+    // console.log('start')
+    if (solves!==undefined) {
+      solve = solves.reportStart(Number($page.params.id))
+    }
+  }
+
+  function stop() {
+    // console.log('stop')
+    solved = true
+    solve = solves.reportFinish(Number($page.params.id))
   }
 </script>
 
@@ -70,10 +98,16 @@
       <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
     {/if}
   </div>
+  <div class="timings">
+    <Timer {solve} />
+  </div>
 </div>
 
 {#key $page.params}
-  <Puzzle {width} {height} {tiles} on:solved={()=>{solved=true}}/>
+  <Puzzle {width} {height} {tiles}
+     on:solved={stop}
+     on:initialized={start}
+  />
 {/key}
 
 

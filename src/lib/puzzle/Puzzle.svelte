@@ -432,6 +432,7 @@
     onMount(()=>{
         initializeBoard()
         pxPerCell = resize(innerWidth, innerHeight)
+        dispatch('initialized')
     })
 
     let isTouching = false
