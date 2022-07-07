@@ -115,7 +115,7 @@
 
     function chooseBgColor() {
         if (isPartOfLoop) {
-            bgColor = locked ? '#f77' : '#f99'
+            bgColor = locked ? '#f99' : '#fbb'
         } else {
             bgColor = locked ? '#bbb' : '#ddd'
         }
