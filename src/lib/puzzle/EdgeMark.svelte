@@ -32,7 +32,7 @@
         x2={x+dx*lineLength}
         y2={y-dy*lineLength}
         stroke="green"
-        stroke-width="0.03" />
+        stroke-width="0.04" />
 {/if}
 <circle 
     class="clickarea"
@@ -52,10 +52,10 @@
         transition: transform 100ms;
     }
     .wall {
-        stroke: red;
+        stroke: #ff3e00;
         transform: rotate(90deg)
     }
     .connection {
-        stroke: green
+        stroke: #00b82d
     }
 </style>
