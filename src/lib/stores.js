@@ -81,7 +81,39 @@ function createSolvesStore(name) {
             set(data)
         }
     });
-      
+    
+    function choosePuzzleId(totalCount, currentPuzzleId=0) {
+        // console.log('choose new id for total', totalCount, 'and current id', currentPuzzleId)
+        // try to recommend what was unsolved last
+        if (data[0].elapsedTime === -1) {
+            // console.log('returned unsolved id', data[0].puzzleId)
+            return data[0].puzzleId
+        }
+        // get solved puzzles to exclude them
+        const solvedIds = new Set(
+            data.filter(solve => solve.elapsedTime !== -1)
+            .map(solve => solve.puzzleId)
+        )
+        // console.log('will exclude these ids (solved)', solvedIds)
+        let nextPuzzleId = currentPuzzleId
+        if (solvedIds.size < totalCount*0.7) {
+            while ((nextPuzzleId === currentPuzzleId)||(solvedIds.has(nextPuzzleId))) {
+                nextPuzzleId = Math.ceil(Math.random() * totalCount)
+                // console.log('tried', nextPuzzleId)
+            }
+            // console.log('chose', nextPuzzleId)
+            return nextPuzzleId
+        } else {
+            const unsolvedIds = []
+            for (let i=1; i<=totalCount; i++) {
+                if (!solvedIds.has(i)) {
+                    unsolvedIds.push(i)
+                }
+            }
+            return unsolvedIds[Math.floor(Math.random()*unsolvedIds.length)];
+        }
+
+    }
 
     function reportStart(puzzleId) {
         let solve
@@ -152,6 +184,7 @@ function createSolvesStore(name) {
         subscribe,
         reportStart,
         reportFinish,
+        choosePuzzleId,
     }
 }
 

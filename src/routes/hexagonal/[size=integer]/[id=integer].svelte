@@ -44,19 +44,10 @@
         elapsedTime: -1,
     }
 
-  function chooseNextPuzzle() {
-    const size = $page.params.size
-    const currentPuzzleId = Number($page.params.id)
-    nextPuzzleId = currentPuzzleId
-    while (nextPuzzleId===currentPuzzleId) {
-      nextPuzzleId = Math.ceil(Math.random() * $puzzleCounts[`${size}x${size}`])
-    }
-    return nextPuzzleId
-  }
+
 
   $: if ($page.params) {
     solved = false
-    nextPuzzleId = chooseNextPuzzle()
   }
 
   onMount(() => {
@@ -75,6 +66,10 @@
     // console.log('stop')
     solved = true
     solve = solves.reportFinish(Number($page.params.id))
+    nextPuzzleId = solves.choosePuzzleId(
+      $puzzleCounts[`${$page.params.size}x${$page.params.size}`], 
+      Number($page.params.id)
+    )
   }
 </script>
 

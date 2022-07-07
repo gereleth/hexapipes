@@ -9,7 +9,7 @@
   onMount(async () => {
       const size = $page.params.size
       solves = getSolves($page.url.pathname)
-      const id = Math.ceil(Math.random() * $puzzleCounts[`${size}x${size}`])
+      const id = solves.choosePuzzleId($puzzleCounts[`${size}x${size}`])
       await goto(`/hexagonal/${size}/${id}`)
   })
 </script>
