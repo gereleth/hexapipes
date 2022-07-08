@@ -29,7 +29,8 @@
   import { page } from '$app/stores';
   import Puzzle from '$lib/puzzle/Puzzle.svelte';
   import Timer from '$lib/Timer.svelte';
-  import {getSolves, puzzleCounts} from '$lib/stores';
+  import Stats from '$lib/Stats.svelte';
+  import {getSolves, getStats, puzzleCounts} from '$lib/stores';
   export let width
   export let height
   export let tiles
@@ -37,6 +38,8 @@
   let nextPuzzleId = 1
   
   let solves // a store of puzzles solve times
+  let stats // a store of puzzle time stats
+
   let solve = {
         puzzleId: -1,
         startedAt: -1,
@@ -52,6 +55,7 @@
 
   onMount(() => {
     solves = getSolves($page.url.pathname)
+    stats = getStats($page.url.pathname)
     start()
   });
 
@@ -93,9 +97,6 @@
       <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
     {/if}
   </div>
-  <div class="timings">
-    <Timer {solve} />
-  </div>
 </div>
 
 {#key $page.params}
@@ -105,6 +106,14 @@
   />
 {/key}
 
+<div class="timings">
+  <Timer {solve}/>
+</div>
+{#if stats}
+  <div class="stats">
+    <Stats {stats}/>
+  </div>
+{/if}
 
 <style>
 .congrat {
