@@ -27,6 +27,7 @@
 <script>
   import { onMount } from 'svelte'
   import { page } from '$app/stores';
+  import { browser } from '$app/env';
   import Puzzle from '$lib/puzzle/Puzzle.svelte';
   import Timer from '$lib/Timer.svelte';
   import Stats from '$lib/Stats.svelte';
@@ -40,6 +41,11 @@
   let solves // a store of puzzles solve times
   let stats // a store of puzzle time stats
 
+  let progressStoreName = ''
+  let savedProgress
+
+  $: progressStoreName = $page.url.pathname + '_progress'
+
   let solve = {
         puzzleId: -1,
         startedAt: -1,
@@ -49,8 +55,14 @@
 
 
 
-  $: if ($page.params) {
+  $: if (browser && $page.params) {
     solved = false
+    const progress = window.localStorage.getItem(progressStoreName)
+    if (progress !== null) {
+      savedProgress = JSON.parse(progress)
+    } else {
+      savedProgress = undefined
+    }
   }
 
   onMount(() => {
@@ -74,6 +86,12 @@
       $puzzleCounts[`${$page.params.size}x${$page.params.size}`], 
       Number($page.params.id)
     )
+    window.localStorage.removeItem(progressStoreName)
+  }
+
+  function saveProgress(event) {
+    const data = JSON.stringify(event.detail)
+    window.localStorage.setItem(progressStoreName, data)
   }
 </script>
 
@@ -91,9 +109,10 @@
 </div>
 
 {#key $page.params}
-  <Puzzle {width} {height} {tiles}
+  <Puzzle {width} {height} {tiles} {savedProgress}
      on:solved={stop}
      on:initialized={start}
+     on:progress={saveProgress}
   />
 {/key}
 

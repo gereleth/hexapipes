@@ -4,7 +4,7 @@
     import { settings } from '$lib/stores';
     import Tile from '$lib/puzzle/Tile.svelte';
     import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
-    import { onMount, createEventDispatcher } from 'svelte';
+    import { onMount, onDestroy, createEventDispatcher } from 'svelte';
     import {randomColor} from 'randomcolor';
 
     export let width = 0
@@ -12,6 +12,7 @@
     /** @type {Number[]} */
     export let tiles = [
     ]
+    export let savedProgress
     let solved = false
 
     let grid = new HexaGrid(width, height)
@@ -23,13 +24,29 @@
     let components = new Map([
        [ -1, {color: 'white', tiles: new Set([-1])}]
     ])
-    let displayTiles = tiles.map((tile, index) => { 
+    let displayTiles = []
+    if (savedProgress) {
+        displayTiles = savedProgress.tiles.map((savedTile, index) => {
+            return {
+                tile: tiles[index],
+                rotations: savedTile.rotations,
+                color: savedTile.color,
+                isPartOfLoop: false,
+                locked: savedTile.locked,
+            }            
+        })
+    } else {
+        displayTiles = tiles.map((tile, index) => { 
         return {
             tile: tile,
+            rotations: 0,
             color: 'white',
             isPartOfLoop: false,
+            locked: false,
         }
     })
+    }
+
     const dispatch = createEventDispatcher()
 
     let pxPerCell = 100
@@ -54,6 +71,9 @@
             }
         }
     }
+    const wallMarks = new Set()
+    const connectionMarks = new Set()
+
     /**
      * @param {Number} fromIndex
      * @param {Number} toIndex
@@ -234,6 +254,12 @@
         })
         if (initialized) {
             solved = isSolved()
+            if (solved) {
+                // console.log('clear timer because solved')
+                save.clear()
+            } else {
+                save.soon()
+            }
         }
     }
 
@@ -402,8 +428,10 @@
     
     function initializeBoard() {
         // create components and fill in connections data
-        tiles.forEach((tile, index) => {
-            let directions = grid.getDirections(tile)
+        console.log('initialize board', displayTiles.length)
+        displayTiles.forEach((tile, index) => {
+            console.log('tile', index)
+            let directions = grid.getDirections(tile.tile, tile.rotations)
             connections.set(
                 index, 
                 new Set(directions.map(direction => {
@@ -412,14 +440,15 @@
             connections.get(index).delete(-1)
 
             const component = {
-                color: 'white',
+                color: tile.color,
                 tiles: new Set([index])
             }
             components.set(index, component)
         })
         // merge initial components of connected tiles
-        tiles.forEach((tile, index) => {
-            let directions = grid.getDirections(tile)
+        displayTiles.forEach((tile, index) => {
+            console.log('components', index)
+            let directions = grid.getDirections(tile.tile, tile.rotations)
             handleConnections({detail: {
                 dirIn: directions,
                 dirOut: [],
@@ -434,6 +463,68 @@
         pxPerCell = resize(innerWidth, innerHeight)
         dispatch('initialized')
     })
+
+    onDestroy(()=>{
+        // save progress immediately if navigating away (?)
+        // console.log('clear timer because destroy')
+        save.clear()
+        if (!solved) {save.now()}
+    })
+
+    function createThrottle(callback, timeout) {
+        let throttleTimer = null
+        const throttle = (callback, timeout) => {
+            if (throttleTimer!==null) return;
+                throttleTimer = setTimeout(() => {
+                    callback();
+                    throttleTimer = null;
+                }, timeout);
+        }
+        const clear = () => {
+            if (throttleTimer !== null) {
+                clearTimeout(throttleTimer)
+                throttleTimer = null
+            }
+        }
+        return {
+            now: ()=>(callback()),
+            soon: ()=>throttle(callback, timeout),
+            clear,
+        }
+    }
+
+    function saveProgress() {
+        const data = {
+            tiles: displayTiles.map(tile => {
+                return {
+                    rotations: tile.rotations,
+                    color: tile.color,
+                    locked: tile.locked,
+                }
+            }),
+            wallMarks: [...wallMarks],
+            connectionMarks: [...connectionMarks],
+        }
+        dispatch('progress', data)
+    }
+
+    const save = createThrottle(saveProgress, 3000)
+
+
+    function handleEdgeMark(event, index) {
+        const state = event.detail
+        if (state==='wall') {
+            wallMarks.add(index)
+            connectionMarks.delete(index)
+        } else if (state==='connection') {
+            wallMarks.delete(index)
+            connectionMarks.add(index)
+        } else {
+            wallMarks.delete(index)
+            connectionMarks.delete(index)
+        }
+        save.soon()
+    }
 
     let isTouching = false
     $: if (browser) document.body.classList.toggle('no-selection', isTouching);
@@ -453,18 +544,23 @@
         >
         {#each displayTiles as displayTile, i (i)}
             <Tile tile={displayTile.tile} {i} {grid} {solved}
+                bind:rotations={displayTile.rotations}
+                bind:locked={displayTile.locked}
                 isPartOfLoop={displayTile.isPartOfLoop}
                 controlMode={$settings.controlMode}
                 fillColor={displayTile.color}
-                on:connections={handleConnections}/>
+                on:connections={handleConnections}
+                on:toggleLocked={save.soon}
+                />
         {/each}
         {#if !solved}
-            {#each edgeMarks as mark}
+            {#each edgeMarks as mark, i}
                 <EdgeMark 
                     x={mark.x} 
                     y={mark.y} 
                     state={mark.state} 
                     direction={mark.direction}
+                    on:toggle={ev => handleEdgeMark(ev, i)}
                     />
             {/each}
         {/if}

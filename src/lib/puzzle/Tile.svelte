@@ -122,6 +122,8 @@
     }
 
     $: chooseBgColor(locked, isPartOfLoop)
+
+    $: locked, dispatch('toggleLocked')
 </script>
 
 <g class='tile'
