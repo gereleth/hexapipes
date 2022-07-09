@@ -90,6 +90,13 @@
   <p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
 
+{#key $page.params}
+  <Puzzle {width} {height} {tiles}
+     on:solved={stop}
+     on:initialized={start}
+  />
+{/key}
+
 <div class="container">
   <div class="congrat"> 
     {#if solved} 
@@ -98,13 +105,6 @@
     {/if}
   </div>
 </div>
-
-{#key $page.params}
-  <Puzzle {width} {height} {tiles}
-     on:solved={stop}
-     on:initialized={start}
-  />
-{/key}
 
 <div class="timings">
   <Timer {solve}/>
@@ -118,6 +118,7 @@
 <style>
 .congrat {
     margin: auto;
+    margin-bottom: 20px;
     font-size: 150%;
     color: var(--primary-color);
     text-align: center;
