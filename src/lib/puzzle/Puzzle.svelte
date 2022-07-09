@@ -428,9 +428,7 @@
     
     function initializeBoard() {
         // create components and fill in connections data
-        console.log('initialize board', displayTiles.length)
         displayTiles.forEach((tile, index) => {
-            console.log('tile', index)
             let directions = grid.getDirections(tile.tile, tile.rotations)
             connections.set(
                 index, 
@@ -447,7 +445,6 @@
         })
         // merge initial components of connected tiles
         displayTiles.forEach((tile, index) => {
-            console.log('components', index)
             let directions = grid.getDirections(tile.tile, tile.rotations)
             handleConnections({detail: {
                 dirIn: directions,
