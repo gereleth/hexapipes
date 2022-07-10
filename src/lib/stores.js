@@ -119,12 +119,28 @@ function createSolvesStore(path) {
     function reportStart(puzzleId) {
         let solve
         update(solves => {
-            // find if we solved this already
+            // check if we started this already
             solve = solves.find(solve => 
-                (solve.puzzleId===puzzleId)&&(solve.elapsedTime!==-1)
+                solve.puzzleId===puzzleId
             )
-            // TODO find if we have saved progress on this one
-
+            if (solve !== undefined) {
+                if (solve.elapsedTime !== -1) {
+                    // finished puzzle
+                    return solves
+                }
+                // started this earlier but did not finish
+                if (solve === solves[0]) {
+                    return solves
+                }
+                solve = {
+                    puzzleId,
+                    startedAt: solve.startedAt,
+                    finishedAt: -1,
+                    elapsedTime: -1,
+                }
+                solves.unshift(solve)
+                return solves
+            }
             // If not - then start a fresh solve
             if (solve===undefined) {
                 solve = {

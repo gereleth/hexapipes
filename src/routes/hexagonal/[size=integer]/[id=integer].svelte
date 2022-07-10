@@ -118,8 +118,10 @@
 
 <div class="container">
   <div class="congrat"> 
-    {#if solved} 
-      Solved! 
+    {#if solve.elapsedTime !== -1}
+      {#if solved}
+        Solved! 
+      {/if}
       <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
     {/if}
   </div>
