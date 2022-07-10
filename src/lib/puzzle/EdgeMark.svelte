@@ -1,11 +1,14 @@
 <script>
     import { XY_DELTAS, YSTEP, OPPOSITE } from '$lib/hexagrid';
     import {fade} from 'svelte/transition';
+    import {createEventDispatcher} from 'svelte'
     export let x = 0
     export let y = 0
     export let state='none'
     export let direction = 1
     let dx = 0, dy=0
+    
+    const dispatch = createEventDispatcher()
 
     $: [dx, dy] = XY_DELTAS.get(OPPOSITE.get(direction))
 
@@ -17,6 +20,7 @@
         } else {
             state = 'none'
         }
+        dispatch('toggle', state)
     }
     const lineLength = 0.15
 </script>
@@ -32,7 +36,7 @@
         x2={x+dx*lineLength}
         y2={y-dy*lineLength}
         stroke="green"
-        stroke-width="0.03" />
+        stroke-width="0.04" />
 {/if}
 <circle 
     class="clickarea"
@@ -52,10 +56,10 @@
         transition: transform 100ms;
     }
     .wall {
-        stroke: red;
+        stroke: #ff3e00;
         transform: rotate(90deg)
     }
     .connection {
-        stroke: green
+        stroke: #00b82d
     }
 </style>

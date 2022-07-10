@@ -2,11 +2,14 @@
   import {onMount} from 'svelte'
   import {goto} from '$app/navigation'
   import {page} from '$app/stores'
-  import {puzzleCounts} from '$lib/stores'
+  import {getSolves, puzzleCounts} from '$lib/stores'
+
+  let solves
 
   onMount(async () => {
       const size = $page.params.size
-      const id = Math.ceil(Math.random() * $puzzleCounts[`${size}x${size}`])
+      solves = getSolves($page.url.pathname)
+      const id = solves.choosePuzzleId($puzzleCounts[`${size}x${size}`])
       await goto(`/hexagonal/${size}/${id}`)
   })
 </script>

@@ -120,17 +120,31 @@ export function HexaGrid(width, height) {
 		return self.width * r + c;
 	};
 
-	this.getDirections = function (tile) {
-		return DIRECTIONS.filter((direction) => (direction & tile) > 0);
+	this.rotate = function(tile, rotations) {
+		let rotated = tile
+		rotations = rotations % 6
+		while (rotations > 0) {
+			rotations -= 6
+		}
+		while (rotations < 0) {
+			rotated = (rotated*2) % 64 + Math.floor(rotated/32)
+			rotations += 1
+		}
+		return rotated
+	}
+
+	this.getDirections = function (tile, rotations=0) {
+		const rotated = self.rotate(tile, rotations)
+		return DIRECTIONS.filter((direction) => (direction & rotated) > 0);
 	};
 
 	this.tilePath = '';
 	for (let p = 0; p < 6; p++) {
 		const angle = (Math.PI * (2 * p + 1)) / 6;
-		const dx = (0.5 * Math.cos(angle)) / YSTEP;
-		const dy = (-0.5 * Math.sin(angle)) / YSTEP;
+		const dx = (0.49 * Math.cos(angle)) / YSTEP;
+		const dy = (-0.49 * Math.sin(angle)) / YSTEP;
 		if (this.tilePath === '') {
-			this.tilePath += ` m ${dx - 0.5} ${dy + YSTEP}`;
+			this.tilePath += ` m ${dx - 0.49} ${dy + 0.98*YSTEP}`;
 		}
 		this.tilePath += ` l ${dx} ${dy}`;
 	}

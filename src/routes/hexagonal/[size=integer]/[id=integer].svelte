@@ -25,28 +25,73 @@
 </script>
 
 <script>
+  import { onMount } from 'svelte'
   import { page } from '$app/stores';
+  import { browser } from '$app/env';
   import Puzzle from '$lib/puzzle/Puzzle.svelte';
-  import {puzzleCounts} from '$lib/stores';
+  import Timer from '$lib/Timer.svelte';
+  import Stats from '$lib/Stats.svelte';
+  import {getSolves, getStats, puzzleCounts} from '$lib/stores';
   export let width
   export let height
   export let tiles
   let solved = false
   let nextPuzzleId = 1
+  
+  let solves // a store of puzzles solve times
+  let stats // a store of puzzle time stats
 
-  function chooseNextPuzzle() {
-    const size = $page.params.size
-    const currentPuzzleId = Number($page.params.id)
-    nextPuzzleId = currentPuzzleId
-    while (nextPuzzleId===currentPuzzleId) {
-      nextPuzzleId = Math.ceil(Math.random() * $puzzleCounts[`${size}x${size}`])
+  let progressStoreName = ''
+  let savedProgress
+
+  $: progressStoreName = $page.url.pathname + '_progress'
+
+  let solve = {
+        puzzleId: -1,
+        startedAt: -1,
+        finishedAt: -1,
+        elapsedTime: -1,
     }
-    return nextPuzzleId
+
+
+
+  $: if (browser && $page.params) {
+    solved = false
+    const progress = window.localStorage.getItem(progressStoreName)
+    if (progress !== null) {
+      savedProgress = JSON.parse(progress)
+    } else {
+      savedProgress = undefined
+    }
   }
 
-  $: if ($page.params) {
-    solved = false
-    nextPuzzleId = chooseNextPuzzle()
+  onMount(() => {
+    solves = getSolves($page.url.pathname)
+    stats = getStats($page.url.pathname)
+    start()
+  });
+
+  function start() {
+    // console.log('start')
+    if (solves!==undefined) {
+      solve = solves.reportStart(Number($page.params.id))
+    }
+  }
+
+  function stop() {
+    // console.log('stop')
+    solved = true
+    solve = solves.reportFinish(Number($page.params.id))
+    nextPuzzleId = solves.choosePuzzleId(
+      $puzzleCounts[`${$page.params.size}x${$page.params.size}`], 
+      Number($page.params.id)
+    )
+    window.localStorage.removeItem(progressStoreName)
+  }
+
+  function saveProgress(event) {
+    const data = JSON.stringify(event.detail)
+    window.localStorage.setItem(progressStoreName, data)
   }
 </script>
 
@@ -63,23 +108,38 @@
   <p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
 
+{#key $page.params}
+  <Puzzle {width} {height} {tiles} {savedProgress}
+     on:solved={stop}
+     on:initialized={start}
+     on:progress={saveProgress}
+  />
+{/key}
+
 <div class="container">
   <div class="congrat"> 
-    {#if solved} 
-      Solved! 
+    {#if solve.elapsedTime !== -1}
+      {#if solved}
+        Solved! 
+      {/if}
       <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
     {/if}
   </div>
 </div>
 
-{#key $page.params}
-  <Puzzle {width} {height} {tiles} on:solved={()=>{solved=true}}/>
-{/key}
-
+<div class="timings">
+  <Timer {solve}/>
+</div>
+{#if stats}
+  <div class="stats">
+    <Stats {stats}/>
+  </div>
+{/if}
 
 <style>
 .congrat {
     margin: auto;
+    margin-bottom: 20px;
     font-size: 150%;
     color: var(--primary-color);
     text-align: center;

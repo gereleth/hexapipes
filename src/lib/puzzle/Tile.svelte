@@ -22,8 +22,9 @@
 		easing: cubicOut
 	})
 
-    let myDirections = grid.getDirections(tile)
-    const deltas = myDirections.map(direction => XY_DELTAS.get(direction))
+    let myDirections = grid.getDirections(tile, rotations)
+
+    const deltas = grid.getDirections(tile).map(direction => XY_DELTAS.get(direction))
     let [cx, cy] = grid.index_to_xy(i)
     cy = grid.height*YSTEP - cy
     let angle = findInitialAngle()
@@ -71,35 +72,20 @@
             const dx = event.clientX - x - width/2
             const dy = height/2 - (event.clientY - y)
             const newAngle = Math.atan2(dy, dx)
-            const deltaAngle = newAngle - angle
-            const newRotations = Math.round(deltaAngle*3/Math.PI)
-            let timesRotate = newRotations - rotations
+            const newRotations = Math.round((angle - newAngle)*3/Math.PI)
+            let timesRotate = newRotations - (rotations%6)
             if (timesRotate < -3.5) {timesRotate += 6}
             else if (timesRotate > 3.5) {timesRotate -=6}
-            rotate(-timesRotate)
+            rotate(timesRotate)
         }
     }
     /**
     * @param {Number} times
     */
     function rotate(times) {
-        let newDirections = [...myDirections]
-        while (times < -0.1) {
-            rotations += 1
-            times += 1
-            newDirections = newDirections.map(direction => {
-                const newDirection = direction * 2
-                return newDirection == 64 ? 1 : newDirection
-            })
-        }
-        while (times > 0.1) {
-            rotations -= 1
-            times -= 1
-            newDirections = newDirections.map(direction => {
-                const newDirection = Math.floor(direction / 2)
-                return newDirection == 0 ? 32 : newDirection
-            })
-        }
+        rotations = rotations + times
+        const newDirections = grid.getDirections(tile, rotations)
+
         rotationAnimate.set(rotations)
 
         const dirOut = myDirections.filter(direction => !(newDirections.some(d=>d===direction)))
@@ -115,13 +101,15 @@
 
     function chooseBgColor() {
         if (isPartOfLoop) {
-            bgColor = locked ? '#f77' : '#f99'
+            bgColor = locked ? '#f99' : '#fbb'
         } else {
             bgColor = locked ? '#bbb' : '#ddd'
         }
     }
 
     $: chooseBgColor(locked, isPartOfLoop)
+
+    $: locked, dispatch('toggleLocked')
 </script>
 
 <g class='tile'
@@ -132,7 +120,7 @@
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
 
 <!-- Pipe shape -->
-<g transform="rotate({-60*$rotationAnimate}, {cx}, {cy})">
+<g transform="rotate({60*$rotationAnimate}, {cx}, {cy})">
     <!-- Pipe outline -->
     <path 
         d={path} 
