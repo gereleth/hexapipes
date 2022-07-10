@@ -12,6 +12,8 @@
 
 <h2> Changelog </h2>
 <ul>
+<li><em>2022-07-10</em> Added solve time statistics and saving progress on a puzzle. 
+    Everything should be saved to browser local storage.</li>
 <li><em>2022-07-05</em> Added loop highlighting. Tiles that form a loop now get a red
 background color.</li>
 <li><em>2022-07-03</em> Added edge marks - now it's possible to mark an edge as 

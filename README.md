@@ -5,12 +5,6 @@ This is a little static site for playing the pipes puzzle.
 Made with Svelte Kit, currently deployed at [hexapipes.vercel.app](www.hexapipes.vercel.app/hexagonal/5).
 
 
-WORKING ON:
-
-- save progress / init from localStorage
-    - check how solves store handles continuing puzzles. Navigating away to another size should not count as broken streak.
-    - does incognito mode work with local storage?
-
 TODO:
 
 - allow click and drag locking multiple tiles
