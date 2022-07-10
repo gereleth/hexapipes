@@ -8,7 +8,6 @@ Made with Svelte Kit, currently deployed at [hexapipes.vercel.app](www.hexapipes
 WORKING ON:
 
 - save progress / init from localStorage
-    - when restarting from saved state the timer should not start at 0!
     - check how solves store handles continuing puzzles. Navigating away to another size should not count as broken streak.
     - does incognito mode work with local storage?
 

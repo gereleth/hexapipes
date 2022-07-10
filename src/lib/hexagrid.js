@@ -122,12 +122,13 @@ export function HexaGrid(width, height) {
 
 	this.rotate = function(tile, rotations) {
 		let rotated = tile
-		while (rotations < 0) {
-			rotations += 6
-		}
+		rotations = rotations % 6
 		while (rotations > 0) {
+			rotations -= 6
+		}
+		while (rotations < 0) {
 			rotated = (rotated*2) % 64 + Math.floor(rotated/32)
-			rotations -= 1
+			rotations += 1
 		}
 		return rotated
 	}
