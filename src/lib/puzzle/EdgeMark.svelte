@@ -6,6 +6,8 @@
     export let y = 0
     export let state='none'
     export let direction = 1
+    export let wrapX
+    export let wrapY
     let dx = 0, dy=0
     
     const dispatch = createEventDispatcher()
@@ -37,6 +39,19 @@
         y2={y-dy*lineLength}
         stroke="green"
         stroke-width="0.04" />
+    {#if (wrapX!==undefined)}
+        <line 
+            transition:fade|local={{duration: 100}}
+            class='mark'
+            class:wall = {state==='wall'}
+            class:connection = {state==='connection'}
+            x1={wrapX-dx*lineLength}
+            y1={wrapY+dy*lineLength}
+            x2={wrapX+dx*lineLength}
+            y2={wrapY-dy*lineLength}
+            stroke="green"
+            stroke-width="0.04" />
+    {/if}
 {/if}
 <circle 
     class="clickarea"
@@ -44,7 +59,14 @@
      on:click={toggleState}
      on:contextmenu={()=>{toggleState(), toggleState()}}
      />
-
+{#if (wrapX!==undefined)}
+    <circle 
+        class="clickarea"
+        cx={wrapX} cy={wrapY} r=0.08
+        on:click={toggleState}
+        on:contextmenu={()=>{toggleState(), toggleState()}}
+        />
+ {/if}
 <style>
     .clickarea {
         fill: rgba(0,0,0,0);
