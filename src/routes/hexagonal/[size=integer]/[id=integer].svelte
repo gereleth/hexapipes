@@ -83,7 +83,7 @@
     solved = true
     solve = solves.reportFinish(Number($page.params.id))
     nextPuzzleId = solves.choosePuzzleId(
-      $puzzleCounts[`${$page.params.size}x${$page.params.size}`], 
+      $puzzleCounts.hexagonal[`${$page.params.size}x${$page.params.size}`], 
       Number($page.params.id)
     )
     window.localStorage.removeItem(progressStoreName)

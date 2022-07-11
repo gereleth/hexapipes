@@ -1,5 +1,5 @@
 <script>
-    import { XY_DELTAS, YSTEP } from '$lib/hexagrid';
+    import { DIRECTIONS, OPPOSITE, XY_DELTAS, YSTEP } from '$lib/hexagrid';
     import { tweened } from 'svelte/motion';
     import { cubicOut } from 'svelte/easing';
     import { createEventDispatcher } from 'svelte';
@@ -13,6 +13,7 @@
     export let solved = false
     export let controlMode = 'rotate_lock'
     export let isPartOfLoop = false
+    export let highlightDirections = new Set()
     let bgColor = '#aaa'
 
     const dispatch = createEventDispatcher();
@@ -37,6 +38,18 @@
     
     const hexagon = `M ${cx} ${cy} ` + grid.tilePath
     
+    const wrapNeighbours = []
+    if (grid.wrap) {
+        for (let direction of DIRECTIONS) {
+            const {neighbour, wrapped} = grid.find_neighbour(i, direction)
+            if (wrapped) {
+                wrapNeighbours.push(
+                    [i, direction],
+                    [neighbour, OPPOSITE.get(direction)]
+                )
+            }
+        }
+    }
     /**
     * @returns {Number}
     */
@@ -124,6 +137,28 @@
         }
     }
 
+    function highlightWrapNeighbours() {
+        if (wrapNeighbours.length > 0) {
+            dispatch('highlightWrap', wrapNeighbours)
+        }
+    }
+
+    function getHighlightLines(highlightDirections) {
+        const lines = []
+        const length = 0.04
+        for (let direction of highlightDirections) {
+            const [lx, ly] = XY_DELTAS.get(direction)
+            lines.push({
+                x1: cx + (0.5-length)*lx,
+                x2: cx + (0.5+length)*lx,
+                y1: cy - (0.5-length)*ly,
+                y2: cy - (0.5+length)*ly,
+            })
+
+        }
+        return lines
+    }
+
     $: chooseBgColor(locked, isPartOfLoop)
 
     $: locked, dispatch('toggleLocked')
@@ -131,7 +166,8 @@
 
 <g class='tile'
     on:click={onClick}
-    on:contextmenu|preventDefault={onContextMenu} 
+    on:contextmenu|preventDefault={onContextMenu}
+    on:mouseenter={highlightWrapNeighbours}
 >
 <!-- Tile hexagon -->
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
@@ -172,6 +208,14 @@
             />
     {/if}
 </g>
+
+{#each getHighlightLines(highlightDirections) as line}
+<line 
+    class='wrap'
+    {...line}
+    stroke="#777"
+    stroke-width="0.3" />
+{/each}
 
 </g>
 

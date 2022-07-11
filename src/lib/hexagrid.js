@@ -31,12 +31,13 @@ export const XY_DELTAS = new Map([
  * @param {Number} width
  * @param {Number} height
  */
-export function HexaGrid(width, height) {
+export function HexaGrid(width, height, wrap=false) {
 	let self = this;
 
 	this.width = width;
 	this.height = height;
 	this.total = width * height;
+	this.wrap = wrap
 
 	this.RC_DELTA = new Map([
 		[
@@ -107,18 +108,68 @@ export function HexaGrid(width, height) {
 	this.find_neighbour = function (index, direction) {
 		let c = index % self.width;
 		let r = (index - c) / self.width;
+		let wrapped = false
+		let neighbour = -1
 
 		const [dr, dc] = self.RC_DELTA.get(direction)[r % 2];
 		r += dr;
 		c += dc;
+		if (self.wrap) {
+			if (r == -1) {
+				r = self.height - 1
+				c += 1
+				wrapped = true
+			}
+			if (r == self.height) {
+				r = 0
+				c -= (1 - self.height % 2)
+				wrapped = true
+			}
+			if ((c < 0)||(c=== self.width)) {
+				c = (c + self.width) % self.width
+				wrapped = true
+			}
+		}
 		if (r < 0 || r >= self.height) {
-			return -1;
+			neighbour = -1;
 		}
-		if (c < 0 || c >= self.width) {
-			return -1;
+		else if (c < 0 || c >= self.width) {
+			neighbour = -1;
+		} else {
+			neighbour = self.width * r + c
 		}
-		return self.width * r + c;
+		return {
+			neighbour,
+			wrapped,
+		};
 	};
+
+
+	this.getEdgeMarks = function() {
+		const edgeMarks = []
+		for (let i=0; i<self.total; i++) {
+			const [x, y] = self.index_to_xy(i)
+			for (let direction of DIRECTIONS) {
+				const {neighbour, wrapped} = self.find_neighbour(i, direction)
+				if (neighbour > i) {
+					const [dx, dy] = XY_DELTAS.get(direction)
+					const mark = {
+						x: x+dx*0.5,
+						y: self.height*YSTEP - (y+dy*0.5),
+						direction: direction,
+						state: 'none',
+					}
+					if (wrapped) {
+						const [nx, ny] = self.index_to_xy(neighbour)
+						mark.wrapX = nx - dx*0.5
+						mark.wrapY = self.height*YSTEP - (ny-dy*0.5)
+					}
+					edgeMarks.push(mark)
+				}
+			}
+		}
+		return edgeMarks
+	}
 
 	this.rotate = function(tile, rotations) {
 		let rotated = tile

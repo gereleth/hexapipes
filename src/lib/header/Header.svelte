@@ -13,6 +13,7 @@
 		<ul>
 			<li class:active={$page.url.pathname==="/"}><a sveltekit:prefetch href="/">Pipes puzzles</a></li>
 			<li class:active={$page.url.pathname.startsWith("/hexagonal/")}><a sveltekit:prefetch href="/hexagonal">Hexagonal</a></li>
+			<li class:active={$page.url.pathname.startsWith("/hexagonal-wrap/")}><a sveltekit:prefetch href="/hexagonal-wrap">Hexagonal wrap</a></li>
 		</ul>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
 			<path d="M0,0 L0,3 C0.5,3 0.5,3 1,2 L2,0 Z"/>

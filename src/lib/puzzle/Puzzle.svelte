@@ -10,12 +10,12 @@
     export let width = 0
     export let height = 0
     /** @type {Number[]} */
-    export let tiles = [
-    ]
+    export let tiles = []
+    export let wrap = false
     export let savedProgress
     let solved = false
 
-    let grid = new HexaGrid(width, height)
+    let grid = new HexaGrid(width, height, wrap)
 
     // tile index => set of neighbours that it points to
     let connections = new Map([])
@@ -33,6 +33,7 @@
                 color: savedTile.color,
                 isPartOfLoop: false,
                 locked: savedTile.locked,
+                highlightDirections: new Set(),
             }            
         })
     } else {
@@ -43,6 +44,7 @@
             color: 'white',
             isPartOfLoop: false,
             locked: false,
+            highlightDirections: new Set(),
         }
     })
     }
@@ -55,22 +57,8 @@
     let innerHeight = 500
     let initialized = false
 
-    let edgeMarks = []
-    for (let i=0; i<grid.total; i++) {
-        const [x, y] = grid.index_to_xy(i)
-        for (let direction of DIRECTIONS) {
-            const neighbour = grid.find_neighbour(i, direction)
-            if (neighbour > i) {
-                const [nx, ny] = grid.index_to_xy(neighbour)
-                edgeMarks.push({
-                    x: (x+nx)/2,
-                    y: (grid.height)*YSTEP -(y+ny)/2,
-                    direction: direction,
-                    state: 'none',
-                })
-            }
-        }
-    }
+    let edgeMarks = grid.getEdgeMarks()
+
     const wallMarks = new Set()
     const connectionMarks = new Set()
 
@@ -227,7 +215,7 @@
         // console.log(tileIndex, dirIn, dirOut)
         const tileConnections  = connections.get(tileIndex)
         dirOut.forEach(direction => {
-            const neighbour = grid.find_neighbour(tileIndex, direction)
+            const {neighbour} = grid.find_neighbour(tileIndex, direction)
             if (neighbour===-1) {return}
             tileConnections.delete(neighbour)
             const neighbourConnections = connections.get(neighbour)
@@ -242,7 +230,7 @@
             }
         })
         dirIn.forEach(direction => {
-            const neighbour = grid.find_neighbour(tileIndex, direction)
+            const {neighbour} = grid.find_neighbour(tileIndex, direction)
             if (neighbour===-1) {return}
             tileConnections.add(neighbour)
             const neighbourConnections = connections.get(neighbour)
@@ -433,7 +421,7 @@
             connections.set(
                 index, 
                 new Set(directions.map(direction => {
-                return grid.find_neighbour(index, direction)
+                return grid.find_neighbour(index, direction).neighbour
             })))
             connections.get(index).delete(-1)
 
@@ -523,6 +511,21 @@
         save.soon()
     }
 
+    let previousWrapNeighbours = []
+
+    function highlightWrapNeighbours(event) {
+        const wrapNeighbours = event.detail
+        for (let [index, direction] of previousWrapNeighbours) {
+            displayTiles[index].highlightDirections.delete(direction)
+            displayTiles[index].highlightDirections = displayTiles[index].highlightDirections
+        }
+        for (let [index, direction] of wrapNeighbours) {
+            displayTiles[index].highlightDirections.add(direction)
+            displayTiles[index].highlightDirections = displayTiles[index].highlightDirections
+        }
+        previousWrapNeighbours = wrapNeighbours
+    }
+
     let isTouching = false
     $: if (browser) document.body.classList.toggle('no-selection', isTouching);
 </script>
@@ -546,8 +549,10 @@
                 isPartOfLoop={displayTile.isPartOfLoop}
                 controlMode={$settings.controlMode}
                 fillColor={displayTile.color}
+                highlightDirections={displayTile.highlightDirections}
                 on:connections={handleConnections}
                 on:toggleLocked={()=> {if (!solved) {save.soon()}}}
+                on:highlightWrap={highlightWrapNeighbours}
                 />
         {/each}
         {#if !solved}
@@ -557,6 +562,8 @@
                     y={mark.y} 
                     state={mark.state} 
                     direction={mark.direction}
+                    wrapX={mark.wrapX}
+                    wrapY={mark.wrapY}
                     on:toggle={ev => handleEdgeMark(ev, i)}
                     />
             {/each}
