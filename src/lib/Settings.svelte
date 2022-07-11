@@ -24,28 +24,41 @@ onMount(()=>{
             <input type=radio 
                 bind:group={$settings.controlMode} 
                 name="controlMode" 
-                value={'click_to_rotate'}>
-            Click to rotate
+                value={'rotate_lock'}>
+                ↷ Rotate / Lock
         </label>
         <label>
             <input type=radio 
                 bind:group={$settings.controlMode} 
                 name="controlMode" 
-                value={'click_to_orient'}>
-            Click to orient
+                value={'rotate_rotate'}>
+                ↷ Rotate / Rotate ↶
+        </label>
+        <label>
+            <input type=radio 
+                bind:group={$settings.controlMode} 
+                name="controlMode" 
+                value={'orient_lock'}>
+            Orient / Lock
         </label>
         <div class="description">
-            {#if $settings.controlMode === 'click_to_rotate'}
+            {#if $settings.controlMode === 'rotate_lock'}
                 <ul>
                     <li>Click / touch - rotate tile clockwise</li>
-                    <li>Right click / long press - pin tile</li>
+                    <li>Right click / long press - lock tile</li>
                     <li>Ctrl-click - rotate tile counter-clockwise</li>
                 </ul>
-            {:else if $settings.controlMode === 'click_to_orient'}
+            {:else if $settings.controlMode === 'rotate_rotate'}
+            <ul>
+                <li>Click / touch - rotate tile clockwise</li>
+                <li>Right click / long press - rotate tile counter-clockwise</li>
+                <li>Ctrl-click - lock tile</li>
+            </ul>
+            {:else if $settings.controlMode === 'orient_lock'}
             <ul>
                 <li>Click or touch once to orient the tile in that direction.</li>
                 <li>A tile will rotate so that the little orange dot moves to where you clicked.</li>
-                <li>Right click / long press - pin tile</li>
+                <li>Right click / long press - lock tile</li>
             </ul>
             {/if}
 
