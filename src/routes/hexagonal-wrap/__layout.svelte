@@ -5,19 +5,19 @@
 
   /** @type {Number[]} */
   let sizes = []
-  $: sizes = [...Object.entries($puzzleCounts.hexagonal)].map(
+  $: sizes = [...Object.entries($puzzleCounts.hexagonalWrap)].map(
     item => Number(item[0].split('x')[0])
   ).sort((a, b) => a - b)
 </script>
 
 <div class="container">
-  <h1> Hexagonal pipes </h1>
+  <h1> Hexagonal wrap pipes </h1>
 
   <div class="sizes">
     <span> Choose a size:</span>
     {#each sizes as size}
-      <a href="/hexagonal/{size}" 
-        class:active={$page.url.pathname.includes(`/hexagonal/${size}`)}> 
+      <a href="/hexagonal-wrap/{size}" 
+        class:active={$page.url.pathname.includes(`/hexagonal-wrap/${size}`)}> 
         {size}x{size}
       </a>
     {/each}

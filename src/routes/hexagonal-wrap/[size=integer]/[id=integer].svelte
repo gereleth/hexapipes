@@ -3,7 +3,7 @@
     const size = `${params.size}x${params.size}`
     const id = Number(params.id)
     const folderNum = Math.floor((id-1)/100)
-    const url = `/_instances/hexagonal/${size}/${folderNum}/${id}.json`;
+    const url = `/_instances/hexagonal-wrap/${size}/${folderNum}/${id}.json`;
     const response = await fetch(url);
 
     if (response.ok) {
@@ -83,7 +83,7 @@
     solved = true
     solve = solves.reportFinish(Number($page.params.id))
     nextPuzzleId = solves.choosePuzzleId(
-      $puzzleCounts.hexagonal[`${$page.params.size}x${$page.params.size}`], 
+      $puzzleCounts[`${$page.params.size}x${$page.params.size}`], 
       Number($page.params.id)
     )
     window.localStorage.removeItem(progressStoreName)
@@ -97,19 +97,21 @@
 
 <svelte:head>
   <title>
-    {$page.params.size}x{$page.params.size} Hexagonal Pipes Puzzle #{$page.params.id}
+    {$page.params.size}x{$page.params.size} Hexagonal Wrap Pipes Puzzle #{$page.params.id}
   </title>
 </svelte:head>
 
 
 <div class="info container">
-  <h2> {$page.params.size}x{$page.params.size} Hexagonal Pipes Puzzle #{$page.params.id}</h2>
+  <h2> {$page.params.size}x{$page.params.size} Hexagonal Wrap Pipes Puzzle #{$page.params.id}</h2>
   
   <p>Rotate the tiles so that all pipes are connected with no loops.</p>
+
+  <p class='danger'>The field wraps left to right and top to bottom.</p>
 </div>
 
 {#key $page.params}
-  <Puzzle {width} {height} {tiles} {savedProgress}
+  <Puzzle {width} {height} {tiles} {savedProgress} wrap={true}
      on:solved={stop}
      on:initialized={start}
      on:progress={saveProgress}
@@ -122,7 +124,7 @@
       {#if solved}
         Solved! 
       {/if}
-      <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
+      <a href="/hexagonal-wrap/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
     {/if}
   </div>
 </div>

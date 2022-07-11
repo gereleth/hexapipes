@@ -9,8 +9,8 @@
   onMount(async () => {
       const size = $page.params.size
       solves = getSolves($page.url.pathname)
-      const id = solves.choosePuzzleId($puzzleCounts.hexagonal[`${size}x${size}`])
-      await goto(`/hexagonal/${size}/${id}`)
+      const id = solves.choosePuzzleId($puzzleCounts.hexagonalWrap[`${size}x${size}`])
+      await goto(`/hexagonal-wrap/${size}/${id}`)
   })
 </script>
 
