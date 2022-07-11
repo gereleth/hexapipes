@@ -5,7 +5,7 @@ export const puzzleCounts = writable({})
 function createSettings() {
 
     let defaultSettings = {
-        controlMode: 'rotate_rotate',
+        controlMode: 'rotate_lock',
     }
 
 	const { subscribe, set, update } = writable(defaultSettings);
