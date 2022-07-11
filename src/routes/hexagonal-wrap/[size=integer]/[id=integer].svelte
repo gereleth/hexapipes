@@ -75,6 +75,12 @@
     // console.log('start')
     if (solves!==undefined) {
       solve = solves.reportStart(Number($page.params.id))
+      if (solve.elapsedTime !== -1) {
+        nextPuzzleId = solves.choosePuzzleId(
+          $puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`], 
+          Number($page.params.id)
+        )
+      }
     }
   }
 
@@ -83,7 +89,7 @@
     solved = true
     solve = solves.reportFinish(Number($page.params.id))
     nextPuzzleId = solves.choosePuzzleId(
-      $puzzleCounts[`${$page.params.size}x${$page.params.size}`], 
+      $puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`], 
       Number($page.params.id)
     )
     window.localStorage.removeItem(progressStoreName)
