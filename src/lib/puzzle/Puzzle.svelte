@@ -547,7 +547,7 @@
                 controlMode={$settings.controlMode}
                 fillColor={displayTile.color}
                 on:connections={handleConnections}
-                on:toggleLocked={save.soon}
+                on:toggleLocked={()=> {if (!solved) {save.soon()}}}
                 />
         {/each}
         {#if !solved}

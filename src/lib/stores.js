@@ -5,7 +5,7 @@ export const puzzleCounts = writable({})
 function createSettings() {
 
     let defaultSettings = {
-        controlMode: 'click_to_rotate',
+        controlMode: 'rotate_lock',
     }
 
 	const { subscribe, set, update } = writable(defaultSettings);
@@ -27,6 +27,13 @@ function createSettings() {
                 set(defaultSettings)
             } else {
                 const parsed = JSON.parse(data)
+                // I changed possible control mode values, 
+                // so I need to update settings if an old one appears
+                if (parsed.controlMode === 'click_to_rotate') {
+                    parsed.controlMode = 'rotate_lock'
+                } else if (parsed.controlMode === 'click_to_orient') {
+                    parsed.controlMode = 'orient_lock'
+                }
                 set(parsed)
             }
         } catch (error) {
@@ -103,6 +110,12 @@ function createSolvesStore(path) {
                 // console.log('tried', nextPuzzleId)
             }
             // console.log('chose', nextPuzzleId)
+            return nextPuzzleId
+        } else if (solvedIds.size === totalCount) {
+            // if everything is solved just give a random puzzle
+            while (nextPuzzleId === currentPuzzleId) {
+                nextPuzzleId = Math.ceil(Math.random() * totalCount)
+            }
             return nextPuzzleId
         } else {
             const unsolvedIds = []
@@ -222,7 +235,7 @@ export function getSolves(path) {
 
 
 function createStatsStore(path) {
-    console.log('creating stats store for', path)
+    // console.log('creating stats store for', path)
 
     const solvesStore = getSolves(path)
 

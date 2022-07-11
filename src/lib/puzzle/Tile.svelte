@@ -11,7 +11,7 @@
     export let rotations = 0
     export let fillColor = 'white'
     export let solved = false
-    export let controlMode = 'click_to_rotate'
+    export let controlMode = 'rotate_lock'
     export let isPartOfLoop = false
     let bgColor = '#aaa'
 
@@ -59,14 +59,19 @@
     * @param {MouseEvent} event
     */
     function onClick(event) {
-        if (locked||solved) {return}
-        if (controlMode === 'click_to_rotate') {
+        if (controlMode === 'rotate_lock') {
             if (event.ctrlKey) {
                 rotate(-1)
             } else {
                 rotate(1)
             }
-        } else if (controlMode === 'click_to_orient') {
+        } else if (controlMode === 'rotate_rotate') {
+            if (event.ctrlKey) {
+                locked = !locked
+            } else {
+                rotate(1)
+            }
+        } else if (controlMode === 'orient_lock') {
             const element = event.target.closest('.tile')
             const {x, width, y, height} = element.getBoundingClientRect()
             const dx = event.clientX - x - width/2
@@ -79,10 +84,22 @@
             rotate(timesRotate)
         }
     }
+
+
+    function onContextMenu() {
+        if (controlMode === 'rotate_lock') {
+            locked = !locked
+        } else if (controlMode === 'rotate_rotate') {
+            rotate(-1)
+        } else if (controlMode === 'orient_lock') {
+            locked = !locked
+        }
+    }
     /**
     * @param {Number} times
     */
     function rotate(times) {
+        if (locked||solved) {return}
         rotations = rotations + times
         const newDirections = grid.getDirections(tile, rotations)
 
@@ -114,7 +131,7 @@
 
 <g class='tile'
     on:click={onClick}
-    on:contextmenu|preventDefault={()=>locked=!locked} 
+    on:contextmenu|preventDefault={onContextMenu} 
 >
 <!-- Tile hexagon -->
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
@@ -143,7 +160,7 @@
         stroke-linecap="round"
         >
     </path>
-    {#if (controlMode==="click_to_orient")&&(!locked)&&(!solved)}
+    {#if (controlMode==="orient_lock")&&(!locked)&&(!solved)}
         <!-- Guide dot -->
         <circle 
             cx={cx + 0.4*Math.cos(angle)} 
