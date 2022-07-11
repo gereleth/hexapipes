@@ -1,6 +1,22 @@
 import {writable} from 'svelte/store'
 
-export const puzzleCounts = writable({})
+export const puzzleCounts = writable({
+    hexagonal: {
+        '5x5': 1000,
+        '7x7': 1000,
+        '10x10': 1000,
+        '15x15': 1000,
+        '20x20': 1000,
+        '30x30': 1000,
+        '40x40': 1000,
+    },
+    'hexagonalWrap': {
+        '5x5': 1000,
+        '7x7': 1000,
+        '10x10': 1000,
+        '15x15': 1000,
+    }
+})
 
 function createSettings() {
 
