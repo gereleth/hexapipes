@@ -1,6 +1,7 @@
 <script>
 import {settings} from '$lib/stores'
 import {onMount} from 'svelte'
+import RotationDirection from '$lib/settings/RotationDirection.svelte'
 
 let hidden = true
 
@@ -25,14 +26,14 @@ onMount(()=>{
                 bind:group={$settings.controlMode} 
                 name="controlMode" 
                 value={'rotate_lock'}>
-                ↷ Rotate / Lock
+                <RotationDirection text={false}/> Rotate / Lock
         </label>
         <label>
             <input type=radio 
                 bind:group={$settings.controlMode} 
                 name="controlMode" 
                 value={'rotate_rotate'}>
-                ↷ Rotate / Rotate ↶
+                <RotationDirection text={false}/> Rotate / Rotate <RotationDirection text={false} clockwise={false}/>
         </label>
         <label>
             <input type=radio 
@@ -44,14 +45,14 @@ onMount(()=>{
         <div class="description">
             {#if $settings.controlMode === 'rotate_lock'}
                 <ul>
-                    <li>Click / touch - rotate tile clockwise</li>
+                    <li>Click / touch - rotate tile <RotationDirection/></li>
                     <li>Right click / long press - lock tile</li>
-                    <li>Ctrl-click - rotate tile counter-clockwise</li>
+                    <li>Ctrl-click - rotate tile <RotationDirection clockwise={false}/></li>
                 </ul>
             {:else if $settings.controlMode === 'rotate_rotate'}
             <ul>
-                <li>Click / touch - rotate tile clockwise</li>
-                <li>Right click / long press - rotate tile counter-clockwise</li>
+                <li>Click / touch - rotate tile <RotationDirection/></li>
+                <li>Right click / long press - rotate tile <RotationDirection clockwise={false}/></li>
                 <li>Ctrl-click - lock tile</li>
             </ul>
             {:else if $settings.controlMode === 'orient_lock'}
@@ -61,7 +62,13 @@ onMount(()=>{
                 <li>Right click / long press - lock tile</li>
             </ul>
             {/if}
-
+        <label>
+            <input type=checkbox 
+                bind:checked={$settings.invertRotationDirection} 
+                name="invertRotationDirection" 
+                >
+                Invert rotation direction
+        </label>
         </div>
     </div>
     {/if}

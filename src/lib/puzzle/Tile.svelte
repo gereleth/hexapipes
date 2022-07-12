@@ -1,5 +1,6 @@
 <script>
     import { DIRECTIONS, OPPOSITE, XY_DELTAS, YSTEP } from '$lib/hexagrid';
+    import { settings } from '$lib/stores';
     import { tweened } from 'svelte/motion';
     import { cubicOut } from 'svelte/easing';
     import { createEventDispatcher } from 'svelte';
@@ -38,6 +39,9 @@
     
     const hexagon = `M ${cx} ${cy} ` + grid.tilePath
     
+    let rotationUnit = 1
+    $: rotationUnit = $settings.invertRotationDirection ? -1 : 1
+
     const wrapNeighbours = []
     if (grid.wrap) {
         for (let direction of DIRECTIONS) {
@@ -74,15 +78,15 @@
     function onClick(event) {
         if (controlMode === 'rotate_lock') {
             if (event.ctrlKey) {
-                rotate(-1)
+                rotate(-rotationUnit)
             } else {
-                rotate(1)
+                rotate(rotationUnit)
             }
         } else if (controlMode === 'rotate_rotate') {
             if (event.ctrlKey) {
                 locked = !locked
             } else {
-                rotate(1)
+                rotate(rotationUnit)
             }
         } else if (controlMode === 'orient_lock') {
             const element = event.target.closest('.tile')
@@ -103,7 +107,7 @@
         if (controlMode === 'rotate_lock') {
             locked = !locked
         } else if (controlMode === 'rotate_rotate') {
-            rotate(-1)
+            rotate(-rotationUnit)
         } else if (controlMode === 'orient_lock') {
             locked = !locked
         }

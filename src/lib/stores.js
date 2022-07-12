@@ -22,6 +22,7 @@ function createSettings() {
 
     let defaultSettings = {
         controlMode: 'rotate_lock',
+        invertRotationDirection: false,
     }
 
 	const { subscribe, set, update } = writable(defaultSettings);
@@ -50,7 +51,7 @@ function createSettings() {
                 } else if (parsed.controlMode === 'click_to_orient') {
                     parsed.controlMode = 'orient_lock'
                 }
-                set(parsed)
+                set(Object.assign({}, defaultSettings, parsed))
             }
         } catch (error) {
             console.log('error while loading settings from local storage')
