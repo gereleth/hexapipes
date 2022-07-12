@@ -1,7 +1,7 @@
 <script>
   import { puzzleCounts } from '$lib/stores'
   import {page} from '$app/stores'
-  import Settings from '$lib/Settings.svelte';
+  import Settings from '$lib/settings/Settings.svelte';
 
   /** @type {Number[]} */
   let sizes = []
