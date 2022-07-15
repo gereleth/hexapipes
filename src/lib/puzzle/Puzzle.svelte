@@ -1,6 +1,6 @@
 <script>
     import { browser } from '$app/env'
-    import { DIRECTIONS, HexaGrid, YSTEP } from "$lib/hexagrid";
+    import { HexaGrid } from "$lib/hexagrid";
     import { settings } from '$lib/stores';
     import Tile from '$lib/puzzle/Tile.svelte';
     import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
@@ -14,6 +14,8 @@
     export let wrap = false
     export let savedProgress
     let solved = false
+    let svgWidth = 500
+    let svgHeight = 500
 
     let grid = new HexaGrid(width, height, wrap)
 
@@ -51,8 +53,6 @@
 
     const dispatch = createEventDispatcher()
 
-    let pxPerCell = 100
-    
     let innerWidth = 500
     let innerHeight = 500
     let initialized = false
@@ -193,12 +193,14 @@
     /**
      * @param {Number} innerWidth
      * @param {Number} innerHeight
-     * @returns {Number}
+     * @returns {void}
      */
     function resize(innerWidth, innerHeight) {
-        const wpx = innerWidth / (width + 1.6)
-        const hpx = innerHeight / (YSTEP*(height + 0.5))
-        return Math.min(100, Math.min(wpx, hpx))
+        const wpx = innerWidth / (1 + grid.xmax - grid.xmin)
+        const hpx = innerHeight / (1 + grid.ymax - grid.ymin)
+        const pxPerCell = Math.min(100, Math.min(wpx, hpx))
+        svgWidth = pxPerCell*(grid.xmax - grid.xmin)
+        svgHeight = pxPerCell*(grid.ymax - grid.ymin)
     }
 
     /**
@@ -445,7 +447,7 @@
     }
     onMount(()=>{
         initializeBoard()
-        pxPerCell = resize(innerWidth, innerHeight)
+        resize(innerWidth, innerHeight)
         dispatch('initialized')
     })
 
@@ -526,6 +528,16 @@
         previousWrapNeighbours = wrapNeighbours
     }
 
+    function zoom(ev) {
+        ev.preventDefault()
+        const svg = ev.target.closest('svg')
+        const {x, y, width, height} = svg.getBoundingClientRect()
+        grid = grid.zoom(
+            ev.deltaY, 
+            (ev.clientX - x) / width, 
+            (ev.clientY - y)/ height
+        )
+    }
     let isTouching = false
     $: if (browser) document.body.classList.toggle('no-selection', isTouching);
 </script>
@@ -534,13 +546,14 @@
 
 <div class="puzzle" class:solved>
     <svg 
-        width="{pxPerCell*width}" 
-        height="{pxPerCell*height*YSTEP}"
-        viewBox="-0.6 {0.5*YSTEP} {width + 1.0} {height*YSTEP}"
+        width={svgWidth} 
+        height={svgHeight}
+        viewBox="{grid.xmin} {grid.ymin} {grid.xmax - grid.xmin} {grid.ymax - grid.ymin}"
         on:mousedown|preventDefault={()=>{}}
         on:contextmenu|preventDefault={()=>{}}
         on:touchstart={()=>isTouching=true}
         on:touchend={()=>isTouching=false}
+        on:wheel={zoom}
         >
         {#each displayTiles as displayTile, i (i)}
             <Tile tile={displayTile.tile} {i} {grid} {solved}
@@ -558,6 +571,7 @@
         {#if !solved}
             {#each edgeMarks as mark, i}
                 <EdgeMark 
+                    {grid}
                     x={mark.x} 
                     y={mark.y} 
                     state={mark.state} 

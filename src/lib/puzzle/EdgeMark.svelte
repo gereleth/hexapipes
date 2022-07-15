@@ -1,7 +1,7 @@
 <script>
-    import { XY_DELTAS, YSTEP, OPPOSITE } from '$lib/hexagrid';
     import {fade} from 'svelte/transition';
     import {createEventDispatcher} from 'svelte'
+    export let grid
     export let x = 0
     export let y = 0
     export let state='none'
@@ -12,7 +12,7 @@
     
     const dispatch = createEventDispatcher()
 
-    $: [dx, dy] = XY_DELTAS.get(OPPOSITE.get(direction))
+    $: [dx, dy] = grid.XY_DELTAS.get(grid.OPPOSITE.get(direction))
 
     function toggleState() {
         if (state==='none') {

@@ -1,11 +1,12 @@
 <script>
-    import { DIRECTIONS, OPPOSITE, XY_DELTAS, YSTEP } from '$lib/hexagrid';
     import { settings } from '$lib/stores';
     import { tweened } from 'svelte/motion';
     import { cubicOut } from 'svelte/easing';
     import { createEventDispatcher } from 'svelte';
 
+    /** @type {Number} i*/
     export let i;
+    /** @type {Number} tile*/
     export let tile;
     export let grid;
     export let locked = false
@@ -26,9 +27,8 @@
 
     let myDirections = grid.getDirections(tile, rotations)
 
-    const deltas = grid.getDirections(tile).map(direction => XY_DELTAS.get(direction))
+    const deltas = grid.getDirections(tile).map(direction => grid.XY_DELTAS.get(direction))
     let [cx, cy] = grid.index_to_xy(i)
-    cy = grid.height*YSTEP - cy
     let angle = findInitialAngle()
 
     let path = `M ${cx} ${cy}`
@@ -44,12 +44,12 @@
 
     const wrapNeighbours = []
     if (grid.wrap) {
-        for (let direction of DIRECTIONS) {
+        for (let direction of grid.DIRECTIONS) {
             const {neighbour, wrapped} = grid.find_neighbour(i, direction)
             if (wrapped) {
                 wrapNeighbours.push(
                     [i, direction],
-                    [neighbour, OPPOSITE.get(direction)]
+                    [neighbour, grid.OPPOSITE.get(direction)]
                 )
             }
         }
@@ -151,7 +151,7 @@
         const lines = []
         const length = 0.04
         for (let direction of highlightDirections) {
-            const [lx, ly] = XY_DELTAS.get(direction)
+            const [lx, ly] = grid.XY_DELTAS.get(direction)
             lines.push({
                 x1: cx + (0.5-length)*lx,
                 x2: cx + (0.5+length)*lx,

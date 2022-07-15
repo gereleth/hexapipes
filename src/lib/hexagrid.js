@@ -1,38 +1,39 @@
-export const EAST = 1;
-export const NORTHEAST = 2;
-export const NORTHWEST = 4;
-export const WEST = 8;
-export const SOUTHWEST = 16;
-export const SOUTHEAST = 32;
-
-export const YSTEP = Math.sqrt(3) / 2;
-
-export const DIRECTIONS = [EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST];
-
-export const OPPOSITE = new Map([
-	[NORTHEAST, SOUTHWEST],
-	[SOUTHWEST, NORTHEAST],
-	[EAST, WEST],
-	[WEST, EAST],
-	[NORTHWEST, SOUTHEAST],
-	[SOUTHEAST, NORTHWEST]
-]);
-
-export const XY_DELTAS = new Map([
-	[EAST, [1, 0]],
-	[WEST, [-1, 0]],
-	[NORTHEAST, [0.5, YSTEP]],
-	[NORTHWEST, [-0.5, YSTEP]],
-	[SOUTHEAST, [0.5, -YSTEP]],
-	[SOUTHWEST, [-0.5, -YSTEP]]
-]);
-
 /**
  * @param {Number} width
  * @param {Number} height
  */
 export function HexaGrid(width, height, wrap=false) {
 	let self = this;
+
+	const EAST = 1;
+	const NORTHEAST = 2;
+	const NORTHWEST = 4;
+	const WEST = 8;
+	const SOUTHWEST = 16;
+	const SOUTHEAST = 32;
+	
+	this.YSTEP = Math.sqrt(3) / 2;
+	
+	this.DIRECTIONS = [EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST];
+	
+	this.OPPOSITE = new Map([
+		[NORTHEAST, SOUTHWEST],
+		[SOUTHWEST, NORTHEAST],
+		[EAST, WEST],
+		[WEST, EAST],
+		[NORTHWEST, SOUTHEAST],
+		[SOUTHEAST, NORTHWEST]
+	]);
+	
+	this.XY_DELTAS = new Map([
+		[EAST, [1, 0]],
+		[WEST, [-1, 0]],
+		[NORTHEAST, [0.5, this.YSTEP]],
+		[NORTHWEST, [-0.5, this.YSTEP]],
+		[SOUTHEAST, [0.5, -this.YSTEP]],
+		[SOUTHWEST, [-0.5, -this.YSTEP]]
+	]);
+	
 
 	this.width = width;
 	this.height = height;
@@ -84,6 +85,26 @@ export function HexaGrid(width, height, wrap=false) {
 		]
 	]);
 
+	this.XMIN = -0.6
+	this.XMAX = self.width + 0.1
+	this.YMIN = 0
+	this.YMAX = (self.height+1)*self.YSTEP
+
+	this.xmin = this.XMIN
+	this.xmax = this.XMAX
+	this.ymin = this.YMIN
+	this.ymax = this.YMAX
+
+	this.zoom = function(magnitude, relativeX, relativeY) {
+		// console.log(magnitude, relativeX, relativeY)
+		const delta = magnitude > 0 ? -0.1 : 0.1
+		self.xmin = Math.max(self.XMIN, self.xmin + relativeX * delta)
+		self.ymin = Math.max(self.YMIN, self.ymin + relativeY*delta*self.YSTEP)
+		self.xmax = Math.min(self.XMAX, self.xmax - (1 - relativeX)*delta)
+		self.ymax = Math.min(self.YMAX, self.ymax - (1 - relativeY)*delta*self.YSTEP)
+		return self
+	}
+
 	/**
 	 * @param {Number} index
 	 */
@@ -94,10 +115,10 @@ export function HexaGrid(width, height, wrap=false) {
 		let x, y;
 		if (a < self.width) {
 			x = a;
-			y = YSTEP * (self.height - 1 - 2 * b);
+			y = self.YSTEP * (1 + 2 * b);
 		} else {
 			x = a - self.width + 0.5;
-			y = YSTEP * (self.height - 2 - 2 * b);
+			y = self.YSTEP * (2 + 2 * b);
 		}
 		return [x, y];
 	};
@@ -149,20 +170,20 @@ export function HexaGrid(width, height, wrap=false) {
 		const edgeMarks = []
 		for (let i=0; i<self.total; i++) {
 			const [x, y] = self.index_to_xy(i)
-			for (let direction of DIRECTIONS) {
+			for (let direction of self.DIRECTIONS) {
 				const {neighbour, wrapped} = self.find_neighbour(i, direction)
 				if (neighbour > i) {
-					const [dx, dy] = XY_DELTAS.get(direction)
+					const [dx, dy] = self.XY_DELTAS.get(direction)
 					const mark = {
-						x: x+dx*0.5,
-						y: self.height*YSTEP - (y+dy*0.5),
+						x: x + dx*0.5,
+						y: y - dy*0.5,
 						direction: direction,
 						state: 'none',
 					}
 					if (wrapped) {
 						const [nx, ny] = self.index_to_xy(neighbour)
 						mark.wrapX = nx - dx*0.5
-						mark.wrapY = self.height*YSTEP - (ny-dy*0.5)
+						mark.wrapY = ny + dy*0.5
 					}
 					edgeMarks.push(mark)
 				}
@@ -186,16 +207,16 @@ export function HexaGrid(width, height, wrap=false) {
 
 	this.getDirections = function (tile, rotations=0) {
 		const rotated = self.rotate(tile, rotations)
-		return DIRECTIONS.filter((direction) => (direction & rotated) > 0);
+		return self.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
 	};
 
 	this.tilePath = '';
 	for (let p = 0; p < 6; p++) {
 		const angle = (Math.PI * (2 * p + 1)) / 6;
-		const dx = (0.49 * Math.cos(angle)) / YSTEP;
-		const dy = (-0.49 * Math.sin(angle)) / YSTEP;
+		const dx = (0.49 * Math.cos(angle)) / self.YSTEP;
+		const dy = (-0.49 * Math.sin(angle)) / self.YSTEP;
 		if (this.tilePath === '') {
-			this.tilePath += ` m ${dx - 0.49} ${dy + 0.98*YSTEP}`;
+			this.tilePath += ` m ${dx - 0.49} ${dy + 0.98*self.YSTEP}`;
 		}
 		this.tilePath += ` l ${dx} ${dy}`;
 	}
