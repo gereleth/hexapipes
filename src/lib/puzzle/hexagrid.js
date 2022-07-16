@@ -1,6 +1,10 @@
+
 /**
+ * A hexagonal grid
+ * @constructor
  * @param {Number} width
  * @param {Number} height
+ * @param {Boolean} wrap
  */
 export function HexaGrid(width, height, wrap=false) {
 	let self = this;

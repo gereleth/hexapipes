@@ -7,6 +7,7 @@ Made with Svelte Kit, currently deployed at [hexapipes.vercel.app](www.hexapipes
 
 TODO:
 
+- restore edgemarks when loading progress
 - undo/redo stack
 - zoom/pan the svg
     - will maybe help with performance on large puzzles if we only render the visible tiles when zoomed in?
