@@ -113,21 +113,6 @@
         save.soon()
     }
 
-    let previousWrapNeighbours = []
-
-    function highlightWrapNeighbours(event) {
-        const wrapNeighbours = event.detail
-        for (let [index, direction] of previousWrapNeighbours) {
-            displayTiles[index].highlightDirections.delete(direction)
-            displayTiles[index].highlightDirections = displayTiles[index].highlightDirections
-        }
-        for (let [index, direction] of wrapNeighbours) {
-            displayTiles[index].highlightDirections.add(direction)
-            displayTiles[index].highlightDirections = displayTiles[index].highlightDirections
-        }
-        previousWrapNeighbours = wrapNeighbours
-    }
-
     function zoom(ev) {
         ev.preventDefault()
         const svg = ev.target.closest('svg')
@@ -162,10 +147,8 @@
         {#each displayTiles as displayTile, i (i)}
             <Tile {i} solved={$solved} {game}
                 controlMode={$settings.controlMode}
-                highlightDirections={displayTile.highlightDirections}
                 on:connections={game.handleConnections}
                 on:toggleLocked={()=> {if (!$solved) {save.soon()}}}
-                on:highlightWrap={highlightWrapNeighbours}
                 />
         {/each}
         {#if !$solved}

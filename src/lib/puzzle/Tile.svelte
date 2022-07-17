@@ -14,7 +14,6 @@
 
     export let solved = false
     export let controlMode = 'rotate_lock'
-    export let highlightDirections = new Set()
 
     let state = game.tileStates[i]
 
@@ -44,18 +43,6 @@
     let rotationUnit = 1
     $: rotationUnit = $settings.invertRotationDirection ? -1 : 1
 
-    const wrapNeighbours = []
-    if (game.grid.wrap) {
-        for (let direction of game.grid.DIRECTIONS) {
-            const {neighbour, wrapped} = game.grid.find_neighbour(i, direction)
-            if (wrapped) {
-                wrapNeighbours.push(
-                    [i, direction],
-                    [neighbour, game.grid.OPPOSITE.get(direction)]
-                )
-            }
-        }
-    }
     /**
     * @returns {Number}
     */
@@ -143,28 +130,6 @@
         }
     }
 
-    function highlightWrapNeighbours() {
-        if (wrapNeighbours.length > 0) {
-            dispatch('highlightWrap', wrapNeighbours)
-        }
-    }
-
-    function getHighlightLines(highlightDirections) {
-        const lines = []
-        const length = 0.04
-        for (let direction of highlightDirections) {
-            const [lx, ly] = grid.XY_DELTAS.get(direction)
-            lines.push({
-                x1: cx + (0.5-length)*lx,
-                x2: cx + (0.5+length)*lx,
-                y1: cy - (0.5-length)*ly,
-                y2: cy - (0.5+length)*ly,
-            })
-
-        }
-        return lines
-    }
-
     $: chooseBgColor($state.locked, $state.isPartOfLoop)
 
     $: $state.locked, dispatch('toggleLocked')
@@ -173,7 +138,6 @@
 <g class='tile'
     on:click={onClick}
     on:contextmenu|preventDefault={onContextMenu}
-    on:mouseenter={highlightWrapNeighbours}
 >
 <!-- Tile hexagon -->
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
@@ -214,15 +178,6 @@
             />
     {/if}
 </g>
-
-{#each getHighlightLines(highlightDirections) as line}
-<line 
-    class='wrap'
-    {...line}
-    stroke="#777"
-    stroke-width="0.3" />
-{/each}
-
 </g>
 
 <style>
