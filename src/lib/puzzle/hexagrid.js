@@ -89,10 +89,10 @@ export function HexaGrid(width, height, wrap=false) {
 		]
 	]);
 
-	this.XMIN = -0.6
-	this.XMAX = self.width + 0.1
-	this.YMIN = -self.YSTEP
-	this.YMAX = self.height*self.YSTEP
+	this.XMIN = -0.6 - (self.wrap ? 1 : 0)
+	this.XMAX = self.width + 0.1 + (self.wrap ? 1 : 0)
+	this.YMIN = - self.YSTEP*(1 + (self.wrap ? 1 : 0))
+	this.YMAX = self.YSTEP*(self.height + (self.wrap ? 1 : 0))
 
 	this.xmin = this.XMIN
 	this.xmax = this.XMAX
@@ -247,7 +247,6 @@ export function HexaGrid(width, height, wrap=false) {
 				const y = r*self.YSTEP
 				const key = `${Math.round(10*x)}_${Math.round(10*y)}`
 				visibleTiles.push({
-					r, c,
 					index: self.rc_to_index(r, c),
 					x,
 					y,
