@@ -11,7 +11,8 @@
      * @type {import('$lib/puzzle/game').PipesGame} game
      */
     export let game
-
+    export let cx = 0
+    export let cy = 0
     export let solved = false
     export let controlMode = 'rotate_lock'
 
@@ -26,10 +27,9 @@
 		easing: cubicOut
 	})
 
-    let myDirections = game.grid.getDirections($state.tile, $state.rotations)
+    const myDirections = game.grid.getDirections($state.tile)
 
-    const deltas = game.grid.getDirections($state.tile).map(direction => game.grid.XY_DELTAS.get(direction))
-    let [cx, cy] = game.grid.index_to_xy(i)
+    const deltas = myDirections.map(direction => game.grid.XY_DELTAS.get(direction))
     let angle = findInitialAngle()
 
     let path = `M ${cx} ${cy}`
@@ -73,7 +73,7 @@
             }
         } else if (controlMode === 'rotate_rotate') {
             if (event.ctrlKey) {
-                state.locked = !state.locked
+                state.toggleLocked()
             } else {
                 rotate(rotationUnit)
             }
@@ -106,10 +106,11 @@
     */
     function rotate(times) {
         if ($state.locked||solved) {return}
+        // this tile might be rotated in another component if it's a wrap puzzle
+        // so safer to always calculate directions from state
+        const myDirections = game.grid.getDirections($state.tile, $state.rotations)
         state.setRotations($state.rotations + times)
         const newDirections = game.grid.getDirections($state.tile, $state.rotations)
-
-        rotationAnimate.set($state.rotations)
 
         const dirOut = myDirections.filter(direction => !(newDirections.some(d=>d===direction)))
         const dirIn = newDirections.filter(direction => !(myDirections.some(d=>d===direction)))
@@ -117,9 +118,7 @@
             tileIndex: i,
             dirOut: dirOut,
             dirIn: dirIn,
-            from: 'user',
         })
-        myDirections = newDirections
     }
 
     function chooseBgColor() {
@@ -133,6 +132,9 @@
     $: chooseBgColor($state.locked, $state.isPartOfLoop)
 
     $: $state.locked, dispatch('toggleLocked')
+
+    // want to animate even if rotation is from another wrap tile
+    $: rotationAnimate.set($state.rotations)
 </script>
 
 <g class='tile'

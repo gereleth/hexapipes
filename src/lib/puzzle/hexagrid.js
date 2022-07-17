@@ -91,8 +91,8 @@ export function HexaGrid(width, height, wrap=false) {
 
 	this.XMIN = -0.6
 	this.XMAX = self.width + 0.1
-	this.YMIN = 0
-	this.YMAX = (self.height+1)*self.YSTEP
+	this.YMIN = -self.YSTEP
+	this.YMAX = self.height*self.YSTEP
 
 	this.xmin = this.XMIN
 	this.xmax = this.XMAX
@@ -102,10 +102,16 @@ export function HexaGrid(width, height, wrap=false) {
 	this.zoom = function(magnitude, relativeX, relativeY) {
 		// console.log(magnitude, relativeX, relativeY)
 		const delta = magnitude > 0 ? -0.1 : 0.1
-		self.xmin = Math.max(self.XMIN, self.xmin + relativeX * delta)
-		self.ymin = Math.max(self.YMIN, self.ymin + relativeY*delta*self.YSTEP)
-		self.xmax = Math.min(self.XMAX, self.xmax - (1 - relativeX)*delta)
-		self.ymax = Math.min(self.YMAX, self.ymax - (1 - relativeY)*delta*self.YSTEP)
+		self.xmin = self.xmin + relativeX * delta
+		self.ymin = self.ymin + relativeY*delta*self.YSTEP
+		self.xmax = self.xmax - (1 - relativeX)*delta
+		self.ymax = self.ymax - (1 - relativeY)*delta*self.YSTEP
+		if (!self.wrap) {
+			self.xmin = Math.max(self.XMIN, self.xmin)
+			self.ymin = Math.max(self.YMIN, self.ymin)
+			self.xmax = Math.min(self.XMAX, self.xmax)
+			self.ymax = Math.min(self.YMAX, self.ymax)
+		}
 		return self
 	}
 
@@ -219,6 +225,64 @@ export function HexaGrid(width, height, wrap=false) {
 		const rotated = self.rotate(tile, rotations)
 		return self.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
 	};
+
+	this.getVisibleTiles = function() {
+		// console.log(self.xmin, self.xmax, self.ymin, self.ymax)
+		let rmin = Math.floor(self.ymin / self.YSTEP) - 1
+		let rmax = Math.ceil(self.ymax / self.YSTEP) - 1
+		if (!self.wrap) {
+			rmin = Math.max(0, rmin)
+			rmax = Math.min(self.height-1, rmax)
+		}
+		let cmin = Math.floor(self.xmin - (rmin%2===0 ? 0 : 0.5) )
+		let cmax = Math.ceil(self.xmax - (rmin%2===0 ? 0 : 0.5) )
+		if (!self.wrap) {
+			cmin = Math.max(0, cmin)
+			cmax = Math.min(self.width-1, cmax)
+		}
+		const visibleTiles = []
+		for (let r=rmin; r<=rmax; r++) {
+			for (let c=cmin; c<=cmax; c++) {
+				const x = c + (r%2===0 ? 0.0 : 0.5)
+				const y = r*self.YSTEP
+				const key = `${Math.round(10*x)}_${Math.round(10*y)}`
+				visibleTiles.push({
+					r, c,
+					index: self.rc_to_index(r, c),
+					x,
+					y,
+					key,
+				})
+			}
+		}
+		return visibleTiles
+	}
+
+	/**
+	 * 
+	 * @param {Number} r 
+	 * @param {Number} c 
+	 * @returns {Number}
+	 */
+	this.rc_to_index = function (r, c) {
+		if (self.wrap) {
+			while (r < 0) {
+				const evenRow = (r%2 === 0)
+				r += self.height
+				c += evenRow ? 0 : 1
+			}
+			while (r >= self.height) {
+				const evenRow = (r%2 === 0)
+				r -= self.height
+				c -= evenRow ? 1 : 0
+			}
+			c = c % self.width
+			if (c < 0) {
+				c += self.width
+			}
+		}
+		return self.width * r + c
+	}
 
 	this.tilePath = '';
 	for (let p = 0; p < 6; p++) {

@@ -20,7 +20,7 @@
     let game = new PipesGame(grid, tiles, savedProgress)
     let solved = game.solved
 
-    let displayTiles = game.tileStates
+    let visibleTiles = grid.getVisibleTiles()
 
     const dispatch = createEventDispatcher()
 
@@ -81,17 +81,17 @@
     }
 
     function saveProgress() {
-        const data = {
-            tiles: displayTiles.map(tile => {
-                return {
-                    rotations: tile.rotations,
-                    color: tile.color,
-                    locked: tile.locked,
-                }
-            }),
-            wallMarks: [...wallMarks],
-            connectionMarks: [...connectionMarks],
-        }
+        // const data = {
+        //     tiles: visibleTiles.map(tile => {
+        //         return {
+        //             rotations: tile.rotations,
+        //             color: tile.color,
+        //             locked: tile.locked,
+        //         }
+        //     }),
+        //     wallMarks: [...wallMarks],
+        //     connectionMarks: [...connectionMarks],
+        // }
         // dispatch('progress', data)
     }
 
@@ -122,6 +122,7 @@
             (ev.clientX - x) / width, 
             (ev.clientY - y)/ height
         )
+        visibleTiles = grid.getVisibleTiles()
     }
     let isTouching = false
     $: if (browser) document.body.classList.toggle('no-selection', isTouching);
@@ -144,8 +145,10 @@
         on:touchend={()=>isTouching=false}
         on:wheel={zoom}
         >
-        {#each displayTiles as displayTile, i (i)}
-            <Tile {i} solved={$solved} {game}
+        {#each visibleTiles as visibleTile, i (visibleTile.key)}
+            <Tile i={visibleTile.index} solved={$solved} {game}
+                cx={visibleTile.x}
+                cy={visibleTile.y}
                 controlMode={$settings.controlMode}
                 on:connections={game.handleConnections}
                 on:toggleLocked={()=> {if (!$solved) {save.soon()}}}

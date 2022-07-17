@@ -17,7 +17,6 @@ import { writable } from 'svelte/store';
  * @property {String} color
  * @property {Boolean} locked
  * @property {Boolean} isPartOfLoop
- * @property {Set<Number>} highlightDirections
  */
 
 /**
@@ -36,48 +35,45 @@ import { writable } from 'svelte/store';
  */
 
 /**
+ * @constructor
  * @param {TileState} initialState 
  */
-function createStateStore(initialState) {
+function StateStore(initialState) {
+	let self = this
+
 	const { subscribe, set, update } = writable(initialState);
-	const data = Object.assign({}, initialState)
+	self.data = Object.assign({}, initialState)
+	self.subscribe = subscribe
 	/**
 	 * @param {Number} rotations
 	 */
-	function setRotations(rotations) {
-		data.rotations = rotations
-		set(data)
+	self.setRotations = function(rotations) {
+		self.data.rotations = rotations
+		set(self.data)
 	}
 
 	/**
 	 * @param {String} color
 	 */
-	function setColor(color) {
-		data.color = color
-		set(data)
+	self.setColor = function(color) {
+		self.data.color = color
+		set(self.data)
 	}
 
-	function toggleLocked() {
-		data.locked = !data.locked
-		set(data)
+	self.toggleLocked = function() {
+		self.data.locked = !self.data.locked
+		set(self.data)
 	}
 
 	/**
 	 * @param {Boolean} isPartOfLoop
 	 */
-	function setPartOfLoop(isPartOfLoop) {
-		data.isPartOfLoop = isPartOfLoop
-		set(data)
+	self.setPartOfLoop = function(isPartOfLoop) {
+		self.data.isPartOfLoop = isPartOfLoop
+		set(self.data)
 	}
 
-	return {
-		subscribe,
-		setColor,
-		setRotations,
-		setPartOfLoop,
-		toggleLocked,
-		data,
-	};
+	return self;
 }
 
 /**
@@ -100,7 +96,9 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * tile index => set of neighbours that it points to */
 	self.connections = new Map();
 
-
+	/**
+	 * @type {StateStore[]}
+	 */
 	self.tileStates = [];
 
 	/**
@@ -111,24 +109,22 @@ export function PipesGame(grid, tiles, savedProgress) {
 
 	if (savedProgress) {
 		self.tileStates = savedProgress.tiles.map((savedTile, index) => {
-			return createStateStore({
+			return new StateStore({
 				tile: tiles[index],
 				rotations: savedTile.rotations,
 				color: savedTile.color,
 				isPartOfLoop: false,
 				locked: savedTile.locked,
-				highlightDirections: new Set()
 			});
 		});
 	} else {
 		self.tileStates = tiles.map((tile) => {
-			return createStateStore({
+			return new StateStore({
 				tile: tile,
 				rotations: 0,
 				color: 'white',
 				isPartOfLoop: false,
 				locked: false,
-				highlightDirections: new Set()
 			});
 		});
 	}
@@ -146,7 +142,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 					})
 				)
 			);
-			// self.connections.get(index).delete(-1);
+			// @ts-ignore
+			self.connections.get(index).delete(-1);
 
 			const component = {
 				color: state.color,
@@ -187,13 +184,13 @@ export function PipesGame(grid, tiles, savedProgress) {
 		}
 		dirOut.forEach((direction) => {
 			const { neighbour } = self.grid.find_neighbour(tileIndex, direction);
+			if (neighbour === -1) {
+				return;
+			}
 			tileConnections.delete(neighbour);
-			// if (neighbour === -1) {
-			// 	return;
-			// }
 			const neighbourConnections = self.connections.get(neighbour);
 			if (neighbourConnections === undefined) {
-				return;
+				throw `Could not find connections data for tile ${neighbour}`;
 			}
 			if (!neighbourConnections.has(tileIndex)) {
 				return; // this connection wasn't mutual, no action needed
@@ -213,7 +210,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileConnections.add(neighbour);
 			const neighbourConnections = self.connections.get(neighbour);
 			if (neighbourConnections === undefined) {
-				return;
+				throw `Could not find connections data for tile ${neighbour}`;
 			}
 			if (!neighbourConnections.has(tileIndex)) {
 				return; // non-mutual link shouldn't lead to merging
@@ -262,7 +259,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				// console.log('checking tile', tileIndex, 'coming from', fromIndex)
 				const neighbours = self.connections.get(tileIndex);
 				if (neighbours === undefined) {
-					return false;
+					throw `Could not find connections data for tile ${tileIndex}`;
 				}
 				// console.log('tile neighbours', neighbours)
 				for (let neighbour of neighbours) {
@@ -275,7 +272,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 					}
 					const neighbourConnections = self.connections.get(neighbour);
 					if (neighbourConnections === undefined) {
-						return false;
+						throw `Could not find connections data for tile ${neighbour}`;
 					}
 					// console.log('neighbour connections', neighbourConnections)
 					if (!neighbourConnections.has(tileIndex)) {
