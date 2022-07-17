@@ -209,6 +209,12 @@ export function HexaGrid(width, height, wrap=false) {
 		return rotated
 	}
 
+	/**
+	 * 
+	 * @param {Number} tile 
+	 * @param {Number} rotations 
+	 * @returns {Number[]}
+	 */
 	this.getDirections = function (tile, rotations=0) {
 		const rotated = self.rotate(tile, rotations)
 		return self.DIRECTIONS.filter((direction) => (direction & rotated) > 0);

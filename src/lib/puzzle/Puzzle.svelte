@@ -92,7 +92,7 @@
             wallMarks: [...wallMarks],
             connectionMarks: [...connectionMarks],
         }
-        dispatch('progress', data)
+        // dispatch('progress', data)
     }
 
     const save = createThrottle(saveProgress, 3000)
@@ -160,12 +160,8 @@
         on:wheel={zoom}
         >
         {#each displayTiles as displayTile, i (i)}
-            <Tile tile={displayTile.tile} {i} {grid} solved={$solved}
-                bind:rotations={displayTile.rotations}
-                bind:locked={displayTile.locked}
-                isPartOfLoop={displayTile.isPartOfLoop}
+            <Tile {i} solved={$solved} {game}
                 controlMode={$settings.controlMode}
-                fillColor={displayTile.color}
                 highlightDirections={displayTile.highlightDirections}
                 on:connections={game.handleConnections}
                 on:toggleLocked={()=> {if (!$solved) {save.soon()}}}

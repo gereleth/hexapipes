@@ -6,29 +6,31 @@
 
     /** @type {Number} i*/
     export let i;
-    /** @type {Number} tile*/
-    export let tile;
-    export let grid;
-    export let locked = false
-    export let rotations = 0
-    export let fillColor = 'white'
+
+    /**
+     * @type {import('$lib/puzzle/game').PipesGame} game
+     */
+    export let game
+
     export let solved = false
     export let controlMode = 'rotate_lock'
-    export let isPartOfLoop = false
     export let highlightDirections = new Set()
+
+    let state = game.tileStates[i]
+
     let bgColor = '#aaa'
 
     const dispatch = createEventDispatcher();
 
-    let rotationAnimate = tweened(rotations, {
+    let rotationAnimate = tweened($state.rotations, {
 		duration: 75,
 		easing: cubicOut
 	})
 
-    let myDirections = grid.getDirections(tile, rotations)
+    let myDirections = game.grid.getDirections($state.tile, $state.rotations)
 
-    const deltas = grid.getDirections(tile).map(direction => grid.XY_DELTAS.get(direction))
-    let [cx, cy] = grid.index_to_xy(i)
+    const deltas = game.grid.getDirections($state.tile).map(direction => game.grid.XY_DELTAS.get(direction))
+    let [cx, cy] = game.grid.index_to_xy(i)
     let angle = findInitialAngle()
 
     let path = `M ${cx} ${cy}`
@@ -37,19 +39,19 @@
     }
     const isSink = (myDirections.length === 1)
     
-    const hexagon = `M ${cx} ${cy} ` + grid.tilePath
+    const hexagon = `M ${cx} ${cy} ` + game.grid.tilePath
     
     let rotationUnit = 1
     $: rotationUnit = $settings.invertRotationDirection ? -1 : 1
 
     const wrapNeighbours = []
-    if (grid.wrap) {
-        for (let direction of grid.DIRECTIONS) {
-            const {neighbour, wrapped} = grid.find_neighbour(i, direction)
+    if (game.grid.wrap) {
+        for (let direction of game.grid.DIRECTIONS) {
+            const {neighbour, wrapped} = game.grid.find_neighbour(i, direction)
             if (wrapped) {
                 wrapNeighbours.push(
                     [i, direction],
-                    [neighbour, grid.OPPOSITE.get(direction)]
+                    [neighbour, game.grid.OPPOSITE.get(direction)]
                 )
             }
         }
@@ -84,7 +86,7 @@
             }
         } else if (controlMode === 'rotate_rotate') {
             if (event.ctrlKey) {
-                locked = !locked
+                state.locked = !state.locked
             } else {
                 rotate(rotationUnit)
             }
@@ -95,7 +97,7 @@
             const dy = height/2 - (event.clientY - y)
             const newAngle = Math.atan2(dy, dx)
             const newRotations = Math.round((angle - newAngle)*3/Math.PI)
-            let timesRotate = newRotations - (rotations%6)
+            let timesRotate = newRotations - ($state.rotations%6)
             if (timesRotate < -3.5) {timesRotate += 6}
             else if (timesRotate > 3.5) {timesRotate -=6}
             rotate(timesRotate)
@@ -105,22 +107,22 @@
 
     function onContextMenu() {
         if (controlMode === 'rotate_lock') {
-            locked = !locked
+            state.toggleLocked()
         } else if (controlMode === 'rotate_rotate') {
             rotate(-rotationUnit)
         } else if (controlMode === 'orient_lock') {
-            locked = !locked
+            state.toggleLocked()
         }
     }
     /**
     * @param {Number} times
     */
     function rotate(times) {
-        if (locked||solved) {return}
-        rotations = rotations + times
-        const newDirections = grid.getDirections(tile, rotations)
+        if ($state.locked||solved) {return}
+        state.setRotations($state.rotations + times)
+        const newDirections = game.grid.getDirections($state.tile, $state.rotations)
 
-        rotationAnimate.set(rotations)
+        rotationAnimate.set($state.rotations)
 
         const dirOut = myDirections.filter(direction => !(newDirections.some(d=>d===direction)))
         const dirIn = newDirections.filter(direction => !(myDirections.some(d=>d===direction)))
@@ -134,10 +136,10 @@
     }
 
     function chooseBgColor() {
-        if (isPartOfLoop) {
-            bgColor = locked ? '#f99' : '#fbb'
+        if ($state.isPartOfLoop) {
+            bgColor = $state.locked ? '#f99' : '#fbb'
         } else {
-            bgColor = locked ? '#bbb' : '#ddd'
+            bgColor = $state.locked ? '#bbb' : '#ddd'
         }
     }
 
@@ -163,9 +165,9 @@
         return lines
     }
 
-    $: chooseBgColor(locked, isPartOfLoop)
+    $: chooseBgColor($state.locked, $state.isPartOfLoop)
 
-    $: locked, dispatch('toggleLocked')
+    $: $state.locked, dispatch('toggleLocked')
 </script>
 
 <g class='tile'
@@ -189,18 +191,18 @@
     </path>
     <!-- Sink circle -->
     {#if isSink}
-        <circle {cx} {cy} r="0.15" fill={fillColor} stroke="#888" stroke-width="0.05" class='inside'/>
+        <circle {cx} {cy} r="0.15" fill={$state.color} stroke="#888" stroke-width="0.05" class='inside'/>
     {/if}
     <!-- Pipe inside -->
     <path class='inside'
         d={path} 
-        stroke={fillColor} 
+        stroke={$state.color} 
         stroke-width="0.10" 
         stroke-linejoin="round" 
         stroke-linecap="round"
         >
     </path>
-    {#if (controlMode==="orient_lock")&&(!locked)&&(!solved)}
+    {#if (controlMode==="orient_lock")&&(!$state.locked)&&(!solved)}
         <!-- Guide dot -->
         <circle 
             cx={cx + 0.4*Math.cos(angle)} 

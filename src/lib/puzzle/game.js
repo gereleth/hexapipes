@@ -36,6 +36,51 @@ import { writable } from 'svelte/store';
  */
 
 /**
+ * @param {TileState} initialState 
+ */
+function createStateStore(initialState) {
+	const { subscribe, set, update } = writable(initialState);
+	const data = Object.assign({}, initialState)
+	/**
+	 * @param {Number} rotations
+	 */
+	function setRotations(rotations) {
+		data.rotations = rotations
+		set(data)
+	}
+
+	/**
+	 * @param {String} color
+	 */
+	function setColor(color) {
+		data.color = color
+		set(data)
+	}
+
+	function toggleLocked() {
+		data.locked = !data.locked
+		set(data)
+	}
+
+	/**
+	 * @param {Boolean} isPartOfLoop
+	 */
+	function setPartOfLoop(isPartOfLoop) {
+		data.isPartOfLoop = isPartOfLoop
+		set(data)
+	}
+
+	return {
+		subscribe,
+		setColor,
+		setRotations,
+		setPartOfLoop,
+		toggleLocked,
+		data,
+	};
+}
+
+/**
  * Pipes puzzle internal state
  * @constructor
  * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
@@ -48,16 +93,14 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.grid = grid;
 	self.tiles = tiles;
 	self.initialized = false;
-	self.solved = writable(false);;
+	self.solved = writable(false);
 
 	/**
 	 * @type {Map<Number, Set<Number>>} - a map of
 	 * tile index => set of neighbours that it points to */
 	self.connections = new Map();
 
-	/**
-	 * @type {TileState[]}
-	 */
+
 	self.tileStates = [];
 
 	/**
@@ -68,32 +111,33 @@ export function PipesGame(grid, tiles, savedProgress) {
 
 	if (savedProgress) {
 		self.tileStates = savedProgress.tiles.map((savedTile, index) => {
-			return {
+			return createStateStore({
 				tile: tiles[index],
 				rotations: savedTile.rotations,
 				color: savedTile.color,
 				isPartOfLoop: false,
 				locked: savedTile.locked,
 				highlightDirections: new Set()
-			};
+			});
 		});
 	} else {
 		self.tileStates = tiles.map((tile) => {
-			return {
+			return createStateStore({
 				tile: tile,
 				rotations: 0,
 				color: 'white',
 				isPartOfLoop: false,
 				locked: false,
 				highlightDirections: new Set()
-			};
+			});
 		});
 	}
 
 	self.initializeBoard = function () {
 		// create components and fill in connections data
-		self.tileStates.forEach((tile, index) => {
-			let directions = self.grid.getDirections(tile.tile, tile.rotations);
+		self.tileStates.forEach((tileState, index) => {
+			const state = tileState.data
+			let directions = self.grid.getDirections(state.tile, state.rotations);
 			self.connections.set(
 				index,
 				new Set(
@@ -105,14 +149,15 @@ export function PipesGame(grid, tiles, savedProgress) {
 			// self.connections.get(index).delete(-1);
 
 			const component = {
-				color: tile.color,
+				color: state.color,
 				tiles: new Set([index])
 			};
 			self.components.set(index, component);
 		});
 		// merge initial components of connected tiles
-		self.tileStates.forEach((tile, index) => {
-			let directions = self.grid.getDirections(tile.tile, tile.rotations);
+		self.tileStates.forEach((tileState, index) => {
+			const state = tileState.data
+			let directions = self.grid.getDirections(state.tile, state.rotations);
 			self.handleConnections({
 				detail: {
 					dirIn: directions,
@@ -177,7 +222,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			self.mergeComponents(tileIndex, neighbour);
 		});
 		if (self.initialized) {
-			const isSolved = self.isSolved()
+			const isSolved = self.isSolved();
 			if (isSolved) {
 				self.solved.set(isSolved);
 			}
@@ -280,7 +325,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			// console.log('merge component to itself, its a loop', fromIndex, toIndex)
 			const loopTiles = self.detectLoops(fromComponent.tiles);
 			for (let tile of fromComponent.tiles) {
-				self.tileStates[tile].isPartOfLoop = loopTiles.has(tile);
+				self.tileStates[tile].setPartOfLoop(loopTiles.has(tile));
 			}
 			return;
 		}
@@ -297,7 +342,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			}
 			if (constantComponent.color !== newColor) {
 				constantComponent.tiles.forEach((tileIndex) => {
-					self.tileStates[tileIndex].color = newColor;
+					self.tileStates[tileIndex].setColor(newColor);
 				});
 			}
 			constantComponent.color = newColor;
@@ -305,7 +350,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		for (let changedTile of changedComponent.tiles) {
 			self.components.set(changedTile, constantComponent);
 			constantComponent.tiles.add(changedTile);
-			self.tileStates[changedTile].color = constantComponent.color;
+			self.tileStates[changedTile].setColor(constantComponent.color);
 		}
 	};
 
@@ -326,7 +371,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			// console.log('not disconnecting because of other connection', fromIndex, toIndex)
 			const loopTiles = self.detectLoops(bigComponent.tiles);
 			for (let tile of bigComponent.tiles) {
-				self.tileStates[tile].isPartOfLoop = loopTiles.has(tile);
+				self.tileStates[tile].setPartOfLoop(loopTiles.has(tile));
 			}
 			return;
 		}
@@ -341,7 +386,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		for (let tileIndex of changeTiles) {
 			self.components.set(tileIndex, newComponent);
 			bigComponent.tiles.delete(tileIndex);
-			self.tileStates[tileIndex].color = newComponent.color;
+			self.tileStates[tileIndex].setColor(newComponent.color);
 		}
 		// console.log('created new component', newComponent.id, 'with tiles', [...changeTiles])
 	};
@@ -425,8 +470,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 		/**
 		 * Tries to find a path from one tile through another
 		 * and back to itself
-		 * @param {Number} fromTile 
-		 * @param {Number} throughTile 
+		 * @param {Number} fromTile
+		 * @param {Number} throughTile
 		 * @returns {Number[]} - tile indices that make a looping path.
 		 * Empty array if there is no such path.
 		 */
@@ -434,8 +479,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 			let paths = [[fromTile, throughTile]];
 			while (paths.length > 0) {
 				const path = paths.pop();
-				if ((path===undefined)||(path.length === 0)) {
-					throw "Wrong path encountered while tracing loops"
+				if (path === undefined || path.length === 0) {
+					throw 'Wrong path encountered while tracing loops';
 				}
 				const lastTile = path[path.length - 1];
 				const neighbours = myConnections.get(lastTile);
@@ -470,7 +515,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				}
 			}
 			// console.log('checking tile', tileToCheck)
-			const neighbours = myConnections.get(tileToCheck)
+			const neighbours = myConnections.get(tileToCheck);
 			if (neighbours === undefined) {
 				throw `Could not find connections data for tile ${tileToCheck}`;
 			}
@@ -481,7 +526,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			if (loop.length === 0) {
 				// no loop found
 				neighbours.delete(neighbour);
-				const nConn = myConnections.get(neighbour)
+				const nConn = myConnections.get(neighbour);
 				if (nConn === undefined) {
 					throw `Could not find connections data for tile ${neighbour}`;
 				}
@@ -495,64 +540,63 @@ export function PipesGame(grid, tiles, savedProgress) {
 		return inLoops;
 	};
 
-	
-    /** Find tiles that are connected to tile toIndex
+	/** Find tiles that are connected to tile toIndex
 	 * Excluding connections through tile fromIndex
 	 * Used when the player breaks up connected components
-     * @param {Number} fromIndex
-     * @param {Number} toIndex
-     * @returns {Set<Number>}
-     */
-	 self.findConnectedTiles = function(fromIndex, toIndex) {
-        let tileToCheck = new Set([{fromIndex: fromIndex, tileIndex: toIndex}])
-        const myComponent = self.components.get(toIndex)
-        /** @type {Set<Number>} */
-        const checked = new Set([])
-        while (tileToCheck.size > 0) {
-            /** @type {Set<{fromIndex: Number, tileIndex: Number}>} */
-            const newChecks = new Set([])
-            for (let{fromIndex, tileIndex} of tileToCheck) {
-                const neighbours = self.connections.get(tileIndex)
+	 * @param {Number} fromIndex
+	 * @param {Number} toIndex
+	 * @returns {Set<Number>}
+	 */
+	self.findConnectedTiles = function (fromIndex, toIndex) {
+		let tileToCheck = new Set([{ fromIndex: fromIndex, tileIndex: toIndex }]);
+		const myComponent = self.components.get(toIndex);
+		/** @type {Set<Number>} */
+		const checked = new Set([]);
+		while (tileToCheck.size > 0) {
+			/** @type {Set<{fromIndex: Number, tileIndex: Number}>} */
+			const newChecks = new Set([]);
+			for (let { fromIndex, tileIndex } of tileToCheck) {
+				const neighbours = self.connections.get(tileIndex);
 				if (neighbours === undefined) {
 					throw `Could not find connections data for tile ${tileIndex}`;
 				}
-                for (let neighbour of neighbours) {
-                    if (neighbour===-1) {
-                        // no neighbour
-                        continue
-                    }
-					const neighbourComponent = self.components.get(neighbour)
-					if (neighbourComponent===undefined) {
+				for (let neighbour of neighbours) {
+					if (neighbour === -1) {
+						// no neighbour
+						continue;
+					}
+					const neighbourComponent = self.components.get(neighbour);
+					if (neighbourComponent === undefined) {
 						throw `Could not find component for tile ${neighbour}`;
 					}
-                    if (neighbourComponent!==myComponent) {
-                        // not from this component, will be handled during merge phase
-                        continue
-                    }
-                    const neighbourConnections = self.connections.get(neighbour)
-					if (neighbourConnections===undefined) {
+					if (neighbourComponent !== myComponent) {
+						// not from this component, will be handled during merge phase
+						continue;
+					}
+					const neighbourConnections = self.connections.get(neighbour);
+					if (neighbourConnections === undefined) {
 						throw `Could not find connections data for tile ${neighbour}`;
 					}
-                    if (!neighbourConnections.has(tileIndex)) {
-                        // not mutual
-                        continue
-                    }
-                    if (neighbour === fromIndex) {
-                        // came from here
-                        continue
-                    }
-                    if (checked.has(neighbour)) {
-                        // it's a loop?
-                        continue
-                    }
-                    newChecks.add({fromIndex: tileIndex, tileIndex: neighbour})
-                }
-                checked.add(tileIndex)
-                tileToCheck = newChecks
-            }
-        }
-        return checked
-    }
+					if (!neighbourConnections.has(tileIndex)) {
+						// not mutual
+						continue;
+					}
+					if (neighbour === fromIndex) {
+						// came from here
+						continue;
+					}
+					if (checked.has(neighbour)) {
+						// it's a loop?
+						continue;
+					}
+					newChecks.add({ fromIndex: tileIndex, tileIndex: neighbour });
+				}
+				checked.add(tileIndex);
+				tileToCheck = newChecks;
+			}
+		}
+		return checked;
+	};
 
 	return self;
 }
