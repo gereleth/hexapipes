@@ -19,7 +19,13 @@ export function HexaGrid(width, height, wrap=false) {
 	this.YSTEP = Math.sqrt(3) / 2;
 	
 	this.DIRECTIONS = [EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST];
-	
+	// Only use these directions for edge marks because they should be
+	// rendered above tiles
+	// Since the order of rendering is right to left, top to bottom
+	// these directions are "looking back" 
+	// and edge marks won't be overlapped by previous tiles
+	this.EDGEMARK_DIRECTIONS = [NORTHEAST, NORTHWEST, WEST]
+
 	this.OPPOSITE = new Map([
 		[NORTHEAST, SOUTHWEST],
 		[SOUTHWEST, NORTHEAST],
@@ -100,7 +106,6 @@ export function HexaGrid(width, height, wrap=false) {
 	this.ymax = this.YMAX
 
 	this.zoom = function(magnitude, relativeX, relativeY) {
-		// console.log(magnitude, relativeX, relativeY)
 		const delta = magnitude > 0 ? -0.1 : 0.1
 		self.xmin = self.xmin + relativeX * delta
 		self.ymin = self.ymin + relativeY*delta*self.YSTEP
@@ -174,33 +179,6 @@ export function HexaGrid(width, height, wrap=false) {
 			wrapped,
 		};
 	};
-
-
-	this.getEdgeMarks = function() {
-		const edgeMarks = []
-		for (let i=0; i<self.total; i++) {
-			const [x, y] = self.index_to_xy(i)
-			for (let direction of self.DIRECTIONS) {
-				const {neighbour, wrapped} = self.find_neighbour(i, direction)
-				if (neighbour > i) {
-					const [dx, dy] = self.XY_DELTAS.get(direction)
-					const mark = {
-						x: x + dx*0.5,
-						y: y - dy*0.5,
-						direction: direction,
-						state: 'none',
-					}
-					if (wrapped) {
-						const [nx, ny] = self.index_to_xy(neighbour)
-						mark.wrapX = nx - dx*0.5
-						mark.wrapY = ny + dy*0.5
-					}
-					edgeMarks.push(mark)
-				}
-			}
-		}
-		return edgeMarks
-	}
 
 	this.rotate = function(tile, rotations) {
 		let rotated = tile

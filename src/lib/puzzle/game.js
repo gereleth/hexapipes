@@ -2,11 +2,18 @@ import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
 
 /**
+ * An edge mark
+ * none means outer border, show nothing at all
+ * @typedef {'wall'|'conn'|'empty'|'none'} EdgeMark
+ */
+
+/**
  * Saved progress for a single tile
  * @typedef {Object} SavedTileState
  * @property {Number} rotations
  * @property {String} color
  * @property {Boolean} locked
+ * @property {EdgeMark[]} edgeMarks
  */
 
 /**
@@ -17,6 +24,7 @@ import { writable } from 'svelte/store';
  * @property {String} color
  * @property {Boolean} locked
  * @property {Boolean} isPartOfLoop
+ * @property {EdgeMark[]} edgeMarks
  */
 
 /**
@@ -30,8 +38,6 @@ import { writable } from 'svelte/store';
  * Saved progress for pipes puzzle
  * @typedef {Object} Progress
  * @property {SavedTileState[]} tiles
- * @property {Number[]} edgeMarks
- * @property {Number[]} connectionMarks
  */
 
 /**
@@ -44,12 +50,13 @@ function StateStore(initialState) {
 	const { subscribe, set, update } = writable(initialState);
 	self.data = Object.assign({}, initialState)
 	self.subscribe = subscribe
+
 	/**
-	 * @param {Number} rotations
+	 * @param {TileState} newValue 
 	 */
-	self.setRotations = function(rotations) {
-		self.data.rotations = rotations
-		set(self.data)
+	self.set = function(newValue) {
+		self.data = newValue
+		set(newValue)
 	}
 
 	/**
@@ -107,6 +114,10 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 */
 	self.components = new Map();
 
+	/**
+	 * @type {EdgeMark[]}
+	 */
+	const defaultEdgeMarks = ['empty', 'empty', 'empty']
 	if (savedProgress) {
 		self.tileStates = savedProgress.tiles.map((savedTile, index) => {
 			return new StateStore({
@@ -115,6 +126,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				color: savedTile.color,
 				isPartOfLoop: false,
 				locked: savedTile.locked,
+				edgeMarks: savedTile.edgeMarks || [...defaultEdgeMarks],
 			});
 		});
 	} else {
@@ -125,6 +137,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				color: 'white',
 				isPartOfLoop: false,
 				locked: false,
+				edgeMarks: [...defaultEdgeMarks],
 			});
 		});
 	}

@@ -1,4 +1,5 @@
 <script>
+    import EdgeMark from '$lib/puzzle/EdgeMark.svelte'
     import { settings } from '$lib/stores';
     import { tweened } from 'svelte/motion';
     import { cubicOut } from 'svelte/easing';
@@ -73,7 +74,7 @@
             }
         } else if (controlMode === 'rotate_rotate') {
             if (event.ctrlKey) {
-                state.toggleLocked()
+                toggleLocked()
             } else {
                 rotate(rotationUnit)
             }
@@ -94,11 +95,11 @@
 
     function onContextMenu() {
         if (controlMode === 'rotate_lock') {
-            state.toggleLocked()
+            toggleLocked()
         } else if (controlMode === 'rotate_rotate') {
             rotate(-rotationUnit)
         } else if (controlMode === 'orient_lock') {
-            state.toggleLocked()
+            toggleLocked()
         }
     }
     /**
@@ -109,7 +110,7 @@
         // this tile might be rotated in another component if it's a wrap puzzle
         // so safer to always calculate directions from state
         const myDirections = game.grid.getDirections($state.tile, $state.rotations)
-        state.setRotations($state.rotations + times)
+        $state.rotations += times
         const newDirections = game.grid.getDirections($state.tile, $state.rotations)
 
         const dirOut = myDirections.filter(direction => !(newDirections.some(d=>d===direction)))
@@ -119,19 +120,28 @@
             dirOut: dirOut,
             dirIn: dirIn,
         })
+        dispatch('save')
     }
 
-    function chooseBgColor() {
-        if ($state.isPartOfLoop) {
-            bgColor = $state.locked ? '#f99' : '#fbb'
+    function toggleLocked() {
+        state.toggleLocked()
+        dispatch('save')
+    }
+
+    /**
+     * Choose tile background color
+     * @param {Boolean} locked
+     * @param {Boolean} isPartOfLoop
+     */
+    function chooseBgColor(locked, isPartOfLoop) {
+        if (isPartOfLoop) {
+            bgColor = locked ? '#f99' : '#fbb'
         } else {
-            bgColor = $state.locked ? '#bbb' : '#ddd'
+            bgColor = locked ? '#bbb' : '#ddd'
         }
     }
 
     $: chooseBgColor($state.locked, $state.isPartOfLoop)
-
-    $: $state.locked, dispatch('toggleLocked')
 
     // want to animate even if rotation is from another wrap tile
     $: rotationAnimate.set($state.rotations)
@@ -181,6 +191,19 @@
     {/if}
 </g>
 </g>
+
+{#if !solved}
+    {#each $state.edgeMarks as _, index (index)}
+        <EdgeMark 
+            grid={game.grid}
+            cx={cx} 
+            cy={cy} 
+            bind:state={$state.edgeMarks[index]} 
+            direction={game.grid.EDGEMARK_DIRECTIONS[index]}
+            on:save
+            />
+    {/each}
+{/if}
 
 <style>
     .tile {

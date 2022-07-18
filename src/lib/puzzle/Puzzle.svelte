@@ -3,7 +3,6 @@
     import { HexaGrid } from "$lib/puzzle/hexagrid";
     import { settings } from '$lib/stores';
     import Tile from '$lib/puzzle/Tile.svelte';
-    import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
     import { onMount, onDestroy, createEventDispatcher } from 'svelte';
     import { PipesGame } from '$lib/puzzle/game';
 
@@ -26,11 +25,6 @@
 
     let innerWidth = 500
     let innerHeight = 500
-
-    let edgeMarks = grid.getEdgeMarks()
-
-    const wallMarks = new Set()
-    const connectionMarks = new Set()
 
     /**
      * @param {Number} innerWidth
@@ -81,37 +75,19 @@
     }
 
     function saveProgress() {
-        // const data = {
-        //     tiles: visibleTiles.map(tile => {
-        //         return {
-        //             rotations: tile.rotations,
-        //             color: tile.color,
-        //             locked: tile.locked,
-        //         }
-        //     }),
-        //     wallMarks: [...wallMarks],
-        //     connectionMarks: [...connectionMarks],
-        // }
-        // dispatch('progress', data)
+        const data = game.tileStates.map(tile => {
+            const data = tile.data
+            return {
+                rotations: data.rotations,
+                locked: data.locked,
+                color: data.color,
+                edgeMarks: data.edgeMarks,
+            }
+        })
+        dispatch('progress', {tiles: data})
     }
 
     const save = createThrottle(saveProgress, 3000)
-
-
-    function handleEdgeMark(event, index) {
-        const state = event.detail
-        if (state==='wall') {
-            wallMarks.add(index)
-            connectionMarks.delete(index)
-        } else if (state==='connection') {
-            wallMarks.delete(index)
-            connectionMarks.add(index)
-        } else {
-            wallMarks.delete(index)
-            connectionMarks.delete(index)
-        }
-        save.soon()
-    }
 
     function zoom(ev) {
         ev.preventDefault()
@@ -151,23 +127,9 @@
                 cy={visibleTile.y}
                 controlMode={$settings.controlMode}
                 on:connections={game.handleConnections}
-                on:toggleLocked={()=> {if (!$solved) {save.soon()}}}
+                on:save={()=> {if (!$solved) {save.soon()}}}
                 />
         {/each}
-        {#if !$solved}
-            {#each edgeMarks as mark, i}
-                <EdgeMark 
-                    {grid}
-                    x={mark.x} 
-                    y={mark.y} 
-                    state={mark.state} 
-                    direction={mark.direction}
-                    wrapX={mark.wrapX}
-                    wrapY={mark.wrapY}
-                    on:toggle={ev => handleEdgeMark(ev, i)}
-                    />
-            {/each}
-        {/if}
     </svg>
 </div>
 
