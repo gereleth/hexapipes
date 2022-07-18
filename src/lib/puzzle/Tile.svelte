@@ -28,6 +28,16 @@
 		easing: cubicOut
 	})
 
+    // disable edge marks on outer edges of non-wrap puzzles
+    if (!game.grid.wrap) {
+        game.grid.EDGEMARK_DIRECTIONS.forEach((direction, index) => {
+            const {neighbour} = game.grid.find_neighbour(i, direction)
+            if (neighbour === -1) {
+                $state.edgeMarks[index] = 'none'
+            }
+        })
+    }
+
     const myDirections = game.grid.getDirections($state.tile)
 
     const deltas = myDirections.map(direction => game.grid.XY_DELTAS.get(direction))
