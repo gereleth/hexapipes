@@ -47,19 +47,19 @@ Every puzzle here is guaranteed to have a unique solution.</p>
 on:solved={()=>hexSolved = true}
 />
 
-{#if hexSolved}
-    <p class="congrat">Solved!</p>
-{/if}
+<p class="congrat" class:hidden={!hexSolved}>Solved!
+    <a href="/hexagonal/5">Next puzzle</a>
+</p>
 
 <h2> <a href="/hexagonal-wrap/5">Hexagonal wrap pipes</a></h2>
 
-<p>Wrap pipes are a challenging variation of the puzzle. The connections in this variant are allowed to wrap between borders of the board. You can imagine a copy of the puzzle placed to the right of it. So any connection that goes out to the right comes in from the left. The same with other directions.</p>
+<p>Wrap pipes are a challenging variation of the puzzle. The connections in this variant are allowed to wrap between borders of the board. Imagine copies of the puzzle placed on all sides of it (left, right, top and bottom). This way tiles on the right border can connect to tiles on the left border - or "wrap" around. </p>
 
 <p>Unlike regular pipes puzzles the wrap variant has no convenient outer walls to start the deductions from. Hence its increased difficulty. There are some additional features to help with wrapping:</p>
 
 <ul>
-    <li>When you hover over a tile on the border its wrap connections will be highlighted.</li>
-    <li>Edge marks made on the outer edges will be automatically copied over to the other side.</li>
+    <li>Multiple copies of the puzzle are shown, tiling the screen. When you rotate a tile then all its copies will rotate too.</li>
+    <li>Zoom in/out with the mousewheel if you need to see more of the field.</li>
 </ul>
 
 <p>Try this small wrap puzzle here. There are many more <a href="/hexagonal-wrap/5">hexagonal wrap puzzles</a> for when the regular variant isn't much of a challenge any more.</p>
@@ -68,12 +68,13 @@ on:solved={()=>hexSolved = true}
 on:solved={()=>hexWrapSolved = true}
 />
 
-{#if hexWrapSolved}
-    <p class="congrat">Solved!</p>
-{/if}
+<p class="congrat" class:hidden={!hexWrapSolved}>Solved! 
+    <a href="/hexagonal-wrap/5">Next puzzle</a>
+</p>
 
 <h2> Changelog </h2>
 <ul>
+<li><em>2022-07-19</em> Improved wrap variant UI by displaying multiple copies of the puzzle tiling the screen. Fixed a bug with edgemarks not being restored from saved progress.</li>
 <li><em>2022-07-11</em> Added wrap variant.</li>
 <li><em>2022-07-10</em> Added solve time statistics and saving progress on a puzzle. 
     Everything should be saved to browser local storage.</li>
@@ -104,5 +105,8 @@ where you click.</li>
         color: var(--primary-color);
         font-size: 150%;
         text-align: center;
+    }
+    .hidden {
+        visibility: hidden;
     }
 </style>

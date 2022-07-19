@@ -1,34 +1,46 @@
 <script>
-    import { DIRECTIONS, OPPOSITE, XY_DELTAS, YSTEP } from '$lib/hexagrid';
+    import EdgeMark from '$lib/puzzle/EdgeMark.svelte'
     import { settings } from '$lib/stores';
     import { tweened } from 'svelte/motion';
     import { cubicOut } from 'svelte/easing';
     import { createEventDispatcher } from 'svelte';
 
+    /** @type {Number} i*/
     export let i;
-    export let tile;
-    export let grid;
-    export let locked = false
-    export let rotations = 0
-    export let fillColor = 'white'
+
+    /**
+     * @type {import('$lib/puzzle/game').PipesGame} game
+     */
+    export let game
+    export let cx = 0
+    export let cy = 0
     export let solved = false
     export let controlMode = 'rotate_lock'
-    export let isPartOfLoop = false
-    export let highlightDirections = new Set()
+
+    let state = game.tileStates[i]
+
     let bgColor = '#aaa'
 
     const dispatch = createEventDispatcher();
 
-    let rotationAnimate = tweened(rotations, {
+    let rotationAnimate = tweened($state.rotations, {
 		duration: 75,
 		easing: cubicOut
 	})
 
-    let myDirections = grid.getDirections(tile, rotations)
+    // disable edge marks on outer edges of non-wrap puzzles
+    if (!game.grid.wrap) {
+        game.grid.EDGEMARK_DIRECTIONS.forEach((direction, index) => {
+            const {neighbour} = game.grid.find_neighbour(i, direction)
+            if (neighbour === -1) {
+                $state.edgeMarks[index] = 'none'
+            }
+        })
+    }
 
-    const deltas = grid.getDirections(tile).map(direction => XY_DELTAS.get(direction))
-    let [cx, cy] = grid.index_to_xy(i)
-    cy = grid.height*YSTEP - cy
+    const myDirections = game.grid.getDirections($state.tile)
+
+    const deltas = myDirections.map(direction => game.grid.XY_DELTAS.get(direction))
     let angle = findInitialAngle()
 
     let path = `M ${cx} ${cy}`
@@ -37,23 +49,11 @@
     }
     const isSink = (myDirections.length === 1)
     
-    const hexagon = `M ${cx} ${cy} ` + grid.tilePath
+    const hexagon = `M ${cx} ${cy} ` + game.grid.tilePath
     
     let rotationUnit = 1
     $: rotationUnit = $settings.invertRotationDirection ? -1 : 1
 
-    const wrapNeighbours = []
-    if (grid.wrap) {
-        for (let direction of DIRECTIONS) {
-            const {neighbour, wrapped} = grid.find_neighbour(i, direction)
-            if (wrapped) {
-                wrapNeighbours.push(
-                    [i, direction],
-                    [neighbour, OPPOSITE.get(direction)]
-                )
-            }
-        }
-    }
     /**
     * @returns {Number}
     */
@@ -84,7 +84,7 @@
             }
         } else if (controlMode === 'rotate_rotate') {
             if (event.ctrlKey) {
-                locked = !locked
+                toggleLocked()
             } else {
                 rotate(rotationUnit)
             }
@@ -95,7 +95,7 @@
             const dy = height/2 - (event.clientY - y)
             const newAngle = Math.atan2(dy, dx)
             const newRotations = Math.round((angle - newAngle)*3/Math.PI)
-            let timesRotate = newRotations - (rotations%6)
+            let timesRotate = newRotations - ($state.rotations%6)
             if (timesRotate < -3.5) {timesRotate += 6}
             else if (timesRotate > 3.5) {timesRotate -=6}
             rotate(timesRotate)
@@ -105,22 +105,23 @@
 
     function onContextMenu() {
         if (controlMode === 'rotate_lock') {
-            locked = !locked
+            toggleLocked()
         } else if (controlMode === 'rotate_rotate') {
             rotate(-rotationUnit)
         } else if (controlMode === 'orient_lock') {
-            locked = !locked
+            toggleLocked()
         }
     }
     /**
     * @param {Number} times
     */
     function rotate(times) {
-        if (locked||solved) {return}
-        rotations = rotations + times
-        const newDirections = grid.getDirections(tile, rotations)
-
-        rotationAnimate.set(rotations)
+        if ($state.locked||solved) {return}
+        // this tile might be rotated in another component if it's a wrap puzzle
+        // so safer to always calculate directions from state
+        const myDirections = game.grid.getDirections($state.tile, $state.rotations)
+        $state.rotations += times
+        const newDirections = game.grid.getDirections($state.tile, $state.rotations)
 
         const dirOut = myDirections.filter(direction => !(newDirections.some(d=>d===direction)))
         const dirIn = newDirections.filter(direction => !(myDirections.some(d=>d===direction)))
@@ -128,12 +129,21 @@
             tileIndex: i,
             dirOut: dirOut,
             dirIn: dirIn,
-            from: 'user',
         })
-        myDirections = newDirections
+        dispatch('save')
     }
 
-    function chooseBgColor() {
+    function toggleLocked() {
+        state.toggleLocked()
+        dispatch('save')
+    }
+
+    /**
+     * Choose tile background color
+     * @param {Boolean} locked
+     * @param {Boolean} isPartOfLoop
+     */
+    function chooseBgColor(locked, isPartOfLoop) {
         if (isPartOfLoop) {
             bgColor = locked ? '#f99' : '#fbb'
         } else {
@@ -141,37 +151,15 @@
         }
     }
 
-    function highlightWrapNeighbours() {
-        if (wrapNeighbours.length > 0) {
-            dispatch('highlightWrap', wrapNeighbours)
-        }
-    }
+    $: chooseBgColor($state.locked, $state.isPartOfLoop)
 
-    function getHighlightLines(highlightDirections) {
-        const lines = []
-        const length = 0.04
-        for (let direction of highlightDirections) {
-            const [lx, ly] = XY_DELTAS.get(direction)
-            lines.push({
-                x1: cx + (0.5-length)*lx,
-                x2: cx + (0.5+length)*lx,
-                y1: cy - (0.5-length)*ly,
-                y2: cy - (0.5+length)*ly,
-            })
-
-        }
-        return lines
-    }
-
-    $: chooseBgColor(locked, isPartOfLoop)
-
-    $: locked, dispatch('toggleLocked')
+    // want to animate even if rotation is from another wrap tile
+    $: rotationAnimate.set($state.rotations)
 </script>
 
 <g class='tile'
     on:click={onClick}
     on:contextmenu|preventDefault={onContextMenu}
-    on:mouseenter={highlightWrapNeighbours}
 >
 <!-- Tile hexagon -->
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
@@ -189,18 +177,18 @@
     </path>
     <!-- Sink circle -->
     {#if isSink}
-        <circle {cx} {cy} r="0.15" fill={fillColor} stroke="#888" stroke-width="0.05" class='inside'/>
+        <circle {cx} {cy} r="0.15" fill={$state.color} stroke="#888" stroke-width="0.05" class='inside'/>
     {/if}
     <!-- Pipe inside -->
     <path class='inside'
         d={path} 
-        stroke={fillColor} 
+        stroke={$state.color} 
         stroke-width="0.10" 
         stroke-linejoin="round" 
         stroke-linecap="round"
         >
     </path>
-    {#if (controlMode==="orient_lock")&&(!locked)&&(!solved)}
+    {#if (controlMode==="orient_lock")&&(!$state.locked)&&(!solved)}
         <!-- Guide dot -->
         <circle 
             cx={cx + 0.4*Math.cos(angle)} 
@@ -212,16 +200,20 @@
             />
     {/if}
 </g>
-
-{#each getHighlightLines(highlightDirections) as line}
-<line 
-    class='wrap'
-    {...line}
-    stroke="#777"
-    stroke-width="0.3" />
-{/each}
-
 </g>
+
+{#if !solved}
+    {#each $state.edgeMarks as _, index (index)}
+        <EdgeMark 
+            grid={game.grid}
+            cx={cx} 
+            cy={cy} 
+            bind:state={$state.edgeMarks[index]} 
+            direction={game.grid.EDGEMARK_DIRECTIONS[index]}
+            on:save
+            />
+    {/each}
+{/if}
 
 <style>
     .tile {
