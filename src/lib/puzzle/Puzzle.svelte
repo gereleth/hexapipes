@@ -75,6 +75,9 @@
     }
 
     function saveProgress() {
+        if ($solved) {
+            return
+        }
         const data = game.tileStates.map(tile => {
             const data = tile.data
             return {
@@ -131,7 +134,7 @@
                 cy={visibleTile.y}
                 controlMode={$settings.controlMode}
                 on:connections={game.handleConnections}
-                on:save={()=> {if (!$solved) {save.soon()}}}
+                on:save={save.soon}
                 />
         {/each}
     </svg>
