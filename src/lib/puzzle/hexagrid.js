@@ -207,7 +207,7 @@ export function HexaGrid(width, height, wrap=false) {
 	this.getVisibleTiles = function() {
 		// console.log(self.xmin, self.xmax, self.ymin, self.ymax)
 		let rmin = Math.floor(self.ymin / self.YSTEP) - 1
-		let rmax = Math.ceil(self.ymax / self.YSTEP) - 1
+		let rmax = Math.ceil(self.ymax / self.YSTEP)
 		if (!self.wrap) {
 			rmin = Math.max(0, rmin)
 			rmax = Math.min(self.height-1, rmax)
