@@ -246,12 +246,20 @@ export function HexaGrid(width, height, wrap=false) {
 			while (r < 0) {
 				const evenRow = (r%2 === 0)
 				r += self.height
-				c += evenRow ? 0 : 1
+				if (self.height % 2 !== 0) {
+					c += evenRow ? 0 : 1
+				} else {
+					c += 1
+				}
 			}
 			while (r >= self.height) {
 				const evenRow = (r%2 === 0)
 				r -= self.height
-				c -= evenRow ? 1 : 0
+				if (self.height % 2 !== 0) {
+					c -= evenRow ? 1 : 0
+				} else {
+					c -= 1
+				}
 			}
 			c = c % self.width
 			if (c < 0) {
