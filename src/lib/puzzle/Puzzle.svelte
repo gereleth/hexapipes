@@ -90,6 +90,10 @@
     const save = createThrottle(saveProgress, 3000)
 
     function zoom(ev) {
+        if (!grid.wrap) {
+            // only on wrap puzzles for now
+            return
+        }
         ev.preventDefault()
         const svg = ev.target.closest('svg')
         const {x, y, width, height} = svg.getBoundingClientRect()
