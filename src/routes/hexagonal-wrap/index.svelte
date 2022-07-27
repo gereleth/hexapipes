@@ -3,7 +3,7 @@
   import {goto} from '$app/navigation'
 
   onMount(async () => {
-      await goto(`/hexagonal-wrap/5`)
+      await goto(`/hexagonal-wrap/5`, {replaceState: true})
   })
 </script>
 <div class="container">

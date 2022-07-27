@@ -10,7 +10,7 @@
       const size = $page.params.size
       solves = getSolves($page.url.pathname)
       const id = solves.choosePuzzleId($puzzleCounts.hexagonal[`${size}x${size}`])
-      await goto(`/hexagonal/${size}/${id}`)
+      await goto(`/hexagonal/${size}/${id}`, {replaceState: true})
   })
 </script>
 
