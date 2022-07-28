@@ -25,7 +25,6 @@
 </script>
 
 <script>
-  import { onMount } from 'svelte'
   import { page } from '$app/stores';
   import { browser } from '$app/env';
   import Puzzle from '$lib/puzzle/Puzzle.svelte';
@@ -37,7 +36,11 @@
   export let tiles
   let solved = false
   let nextPuzzleId = 1
-  
+  let previousParams = {
+    size: "0",
+    id: "0",
+  }
+
   let solves // a store of puzzles solve times
   let stats // a store of puzzle time stats
 
@@ -56,6 +59,17 @@
 
 
   $: if (browser && $page.params) {
+    if ($page.params.size !== previousParams.size) {
+      // if a player used the back button 
+      // and went from puzzle of one size
+      // directly to a puzzle of another size
+      // then we need to update solves and stats
+      solves = getSolves($page.url.pathname)
+      stats = getStats($page.url.pathname)
+      start()
+    } else if ($page.params.id !== previousParams.id) {
+      start()
+    }
     solved = false
     const progress = window.localStorage.getItem(progressStoreName)
     if (progress !== null) {
@@ -65,27 +79,21 @@
     }
   }
 
-  onMount(() => {
-    solves = getSolves($page.url.pathname)
-    stats = getStats($page.url.pathname)
-    start()
-  });
-
   function start() {
-    // console.log('start')
+    previousParams.size = $page.params.size
+    previousParams.id = $page.params.id
     if (solves!==undefined) {
       solve = solves.reportStart(Number($page.params.id))
-      if (solve.elapsedTime !== -1) {
-        nextPuzzleId = solves.choosePuzzleId(
-          $puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`], 
-          Number($page.params.id)
-        )
-      }
+    }
+    if (solve.elapsedTime !== -1) {
+      nextPuzzleId = solves.choosePuzzleId(
+        $puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`], 
+        Number($page.params.id)
+      )
     }
   }
 
   function stop() {
-    // console.log('stop')
     solved = true
     solve = solves.reportFinish(Number($page.params.id))
     nextPuzzleId = solves.choosePuzzleId(
@@ -94,7 +102,6 @@
     )
     window.localStorage.removeItem(progressStoreName)
   }
-
   function saveProgress(event) {
     const data = JSON.stringify(event.detail)
     window.localStorage.setItem(progressStoreName, data)
