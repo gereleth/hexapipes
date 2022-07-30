@@ -107,6 +107,16 @@
         )
         visibleTiles = grid.getVisibleTiles()
     }
+
+    function resetPuzzle() {
+      game.randomizeBoard()
+      game = game
+      dispatch('reset')
+      game.initializeBoard()
+      dispatch('initialized')
+      save.soon()
+    }
+
     let isTouching = false
     $: if (browser) document.body.classList.toggle('no-selection', isTouching);
 
@@ -128,6 +138,7 @@
         on:touchend={()=>isTouching=false}
         on:wheel={zoom}
         >
+        {#key game}
         {#each visibleTiles as visibleTile, i (visibleTile.key)}
             <Tile i={visibleTile.index} solved={$solved} {game}
                 cx={visibleTile.x}
@@ -137,13 +148,22 @@
                 on:save={save.soon}
                 />
         {/each}
+        {/key}
     </svg>
+    <button on:click={resetPuzzle}>
+      Click to Reset Puzzle
+    </button>
 </div>
 
 <style>
     svg {
         display: block;
         margin: auto;
+    }
+    button {
+        display: block;
+        margin: auto;
+        margin-top: 2em;
     }
     /* win animation */
     .solved :global(.inside) {

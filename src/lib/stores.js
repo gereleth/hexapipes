@@ -146,6 +146,25 @@ function createSolvesStore(path) {
 
     }
 
+    function reportReset(puzzleId) {
+        let solve
+        update(solves => {
+            // remove if we started this one already
+            solves = solves.filter(solve =>
+                !(solve.puzzleId===puzzleId)
+            )
+            solve = {
+                puzzleId,
+                startedAt: (new Date()).valueOf(),
+                finishedAt: -1,
+                elapsedTime: -1,
+            }
+            solves.unshift(solve)
+            return solves
+        })
+        return solve
+    }
+
     function reportStart(puzzleId) {
         let solve
         update(solves => {
@@ -232,6 +251,7 @@ function createSolvesStore(path) {
         reportStart,
         reportFinish,
         choosePuzzleId,
+        reportReset,
     }
 }
 

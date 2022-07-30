@@ -142,6 +142,20 @@ export function PipesGame(grid, tiles, savedProgress) {
 		});
 	}
 
+	self.randomizeBoard = function () {
+        self.initialized = false;
+		self.tileStates = tiles.map((tile) => {
+			return new StateStore({
+				tile: tile,
+				rotations: 0,
+				color: 'white',
+				isPartOfLoop: false,
+				locked: false,
+				edgeMarks: [...defaultEdgeMarks],
+			});
+		});
+	};
+
 	self.initializeBoard = function () {
 		// create components and fill in connections data
 		self.tileStates.forEach((tileState, index) => {

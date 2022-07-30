@@ -78,6 +78,14 @@
     }
   }
 
+  function restart() {
+    const progress = window.localStorage.removeItem(progressStoreName)
+    savedProgress = undefined
+    if (solves!==undefined) {
+      solve = solves.reportReset(Number($page.params.id))
+    }
+  }
+
   function stop() {
     // console.log('stop')
     solved = true
@@ -113,6 +121,7 @@
      on:solved={stop}
      on:initialized={start}
      on:progress={saveProgress}
+     on:reset={restart}
   />
 {/key}
 
