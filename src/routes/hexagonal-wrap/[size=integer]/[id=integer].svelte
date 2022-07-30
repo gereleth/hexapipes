@@ -103,8 +103,9 @@
     window.localStorage.removeItem(progressStoreName)
   }
   function saveProgress(event) {
-    const data = JSON.stringify(event.detail)
-    window.localStorage.setItem(progressStoreName, data)
+    const {data, name} = event.detail
+    const dataStr = JSON.stringify(data)
+    window.localStorage.setItem(name, dataStr)
   }
 </script>
 
@@ -126,6 +127,7 @@
 
 {#key $page.params}
   <Puzzle {width} {height} {tiles} {savedProgress} wrap={true}
+     {progressStoreName}
      on:solved={stop}
      on:initialized={start}
      on:progress={saveProgress}
