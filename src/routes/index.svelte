@@ -74,8 +74,9 @@ on:solved={()=>hexWrapSolved = true}
 
 <h2> Changelog </h2>
 <ul>
-<li><em>2022-07-30</em> Some bug fixes:
+<li><em>2022-07-30</em> Some bug fixes and improvements:
 <ul>
+    <li>Added large wrap puzzles: 20x20, 30x30, 40x40.</li>
     <li>Fixed browser back button not working after changing puzzle size or type.</li>
     <li>Fixed multiple solutions found in some of the wrap puzzles. This was done by replacing a few of the tiles to remove ambiguity. If you had saved progress in one of the affected puzzles then the replaced area might look strange and might have to be redone.</li>
 </ul>
