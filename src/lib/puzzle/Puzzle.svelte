@@ -12,6 +12,13 @@
     export let tiles = []
     export let wrap = false
     export let savedProgress
+    export let progressStoreName = ''
+
+    // Remember the name that the puzzle was created with
+    // to prevent accidental saving to another puzzle's progress
+    // if a user navigates between puzzles directly via back/forward buttons
+    const myProgressName = progressStoreName
+
     let svgWidth = 500
     let svgHeight = 500
 
@@ -47,7 +54,6 @@
 
     onDestroy(()=>{
         // save progress immediately if navigating away (?)
-        // console.log('clear timer because destroy')
         save.clear()
         if (!$solved) {save.now()}
     })
@@ -78,7 +84,7 @@
         if ($solved) {
             return
         }
-        const data = game.tileStates.map(tile => {
+        const tileStates = game.tileStates.map(tile => {
             const data = tile.data
             return {
                 rotations: data.rotations,
@@ -87,7 +93,12 @@
                 edgeMarks: data.edgeMarks,
             }
         })
-        dispatch('progress', {tiles: data})
+        dispatch('progress', {
+            name: myProgressName,
+            data: {
+                tiles: tileStates,
+            },
+        })
     }
 
     const save = createThrottle(saveProgress, 3000)

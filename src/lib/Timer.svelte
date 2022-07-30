@@ -35,6 +35,7 @@
     let elapsed = 0
 
     function toggleTimer(solve) {
+        clearInterval(timerId)
         if (solve.startedAt === -1) {return}
         if (solve.elapsedTime === -1) {
             elapsed = (new Date()).valueOf() - solve.startedAt
