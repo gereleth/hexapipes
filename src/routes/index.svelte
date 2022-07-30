@@ -74,6 +74,12 @@ on:solved={()=>hexWrapSolved = true}
 
 <h2> Changelog </h2>
 <ul>
+<li><em>2022-07-30</em> Some bug fixes:
+<ul>
+    <li>Fixed browser back button not working after changing puzzle size or type.</li>
+    <li>Fixed multiple solutions found in some of the wrap puzzles. This was done by replacing a few of the tiles to remove ambiguity. If you had saved progress in one of the affected puzzles then the replaced area might look strange and might have to be redone.</li>
+</ul>
+</li>
 <li><em>2022-07-19</em> Improved wrap variant UI by displaying multiple copies of the puzzle tiling the screen. Fixed a bug with edgemarks not being restored from saved progress.</li>
 <li><em>2022-07-11</em> Added wrap variant.</li>
 <li><em>2022-07-10</em> Added solve time statistics and saving progress on a puzzle. 
