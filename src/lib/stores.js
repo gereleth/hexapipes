@@ -26,6 +26,7 @@ function createSettings() {
     let defaultSettings = {
         controlMode: 'rotate_lock',
         invertRotationDirection: false,
+        showTimer: true,
     }
 
 	const { subscribe, set, update } = writable(defaultSettings);
