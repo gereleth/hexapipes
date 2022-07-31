@@ -27,10 +27,13 @@
 <script>
   import { page } from '$app/stores';
   import { browser } from '$app/env';
+  import { goto } from '$app/navigation';
   import Puzzle from '$lib/puzzle/Puzzle.svelte';
   import Timer from '$lib/Timer.svelte';
   import Stats from '$lib/Stats.svelte';
+  import PuzzleButtons from '$lib/PuzzleButtons.svelte';
   import {getSolves, getStats, puzzleCounts} from '$lib/stores';
+
   export let width
   export let height
   export let tiles
@@ -55,7 +58,8 @@
         finishedAt: -1,
         elapsedTime: -1,
     }
-
+  /** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
+  let puzzle
 
 
   $: if (browser && $page.params) {
@@ -85,21 +89,15 @@
     if (solves!==undefined) {
       solve = solves.reportStart(Number($page.params.id))
     }
-    if (solve.elapsedTime !== -1) {
-      nextPuzzleId = solves.choosePuzzleId(
-        $puzzleCounts.hexagonal[`${$page.params.size}x${$page.params.size}`], 
-        Number($page.params.id)
-      )
-    }
+    nextPuzzleId = solves.choosePuzzleId(
+      $puzzleCounts.hexagonal[`${$page.params.size}x${$page.params.size}`], 
+      Number($page.params.id)
+    )
   }
 
   function stop() {
     solved = true
     solve = solves.reportFinish(Number($page.params.id))
-    nextPuzzleId = solves.choosePuzzleId(
-      $puzzleCounts.hexagonal[`${$page.params.size}x${$page.params.size}`], 
-      Number($page.params.id)
-    )
     window.localStorage.removeItem(progressStoreName)
   }
 
@@ -107,6 +105,15 @@
     const {data, name} = event.detail
     const dataStr = JSON.stringify(data)
     window.localStorage.setItem(name, dataStr)
+  }
+
+  function startOver() {
+    solved = false
+    puzzle.startOver()
+  }
+
+  function newPuzzle() {
+    goto(`/hexagonal/${$page.params.size}/${nextPuzzleId}`)
   }
 </script>
 
@@ -126,6 +133,7 @@
 {#key $page.params}
   <Puzzle {width} {height} {tiles} {savedProgress}
      {progressStoreName}
+     bind:this={puzzle}
      on:solved={stop}
      on:initialized={start}
      on:progress={saveProgress}
@@ -141,6 +149,11 @@
       <a href="/hexagonal/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
     {/if}
   </div>
+  <PuzzleButtons
+    solved={solve.elapsedTime !== -1}
+    on:startOver={startOver}  
+    on:newPuzzle={newPuzzle}  
+  />
 </div>
 
 <div class="timings">
