@@ -179,6 +179,31 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.initialized = true;
 	};
 
+	self.startOver = function() {
+		self.connections.clear()
+		self.components.clear()
+		self.initialized = false
+		self.solved.set(false)
+
+		self.tileStates.forEach((tileState, index) => {
+			tileState.set({
+				tile: tiles[index],
+				rotations: 0,
+				color: 'white',
+				isPartOfLoop: false,
+				locked: false,
+				// some tiles could have set their edgemarks to none
+				// if they are on the outer border
+				// remember that and remove edgemarks otherwise
+				edgeMarks: tileState.data.edgeMarks.map(edgemark => {
+					return edgemark === 'none' ? 'none' : 'empty'
+				}),
+			});
+		});
+
+		self.initializeBoard()
+	}
+
 	/**
 	 * @param {{detail: {
 	 *  tileIndex: Number,

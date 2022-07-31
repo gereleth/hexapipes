@@ -33,6 +33,10 @@
     let innerWidth = 500
     let innerHeight = 500
 
+    export const startOver = function() {
+        game.startOver()
+    }
+
     /**
      * @param {Number} innerWidth
      * @param {Number} innerHeight

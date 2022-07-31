@@ -74,6 +74,13 @@ on:solved={()=>hexWrapSolved = true}
 
 <h2> Changelog </h2>
 <ul>
+    <li><em>2022-07-31</em> Added some buttons based on HN feedback:
+        <ul>
+            <li>Start over - reverts the puzzle to initial state</li>
+            <li>Hide timer - hides solve times</li>
+            <li>New puzzle - lets you skip current puzzle and start another one</li>
+        </ul>
+    </li>
 <li><em>2022-07-30</em> Some bug fixes and improvements:
 <ul>
     <li>Added large wrap puzzles: 20x20, 30x30, 40x40.</li>

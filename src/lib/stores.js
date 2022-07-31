@@ -26,6 +26,7 @@ function createSettings() {
     let defaultSettings = {
         controlMode: 'rotate_lock',
         invertRotationDirection: false,
+        showTimer: true,
     }
 
 	const { subscribe, set, update } = writable(defaultSettings);
@@ -113,7 +114,10 @@ function createSolvesStore(path) {
     function choosePuzzleId(totalCount, currentPuzzleId=0) {
         // console.log('choose new id for total', totalCount, 'and current id', currentPuzzleId)
         // try to recommend what was unsolved last
-        if ((data.length > 0)&&(data[0].elapsedTime === -1)) {
+        if (
+            (data.length > 0)
+            &&(data[0].elapsedTime === -1)
+            &&(data[0].puzzleId !== currentPuzzleId)) {
             // console.log('returned unsolved id', data[0].puzzleId)
             return data[0].puzzleId
         }
