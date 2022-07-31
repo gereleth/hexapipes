@@ -25,88 +25,16 @@
 </script>
 
 <script>
-  import { page } from '$app/stores';
-  import { browser } from '$app/env';
-  import Puzzle from '$lib/puzzle/Puzzle.svelte';
-  import Timer from '$lib/Timer.svelte';
-  import Stats from '$lib/Stats.svelte';
-  import {getSolves, getStats, puzzleCounts} from '$lib/stores';
-  export let width
-  export let height
-  export let tiles
-  let solved = false
-  let nextPuzzleId = 1
-  let previousParams = {
-    size: "0",
-    id: "0",
-  }
+	import { page } from '$app/stores';
+	import PuzzleWrapper from '$lib/puzzleWrapper/PuzzleWrapper.svelte';
+	import { puzzleCounts } from '$lib/stores';
 
-  let solves // a store of puzzles solve times
-  let stats // a store of puzzle time stats
-
-  let progressStoreName = ''
-  let savedProgress
-
-  $: progressStoreName = $page.url.pathname + '_progress'
-
-  let solve = {
-        puzzleId: -1,
-        startedAt: -1,
-        finishedAt: -1,
-        elapsedTime: -1,
-    }
-
-
-
-  $: if (browser && $page.params) {
-    if ($page.params.size !== previousParams.size) {
-      // if a player used the back button 
-      // and went from puzzle of one size
-      // directly to a puzzle of another size
-      // then we need to update solves and stats
-      solves = getSolves($page.url.pathname)
-      stats = getStats($page.url.pathname)
-      start()
-    } else if ($page.params.id !== previousParams.id) {
-      start()
-    }
-    solved = false
-    const progress = window.localStorage.getItem(progressStoreName)
-    if (progress !== null) {
-      savedProgress = JSON.parse(progress)
-    } else {
-      savedProgress = undefined
-    }
-  }
-
-  function start() {
-    previousParams.size = $page.params.size
-    previousParams.id = $page.params.id
-    if (solves!==undefined) {
-      solve = solves.reportStart(Number($page.params.id))
-    }
-    if (solve.elapsedTime !== -1) {
-      nextPuzzleId = solves.choosePuzzleId(
-        $puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`], 
-        Number($page.params.id)
-      )
-    }
-  }
-
-  function stop() {
-    solved = true
-    solve = solves.reportFinish(Number($page.params.id))
-    nextPuzzleId = solves.choosePuzzleId(
-      $puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`], 
-      Number($page.params.id)
-    )
-    window.localStorage.removeItem(progressStoreName)
-  }
-  function saveProgress(event) {
-    const {data, name} = event.detail
-    const dataStr = JSON.stringify(data)
-    window.localStorage.setItem(name, dataStr)
-  }
+	/** @type {Number} */
+	export let width;
+	/** @type {Number} */
+	export let height;
+	/** @type {Number[]} */
+	export let tiles;
 </script>
 
 <svelte:head>
@@ -125,45 +53,18 @@
     Multiple copies of tiles are shown to help you solve. Use mouse wheel to zoom in/out.</p>
 </div>
 
-{#key $page.params}
-  <Puzzle {width} {height} {tiles} {savedProgress} wrap={true}
-     {progressStoreName}
-     on:solved={stop}
-     on:initialized={start}
-     on:progress={saveProgress}
-  />
-{/key}
-
-<div class="container">
-  <div class="congrat"> 
-    {#if solve.elapsedTime !== -1}
-      {#if solved}
-        Solved! 
-      {/if}
-      <a href="/hexagonal-wrap/{$page.params.size}/{nextPuzzleId}">Next puzzle</a> 
-    {/if}
-  </div>
-</div>
-
-<div class="timings">
-  <Timer {solve}/>
-</div>
-{#if stats}
-  <div class="stats">
-    <Stats {stats}/>
-  </div>
-{/if}
+<PuzzleWrapper
+	{width}
+	{height}
+	{tiles}
+	category={'hexagonal-wrap'}
+	size={Number($page.params.size)}
+	puzzleId={Number($page.params.id)}
+	puzzlesCount={$puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`]}
+/>
 
 <style>
-.congrat {
-    margin: auto;
-    margin-bottom: 20px;
-    font-size: 150%;
-    color: var(--primary-color);
-    text-align: center;
-    min-height: 30px;
-}
-.info {
-  text-align: center;
-}
+	.info {
+		text-align: center;
+	}
 </style>
