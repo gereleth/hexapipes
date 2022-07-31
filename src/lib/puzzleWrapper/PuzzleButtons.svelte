@@ -49,9 +49,12 @@
 		justify-content: center;
 		column-gap: 1em;
 		margin-bottom: 1em;
+		flex-wrap: wrap;
+		row-gap: 1em;
 	}
     button {
         color: var(--text-color);
         display: block;
+		min-height: 2em;
     }
 </style>
