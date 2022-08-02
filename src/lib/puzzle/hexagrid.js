@@ -1,4 +1,25 @@
 
+import {writable, derived} from 'svelte/store'
+
+/**
+ * ViewBox represents the bounds of the visible game area
+ * @typedef {Object} ViewBox
+ * @property {Number} xmin
+ * @property {Number} ymin
+ * @property {Number} width
+ * @property {Number} height
+ */
+
+
+/**
+ * VisibleTile represents a tile within view
+ * @typedef {Object} VisibleTile
+ * @property {Number} index
+ * @property {Number} x
+ * @property {Number} y
+ * @property {String} key
+ */
+
 /**
  * A hexagonal grid
  * @constructor
@@ -100,24 +121,79 @@ export function HexaGrid(width, height, wrap=false) {
 	this.YMIN = - self.YSTEP*(1 + (self.wrap ? 1 : 0))
 	this.YMAX = self.YSTEP*(self.height + (self.wrap ? 1 : 0))
 
-	this.xmin = this.XMIN
-	this.xmax = this.XMAX
-	this.ymin = this.YMIN
-	this.ymax = this.YMAX
+	this.viewBox = writable({
+		xmin: this.XMIN,
+		ymin: this.YMIN,
+		width: this.XMAX - this.XMIN,
+		height: this.YMAX - this.YMIN,
+	})
 
+	/**
+	 * 
+	 * @param {Number} magnitude 
+	 * @param {Number} relativeX 
+	 * @param {Number} relativeY 
+	 */
 	this.zoom = function(magnitude, relativeX, relativeY) {
-		const delta = magnitude > 0 ? -0.1 : 0.1
-		self.xmin = self.xmin + relativeX * delta
-		self.ymin = self.ymin + relativeY*delta*self.YSTEP
-		self.xmax = self.xmax - (1 - relativeX)*delta
-		self.ymax = self.ymax - (1 - relativeY)*delta*self.YSTEP
-		if (!self.wrap) {
-			self.xmin = Math.max(self.XMIN, self.xmin)
-			self.ymin = Math.max(self.YMIN, self.ymin)
-			self.xmax = Math.min(self.XMAX, self.xmax)
-			self.ymax = Math.min(self.YMAX, self.ymax)
-		}
-		return self
+		// TODO increase delta if called often
+		const delta = magnitude > 0 ? -0.3 : 0.3
+
+		self.viewBox.update(box => {
+			let xmin = box.xmin + relativeX * delta
+			let ymin = box.ymin + relativeY * delta * self.YSTEP
+			let xmax = box.xmin + box.width - (1 - relativeX) * delta
+			let ymax = box.ymin + box.height - (1 - relativeY) * delta * self.YSTEP
+			if (!self.wrap) {
+				xmin = Math.max(self.XMIN, xmin)
+				ymin = Math.max(self.YMIN, ymin)
+				xmax = Math.min(self.XMAX, xmax)
+				ymax = Math.min(self.YMAX, ymax)
+			}
+			return {
+				xmin: xmin,
+				ymin: ymin,
+				width: xmax - xmin,
+				height: ymax - ymin,
+			}
+		})
+	}
+
+	self.panOrigin = {
+		x: 0,
+		y: 0,
+	}
+	/**
+	 * Remember initial location when the user starts panning
+	 * @param {Number} relativeX 
+	 * @param {Number} relativeY 
+	 */
+	this.startPan = function(relativeX, relativeY) {
+		// not really an update but I need the value...
+		self.viewBox.update(box => {
+			self.panOrigin = {
+				x: box.xmin + relativeX * box.width,
+				y: box.ymin + relativeY * box.height,
+			}
+			return box
+		})
+	}
+
+	/**
+	 * Move viewbox around
+	 * @param {Number} relativeX 
+	 * @param {Number} relativeY 
+	 */
+	this.pan = function(relativeX, relativeY) {
+		self.viewBox.update(box => {
+			const x = box.xmin + relativeX * box.width
+			const y = box.ymin + relativeY * box.height
+			return {
+				xmin: box.xmin - (x - self.panOrigin.x),
+				ymin: box.ymin - (y - self.panOrigin.y),
+				width: box.width,
+				height: box.height,
+			}
+		})
 	}
 
 	/**
@@ -180,6 +256,12 @@ export function HexaGrid(width, height, wrap=false) {
 		};
 	};
 
+	/**
+	 * Compute tile orientation after a number of rotations
+	 * @param {Number} tile 
+	 * @param {Number} rotations 
+	 * @returns 
+	 */
 	this.rotate = function(tile, rotations) {
 		let rotated = tile
 		rotations = rotations % 6
@@ -204,16 +286,19 @@ export function HexaGrid(width, height, wrap=false) {
 		return self.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
 	};
 
-	this.getVisibleTiles = function() {
-		// console.log(self.xmin, self.xmax, self.ymin, self.ymax)
-		let rmin = Math.floor(self.ymin / self.YSTEP) - 1
-		let rmax = Math.ceil(self.ymax / self.YSTEP)
+	/**
+	 * @param {ViewBox} box 
+	 * @returns {VisibleTile[]}
+	 */
+	const getVisibleTiles = function(box) {
+		let rmin = Math.floor(box.ymin / self.YSTEP) - 1
+		let rmax = Math.ceil((box.ymin + box.height) / self.YSTEP)
 		if (!self.wrap) {
 			rmin = Math.max(0, rmin)
 			rmax = Math.min(self.height-1, rmax)
 		}
-		let cmin = Math.floor(self.xmin - (rmin%2===0 ? 0 : 0.5) )
-		let cmax = Math.ceil(self.xmax - (rmin%2===0 ? 0 : 0.5) )
+		let cmin = Math.floor(box.xmin - (rmin%2===0 ? 0 : 0.5) )
+		let cmax = Math.ceil(box.xmin + box.width - (rmin%2===0 ? 0 : 0.5) )
 		if (!self.wrap) {
 			cmin = Math.max(0, cmin)
 			cmax = Math.min(self.width-1, cmax)
@@ -234,6 +319,9 @@ export function HexaGrid(width, height, wrap=false) {
 		}
 		return visibleTiles
 	}
+
+	// TODO debounce this
+	this.visibleTiles = derived(this.viewBox, getVisibleTiles)
 
 	/**
 	 * 

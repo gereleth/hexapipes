@@ -19,6 +19,8 @@
     // if a user navigates between puzzles directly via back/forward buttons
     const myProgressName = progressStoreName
 
+    /** @type {SVGElement} */
+    let svg
     let svgWidth = 500
     let svgHeight = 500
 
@@ -26,12 +28,13 @@
     let game = new PipesGame(grid, tiles, savedProgress)
     let solved = game.solved
 
-    let visibleTiles = grid.getVisibleTiles()
-
     const dispatch = createEventDispatcher()
 
     let innerWidth = 500
     let innerHeight = 500
+
+    const viewBox = grid.viewBox
+    const visibleTiles = grid.visibleTiles
 
     export const startOver = function() {
         game.startOver()
@@ -43,11 +46,11 @@
      * @returns {void}
      */
     function resize(innerWidth, innerHeight) {
-        const wpx = innerWidth / (1 + grid.xmax - grid.xmin)
-        const hpx = innerHeight / (1 + grid.ymax - grid.ymin)
+        const wpx = innerWidth / (1 + $viewBox.width)
+        const hpx = innerHeight / (1 + $viewBox.height)
         const pxPerCell = Math.min(100, Math.min(wpx, hpx))
-        svgWidth = pxPerCell*(grid.xmax - grid.xmin)
-        svgHeight = pxPerCell*(grid.ymax - grid.ymin)
+        svgWidth = pxPerCell*($viewBox.width)
+        svgHeight = pxPerCell*($viewBox.height)
     }
 
     onMount(()=>{
@@ -107,26 +110,63 @@
 
     const save = createThrottle(saveProgress, 3000)
 
-    function zoom(ev) {
-        if (!grid.wrap) {
-            // only on wrap puzzles for now
-            return
-        }
-        ev.preventDefault()
-        const svg = ev.target.closest('svg')
-        const {x, y, width, height} = svg.getBoundingClientRect()
-        grid = grid.zoom(
-            ev.deltaY, 
-            (ev.clientX - x) / width, 
-            (ev.clientY - y)/ height
+    /**
+     * 
+     * @param {WheelEvent} event
+     */
+    function zoom(event) {
+        event.preventDefault()
+        const [relativeX, relativeY] = getEventCoordinates(event)
+        grid.zoom(
+            event.deltaY, 
+            relativeX, 
+            relativeY
         )
-        visibleTiles = grid.getVisibleTiles()
     }
     let isTouching = false
     $: if (browser) document.body.classList.toggle('no-selection', isTouching);
 
     $: if ($solved) {
         dispatch('solved')
+    }
+
+    /**
+     * Compute relative X and Y coordinates of the event
+     * @param {MouseEvent} event
+     * @returns {Number[]}
+     */
+    function getEventCoordinates(event) {
+        const {x, y, width, height} = svg.getBoundingClientRect()
+        return [
+            (event.clientX - x) / width,
+            (event.clientY - y) / height,
+        ]
+    }
+
+    let panning = false
+    /**
+     * 
+     * @param {MouseEvent} event
+     */
+    function handleMouseDown(event) {
+        const [relativeX, relativeY] = getEventCoordinates(event)
+        grid.startPan(relativeX, relativeY)
+        panning = true
+    }
+
+    /**
+     * 
+     * @param {MouseEvent} event
+     */
+    function handleMouseMove(event) {
+        if (!panning) {return}
+        event.preventDefault()
+        const [relativeX, relativeY] = getEventCoordinates(event)
+        grid.pan(relativeX, relativeY)
+    }
+
+    function handleMouseUp() {
+        panning = false
     }
 </script>
 
@@ -136,14 +176,17 @@
     <svg 
         width={svgWidth} 
         height={svgHeight}
-        viewBox="{grid.xmin} {grid.ymin} {grid.xmax - grid.xmin} {grid.ymax - grid.ymin}"
-        on:mousedown|preventDefault={()=>{}}
+        viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
+        bind:this={svg}
+        on:mousedown|preventDefault={handleMouseDown}
+        on:mousemove|preventDefault={handleMouseMove}
+        on:mouseup={handleMouseUp}
         on:contextmenu|preventDefault={()=>{}}
         on:touchstart={()=>isTouching=true}
         on:touchend={()=>isTouching=false}
         on:wheel={zoom}
         >
-        {#each visibleTiles as visibleTile, i (visibleTile.key)}
+        {#each $visibleTiles as visibleTile, i (visibleTile.key)}
             <Tile i={visibleTile.index} solved={$solved} {game}
                 cx={visibleTile.x}
                 cy={visibleTile.y}
