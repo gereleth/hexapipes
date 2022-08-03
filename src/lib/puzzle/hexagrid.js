@@ -1,4 +1,5 @@
 
+import { browser } from '$app/env';
 import {writable, derived} from 'svelte/store'
 
 /**
@@ -129,32 +130,61 @@ export function HexaGrid(width, height, wrap=false) {
 	})
 
 	/**
+	 * Makes sure non-wrap view box doesn't go over puzzle bounds
+	 * @param {ViewBox} box
+	 * @returns {ViewBox}
+	 */
+	function fixBoxBounds(box) {
+		if (self.wrap) {
+			return box
+		}
+		let {xmin, ymin} = box
+		let xmax = xmin + box.width
+		let ymax = ymin + box.height
+		if (xmin < self.XMIN) {
+			xmax = xmax + (self.XMIN - xmin)
+		}
+		if (xmax > self.XMAX) {
+			xmin = xmin - (xmax - self.XMAX)
+		}
+		if (ymin < self.YMIN) {
+			ymax = ymax + (self.YMIN - ymin)
+		}
+		if (ymax > self.YMAX) {
+			ymin = ymin - (ymax - self.YMAX)
+		}
+		xmin = Math.max(self.XMIN, xmin)
+		ymin = Math.max(self.YMIN, ymin)
+		xmax = Math.min(self.XMAX, xmax)
+		ymax = Math.min(self.YMAX, ymax)
+		return {
+			xmin: xmin,
+			ymin: ymin,
+			width: xmax - xmin,
+			height: ymax - ymin,
+		}
+	}
+
+	/**
 	 * 
 	 * @param {Number} magnitude 
 	 * @param {Number} relativeX 
 	 * @param {Number} relativeY 
 	 */
 	this.zoom = function(magnitude, relativeX, relativeY) {
-		// TODO increase delta if called often
-		const delta = magnitude > 0 ? -0.3 : 0.3
-
+		// TODO increase delta if called often (?)
 		self.viewBox.update(box => {
+			const delta = box.width * 0.1 * (magnitude > 0 ? -1 : 1)
 			let xmin = box.xmin + relativeX * delta
 			let ymin = box.ymin + relativeY * delta * self.YSTEP
 			let xmax = box.xmin + box.width - (1 - relativeX) * delta
 			let ymax = box.ymin + box.height - (1 - relativeY) * delta * self.YSTEP
-			if (!self.wrap) {
-				xmin = Math.max(self.XMIN, xmin)
-				ymin = Math.max(self.YMIN, ymin)
-				xmax = Math.min(self.XMAX, xmax)
-				ymax = Math.min(self.YMAX, ymax)
-			}
-			return {
+			return fixBoxBounds({
 				xmin: xmin,
 				ymin: ymin,
 				width: xmax - xmin,
 				height: ymax - ymin,
-			}
+			})
 		})
 	}
 
@@ -187,12 +217,13 @@ export function HexaGrid(width, height, wrap=false) {
 		self.viewBox.update(box => {
 			const x = box.xmin + relativeX * box.width
 			const y = box.ymin + relativeY * box.height
-			return {
+			const newBox = fixBoxBounds({
 				xmin: box.xmin - (x - self.panOrigin.x),
 				ymin: box.ymin - (y - self.panOrigin.y),
 				width: box.width,
 				height: box.height,
-			}
+			})
+			return newBox
 		})
 	}
 
