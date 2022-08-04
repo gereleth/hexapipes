@@ -168,13 +168,15 @@ export function HexaGrid(width, height, wrap=false) {
 	/**
 	 * 
 	 * @param {Number} magnitude 
-	 * @param {Number} relativeX 
-	 * @param {Number} relativeY 
+	 * @param {Number} x 
+	 * @param {Number} y 
 	 */
-	this.zoom = function(magnitude, relativeX, relativeY) {
+	this.zoom = function(magnitude, x, y) {
 		// TODO increase delta if called often (?)
 		self.viewBox.update(box => {
 			const delta = box.width * 0.1 * (magnitude > 0 ? -1 : 1)
+			const relativeX = (x - box.xmin) / box.width
+			const relativeY = (y - box.ymin) / box.height
 			let xmin = box.xmin + relativeX * delta
 			let ymin = box.ymin + relativeY * delta * self.YSTEP
 			let xmax = box.xmin + box.width - (1 - relativeX) * delta
@@ -188,38 +190,16 @@ export function HexaGrid(width, height, wrap=false) {
 		})
 	}
 
-	self.panOrigin = {
-		x: 0,
-		y: 0,
-	}
-	/**
-	 * Remember initial location when the user starts panning
-	 * @param {Number} relativeX 
-	 * @param {Number} relativeY 
-	 */
-	this.startPan = function(relativeX, relativeY) {
-		// not really an update but I need the value...
-		self.viewBox.update(box => {
-			self.panOrigin = {
-				x: box.xmin + relativeX * box.width,
-				y: box.ymin + relativeY * box.height,
-			}
-			return box
-		})
-	}
-
 	/**
 	 * Move viewbox around
-	 * @param {Number} relativeX 
-	 * @param {Number} relativeY 
+	 * @param {Number} dx 
+	 * @param {Number} dy 
 	 */
-	this.pan = function(relativeX, relativeY) {
+	this.pan = function(dx, dy) {
 		self.viewBox.update(box => {
-			const x = box.xmin + relativeX * box.width
-			const y = box.ymin + relativeY * box.height
 			const newBox = fixBoxBounds({
-				xmin: box.xmin - (x - self.panOrigin.x),
-				ymin: box.ymin - (y - self.panOrigin.y),
+				xmin: box.xmin - dx,
+				ymin: box.ymin - dy,
 				width: box.width,
 				height: box.height,
 			})
@@ -231,17 +211,10 @@ export function HexaGrid(width, height, wrap=false) {
 	 * @param {Number} index
 	 */
 	this.index_to_xy = function (index) {
-		let q = 2 * self.width;
-		let a = index % q;
-		let b = (index - a) / q;
-		let x, y;
-		if (a < self.width) {
-			x = a;
-			y = self.YSTEP * (1 + 2 * b);
-		} else {
-			x = a - self.width + 0.5;
-			y = self.YSTEP * (2 + 2 * b);
-		}
+		const c = index % self.width
+		const r = Math.round((index - c) / self.width)
+		const x = c + (r%2===0 ? 0.0 : 0.5)
+		const y = r*self.YSTEP
 		return [x, y];
 	};
 	/**
@@ -304,6 +277,29 @@ export function HexaGrid(width, height, wrap=false) {
 			rotations += 1
 		}
 		return rotated
+	}
+
+	/**
+	 * Computes angle for drawing the tile guiding dot
+	 * @param {Number} tile 
+	 * @returns {Number}
+	 */
+	this.getTileAngle = function(tile) {
+		const tileDirections = self.getDirections(tile)
+    	const deltas = tileDirections.map(direction => self.XY_DELTAS.get(direction))
+
+        let dx = 0, dy=0
+        for (let [deltax, deltay] of deltas) {
+            dx += deltax
+            dy += deltay
+        }
+        dx /= tileDirections.length
+        dy /= tileDirections.length
+        if ((Math.abs(dx) < 0.001)&&(Math.abs(dy) < 0.001)) {
+            dx = deltas[0][0]
+            dy = deltas[0][1]
+        }
+        return Math.atan2(dy, dx)
 	}
 
 	/**

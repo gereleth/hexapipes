@@ -43,7 +43,7 @@
 			stroke-width="0.04"
 		/>
 	{/if}
-	<circle
+	<!-- <circle
 		class="clickarea"
 		cx={cx + 0.5 * offsetX}
 		cy={cy - 0.5 * offsetY}
@@ -52,7 +52,7 @@
 		on:contextmenu={() => {
 			toggleState(), toggleState();
 		}}
-	/>
+	/> -->
 {/if}
 
 <style>

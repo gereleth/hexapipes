@@ -2,6 +2,7 @@
     import { browser } from '$app/env'
     import { HexaGrid } from "$lib/puzzle/hexagrid";
     import { settings } from '$lib/stores';
+    import { mouseControls } from '$lib/puzzle/mouseControls'
     import Tile from '$lib/puzzle/Tile.svelte';
     import { onMount, onDestroy, createEventDispatcher } from 'svelte';
     import { PipesGame } from '$lib/puzzle/game';
@@ -110,19 +111,6 @@
 
     const save = createThrottle(saveProgress, 3000)
 
-    /**
-     * 
-     * @param {WheelEvent} event
-     */
-    function zoom(event) {
-        event.preventDefault()
-        const [relativeX, relativeY] = getEventCoordinates(event)
-        grid.zoom(
-            event.deltaY, 
-            relativeX, 
-            relativeY
-        )
-    }
     let isTouching = false
     $: if (browser) document.body.classList.toggle('no-selection', isTouching);
 
@@ -130,44 +118,6 @@
         dispatch('solved')
     }
 
-    /**
-     * Compute relative X and Y coordinates of the event
-     * @param {MouseEvent} event
-     * @returns {Number[]}
-     */
-    function getEventCoordinates(event) {
-        const {x, y, width, height} = svg.getBoundingClientRect()
-        return [
-            (event.clientX - x) / width,
-            (event.clientY - y) / height,
-        ]
-    }
-
-    let panning = false
-    /**
-     * 
-     * @param {MouseEvent} event
-     */
-    function handleMouseDown(event) {
-        const [relativeX, relativeY] = getEventCoordinates(event)
-        grid.startPan(relativeX, relativeY)
-        panning = true
-    }
-
-    /**
-     * 
-     * @param {MouseEvent} event
-     */
-    function handleMouseMove(event) {
-        if (!panning) {return}
-        event.preventDefault()
-        const [relativeX, relativeY] = getEventCoordinates(event)
-        grid.pan(relativeX, relativeY)
-    }
-
-    function handleMouseUp() {
-        panning = false
-    }
 </script>
 
 <svelte:window bind:innerWidth bind:innerHeight />
@@ -178,13 +128,10 @@
         height={svgHeight}
         viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
         bind:this={svg}
-        on:mousedown|preventDefault={handleMouseDown}
-        on:mousemove|preventDefault={handleMouseMove}
-        on:mouseup={handleMouseUp}
+        use:mouseControls={game}
         on:contextmenu|preventDefault={()=>{}}
         on:touchstart={()=>isTouching=true}
         on:touchend={()=>isTouching=false}
-        on:wheel={zoom}
         >
         {#each $visibleTiles as visibleTile, i (visibleTile.key)}
             <Tile i={visibleTile.index} solved={$solved} {game}

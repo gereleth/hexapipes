@@ -80,6 +80,14 @@ function StateStore(initialState) {
 		set(self.data)
 	}
 
+	/**
+	 * @param {Number} times 
+	 */
+	self.rotate = function(times) {
+		self.data.rotations += times
+		set(self.data)
+	}
+
 	return self;
 }
 
@@ -96,6 +104,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.grid = grid;
 	self.tiles = tiles;
 	self.initialized = false;
+	self._solved = false
 	self.solved = writable(false);
 
 	/**
@@ -205,6 +214,31 @@ export function PipesGame(grid, tiles, savedProgress) {
 	}
 
 	/**
+	 * 
+	 * @param {Number} tileIndex 
+	 * @param {Number} times 
+	 */
+	self.rotateTile = function(tileIndex, times) {
+		if (self._solved) {
+			return
+		}
+		const tileState = self.tileStates[tileIndex]
+		if ((tileState===undefined)||(tileState.data.locked)) {
+			return
+		}
+		const oldDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations)
+		tileState.rotate(times)
+		const newDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations)
+
+		const dirOut = oldDirections.filter(direction => !(newDirections.some(d=>d===direction)))
+        const dirIn = newDirections.filter(direction => !(oldDirections.some(d=>d===direction)))
+
+		self.handleConnections({
+			detail: {tileIndex, dirOut, dirIn}
+		})
+	}
+
+	/**
 	 * @param {{detail: {
 	 *  tileIndex: Number,
 	 *  dirIn: Number[],
@@ -257,16 +291,10 @@ export function PipesGame(grid, tiles, savedProgress) {
 			self.mergeComponents(tileIndex, neighbour);
 		});
 		if (self.initialized) {
-			const isSolved = self.isSolved();
-			if (isSolved) {
-				self.solved.set(isSolved);
+			self._solved = self.isSolved();
+			if (self._solved) {
+				self.solved.set(self._solved);
 			}
-			// if (solved) {
-			//     // console.log('clear timer because solved')
-			//     save.clear()
-			// } else {
-			//     save.soon()
-			// }
 		}
 	};
 

@@ -41,7 +41,7 @@
     const myDirections = game.grid.getDirections($state.tile)
 
     const deltas = myDirections.map(direction => game.grid.XY_DELTAS.get(direction))
-    let angle = findInitialAngle()
+    let angle = game.grid.getTileAngle($state.tile)
 
     let path = `M ${cx} ${cy}`
     for (let [dx, dy] of deltas) {
@@ -51,26 +51,6 @@
     
     const hexagon = `M ${cx} ${cy} ` + game.grid.tilePath
     
-    let rotationUnit = 1
-    $: rotationUnit = $settings.invertRotationDirection ? -1 : 1
-
-    /**
-    * @returns {Number}
-    */
-    function findInitialAngle() {
-        let dx = 0, dy=0
-        for (let [deltax, deltay] of deltas) {
-            dx += deltax
-            dy += deltay
-        }
-        dx /= myDirections.length
-        dy /= myDirections.length
-        if ((Math.abs(dx) < 0.001)&&(Math.abs(dy) < 0.001)) {
-            dx = deltas[0][0]
-            dy = deltas[0][1]
-        }
-        return Math.atan2(dy, dx)
-    }
 
     /**
     * @param {MouseEvent} event
@@ -102,16 +82,6 @@
         }
     }
 
-
-    function onContextMenu() {
-        if (controlMode === 'rotate_lock') {
-            toggleLocked()
-        } else if (controlMode === 'rotate_rotate') {
-            rotate(-rotationUnit)
-        } else if (controlMode === 'orient_lock') {
-            toggleLocked()
-        }
-    }
     /**
     * @param {Number} times
     */
@@ -158,8 +128,7 @@
 </script>
 
 <g class='tile'
-    on:click={onClick}
-    on:contextmenu|preventDefault={onContextMenu}
+    data-index={i}
 >
 <!-- Tile hexagon -->
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
