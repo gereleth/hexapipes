@@ -132,14 +132,13 @@
         on:contextmenu|preventDefault={()=>{}}
         on:touchstart={()=>isTouching=true}
         on:touchend={()=>isTouching=false}
+        on:save={save.soon}
         >
         {#each $visibleTiles as visibleTile, i (visibleTile.key)}
             <Tile i={visibleTile.index} solved={$solved} {game}
                 cx={visibleTile.x}
                 cy={visibleTile.y}
                 controlMode={$settings.controlMode}
-                on:connections={game.handleConnections}
-                on:save={save.soon}
                 />
         {/each}
     </svg>

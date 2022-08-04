@@ -59,6 +59,12 @@ export function mouseControls(node, game) {
 		return [gameX, gameY];
 	}
 
+	function save() {
+		node.dispatchEvent(
+			new CustomEvent('save')
+		);
+	}
+
 	/**
 	 *
 	 * @param {MouseEvent} event
@@ -96,6 +102,7 @@ export function mouseControls(node, game) {
 				const tileState = game.tileStates[mouseDownOrigin.tileIndex];
 				tileState.toggleLocked();
 				state = tileState.data.locked ? 'locking' : 'unlocking';
+				save()
 			} else {
 				state = 'mousedown';
 			}
@@ -133,6 +140,7 @@ export function mouseControls(node, game) {
 					const tileState = game.tileStates[tileIndex];
 					tileState.data.locked = state === 'locking' ? true : false;
 					tileState.set(tileState.data);
+					save()
 				}
 			}
 		}
@@ -193,6 +201,7 @@ export function mouseControls(node, game) {
 					tileState.toggleLocked();
 				}
 			}
+			save()
 		} else if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.1) {
 			// this might be drawing an edge mark
 			const tileIndex = mouseDownOrigin.tileIndex;
@@ -227,6 +236,7 @@ export function mouseControls(node, game) {
 				} else {
 					game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
 				}
+				save()
 			}
 		}
 		lockingSet.clear();
