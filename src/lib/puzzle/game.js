@@ -239,6 +239,32 @@ export function PipesGame(grid, tiles, savedProgress) {
 	}
 
 	/**
+	 * 
+	 * @param {EdgeMark} mark 
+	 * @param {Number} tileIndex 
+	 * @param {Number} direction 
+	 */
+	self.toggleEdgeMark = function(mark, tileIndex, direction) {
+		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction)
+		if (index === -1) {
+			// toggle mark on the neighbour instead
+			const opposite = self.grid.OPPOSITE.get(direction)
+			const { neighbour } = self.grid.find_neighbour(tileIndex, direction)
+			if ((neighbour !== -1)&&(opposite)) {
+				self.toggleEdgeMark(mark, neighbour, opposite)
+			}
+			return
+		}
+		const tileState = self.tileStates[tileIndex]
+		if (tileState.data.edgeMarks[index] === mark) {
+			tileState.data.edgeMarks[index] = 'empty'
+		} else if (tileState.data.edgeMarks[index] !== 'none') {
+			tileState.data.edgeMarks[index] = mark
+		}
+		tileState.set(tileState.data)
+	}
+
+	/**
 	 * @param {{detail: {
 	 *  tileIndex: Number,
 	 *  dirIn: Number[],

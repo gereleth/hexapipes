@@ -15,16 +15,6 @@
 	// drawn line deltas
 	const [dx, dy] = grid.XY_DELTAS.get(grid.OPPOSITE.get(direction));
 
-	function toggleState() {
-		if (state === 'empty') {
-			state = 'wall';
-		} else if (state === 'wall') {
-			state = 'connection';
-		} else {
-			state = 'empty';
-		}
-		dispatch('save');
-	}
 	const lineLength = 0.15;
 </script>
 
@@ -43,23 +33,9 @@
 			stroke-width="0.04"
 		/>
 	{/if}
-	<!-- <circle
-		class="clickarea"
-		cx={cx + 0.5 * offsetX}
-		cy={cy - 0.5 * offsetY}
-		r={lineLength/2}
-		on:click={toggleState}
-		on:contextmenu={() => {
-			toggleState(), toggleState();
-		}}
-	/> -->
 {/if}
 
 <style>
-	.clickarea {
-		fill: rgba(0, 0, 0, 0);
-		cursor: pointer;
-	}
 	.mark {
 		transform-origin: center;
 		transform-box: fill-box;
