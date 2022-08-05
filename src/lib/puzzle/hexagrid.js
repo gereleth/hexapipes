@@ -174,7 +174,7 @@ export function HexaGrid(width, height, wrap=false) {
 	this.zoom = function(magnitude, x, y) {
 		// TODO increase delta if called often (?)
 		self.viewBox.update(box => {
-			const delta = box.width * 0.1 * (magnitude > 0 ? -1 : 1)
+			const delta = - box.width * magnitude * 0.07
 			const relativeX = (x - box.xmin) / box.width
 			const relativeY = (y - box.ymin) / box.height
 			let xmin = box.xmin + relativeX * delta

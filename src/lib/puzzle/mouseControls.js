@@ -1,4 +1,5 @@
 import { settings } from '$lib/stores';
+import normalizeWheel from 'normalize-wheel';
 
 /**
  * Attaches mouse controls to the game area
@@ -25,6 +26,10 @@ export function mouseControls(node, game) {
 	const unsubscribeSettings = settings.subscribe((s) => {
 		currentSettings = s;
 	});
+
+	const rect = node.getBoundingClientRect()
+	const pixelsWidth = rect.width
+	const pixelsHeight = rect.height
 
 	/**
 	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'}
@@ -248,14 +253,50 @@ export function mouseControls(node, game) {
 		lockingSet.clear();
 	}
 
+	/** @type {Boolean|undefined} */
+	let USING_A_TOUCHPAD = undefined
+	
+	/**
+	 * Tries to detect if the user has a touchpad rather than a mouse
+	 * @param {WheelEvent} event 
+	 */
+	function checkForTouchpad(event) {
+		let misses = 0
+		const normalized = normalizeWheel(event)
+		if ((Math.abs(normalized.spinY)<1)||(normalized.pixelX!==0)) {
+			USING_A_TOUCHPAD = true
+		} else {
+			misses += 1
+		}
+		if (misses > 20) {
+			USING_A_TOUCHPAD = false
+		}
+		if (USING_A_TOUCHPAD !== undefined) {
+			window.removeEventListener('wheel', checkForTouchpad)
+		}
+	}
+	window.addEventListener('wheel', checkForTouchpad)
+
 	/**
 	 * Zoom in or out
 	 * @param {WheelEvent} event
 	 */
 	function handleWheel(event) {
+		const normalized = normalizeWheel(event)
 		event.preventDefault();
 		const [x, y] = getEventCoordinates(event);
-		grid.zoom(event.deltaY, x, y);
+		if (USING_A_TOUCHPAD) {
+			if (event.ctrlKey) {
+				grid.zoom(0.5*normalized.spinY, x, y);
+			} else {
+				// pan with 2-finger slides on touchpad
+				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width
+				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height
+				grid.pan(dx, dy)
+			}
+		} else {
+			grid.zoom(normalized.spinY, x, y);
+		}
 	}
 
 	node.addEventListener('mousedown', handleMouseDown);
@@ -271,6 +312,7 @@ export function mouseControls(node, game) {
 			node.removeEventListener('mouseleave', handleMouseLeave);
 			node.removeEventListener('mouseup', handleMouseUp);
 			node.removeEventListener('wheel', handleWheel);
+			window.removeEventListener('wheel', checkForTouchpad)
 			unsubscribeViewBox();
 			unsubscribeSettings();
 		}
