@@ -7,6 +7,7 @@
 	import Timer from '$lib/Timer.svelte';
 	import Stats from '$lib/Stats.svelte';
 	import { getSolves, getStats } from '$lib/stores';
+  import { onMount } from 'svelte';
 
 	/** @type {'hexagonal'|'hexagonal-wrap'} */
 	export let category;
@@ -46,6 +47,7 @@
 		puzzleId: -1,
 		startedAt: -1,
 		finishedAt: -1,
+		pausedAt: -1,
 		elapsedTime: -1
 	};
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
@@ -53,6 +55,7 @@
 
 	$: if (browser && $page.params) {
 		if (size !== previousParams.size) {
+			solves?.pause(previousParams.id);
 			// if a player used the back button
 			// and went from puzzle of one size
 			// directly to a puzzle of another size
@@ -61,6 +64,7 @@
 			stats = getStats(pathname);
 			start();
 		} else if (puzzleId !== previousParams.id) {
+			solves?.pause(previousParams.id);
 			start();
 		}
 		solved = false;
@@ -101,6 +105,21 @@
 	function newPuzzle() {
 		goto(`/${category}/${size}/${nextPuzzleId}`);
 	}
+
+	onMount(() => {
+		function handleVisibilityChange(e) {
+			console.log(`got event: ${document.visibilityState}`)
+			if (document.visibilityState === 'visible') {
+				solve = solves.unpause(puzzleId);
+			} else {
+				solve = solves.pause(puzzleId);
+			}
+		}
+
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+	});
+
 </script>
 
 {#key `/${category}/${size}/${puzzleId}`}
