@@ -53,7 +53,6 @@
     onMount(()=>{
         game.initializeBoard()
         resize(innerWidth, innerHeight)
-        console.log('dispatching initialized')
         dispatch('initialized')
     })
 
@@ -62,7 +61,6 @@
         save.clear()
         if (!$solved) {
             save.now()
-            console.log('dispatching pause')
             dispatch('pause')
         }
     })

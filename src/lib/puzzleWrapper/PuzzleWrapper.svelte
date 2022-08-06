@@ -56,7 +56,7 @@
 	$: if (browser && $page.params) {
 		if (size !== previousParams.size) {
 			if (previousParams.size) {
-				console.log('changed size, pausing', previousParams.id)
+				// console.log('changed size, pausing', previousParams.id)
 				solves?.pause(previousParams.id);
 			}
 			// if a player used the back button
@@ -67,7 +67,7 @@
 			stats = getStats(pathname);
 		} else if (puzzleId !== previousParams.id) {
 			if (previousParams.id) {
-				console.log('changed id, pausing', previousParams.id)
+				// console.log('changed id, pausing', previousParams.id)
 				solves?.pause(previousParams.id);
 			}
 		}
@@ -81,7 +81,6 @@
 	}
 
 	function start() {
-		console.log('Starting', puzzleId)
 		previousParams.size = size;
 		previousParams.id = puzzleId;
 		if (solves !== undefined) {
@@ -113,7 +112,7 @@
 
 	onMount(() => {
 		function handleVisibilityChange(e) {
-			console.log(`got event: ${document.visibilityState}`)
+			// console.log(`got visibility change event: ${document.visibilityState}`)
 			if (document.visibilityState === 'visible') {
 				solve = solves.unpause(puzzleId);
 			} else {
