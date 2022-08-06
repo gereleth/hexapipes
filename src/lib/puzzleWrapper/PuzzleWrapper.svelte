@@ -55,17 +55,21 @@
 
 	$: if (browser && $page.params) {
 		if (size !== previousParams.size) {
-			solves?.pause(previousParams.id);
+			if (previousParams.size) {
+				console.log('changed size, pausing', previousParams.id)
+				solves?.pause(previousParams.id);
+			}
 			// if a player used the back button
 			// and went from puzzle of one size
 			// directly to a puzzle of another size
 			// then we need to update solves and stats
 			solves = getSolves(pathname);
 			stats = getStats(pathname);
-			start();
 		} else if (puzzleId !== previousParams.id) {
-			solves?.pause(previousParams.id);
-			start();
+			if (previousParams.id) {
+				console.log('changed id, pausing', previousParams.id)
+				solves?.pause(previousParams.id);
+			}
 		}
 		solved = false;
 		const progress = window.localStorage.getItem(progressStoreName);
@@ -77,6 +81,7 @@
 	}
 
 	function start() {
+		console.log('Starting', puzzleId)
 		previousParams.size = size;
 		previousParams.id = puzzleId;
 		if (solves !== undefined) {
@@ -134,6 +139,7 @@
 		on:solved={stop}
 		on:initialized={start}
 		on:progress={saveProgress}
+		on:pause={() => solves.pause(puzzleId)}
 	/>
 {/key}
 

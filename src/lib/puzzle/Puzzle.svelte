@@ -53,13 +53,18 @@
     onMount(()=>{
         game.initializeBoard()
         resize(innerWidth, innerHeight)
+        console.log('dispatching initialized')
         dispatch('initialized')
     })
 
     onDestroy(()=>{
         // save progress immediately if navigating away (?)
         save.clear()
-        if (!$solved) {save.now()}
+        if (!$solved) {
+            save.now()
+            console.log('dispatching pause')
+            dispatch('pause')
+        }
     })
 
     function createThrottle(callback, timeout) {

@@ -240,29 +240,34 @@ function createSolvesStore(path) {
         return solve
     }
 
+	// adds a pausedAt time to a puzzle if the puzzle is running and not paused
     function pause(puzzleId) {
+		console.log('pausing', puzzleId)
         let solve;
         update(solves => {
             // find if this puzzle is in progress
             solve = solves.find(solve => solve.puzzleId === puzzleId);
-            if (solve !== undefined && solve.startedAt !== -1 && solve.elapsedTime === -1) {
+            if (solve !== undefined && solve.startedAt !== -1 && solve.elapsedTime === -1 && solve.pausedAt === -1) {
                 solve.pausedAt = (new Date()).valueOf();
+				console.log('paused', puzzleId)
             }
             return solves
         });
         return solve;
     }
 
+	// removes pausedAt and adjusts startedAt if the puzzle is paused
     function unpause(puzzleId) {
+        console.log('unpausing', puzzleId);
         let solve;
-        console.log(`unpausing ${puzzleId}`);
         update(solves => {
-            // find if this puzzle in in progress
+            // find if this puzzle in in progress and paused
             solve = solves.find(solve => solve.puzzleId === puzzleId);
             if (solve !== undefined && solve.startedAt !== -1 && solve.elapsedTime === -1 && solve.pausedAt > solve.startedAt) {
                 const now = (new Date()).valueOf();
                 const pausedElapsedTime = now - solve.pausedAt;
                 solve.pausedAt = -1; // clear paused time
+				console.log('unpaused', puzzleId)
 
                 // guard against unexpected quirks like setting clock back
                 if (pausedElapsedTime >= 0) {
