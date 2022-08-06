@@ -84,7 +84,6 @@ export function mouseControls(node, game) {
 	/**
 	 * Tells if a point is close to one of tile's edges
 	 * @param {PointerOrigin} point
-	 * @returns
 	 */
 	function whichEdge(point) {
 		const { x, y, tileX, tileY } = point;
@@ -216,7 +215,6 @@ export function mouseControls(node, game) {
 	 */
 	function handleMouseUp(event) {
 		clearTimeout(edgeMarkTimer);
-		console.log(state);
 		if (state === 'idle' || state === 'edgemark') {
 			return;
 		}
@@ -358,6 +356,10 @@ export function mouseControls(node, game) {
 	 * @param {WheelEvent} event
 	 */
 	function handleWheel(event) {
+		if (event.target === node) {
+			// allow scrolling when the mouse is over empty space
+			return;
+		}
 		const normalized = normalizeWheel(event);
 		event.preventDefault();
 		const [x, y] = getEventCoordinates(event);

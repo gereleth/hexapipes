@@ -47,11 +47,29 @@
      * @returns {void}
      */
     function resize(innerWidth, innerHeight) {
-        const wpx = innerWidth / (1 + $viewBox.width)
-        const hpx = innerHeight / (1 + $viewBox.height)
-        const pxPerCell = Math.min(100, Math.min(wpx, hpx))
-        svgWidth = pxPerCell*($viewBox.width)
-        svgHeight = pxPerCell*($viewBox.height)
+        const maxPixelWidth = innerWidth - 20 // take full width
+        const maxPixelHeight = Math.round(0.8*innerHeight) // take most height
+        const wpx = maxPixelWidth / (1 + $viewBox.width)
+        const hpx = maxPixelHeight / (1 + $viewBox.height)
+        const pxPerCell = Math.min(100, wpx, hpx)
+        if (wrap) {
+            svgWidth = pxPerCell * $viewBox.width
+        } else {
+            svgWidth = maxPixelWidth
+        }
+        // svgWidth = pxPerCell === 100 ? pxPerCell*$viewBox.width : maxPixelWidth
+        svgHeight = pxPerCell === 100 ? pxPerCell*$viewBox.height : maxPixelHeight
+
+        const widthDelta = svgWidth / pxPerCell - $viewBox.width
+        if (widthDelta > 0) {
+            $viewBox.xmin -= widthDelta / 2
+            $viewBox.width += widthDelta
+        }
+        const heightDelta = svgHeight / pxPerCell - $viewBox.height
+        if (heightDelta > 0) {
+            $viewBox.ymin -= heightDelta / 2
+            $viewBox.height += heightDelta
+        }
     }
 
     onMount(()=>{
@@ -148,6 +166,7 @@
     svg {
         display: block;
         margin: auto;
+        border: 1px solid var(--secondary-color);
     }
     /* win animation */
     .solved :global(.inside) {
