@@ -2,6 +2,17 @@ import { settings } from '$lib/stores';
 import normalizeWheel from 'normalize-wheel';
 
 /**
+ * @typedef PointerOrigin
+ * @property {Number} x
+ * @property {Number} y
+ * @property {Number} tileX
+ * @property {Number} tileY
+ * @property {Number} tileIndex
+ * @property {Number} button
+ * @property {Boolean} locking - true if a click like this should result in locking a tile
+ */
+
+/**
  * Attaches mouse controls to the game area
  * @param {HTMLElement} node
  * @param {import('$lib/puzzle/game').PipesGame} game
@@ -27,22 +38,24 @@ export function mouseControls(node, game) {
 		currentSettings = s;
 	});
 
-	const rect = node.getBoundingClientRect()
-	const pixelsWidth = rect.width
-	const pixelsHeight = rect.height
+	const rect = node.getBoundingClientRect();
+	const pixelsWidth = rect.width;
+	const pixelsHeight = rect.height;
 
 	/**
-	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'}
+	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'|'edgemark'}
 	 */
 	let state = 'idle';
 
+	/** @type PointerOrigin */
 	let mouseDownOrigin = {
 		x: 0,
 		y: 0,
 		button: 0,
 		tileIndex: 0,
 		tileX: 0,
-		tileY: 0
+		tileY: 0,
+		locking: false
 	};
 
 	/**
@@ -65,11 +78,34 @@ export function mouseControls(node, game) {
 	}
 
 	function save() {
-		node.dispatchEvent(
-			new CustomEvent('save')
-		);
+		node.dispatchEvent(new CustomEvent('save'));
 	}
 
+	/**
+	 * Tells if a point is close to one of tile's edges
+	 * @param {PointerOrigin} point
+	 * @returns
+	 */
+	function whichEdge(point) {
+		const { x, y, tileX, tileY } = point;
+		const dx = x - tileX;
+		const dy = tileY - y;
+		const deltaRadius = Math.abs(Math.sqrt(dx ** 2 + dy ** 2) - 0.5);
+		let angle = Math.atan2(dy, dx);
+		angle += angle < 0 ? 2 * Math.PI : 0;
+		const directionIndex = Math.round((angle * 3) / Math.PI) % 6;
+		const direction = game.grid.DIRECTIONS[directionIndex];
+		const directionAngle = (directionIndex * Math.PI) / 3;
+		let deltaAngle = Math.abs(angle - directionAngle);
+		deltaAngle = Math.min(deltaAngle, 2 * Math.PI - deltaAngle);
+		return {
+			direction,
+			isClose: deltaRadius <= 0.15 && deltaAngle <= 0.35
+		};
+	}
+
+	/** @type {NodeJS.Timer|undefined} */
+	let edgeMarkTimer;
 	/**
 	 *
 	 * @param {MouseEvent} event
@@ -78,6 +114,10 @@ export function mouseControls(node, game) {
 		const target = event.target;
 
 		const [x, y] = getEventCoordinates(event);
+		const locking =
+			(currentSettings.controlMode === 'rotate_lock' && event.button === 2) ||
+			(currentSettings.controlMode === 'rotate_rotate' && event.button === 0 && event.ctrlKey) ||
+			(currentSettings.controlMode === 'orient_lock' && event.button === 2);
 
 		mouseDownOrigin = {
 			x,
@@ -85,7 +125,8 @@ export function mouseControls(node, game) {
 			button: event.button,
 			tileIndex: -1,
 			tileX: 0,
-			tileY: 0
+			tileY: 0,
+			locking
 		};
 
 		const maybeTile = target.closest('g.tile');
@@ -98,18 +139,26 @@ export function mouseControls(node, game) {
 		if (mouseDownOrigin.tileIndex === -1) {
 			state = 'panning';
 		} else {
-			const locking =
-				(currentSettings.controlMode === 'rotate_lock' && event.button === 2) ||
-				(currentSettings.controlMode === 'rotate_rotate' && event.button === 0 && event.ctrlKey) ||
-				(currentSettings.controlMode === 'orient_lock' && event.button === 2);
-			if (locking) {
-				lockingSet.add(mouseDownOrigin.tileIndex);
-				const tileState = game.tileStates[mouseDownOrigin.tileIndex];
-				tileState.toggleLocked();
-				state = tileState.data.locked ? 'locking' : 'unlocking';
-				save()
-			} else {
+			const { direction, isClose } = whichEdge(mouseDownOrigin);
+
+			if (isClose) {
+				// close to the edge, may be wanting an edge mark
+				edgeMarkTimer = setTimeout(() => {
+					const mark = mouseDownOrigin.button === 0 ? 'wall' : 'conn';
+					game.toggleEdgeMark(mark, mouseDownOrigin.tileIndex, direction);
+					state = 'edgemark';
+				}, 500);
 				state = 'mousedown';
+			} else {
+				if (mouseDownOrigin.locking) {
+					lockingSet.add(mouseDownOrigin.tileIndex);
+					const tileState = game.tileStates[mouseDownOrigin.tileIndex];
+					tileState.toggleLocked();
+					state = tileState.data.locked ? 'locking' : 'unlocking';
+					save();
+				} else {
+					state = 'mousedown';
+				}
 			}
 		}
 	}
@@ -133,6 +182,16 @@ export function mouseControls(node, game) {
 					state = 'panning';
 				}
 			}
+			if (distance >= 0.05) {
+				clearTimeout(edgeMarkTimer);
+				if (mouseDownOrigin.locking) {
+					lockingSet.add(mouseDownOrigin.tileIndex);
+					const tileState = game.tileStates[mouseDownOrigin.tileIndex];
+					tileState.toggleLocked();
+					state = tileState.data.locked ? 'locking' : 'unlocking';
+					save();
+				}
+			}
 		}
 		if (state === 'panning') {
 			grid.pan(dx, dy);
@@ -145,7 +204,7 @@ export function mouseControls(node, game) {
 					const tileState = game.tileStates[tileIndex];
 					tileState.data.locked = state === 'locking' ? true : false;
 					tileState.set(tileState.data);
-					save()
+					save();
 				}
 			}
 		}
@@ -156,7 +215,9 @@ export function mouseControls(node, game) {
 	 * @param {MouseEvent} event
 	 */
 	function handleMouseUp(event) {
-		if (state === 'idle') {
+		clearTimeout(edgeMarkTimer);
+		console.log(state);
+		if (state === 'idle' || state === 'edgemark') {
 			return;
 		}
 		event.preventDefault();
@@ -164,8 +225,59 @@ export function mouseControls(node, game) {
 		const dx = x - mouseDownOrigin.x;
 		const dy = y - mouseDownOrigin.y;
 		const distance = Math.sqrt(dx * dx + dy * dy);
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance < 0.05) {
-			// there was little movement, process this as a click
+
+		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.1) {
+			// this might be drawing an edge mark
+			const tileIndex = mouseDownOrigin.tileIndex;
+			const { tileX, tileY } = mouseDownOrigin;
+			let startAngle = Math.atan2(tileY - mouseDownOrigin.y, mouseDownOrigin.x - tileX);
+			let endAngle = Math.atan2(tileY - y, x - tileX);
+			startAngle += startAngle < 0 ? 2 * Math.PI : 0;
+			endAngle += endAngle < 0 ? 2 * Math.PI : 0;
+			let deltaAngle = Math.abs(startAngle - endAngle);
+			let meanAngle = 0.5 * (startAngle + endAngle);
+			if (deltaAngle > Math.PI) {
+				deltaAngle = 2 * Math.PI - deltaAngle;
+				meanAngle -= Math.PI;
+			}
+			const directionIndex = Math.round((meanAngle * 3) / Math.PI);
+			const startRadius = Math.sqrt(
+				(tileY - mouseDownOrigin.y) ** 2 + (mouseDownOrigin.x - tileX) ** 2
+			);
+			const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
+			const meanRadius = 0.5 * (startRadius + endRadius);
+			if (
+				Math.abs(meanRadius - 0.5) <= 0.1 &&
+				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.2
+			) {
+				// was close to tile border
+				// in a well defined direction
+				// toggle an edgemark here
+				const distanceAlongBorder = 0.5 * deltaAngle;
+				const distanceAcrossBorder = Math.abs(startRadius - endRadius);
+				if (distanceAlongBorder > distanceAcrossBorder) {
+					game.toggleEdgeMark('wall', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+				} else {
+					game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+				}
+				save();
+				state = 'idle';
+			}
+		}
+		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1) {
+			const maybeTile = event.target.closest('g.tile');
+			if (maybeTile) {
+				const tileIndex = Number(maybeTile.getAttribute('data-index'));
+				if (tileIndex !== mouseDownOrigin.tileIndex) {
+					// left the tile
+					// but traveled a small distance
+					// and not like drawing an edgemark
+					// don't know how to process this case, do nothing for now
+					state = 'idle';
+					return;
+				}
+			}
+			// stayed in the same tile, process this as a click
 			// rotate or lock a tile
 			const tileIndex = mouseDownOrigin.tileIndex;
 			const tileState = game.tileStates[tileIndex];
@@ -206,43 +318,7 @@ export function mouseControls(node, game) {
 					tileState.toggleLocked();
 				}
 			}
-			save()
-		} else if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.1) {
-			// this might be drawing an edge mark
-			const tileIndex = mouseDownOrigin.tileIndex;
-			const { tileX, tileY } = mouseDownOrigin;
-			let startAngle = Math.atan2(tileY - mouseDownOrigin.y, mouseDownOrigin.x - tileX);
-			let endAngle = Math.atan2(tileY - y, x - tileX);
-			startAngle += startAngle < 0 ? 2 * Math.PI : 0;
-			endAngle += endAngle < 0 ? 2 * Math.PI : 0;
-			let deltaAngle = Math.abs(startAngle - endAngle);
-			let meanAngle = 0.5 * (startAngle + endAngle);
-			if (deltaAngle > Math.PI) {
-				deltaAngle = 2 * Math.PI - deltaAngle;
-				meanAngle -= Math.PI;
-			}
-			const directionIndex = Math.round((meanAngle * 3) / Math.PI);
-			const startRadius = Math.sqrt(
-				(tileY - mouseDownOrigin.y) ** 2 + (mouseDownOrigin.x - tileX) ** 2
-			);
-			const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
-			const meanRadius = 0.5 * (startRadius + endRadius);
-			if (
-				Math.abs(meanRadius - 0.5) <= 0.1 &&
-				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.2
-			) {
-				// was close to tile border
-				// in a well defined direction
-				// toggle an edgemark here
-				const distanceAlongBorder = 0.5 * deltaAngle;
-				const distanceAcrossBorder = Math.abs(startRadius - endRadius);
-				if (distanceAlongBorder > distanceAcrossBorder) {
-					game.toggleEdgeMark('wall', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
-				} else {
-					game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
-				}
-				save()
-			}
+			save();
 		}
 		lockingSet.clear();
 		state = 'idle';
@@ -254,45 +330,45 @@ export function mouseControls(node, game) {
 	}
 
 	/** @type {Boolean|undefined} */
-	let USING_A_TOUCHPAD = undefined
-	
+	let USING_A_TOUCHPAD = undefined;
+
 	/**
 	 * Tries to detect if the user has a touchpad rather than a mouse
-	 * @param {WheelEvent} event 
+	 * @param {WheelEvent} event
 	 */
 	function checkForTouchpad(event) {
-		let misses = 0
-		const normalized = normalizeWheel(event)
-		if ((Math.abs(normalized.spinY)<1)||(normalized.pixelX!==0)) {
-			USING_A_TOUCHPAD = true
+		let misses = 0;
+		const normalized = normalizeWheel(event);
+		if (Math.abs(normalized.spinY) < 1 || normalized.pixelX !== 0) {
+			USING_A_TOUCHPAD = true;
 		} else {
-			misses += 1
+			misses += 1;
 		}
 		if (misses > 20) {
-			USING_A_TOUCHPAD = false
+			USING_A_TOUCHPAD = false;
 		}
 		if (USING_A_TOUCHPAD !== undefined) {
-			window.removeEventListener('wheel', checkForTouchpad)
+			window.removeEventListener('wheel', checkForTouchpad);
 		}
 	}
-	window.addEventListener('wheel', checkForTouchpad)
+	window.addEventListener('wheel', checkForTouchpad);
 
 	/**
 	 * Zoom in or out
 	 * @param {WheelEvent} event
 	 */
 	function handleWheel(event) {
-		const normalized = normalizeWheel(event)
+		const normalized = normalizeWheel(event);
 		event.preventDefault();
 		const [x, y] = getEventCoordinates(event);
 		if (USING_A_TOUCHPAD) {
 			if (event.ctrlKey) {
-				grid.zoom(0.5*normalized.spinY, x, y);
+				grid.zoom(0.5 * normalized.spinY, x, y);
 			} else {
 				// pan with 2-finger slides on touchpad
-				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width
-				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height
-				grid.pan(dx, dy)
+				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width;
+				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height;
+				grid.pan(dx, dy);
 			}
 		} else {
 			grid.zoom(normalized.spinY, x, y);
@@ -312,7 +388,7 @@ export function mouseControls(node, game) {
 			node.removeEventListener('mouseleave', handleMouseLeave);
 			node.removeEventListener('mouseup', handleMouseUp);
 			node.removeEventListener('wheel', handleWheel);
-			window.removeEventListener('wheel', checkForTouchpad)
+			window.removeEventListener('wheel', checkForTouchpad);
 			unsubscribeViewBox();
 			unsubscribeSettings();
 		}
