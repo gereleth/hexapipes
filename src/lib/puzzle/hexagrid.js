@@ -219,6 +219,36 @@ export function HexaGrid(width, height, wrap = false) {
 		const y = r * self.YSTEP;
 		return [x, y];
 	};
+
+	/**
+	 * @param {Number} x
+	 * @param {Number} y
+	 * @returns {Number}
+	 */
+	 this.xy_to_index = function (x, y) {
+		const r = y / self.YSTEP
+		const r0 = Math.round(r)
+		const c0 = Math.round(x - (r0 % 2 === 0 ? 0 : 0.5))
+		const x0 = c0 + (r0 % 2 === 0 ? 0.0 : 0.5);
+		const y0 = r0 * self.YSTEP
+		const distance0 = Math.sqrt((x-x0)**2 + (y-y0)**2)
+		if (distance0 <= 0.5) {
+			return self.rc_to_index(r0, c0)
+		} else {
+			let r1 = Math.floor(r)
+			if (r1 === r0) { r1 = Math.ceil(r)}
+			const c1 = Math.round(x - (r1 % 2 === 0 ? 0 : 0.5))
+			const x1 = c1 + (r1 % 2 === 0 ? 0.0 : 0.5);
+			const y1 = r1 * self.YSTEP
+			const distance1 = Math.sqrt((x-x1)**2 + (y-y1)**2)
+			if (distance0 < distance1) {
+				return self.rc_to_index(r0, c0)
+			} else {
+				return self.rc_to_index(r1, c1)
+			}
+		}
+	};
+
 	/**
 	 * @param {Number} index
 	 * @param {Number} direction
