@@ -13,12 +13,12 @@ import normalizeWheel from 'normalize-wheel';
  */
 
 /**
- * Attaches mouse controls to the game area
+ * Attaches mouse/touch controls to the game area
  * @param {HTMLElement} node
  * @param {import('$lib/puzzle/game').PipesGame} game
  * @returns
  */
-export function mouseControls(node, game) {
+export function controls(node, game) {
 	const grid = game.grid;
 
 	/**
@@ -65,7 +65,7 @@ export function mouseControls(node, game) {
 
 	/**
 	 * Compute X and Y coordinates of the event in game grid units
-	 * @param {MouseEvent} event
+	 * @param {MouseEvent|Touch} event
 	 * @returns {Number[]}
 	 */
 	function getEventCoordinates(event) {
@@ -110,8 +110,8 @@ export function mouseControls(node, game) {
 	 * @param {MouseEvent} event
 	 */
 	function handleMouseDown(event) {
+		event.preventDefault();
 		const target = event.target;
-
 		const [x, y] = getEventCoordinates(event);
 		const locking =
 			(currentSettings.controlMode === 'rotate_lock' && event.button === 2) ||
@@ -360,7 +360,8 @@ export function mouseControls(node, game) {
 		const [x, y] = getEventCoordinates(event);
 		if (USING_A_TOUCHPAD) {
 			if (event.ctrlKey) {
-				grid.zoom(0.5 * normalized.spinY, x, y);
+				const delta = 0.5 * viewBox.width * 0.07 * normalized.spinY
+				grid.zoom(viewBox.width + delta, x, y);
 			} else {
 				// pan with 2-finger slides on touchpad
 				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width;
@@ -368,7 +369,126 @@ export function mouseControls(node, game) {
 				grid.pan(dx, dy);
 			}
 		} else {
-			grid.zoom(normalized.spinY, x, y);
+			const delta = viewBox.width * 0.07 * normalized.spinY
+			grid.zoom(viewBox.width + delta, x, y);
+		}
+	}
+
+	/* TOUCH HANDLING */
+
+	let ongoingTouches = [];
+	/**@type {'idle'|'touchdown'|'zoom_pan'|'locking'|'unlocking'} */
+	let touchState = 'idle';
+	/**
+	 *
+	 * @param {TouchEvent} event
+	 */
+	function handleTouchStart(event) {
+		event.preventDefault();
+		document.body.classList.add('no-selection');
+		if (ongoingTouches.length < 2) {
+			for (let i = 0; i < event.changedTouches.length; i++) {
+				const touch = event.changedTouches.item(i);
+				if (touch === null) {
+					continue;
+				}
+				const [x, y] = getEventCoordinates(touch);
+				const data = {
+					x,
+					y,
+					id: touch.identifier,
+					clientX: touch.clientX,
+					clientY: touch.clientY,
+					tileIndex: -1,
+					tileX: 0,
+					tileY: 0,
+					width: viewBox.width
+				};
+				const maybeTile = touch.target.closest('g.tile');
+				if (maybeTile) {
+					data.tileIndex = Number(maybeTile.getAttribute('data-index'));
+					data.tileX = Number(maybeTile.getAttribute('data-x'));
+					data.tileY = Number(maybeTile.getAttribute('data-y'));
+				}
+				ongoingTouches.push(data);
+			}
+		}
+		if (ongoingTouches.length == 1) {
+			touchState = 'touchdown';
+		} else if (ongoingTouches.length > 1) {
+			touchState = 'zoom_pan';
+		}
+	}
+
+	/**
+	 *
+	 * @param {TouchEvent} event
+	 */
+	function handleTouchMove(event) {
+		event.preventDefault();
+		if (touchState === 'zoom_pan') {
+			const ids = ongoingTouches.map((x) => x.id);
+			const newTouches = ongoingTouches.map((touch) => {
+				return { x: touch.x, y: touch.y, clientX: touch.clientX, clientY: touch.clientY };
+			});
+			for (let i = 0; i < event.touches.length; i++) {
+				const touch = event.touches.item(i);
+				if (touch === null) {
+					continue;
+				}
+				const index = ids.indexOf(touch.identifier);
+				if (index === -1) {
+					continue;
+				}
+				const [x, y] = getEventCoordinates(touch);
+				newTouches[index].x = x;
+				newTouches[index].y = y;
+				newTouches[index].clientX = touch.clientX;
+				newTouches[index].clientY = touch.clientY;
+			}
+			// panning
+			const oldx = 0.5 * (ongoingTouches[0].x + ongoingTouches[1].x);
+			const newx = 0.5 * (newTouches[0].x + newTouches[1].x);
+			const oldy = 0.5 * (ongoingTouches[0].y + ongoingTouches[1].y);
+			const newy = 0.5 * (newTouches[0].y + newTouches[1].y);
+			grid.pan(newx - oldx, newy - oldy);
+			// zooming
+			const oldDistance = Math.sqrt(
+				(ongoingTouches[0].clientX - ongoingTouches[1].clientX) ** 2 +
+					(ongoingTouches[0].clientY - ongoingTouches[1].clientY) ** 2
+			);
+			const newDistance = Math.sqrt(
+				(newTouches[0].clientX - newTouches[1].clientX) ** 2 +
+					(newTouches[0].clientY - newTouches[1].clientY) ** 2
+			);
+			grid.zoom((ongoingTouches[0].width * oldDistance) / newDistance, newx, newy);
+		}
+		// console.log('touchmove', event);
+	}
+
+	/**
+	 *
+	 * @param {TouchEvent} event
+	 */
+	function handleTouchEnd(event) {
+		event.preventDefault();
+		if (ongoingTouches.length === 1) {
+			const [x, y] = getEventCoordinates(event.changedTouches[0]);
+			console.log(x, y);
+			ongoingTouches = [];
+			document.body.classList.remove('no-selection');
+		}
+		for (let i = 0; i < event.changedTouches.length; i++) {
+			const touch = event.changedTouches.item(i);
+			if (touch === null) {
+				continue;
+			}
+			ongoingTouches = ongoingTouches.filter((item) => item.id !== touch.identifier);
+		}
+		if (ongoingTouches.length === 0) {
+			touchState = 'idle';
+		} else if (ongoingTouches.length === 1) {
+			touchState = 'idle';
 		}
 	}
 
@@ -378,6 +498,11 @@ export function mouseControls(node, game) {
 	node.addEventListener('mouseup', handleMouseUp);
 	node.addEventListener('wheel', handleWheel);
 
+	node.addEventListener('touchstart', handleTouchStart);
+	node.addEventListener('touchmove', handleTouchMove);
+	node.addEventListener('touchend', handleTouchEnd);
+	node.addEventListener('touchcancel', handleTouchEnd);
+
 	return {
 		destroy() {
 			node.removeEventListener('mousedown', handleMouseDown);
@@ -386,6 +511,12 @@ export function mouseControls(node, game) {
 			node.removeEventListener('mouseup', handleMouseUp);
 			node.removeEventListener('wheel', handleWheel);
 			window.removeEventListener('wheel', checkForTouchpad);
+
+			node.removeEventListener('touchstart', handleTouchStart);
+			node.removeEventListener('touchmove', handleTouchMove);
+			node.removeEventListener('touchend', handleTouchEnd);
+			node.removeEventListener('touchcancel', handleTouchEnd);
+
 			unsubscribeViewBox();
 			unsubscribeSettings();
 		}

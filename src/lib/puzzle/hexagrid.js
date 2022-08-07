@@ -168,13 +168,14 @@ export function HexaGrid(width, height, wrap = false) {
 
 	/**
 	 *
-	 * @param {Number} magnitude
+	 * @param {Number} newWidth
 	 * @param {Number} x
 	 * @param {Number} y
 	 */
-	this.zoom = function (magnitude, x, y) {
+	this.zoom = function (newWidth, x, y) {
 		self.viewBox.update((box) => {
-			const delta = -box.width * magnitude * 0.07;
+			// const delta = -box.width * magnitude * 0.07;
+			const delta = box.width - newWidth
 			const xyScale = box.height / box.width;
 			const relativeX = (x - box.xmin) / box.width;
 			const relativeY = (y - box.ymin) / box.height;

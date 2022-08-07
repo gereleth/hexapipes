@@ -2,7 +2,7 @@
     import { browser } from '$app/env'
     import { HexaGrid } from "$lib/puzzle/hexagrid";
     import { settings } from '$lib/stores';
-    import { mouseControls } from '$lib/puzzle/mouseControls'
+    import { controls } from '$lib/puzzle/controls'
     import Tile from '$lib/puzzle/Tile.svelte';
     import { onMount, onDestroy, createEventDispatcher } from 'svelte';
     import { PipesGame } from '$lib/puzzle/game';
@@ -129,9 +129,6 @@
 
     const save = createThrottle(saveProgress, 3000)
 
-    let isTouching = false
-    $: if (browser) document.body.classList.toggle('no-selection', isTouching);
-
     $: if ($solved) {
         dispatch('solved')
     }
@@ -146,10 +143,8 @@
         height={svgHeight}
         viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
         bind:this={svg}
-        use:mouseControls={game}
+        use:controls={game}
         on:contextmenu|preventDefault={()=>{}}
-        on:touchstart={()=>isTouching=true}
-        on:touchend={()=>isTouching=false}
         on:save={save.soon}
         >
         {#each $visibleTiles as visibleTile, i (visibleTile.key)}
