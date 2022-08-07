@@ -322,11 +322,6 @@ export function mouseControls(node, game) {
 		state = 'idle';
 	}
 
-	function handleMouseLeave() {
-		state = 'idle';
-		lockingSet.clear();
-	}
-
 	/** @type {Boolean|undefined} */
 	let USING_A_TOUCHPAD = undefined;
 
@@ -379,7 +374,7 @@ export function mouseControls(node, game) {
 
 	node.addEventListener('mousedown', handleMouseDown);
 	node.addEventListener('mousemove', handleMouseMove);
-	node.addEventListener('mouseleave', handleMouseLeave);
+	node.addEventListener('mouseleave', handleMouseUp);
 	node.addEventListener('mouseup', handleMouseUp);
 	node.addEventListener('wheel', handleWheel);
 
@@ -387,7 +382,7 @@ export function mouseControls(node, game) {
 		destroy() {
 			node.removeEventListener('mousedown', handleMouseDown);
 			node.removeEventListener('mousemove', handleMouseMove);
-			node.removeEventListener('mouseleave', handleMouseLeave);
+			node.removeEventListener('mouseleave', handleMouseUp);
 			node.removeEventListener('mouseup', handleMouseUp);
 			node.removeEventListener('wheel', handleWheel);
 			window.removeEventListener('wheel', checkForTouchpad);
