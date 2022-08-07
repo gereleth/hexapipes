@@ -377,8 +377,10 @@ export function controls(node, game) {
 	/* TOUCH HANDLING */
 
 	let ongoingTouches = [];
-	/**@type {'idle'|'touchdown'|'zoom_pan'|'locking'|'unlocking'} */
+	/**@type {'idle'|'touchdown'|'zoom_pan'|'panning'|'locking'|'unlocking'} */
 	let touchState = 'idle';
+	/** @type {NodeJS.Timer|undefined} */
+	let touchTimer
 	/**
 	 *
 	 * @param {TouchEvent} event
@@ -413,10 +415,26 @@ export function controls(node, game) {
 				ongoingTouches.push(data);
 			}
 		}
-		if (ongoingTouches.length == 1) {
+		if (touchState === 'idle') {
 			touchState = 'touchdown';
-		} else if (ongoingTouches.length > 1) {
+			const tileIndex = ongoingTouches[0].tileIndex
+			if (tileIndex !== -1) {
+				// start locking/unlocking if user holds for long enough
+				touchTimer = setTimeout(() => {
+					console.log('been holding for enough time')
+					const tileState = game.tileStates[tileIndex]
+					tileState.toggleLocked()
+					save()
+					touchState = tileState.data.locked ? 'locking' : 'unlocking'
+					lockingSet.add(tileIndex)
+					console.log('new state', touchState)
+				}, 700);
+			} else {
+				state = 'panning'
+			}
+		} else if (touchState === 'touchdown') {
 			touchState = 'zoom_pan';
+			clearTimeout(touchTimer)
 		}
 	}
 
@@ -426,7 +444,9 @@ export function controls(node, game) {
 	 */
 	function handleTouchMove(event) {
 		event.preventDefault();
-		if (touchState === 'zoom_pan') {
+		if (touchState === 'idle') {
+			return
+		} else if (touchState === 'zoom_pan') {
 			const ids = ongoingTouches.map((x) => x.id);
 			const newTouches = ongoingTouches.map((touch) => {
 				return { x: touch.x, y: touch.y, clientX: touch.clientX, clientY: touch.clientY };
@@ -462,8 +482,31 @@ export function controls(node, game) {
 					(newTouches[0].clientY - newTouches[1].clientY) ** 2
 			);
 			grid.zoom((ongoingTouches[0].width * oldDistance) / newDistance, newx, newy);
+		} else if ((touchState === 'locking')||(touchState === 'unlocking') ) {
+			const [x, y] = getEventCoordinates(event.touches[0])
+			const tileIndex = grid.xy_to_index(x, y)
+			if (tileIndex!==-1) {
+				if (!lockingSet.has(tileIndex)) {
+					lockingSet.add(tileIndex)
+					const tileState = game.tileStates[tileIndex];
+					tileState.data.locked = touchState === 'locking' ? true : false;
+					tileState.set(tileState.data);
+					save();
+				}
+			}
+		} else if (touchState==='touchdown') {
+			const [x, y] = getEventCoordinates(event.touches[0])
+			const t0 = ongoingTouches[0]
+			const distance = Math.sqrt((x-t0.x)**2 + (y-t0.y)**2)
+			if (distance >= 1) {
+				clearTimeout(touchTimer)
+				touchState = 'panning'
+			}
+		} else if (touchState==='panning') {
+			const [x, y] = getEventCoordinates(event.touches[0])
+			const t0 = ongoingTouches[0]
+			grid.pan(x-t0.x, y-t0.y)
 		}
-		// console.log('touchmove', event);
 	}
 
 	/**
@@ -472,24 +515,90 @@ export function controls(node, game) {
 	 */
 	function handleTouchEnd(event) {
 		event.preventDefault();
-		if (ongoingTouches.length === 1) {
+		clearTimeout(touchTimer)
+		if (touchState === 'touchdown') {
 			const [x, y] = getEventCoordinates(event.changedTouches[0]);
-			console.log(x, y);
-			ongoingTouches = [];
+			const t = ongoingTouches[0]
+			const distance = Math.sqrt((x-t.x)**2+(y-t.y)**2)
+
+			if (t.tileIndex !== -1 && distance >= 0.1) {
+				// this might be drawing an edge mark
+				const tileIndex = t.tileIndex;
+				const { tileX, tileY } = t;
+				let startAngle = Math.atan2(tileY - t.y, t.x - tileX);
+				let endAngle = Math.atan2(tileY - y, x - tileX);
+				startAngle += startAngle < 0 ? 2 * Math.PI : 0;
+				endAngle += endAngle < 0 ? 2 * Math.PI : 0;
+				let deltaAngle = Math.abs(startAngle - endAngle);
+				let meanAngle = 0.5 * (startAngle + endAngle);
+				if (deltaAngle > Math.PI) {
+					deltaAngle = 2 * Math.PI - deltaAngle;
+					meanAngle -= Math.PI;
+				}
+				const directionIndex = Math.round((meanAngle * 3) / Math.PI);
+				const startRadius = Math.sqrt(
+					(tileY - t.y) ** 2 + (t.x - tileX) ** 2
+				);
+				const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
+				const meanRadius = 0.5 * (startRadius + endRadius);
+				if (
+					Math.abs(meanRadius - 0.5) <= 0.1 &&
+					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.2
+				) {
+					// was close to tile border
+					// in a well defined direction
+					// toggle an edgemark here
+					const distanceAlongBorder = 0.5 * deltaAngle;
+					const distanceAcrossBorder = Math.abs(startRadius - endRadius);
+					if (distanceAlongBorder > distanceAcrossBorder) {
+						game.toggleEdgeMark('wall', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+					} else {
+						game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+					}
+					save();
+					touchState = 'idle';
+					console.log('was an edge mark')
+				}
+			}
+			if (touchState === 'touchdown' && t.tileIndex !== -1) {
+				const upTileIndex = grid.xy_to_index(x, y)
+				if (upTileIndex !== t.tileIndex) {
+					// left the tile
+					// but traveled a small distance
+					// and not like drawing an edgemark
+					// don't know how to process this case, do nothing for now
+					touchState = 'idle';
+					return;
+				}
+				// stayed in the same tile, process this as a click
+				// rotate or lock a tile
+				const tileIndex = t.tileIndex;
+				const tileState = game.tileStates[tileIndex];
+				if ((currentSettings.controlMode === 'rotate_lock')||(currentSettings.controlMode === 'rotate_rotate')) {
+					let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
+					game.rotateTile(tileIndex, rotationTimes);
+				} else if (currentSettings.controlMode === 'orient_lock') {
+					const { tileX, tileY } = t;
+					const newAngle = Math.atan2(tileY - y, x - tileX);
+					const oldAngle = grid.getTileAngle(tileState.data.tile);
+					const newRotations = Math.round(((oldAngle - newAngle) * 3) / Math.PI);
+					let timesRotate = newRotations - (tileState.data.rotations % 6);
+					if (timesRotate < -3.5) {
+						timesRotate += 6;
+					} else if (timesRotate > 3.5) {
+						timesRotate -= 6;
+					}
+					game.rotateTile(tileIndex, timesRotate);
+					save();
+				}
+			}
+		}
+		if (event.touches.length === 0) {
 			document.body.classList.remove('no-selection');
 		}
-		for (let i = 0; i < event.changedTouches.length; i++) {
-			const touch = event.changedTouches.item(i);
-			if (touch === null) {
-				continue;
-			}
-			ongoingTouches = ongoingTouches.filter((item) => item.id !== touch.identifier);
-		}
-		if (ongoingTouches.length === 0) {
-			touchState = 'idle';
-		} else if (ongoingTouches.length === 1) {
-			touchState = 'idle';
-		}
+		touchState = 'idle';
+		ongoingTouches = []
+		lockingSet.clear()
 	}
 
 	node.addEventListener('mousedown', handleMouseDown);
