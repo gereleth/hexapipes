@@ -136,7 +136,7 @@ export function controls(node, game) {
 		}
 
 		if (mouseDownOrigin.tileIndex === -1) {
-			state = 'panning';
+			state = 'idle';
 		} else {
 			const { direction, isClose } = whichEdge(mouseDownOrigin);
 
