@@ -1,5 +1,4 @@
 <script>
-    import { browser } from '$app/env'
     import { HexaGrid } from "$lib/puzzle/hexagrid";
     import { settings } from '$lib/stores';
     import { controls } from '$lib/puzzle/controls'
@@ -33,8 +32,11 @@
 
     let innerWidth = 500
     let innerHeight = 500
+    const pxPerCell = 60
 
     const viewBox = grid.viewBox
+    $viewBox.width = Math.min(grid.XMAX - grid.XMIN, innerWidth / pxPerCell)
+    $viewBox.height = Math.min(grid.YMAX - grid.YMIN, innerHeight / pxPerCell)
     const visibleTiles = grid.visibleTiles
 
     export const startOver = function() {
@@ -46,35 +48,61 @@
      * @param {Number} innerHeight
      * @returns {void}
      */
-    function resize(innerWidth, innerHeight) {
-        const maxPixelWidth = innerWidth - 20 // take full width
-        const maxPixelHeight = Math.round(0.8*innerHeight) // take most height
-        const wpx = maxPixelWidth / (1 + $viewBox.width)
-        const hpx = maxPixelHeight / (1 + $viewBox.height)
-        const pxPerCell = Math.min(100, wpx, hpx)
+    function initialResize(innerWidth, innerHeight) {
+        // take full width without scroll bar
+        const maxPixelWidth = innerWidth - 18 
+        // take most height, leave some for scrolling the page on mobile
+        const maxPixelHeight = Math.round(0.8*innerHeight)
+
+        const maxGridWidth = grid.XMAX - grid.XMIN
+        const maxGridHeight = grid.YMAX - grid.YMIN
+
+        const wpx = maxPixelWidth / maxGridWidth
+        const hpx = maxPixelHeight / maxGridHeight
+        const pxPerCell = Math.max(60, Math.min(100, wpx, hpx))
         if (wrap) {
-            svgWidth = pxPerCell * $viewBox.width
+            svgWidth = Math.min(maxPixelWidth, pxPerCell * maxGridWidth)
         } else {
             svgWidth = maxPixelWidth
         }
-        // svgWidth = pxPerCell === 100 ? pxPerCell*$viewBox.width : maxPixelWidth
-        svgHeight = pxPerCell === 100 ? pxPerCell*$viewBox.height : maxPixelHeight
-
-        const widthDelta = svgWidth / pxPerCell - $viewBox.width
-        if (widthDelta > 0) {
-            $viewBox.xmin -= widthDelta / 2
-            $viewBox.width += widthDelta
+        svgHeight = Math.min(maxPixelHeight, pxPerCell * maxGridHeight)
+        $viewBox.width = svgWidth / pxPerCell
+        $viewBox.height = svgHeight / pxPerCell
+        // center grid if the puzzle fully fits inside bounds
+        if ($viewBox.width > maxGridWidth) {
+            $viewBox.xmin = (grid.XMAX + grid.XMIN - $viewBox.width) * 0.5
         }
-        const heightDelta = svgHeight / pxPerCell - $viewBox.height
-        if (heightDelta > 0) {
-            $viewBox.ymin -= heightDelta / 2
-            $viewBox.height += heightDelta
+        if ($viewBox.height > maxGridHeight) {
+            $viewBox.ymin = (grid.YMAX + grid.YMIN - $viewBox.height) * 0.5
+        }
+    }
+
+    function resize() {
+        const pxPerCell = svgWidth / $viewBox.width
+        // take full width without scroll bar
+        const maxPixelWidth = innerWidth - 18
+        // take most height, leave some for scrolling the page on mobile
+        const maxPixelHeight = Math.round(0.8*innerHeight)       
+        if (wrap) {
+            svgWidth = Math.min(maxPixelWidth, pxPerCell * $viewBox.width)
+        } else {
+            svgWidth = maxPixelWidth
+        }
+        svgHeight = Math.min(maxPixelHeight, pxPerCell * $viewBox.height)
+        $viewBox.width = svgWidth / pxPerCell
+        $viewBox.height = svgHeight / pxPerCell
+        // center grid if the puzzle fully fits inside bounds
+        if ($viewBox.width > grid.XMAX - grid.XMIN) {
+            $viewBox.xmin = (grid.XMAX + grid.XMIN - $viewBox.width) * 0.5
+        }
+        if ($viewBox.height > grid.YMAX - grid.YMIN) {
+            $viewBox.ymin = (grid.YMAX + grid.YMIN - $viewBox.height) * 0.5
         }
     }
 
     onMount(()=>{
         game.initializeBoard()
-        resize(innerWidth, innerHeight)
+        initialResize(innerWidth, innerHeight)
         dispatch('initialized')
     })
 
@@ -135,7 +163,7 @@
 
 </script>
 
-<svelte:window bind:innerWidth bind:innerHeight />
+<svelte:window bind:innerWidth bind:innerHeight on:resize={resize}/>
 
 <div class="puzzle" class:solved={$solved}>
     <svg 
