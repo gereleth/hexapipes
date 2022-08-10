@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 
 /**
  * ViewBox represents the bounds of the visible game area
@@ -379,9 +379,6 @@ export function HexaGrid(width, height, wrap = false) {
 		return visibleTiles;
 	};
 
-	// TODO debounce this
-	this.visibleTiles = derived(this.viewBox, getVisibleTiles);
-
 	/**
 	 *
 	 * @param {Number} r
@@ -415,6 +412,21 @@ export function HexaGrid(width, height, wrap = false) {
 		}
 		return self.width * r + c;
 	};
+
+	// Throttled derived store to get visible tiles from viewbox
+	/** @type {NodeJS.Timer|null} */
+	let visibleTilesTimeoutId = null;
+	/** @type {ViewBox} */
+	let lastBox
+	this.visibleTiles = derived(this.viewBox, (box, set) => {
+		lastBox = box
+		if (visibleTilesTimeoutId === null) {
+			visibleTilesTimeoutId = setTimeout(()=> {
+				visibleTilesTimeoutId = null
+				set(getVisibleTiles(lastBox))
+			}, 50)
+		}
+	}, getVisibleTiles(get(self.viewBox)));
 
 	let tilePath = '';
 	for (let p = 0; p < 6; p++) {
