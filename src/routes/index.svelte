@@ -42,11 +42,11 @@ onMount(()=>{
 
 <p>Try this small puzzle right here or solve <a href="/hexagonal/5">many more like this</a> in various sizes.
 Every puzzle here is guaranteed to have a unique solution.</p>
-
+</div>
 <Puzzle height={4} width={4} tiles={[1, 57, 2, 24, 40, 25, 10, 2, 4, 49, 22, 8, 48, 32, 5, 4]} wrap={false}
 on:solved={()=>hexSolved = true}
 />
-
+<div class="container">
 <p class="congrat" class:hidden={!hexSolved}>Solved!
     <a href="/hexagonal/5">Next puzzle</a>
 </p>
@@ -63,7 +63,7 @@ on:solved={()=>hexSolved = true}
 </ul>
 
 <p>Try this small wrap puzzle here. There are many more <a href="/hexagonal-wrap/5">hexagonal wrap puzzles</a> for when the regular variant isn't much of a challenge any more.</p>
-
+</div>
 <Puzzle height={4} width={4} tiles={[2, 27, 18, 2, 34, 2, 8, 1, 8, 16, 45, 1, 6, 48, 53, 9]} wrap={true}
 on:solved={()=>hexWrapSolved = true}
 />
@@ -71,7 +71,7 @@ on:solved={()=>hexWrapSolved = true}
 <p class="congrat" class:hidden={!hexWrapSolved}>Solved! 
     <a href="/hexagonal-wrap/5">Next puzzle</a>
 </p>
-
+<div class="container">
 <h2> Changelog </h2>
 <ul>
     <li><em>2022-07-31</em> Added some buttons based on HN feedback:
