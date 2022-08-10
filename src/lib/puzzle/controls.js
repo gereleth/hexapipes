@@ -378,6 +378,7 @@ export function controls(node, game) {
 
 /**
  * @typedef TouchOrigin
+ * @property {Number} id
  * @property {Number} x
  * @property {Number} y
  * @property {Number} tileX
@@ -385,6 +386,7 @@ export function controls(node, game) {
  * @property {Number} tileIndex
  * @property {Number} clientX
  * @property {Number} clientY
+ * @property {Number} width
  */
 
 
