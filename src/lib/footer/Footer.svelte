@@ -1,16 +1,17 @@
 
 <div class="footer">
-    Created by @gereleth. <a href="https://github.com/gereleth/hexapipes">GitHub</a>
+    Created by @gereleth. Source code: <a target="_blank" rel="noopener" href="https://github.com/gereleth/hexapipes">GitHub</a><br>
+    Say hi to me on <a target="_blank" rel="noopener" href="https://twitter.com/gereleth">Twitter</a>
   </div>
   
   <style>
     .footer {
-      color: var(--primary-color);
-      margin: 2em 0;
+      color: #888;
+      margin: 3em 0;
       text-align: center;
     }
     a {
-      color: var(--primary-color);
+      color: #888;
       text-decoration: underline;
     }
   </style>
