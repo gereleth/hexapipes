@@ -19,8 +19,6 @@
     // if a user navigates between puzzles directly via back/forward buttons
     const myProgressName = progressStoreName
 
-    /** @type {SVGElement} */
-    let svg
     let svgWidth = 500
     let svgHeight = 500
 
@@ -50,7 +48,7 @@
      */
     function initialResize(innerWidth, innerHeight) {
         // take full width without scroll bar
-        const maxPixelWidth = innerWidth - 18 
+        const maxPixelWidth = innerWidth - 18
         // take most height, leave some for scrolling the page on mobile
         const maxPixelHeight = Math.round(0.8*innerHeight)
 
@@ -170,7 +168,6 @@
         width={svgWidth} 
         height={svgHeight}
         viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
-        bind:this={svg}
         use:controls={game}
         on:contextmenu|preventDefault={()=>{}}
         on:save={save.soon}
