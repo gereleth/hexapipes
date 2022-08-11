@@ -1,7 +1,7 @@
 <script>
-    import { browser } from '$app/env'
     import { HexaGrid } from "$lib/puzzle/hexagrid";
     import { settings } from '$lib/stores';
+    import { controls } from '$lib/puzzle/controls'
     import Tile from '$lib/puzzle/Tile.svelte';
     import { onMount, onDestroy, createEventDispatcher } from 'svelte';
     import { PipesGame } from '$lib/puzzle/game';
@@ -26,12 +26,16 @@
     let game = new PipesGame(grid, tiles, savedProgress)
     let solved = game.solved
 
-    let visibleTiles = grid.getVisibleTiles()
-
     const dispatch = createEventDispatcher()
 
     let innerWidth = 500
     let innerHeight = 500
+    const pxPerCell = 60
+
+    const viewBox = grid.viewBox
+    $viewBox.width = Math.min(grid.XMAX - grid.XMIN, innerWidth / pxPerCell)
+    $viewBox.height = Math.min(grid.YMAX - grid.YMIN, innerHeight / pxPerCell)
+    const visibleTiles = grid.visibleTiles
 
     export const startOver = function() {
         game.startOver()
@@ -42,17 +46,61 @@
      * @param {Number} innerHeight
      * @returns {void}
      */
-    function resize(innerWidth, innerHeight) {
-        const wpx = innerWidth / (1 + grid.xmax - grid.xmin)
-        const hpx = innerHeight / (1 + grid.ymax - grid.ymin)
-        const pxPerCell = Math.min(100, Math.min(wpx, hpx))
-        svgWidth = pxPerCell*(grid.xmax - grid.xmin)
-        svgHeight = pxPerCell*(grid.ymax - grid.ymin)
+    function initialResize(innerWidth, innerHeight) {
+        // take full width without scroll bar
+        const maxPixelWidth = innerWidth - 18
+        // take most height, leave some for scrolling the page on mobile
+        const maxPixelHeight = Math.round(0.8*innerHeight)
+
+        const maxGridWidth = grid.XMAX - grid.XMIN
+        const maxGridHeight = grid.YMAX - grid.YMIN
+
+        const wpx = maxPixelWidth / maxGridWidth
+        const hpx = maxPixelHeight / maxGridHeight
+        const pxPerCell = Math.max(60, Math.min(100, wpx, hpx))
+        if (wrap) {
+            svgWidth = Math.min(maxPixelWidth, pxPerCell * maxGridWidth)
+        } else {
+            svgWidth = maxPixelWidth
+        }
+        svgHeight = Math.min(maxPixelHeight, pxPerCell * maxGridHeight)
+        $viewBox.width = svgWidth / pxPerCell
+        $viewBox.height = svgHeight / pxPerCell
+        // center grid if the puzzle fully fits inside bounds
+        if ($viewBox.width > maxGridWidth) {
+            $viewBox.xmin = (grid.XMAX + grid.XMIN - $viewBox.width) * 0.5
+        }
+        if ($viewBox.height > maxGridHeight) {
+            $viewBox.ymin = (grid.YMAX + grid.YMIN - $viewBox.height) * 0.5
+        }
+    }
+
+    function resize() {
+        const pxPerCell = svgWidth / $viewBox.width
+        // take full width without scroll bar
+        const maxPixelWidth = innerWidth - 18
+        // take most height, leave some for scrolling the page on mobile
+        const maxPixelHeight = Math.round(0.8*innerHeight)       
+        if (wrap) {
+            svgWidth = Math.min(maxPixelWidth, pxPerCell * $viewBox.width)
+        } else {
+            svgWidth = maxPixelWidth
+        }
+        svgHeight = Math.min(maxPixelHeight, pxPerCell * $viewBox.height)
+        $viewBox.width = svgWidth / pxPerCell
+        $viewBox.height = svgHeight / pxPerCell
+        // center grid if the puzzle fully fits inside bounds
+        if ($viewBox.width > grid.XMAX - grid.XMIN) {
+            $viewBox.xmin = (grid.XMAX + grid.XMIN - $viewBox.width) * 0.5
+        }
+        if ($viewBox.height > grid.YMAX - grid.YMIN) {
+            $viewBox.ymin = (grid.YMAX + grid.YMIN - $viewBox.height) * 0.5
+        }
     }
 
     onMount(()=>{
         game.initializeBoard()
-        resize(innerWidth, innerHeight)
+        initialResize(innerWidth, innerHeight)
         dispatch('initialized')
     })
 
@@ -107,49 +155,28 @@
 
     const save = createThrottle(saveProgress, 3000)
 
-    function zoom(ev) {
-        if (!grid.wrap) {
-            // only on wrap puzzles for now
-            return
-        }
-        ev.preventDefault()
-        const svg = ev.target.closest('svg')
-        const {x, y, width, height} = svg.getBoundingClientRect()
-        grid = grid.zoom(
-            ev.deltaY, 
-            (ev.clientX - x) / width, 
-            (ev.clientY - y)/ height
-        )
-        visibleTiles = grid.getVisibleTiles()
-    }
-    let isTouching = false
-    $: if (browser) document.body.classList.toggle('no-selection', isTouching);
-
     $: if ($solved) {
         dispatch('solved')
     }
+
 </script>
 
-<svelte:window bind:innerWidth bind:innerHeight />
+<svelte:window bind:innerWidth bind:innerHeight on:resize={resize}/>
 
 <div class="puzzle" class:solved={$solved}>
     <svg 
         width={svgWidth} 
         height={svgHeight}
-        viewBox="{grid.xmin} {grid.ymin} {grid.xmax - grid.xmin} {grid.ymax - grid.ymin}"
-        on:mousedown|preventDefault={()=>{}}
+        viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
+        use:controls={game}
         on:contextmenu|preventDefault={()=>{}}
-        on:touchstart={()=>isTouching=true}
-        on:touchend={()=>isTouching=false}
-        on:wheel={zoom}
+        on:save={save.soon}
         >
-        {#each visibleTiles as visibleTile, i (visibleTile.key)}
+        {#each $visibleTiles as visibleTile, i (visibleTile.key)}
             <Tile i={visibleTile.index} solved={$solved} {game}
                 cx={visibleTile.x}
                 cy={visibleTile.y}
                 controlMode={$settings.controlMode}
-                on:connections={game.handleConnections}
-                on:save={save.soon}
                 />
         {/each}
     </svg>
@@ -159,6 +186,7 @@
     svg {
         display: block;
         margin: auto;
+        border: 1px solid var(--secondary-color);
     }
     /* win animation */
     .solved :global(.inside) {

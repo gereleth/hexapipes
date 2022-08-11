@@ -1,9 +1,7 @@
 <script>
     import EdgeMark from '$lib/puzzle/EdgeMark.svelte'
-    import { settings } from '$lib/stores';
     import { tweened } from 'svelte/motion';
     import { cubicOut } from 'svelte/easing';
-    import { createEventDispatcher } from 'svelte';
 
     /** @type {Number} i*/
     export let i;
@@ -20,8 +18,6 @@
     let state = game.tileStates[i]
 
     let bgColor = '#aaa'
-
-    const dispatch = createEventDispatcher();
 
     let rotationAnimate = tweened($state.rotations, {
 		duration: 75,
@@ -41,7 +37,7 @@
     const myDirections = game.grid.getDirections($state.tile)
 
     const deltas = myDirections.map(direction => game.grid.XY_DELTAS.get(direction))
-    let angle = findInitialAngle()
+    let angle = game.grid.getTileAngle($state.tile)
 
     let path = `M ${cx} ${cy}`
     for (let [dx, dy] of deltas) {
@@ -51,93 +47,6 @@
     
     const hexagon = `M ${cx} ${cy} ` + game.grid.tilePath
     
-    let rotationUnit = 1
-    $: rotationUnit = $settings.invertRotationDirection ? -1 : 1
-
-    /**
-    * @returns {Number}
-    */
-    function findInitialAngle() {
-        let dx = 0, dy=0
-        for (let [deltax, deltay] of deltas) {
-            dx += deltax
-            dy += deltay
-        }
-        dx /= myDirections.length
-        dy /= myDirections.length
-        if ((Math.abs(dx) < 0.001)&&(Math.abs(dy) < 0.001)) {
-            dx = deltas[0][0]
-            dy = deltas[0][1]
-        }
-        return Math.atan2(dy, dx)
-    }
-
-    /**
-    * @param {MouseEvent} event
-    */
-    function onClick(event) {
-        if (controlMode === 'rotate_lock') {
-            if (event.ctrlKey) {
-                rotate(-rotationUnit)
-            } else {
-                rotate(rotationUnit)
-            }
-        } else if (controlMode === 'rotate_rotate') {
-            if (event.ctrlKey) {
-                toggleLocked()
-            } else {
-                rotate(rotationUnit)
-            }
-        } else if (controlMode === 'orient_lock') {
-            const element = event.target.closest('.tile')
-            const {x, width, y, height} = element.getBoundingClientRect()
-            const dx = event.clientX - x - width/2
-            const dy = height/2 - (event.clientY - y)
-            const newAngle = Math.atan2(dy, dx)
-            const newRotations = Math.round((angle - newAngle)*3/Math.PI)
-            let timesRotate = newRotations - ($state.rotations%6)
-            if (timesRotate < -3.5) {timesRotate += 6}
-            else if (timesRotate > 3.5) {timesRotate -=6}
-            rotate(timesRotate)
-        }
-    }
-
-
-    function onContextMenu() {
-        if (controlMode === 'rotate_lock') {
-            toggleLocked()
-        } else if (controlMode === 'rotate_rotate') {
-            rotate(-rotationUnit)
-        } else if (controlMode === 'orient_lock') {
-            toggleLocked()
-        }
-    }
-    /**
-    * @param {Number} times
-    */
-    function rotate(times) {
-        if ($state.locked||solved) {return}
-        // this tile might be rotated in another component if it's a wrap puzzle
-        // so safer to always calculate directions from state
-        const myDirections = game.grid.getDirections($state.tile, $state.rotations)
-        $state.rotations += times
-        const newDirections = game.grid.getDirections($state.tile, $state.rotations)
-
-        const dirOut = myDirections.filter(direction => !(newDirections.some(d=>d===direction)))
-        const dirIn = newDirections.filter(direction => !(myDirections.some(d=>d===direction)))
-        dispatch('connections', {
-            tileIndex: i,
-            dirOut: dirOut,
-            dirIn: dirIn,
-        })
-        dispatch('save')
-    }
-
-    function toggleLocked() {
-        state.toggleLocked()
-        dispatch('save')
-    }
-
     /**
      * Choose tile background color
      * @param {Boolean} locked
@@ -158,8 +67,9 @@
 </script>
 
 <g class='tile'
-    on:click={onClick}
-    on:contextmenu|preventDefault={onContextMenu}
+    data-index={i}
+    data-x={cx}
+    data-y={cy}
 >
 <!-- Tile hexagon -->
 <path d={hexagon} stroke="#aaa" stroke-width="0.02" fill="{bgColor}" />
@@ -200,20 +110,18 @@
             />
     {/if}
 </g>
-</g>
-
 {#if !solved}
     {#each $state.edgeMarks as _, index (index)}
         <EdgeMark 
             grid={game.grid}
             cx={cx} 
             cy={cy} 
-            bind:state={$state.edgeMarks[index]} 
+            state={$state.edgeMarks[index]} 
             direction={game.grid.EDGEMARK_DIRECTIONS[index]}
-            on:save
             />
     {/each}
 {/if}
+</g>
 
 <style>
     .tile {

@@ -37,16 +37,16 @@ onMount(()=>{
     <li>Connected tiles will get a random color to help you track what's already in the network.</li>
     <li>Forming loops is forbidden by the rules so the tiles that form a loop will be highlighted with a red background.</li>
     <li>When you're sure of a tile's position you can lock it by right-clicking. This will prevent it from accidentally being rotated out of its correct position.</li>
-    <li>You can make edge marks by clicking the border between two tiles. This lets you mark some edges as "definitely a wall" or "definitely a connection".</li>
+    <li>You can make edge marks by drawing a line across or along tile border. This lets you mark some edges as "definitely a wall" or "definitely a connection".</li>
 </ul>
 
 <p>Try this small puzzle right here or solve <a href="/hexagonal/5">many more like this</a> in various sizes.
 Every puzzle here is guaranteed to have a unique solution.</p>
-
+</div>
 <Puzzle height={4} width={4} tiles={[1, 57, 2, 24, 40, 25, 10, 2, 4, 49, 22, 8, 48, 32, 5, 4]} wrap={false}
 on:solved={()=>hexSolved = true}
 />
-
+<div class="container">
 <p class="congrat" class:hidden={!hexSolved}>Solved!
     <a href="/hexagonal/5">Next puzzle</a>
 </p>
@@ -55,15 +55,10 @@ on:solved={()=>hexSolved = true}
 
 <p>Wrap pipes are a challenging variation of the puzzle. The connections in this variant are allowed to wrap between borders of the board. Imagine copies of the puzzle placed on all sides of it (left, right, top and bottom). This way tiles on the right border can connect to tiles on the left border - or "wrap" around. </p>
 
-<p>Unlike regular pipes puzzles the wrap variant has no convenient outer walls to start the deductions from. Hence its increased difficulty. There are some additional features to help with wrapping:</p>
-
-<ul>
-    <li>Multiple copies of the puzzle are shown, tiling the screen. When you rotate a tile then all its copies will rotate too.</li>
-    <li>Zoom in/out with the mousewheel if you need to see more of the field.</li>
-</ul>
+<p>Unlike regular pipes puzzles the wrap variant has no convenient outer walls to start the deductions from. Hence its increased difficulty. To help deal with wrap edges multiple copies of the puzzle are shown, tiling the screen. When you rotate a tile all its copies will rotate too.</p>
 
 <p>Try this small wrap puzzle here. There are many more <a href="/hexagonal-wrap/5">hexagonal wrap puzzles</a> for when the regular variant isn't much of a challenge any more.</p>
-
+</div>
 <Puzzle height={4} width={4} tiles={[2, 27, 18, 2, 34, 2, 8, 1, 8, 16, 45, 1, 6, 48, 53, 9]} wrap={true}
 on:solved={()=>hexWrapSolved = true}
 />
@@ -71,9 +66,22 @@ on:solved={()=>hexWrapSolved = true}
 <p class="congrat" class:hidden={!hexWrapSolved}>Solved! 
     <a href="/hexagonal-wrap/5">Next puzzle</a>
 </p>
-
+<div class="container">
 <h2> Changelog </h2>
 <ul>
+    <li><em>2022-08-11</em> Zoom and pan! Solving big puzzles should be easier now with the ability to zoom in and move around. 
+        A summary of improved controls:
+        <ul>
+            <li>Zoom in and out with the mouse wheel. Pinch to zoom on mobile or with a touchpad.</li>
+            <li>Click/touch and drag to pan. Panning starts after the distance traveled is > 1 tile width.</li>
+            <li>Right click or longpress to start locking tiles. Once started you can lock multiple tiles by moving the cursor around.</li>
+            <li>Make edge marks by drawing a line near the edge middle. A line along the edge makes a wall mark, across the edge - a connection mark.
+                Draw again to erase. With a mouse or touchpad you can also click and hold near the edge middle to place an edge mark. 
+                In this case left mouse button makes a wall mark, right button makes a connection mark.
+            </li>
+            <li>Click to rotate tiles (as before)</li>
+        </ul>
+    </li>
     <li><em>2022-07-31</em> Added some buttons based on HN feedback:
         <ul>
             <li>Start over - reverts the puzzle to initial state</li>

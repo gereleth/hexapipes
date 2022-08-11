@@ -109,6 +109,7 @@ button:focus:not(:focus-visible) {
 .container {
 	max-width: 992px;
 	margin: auto;
+	padding: 0 4px;
 }
 
 .no-selection {

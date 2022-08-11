@@ -21,6 +21,17 @@ export const puzzleCounts = writable({
     }
 })
 
+/**
+ * @typedef {'rotate_lock'|'rotate_rotate'|'orient_lock'} ControlMode
+ */
+
+/**
+ * @typedef Settings
+ * @property {ControlMode} controlMode
+ * @property {Boolean} invertRotationDirection
+ * @property {Boolean} showTimer
+ */
+
 function createSettings() {
 
     let defaultSettings = {
@@ -31,6 +42,9 @@ function createSettings() {
 
 	const { subscribe, set, update } = writable(defaultSettings);
 
+    /**
+     * @param {Settings} settings 
+     */
     function saveToLocalStorage(settings) {
         const data = JSON.stringify(settings)
         try {
@@ -55,6 +69,10 @@ function createSettings() {
                 } else if (parsed.controlMode === 'click_to_orient') {
                     parsed.controlMode = 'orient_lock'
                 }
+                const validControlModes = new Set(['rotate_lock', 'rotate_rotate', 'orient_lock'])
+                if (!validControlModes.has(parsed.controlMode)) {
+                    parsed.controlMode = 'rotate_lock'
+                }
                 set(Object.assign({}, defaultSettings, parsed))
             }
         } catch (error) {
@@ -63,6 +81,10 @@ function createSettings() {
         }
     }
 
+    /**
+     * 
+     * @param {Settings} value 
+     */
     function set_(value) {
         set(value)
         saveToLocalStorage(value)
