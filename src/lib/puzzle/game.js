@@ -193,6 +193,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.components.clear()
 		self.initialized = false
 		self.solved.set(false)
+		self._solved = false
 
 		self.tileStates.forEach((tileState, index) => {
 			tileState.set({
