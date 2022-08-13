@@ -1,27 +1,29 @@
 <script>
-    import {page} from '$app/stores'
+	import { page } from '$app/stores';
 </script>
 
 <header>
-	<div class="corner">
-	</div>
+	<div class="corner" />
 
 	<nav>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
-			<path d="M0,0 L1,2 C1.5,3 1.5,3 2,3 L2,0 Z"/>
+			<path d="M0,0 L1,2 C1.5,3 1.5,3 2,3 L2,0 Z" />
 		</svg>
 		<ul>
-			<li class:active={$page.url.pathname==="/"}><a sveltekit:prefetch href="/">Home</a></li>
-			<li class:active={$page.url.pathname.startsWith("/hexagonal/")}><a sveltekit:prefetch href="/hexagonal">Hexagonal</a></li>
-			<li class:active={$page.url.pathname.startsWith("/hexagonal-wrap/")}><a sveltekit:prefetch href="/hexagonal-wrap">Hexagonal wrap</a></li>
+			<li class:active={$page.url.pathname === '/'}><a sveltekit:prefetch href="/">Home</a></li>
+			<li class:active={$page.url.pathname.startsWith('/hexagonal/')}>
+				<a sveltekit:prefetch href="/hexagonal">Hexagonal</a>
+			</li>
+			<li class:active={$page.url.pathname.startsWith('/hexagonal-wrap/')}>
+				<a sveltekit:prefetch href="/hexagonal-wrap">Hexagonal wrap</a>
+			</li>
 		</ul>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
-			<path d="M0,0 L0,3 C0.5,3 0.5,3 1,2 L2,0 Z"/>
+			<path d="M0,0 L0,3 C0.5,3 0.5,3 1,2 L2,0 Z" />
 		</svg>
 	</nav>
 
-	<div class="corner">
-	</div>
+	<div class="corner" />
 </header>
 
 <style>
@@ -35,7 +37,6 @@
 		height: 3em;
 	}
 
-
 	/* .corner img {
 		width: 2em;
 		height: 2em;
@@ -45,7 +46,7 @@
 	nav {
 		display: flex;
 		justify-content: center;
-		--background: rgba(255,255,255,0.7);
+		--background: rgba(255, 255, 255, 0.7);
 	}
 
 	svg {

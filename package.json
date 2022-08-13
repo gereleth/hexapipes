@@ -1,7 +1,8 @@
 {
-	"name": "kit-template-default",
-	"version": "0.0.1",
+	"name": "hexapipes",
+	"private": true,
 	"scripts": {
+		"start": "npm run dev",
 		"dev": "svelte-kit dev",
 		"build": "svelte-kit build",
 		"package": "svelte-kit package",

@@ -1,7 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
 	import { createEventDispatcher } from 'svelte';
-    /** @type {import('$lib/puzzle/hexagrid').HexaGrid} */
+	/** @type {import('$lib/puzzle/hexagrid').HexaGrid} */
 	export let grid;
 	// coordinates of tile center
 	export let cx = 0;

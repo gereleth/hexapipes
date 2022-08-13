@@ -175,7 +175,7 @@ export function HexaGrid(width, height, wrap = false) {
 	this.zoom = function (newWidth, x, y) {
 		self.viewBox.update((box) => {
 			// const delta = -box.width * magnitude * 0.07;
-			const delta = box.width - newWidth
+			const delta = box.width - newWidth;
 			const xyScale = box.height / box.width;
 			const relativeX = (x - box.xmin) / box.width;
 			const relativeY = (y - box.ymin) / box.height;
@@ -225,26 +225,28 @@ export function HexaGrid(width, height, wrap = false) {
 	 * @param {Number} y
 	 * @returns {Number}
 	 */
-	 this.xy_to_index = function (x, y) {
-		const r = y / self.YSTEP
-		const r0 = Math.round(r)
-		const c0 = Math.round(x - (r0 % 2 === 0 ? 0 : 0.5))
+	this.xy_to_index = function (x, y) {
+		const r = y / self.YSTEP;
+		const r0 = Math.round(r);
+		const c0 = Math.round(x - (r0 % 2 === 0 ? 0 : 0.5));
 		const x0 = c0 + (r0 % 2 === 0 ? 0.0 : 0.5);
-		const y0 = r0 * self.YSTEP
-		const distance0 = Math.sqrt((x-x0)**2 + (y-y0)**2)
+		const y0 = r0 * self.YSTEP;
+		const distance0 = Math.sqrt((x - x0) ** 2 + (y - y0) ** 2);
 		if (distance0 <= 0.5) {
-			return self.rc_to_index(r0, c0)
+			return self.rc_to_index(r0, c0);
 		} else {
-			let r1 = Math.floor(r)
-			if (r1 === r0) { r1 = Math.ceil(r)}
-			const c1 = Math.round(x - (r1 % 2 === 0 ? 0 : 0.5))
+			let r1 = Math.floor(r);
+			if (r1 === r0) {
+				r1 = Math.ceil(r);
+			}
+			const c1 = Math.round(x - (r1 % 2 === 0 ? 0 : 0.5));
 			const x1 = c1 + (r1 % 2 === 0 ? 0.0 : 0.5);
-			const y1 = r1 * self.YSTEP
-			const distance1 = Math.sqrt((x-x1)**2 + (y-y1)**2)
+			const y1 = r1 * self.YSTEP;
+			const distance1 = Math.sqrt((x - x1) ** 2 + (y - y1) ** 2);
 			if (distance0 < distance1) {
-				return self.rc_to_index(r0, c0)
+				return self.rc_to_index(r0, c0);
 			} else {
-				return self.rc_to_index(r1, c1)
+				return self.rc_to_index(r1, c1);
 			}
 		}
 	};
@@ -417,16 +419,20 @@ export function HexaGrid(width, height, wrap = false) {
 	/** @type {NodeJS.Timer|null} */
 	let visibleTilesTimeoutId = null;
 	/** @type {ViewBox} */
-	let lastBox
-	this.visibleTiles = derived(this.viewBox, (box, set) => {
-		lastBox = box
-		if (visibleTilesTimeoutId === null) {
-			visibleTilesTimeoutId = setTimeout(()=> {
-				visibleTilesTimeoutId = null
-				set(getVisibleTiles(lastBox))
-			}, 50)
-		}
-	}, getVisibleTiles(get(self.viewBox)));
+	let lastBox;
+	this.visibleTiles = derived(
+		this.viewBox,
+		(box, set) => {
+			lastBox = box;
+			if (visibleTilesTimeoutId === null) {
+				visibleTilesTimeoutId = setTimeout(() => {
+					visibleTilesTimeoutId = null;
+					set(getVisibleTiles(lastBox));
+				}, 50);
+			}
+		},
+		getVisibleTiles(get(self.viewBox))
+	);
 
 	let tilePath = '';
 	for (let p = 0; p < 6; p++) {

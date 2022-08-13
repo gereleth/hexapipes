@@ -7,7 +7,7 @@
 	import Timer from '$lib/Timer.svelte';
 	import Stats from '$lib/Stats.svelte';
 	import { getSolves, getStats } from '$lib/stores';
-  import { onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
 	/** @type {'hexagonal'|'hexagonal-wrap'} */
 	export let category;
@@ -30,17 +30,17 @@
 
 	let previousParams = {
 		size: 0,
-		id: 0,
+		id: 0
 	};
 
 	let solves; // a store of puzzles solve times
 	let stats; // a store of puzzle time stats
 
-    let pathname = ''
+	let pathname = '';
 	let progressStoreName = '';
 	let savedProgress;
 
-    $: pathname = `/${category}/${size}/${puzzleId}`
+	$: pathname = `/${category}/${size}/${puzzleId}`;
 	$: progressStoreName = pathname + '_progress';
 
 	let solve = {
@@ -122,7 +122,6 @@
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
 	});
-
 </script>
 
 {#key `/${category}/${size}/${puzzleId}`}
@@ -130,7 +129,7 @@
 		{width}
 		{height}
 		{tiles}
-		wrap={category==='hexagonal-wrap'}
+		wrap={category === 'hexagonal-wrap'}
 		{savedProgress}
 		{progressStoreName}
 		bind:this={puzzle}
