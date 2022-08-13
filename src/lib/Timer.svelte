@@ -24,7 +24,6 @@
 	export let solve = {
 		puzzleId: -1,
 		startedAt: -1,
-		finishedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1,
 		error: null
@@ -63,7 +62,7 @@
 	{:else if $settings.showTimer}
 		{#if solve.pausedAt !== -1}
 		  Paused
-		{:else if solve.finishedAt === -1}
+		{:else if solve.elapsedTime === -1}
 			Time: {formatTime(elapsed, false)} 
 		{:else}
 			You have solved the puzzle in {formatTime(elapsed, true)}

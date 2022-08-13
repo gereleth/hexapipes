@@ -46,7 +46,6 @@
 	let solve = {
 		puzzleId: -1,
 		startedAt: -1,
-		finishedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1
 	};

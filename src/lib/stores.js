@@ -196,7 +196,6 @@ function createSolvesStore(path) {
                 solve = {
                     puzzleId,
                     startedAt: solve.startedAt,
-                    finishedAt: -1,
                     pausedAt: solve.pausedAt,
                     elapsedTime: -1,
                 }
@@ -208,7 +207,6 @@ function createSolvesStore(path) {
                 solve = {
                     puzzleId,
                     startedAt: (new Date()).valueOf(),
-                    finishedAt: -1,
                     pausedAt: -1,
                     elapsedTime: -1,
                 }
@@ -227,7 +225,6 @@ function createSolvesStore(path) {
                 solve = {
                     puzzleId,
                     startedAt: -1,
-                    finishedAt: -1,
                     pausedAt: -1,
                     elapsedTime: -1,
                     error: 'No started puzzles found, so the finish could not be recorded'
@@ -246,7 +243,6 @@ function createSolvesStore(path) {
                 solve = {
                     puzzleId,
                     startedAt: -1,
-                    finishedAt: -1,
                     pausedAt: -1,
                     elapsedTime: -1,
                     error: 'Another puzzle was started after this one, so the finish could not be recorded'
@@ -255,7 +251,6 @@ function createSolvesStore(path) {
             }
             solve = solves[0]
             // finally record elapsed time
-            solve.finishedAt = finishedAt
             solve.elapsedTime = finishedAt - solve.startedAt
             return solves
         })
