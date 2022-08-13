@@ -25,6 +25,7 @@
 		puzzleId: -1,
 		startedAt: -1,
 		finishedAt: -1,
+		pausedAt: -1,
 		elapsedTime: -1,
 		error: null
 	};
@@ -60,7 +61,9 @@
 	{:else if solve.startedAt === -1}
 		Loading puzzle...
 	{:else if $settings.showTimer}
-		{#if solve.finishedAt === -1}
+		{#if solve.pausedAt !== -1}
+		  Paused
+		{:else if solve.finishedAt === -1}
 			Time: {formatTime(elapsed, false)} 
 		{:else}
 			You have solved the puzzle in {formatTime(elapsed, true)}

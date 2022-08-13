@@ -107,7 +107,10 @@
     onDestroy(()=>{
         // save progress immediately if navigating away (?)
         save.clear()
-        if (!$solved) {save.now()}
+        if (!$solved) {
+            save.now()
+            dispatch('pause')
+        }
     })
 
     function createThrottle(callback, timeout) {

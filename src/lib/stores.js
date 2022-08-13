@@ -176,6 +176,8 @@ function createSolvesStore(path) {
     }
 
     function reportStart(puzzleId) {
+        unpause(puzzleId);
+
         let solve
         update(solves => {
             // check if we started this already
@@ -195,6 +197,7 @@ function createSolvesStore(path) {
                     puzzleId,
                     startedAt: solve.startedAt,
                     finishedAt: -1,
+                    pausedAt: solve.pausedAt,
                     elapsedTime: -1,
                 }
                 solves.unshift(solve)
@@ -206,6 +209,7 @@ function createSolvesStore(path) {
                     puzzleId,
                     startedAt: (new Date()).valueOf(),
                     finishedAt: -1,
+                    pausedAt: -1,
                     elapsedTime: -1,
                 }
                 solves.unshift(solve)
@@ -224,6 +228,7 @@ function createSolvesStore(path) {
                     puzzleId,
                     startedAt: -1,
                     finishedAt: -1,
+                    pausedAt: -1,
                     elapsedTime: -1,
                     error: 'No started puzzles found, so the finish could not be recorded'
                 }
@@ -242,6 +247,7 @@ function createSolvesStore(path) {
                     puzzleId,
                     startedAt: -1,
                     finishedAt: -1,
+                    pausedAt: -1,
                     elapsedTime: -1,
                     error: 'Another puzzle was started after this one, so the finish could not be recorded'
                 }
@@ -256,11 +262,54 @@ function createSolvesStore(path) {
         return solve
     }
 
+	// adds a pausedAt time to a puzzle if the puzzle is running and not paused
+    function pause(puzzleId) {
+		// console.log('pausing', puzzleId)
+        let solve;
+        update(solves => {
+            // find if this puzzle is in progress
+            solve = solves.find(solve => solve.puzzleId === puzzleId);
+            if (solve !== undefined && solve.startedAt !== -1 && solve.elapsedTime === -1 && solve.pausedAt === -1) {
+                solve.pausedAt = (new Date()).valueOf();
+				// console.log('paused', puzzleId)
+            }
+            return solves
+        });
+        return solve;
+    }
+
+	// removes pausedAt and adjusts startedAt if the puzzle is paused
+    function unpause(puzzleId) {
+        // console.log('unpausing', puzzleId);
+        let solve;
+        update(solves => {
+            // find if this puzzle in in progress and paused
+            solve = solves.find(solve => solve.puzzleId === puzzleId);
+            if (solve !== undefined && solve.startedAt !== -1 && solve.elapsedTime === -1 && solve.pausedAt > solve.startedAt) {
+                const now = (new Date()).valueOf();
+                const pausedElapsedTime = now - solve.pausedAt;
+                solve.pausedAt = -1; // clear paused time
+				// console.log('unpaused', puzzleId)
+
+                // guard against unexpected quirks like setting clock back
+                if (pausedElapsedTime >= 0) {
+                    // bump startedAt forward by exact amount of time spent paused, so calculated
+                    // elapsed time picks up where it left off
+                    solve.startedAt += pausedElapsedTime;
+                }
+            }
+            return solves;
+        });
+        return solve;
+    }
+
     return {
         subscribe,
         reportStart,
         reportFinish,
         choosePuzzleId,
+        pause,
+        unpause,
     }
 }
 
