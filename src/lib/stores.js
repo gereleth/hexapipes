@@ -269,7 +269,10 @@ function createSolvesStore(path) {
         update(solves => {
             // find if this puzzle is in progress
             solve = solves.find(solve => solve.puzzleId === puzzleId);
-            if (solve !== undefined && solve.startedAt !== -1 && solve.elapsedTime === -1 && solve.pausedAt === -1) {
+            if (solve !== undefined 
+                && solve.startedAt !== -1 
+                && solve.elapsedTime === -1 
+                && (solve.pausedAt === -1 || solve.pausedAt === undefined)) {
                 solve.pausedAt = (new Date()).valueOf();
 				// console.log('paused', puzzleId)
             }
@@ -285,6 +288,10 @@ function createSolvesStore(path) {
         update(solves => {
             // find if this puzzle in in progress and paused
             solve = solves.find(solve => solve.puzzleId === puzzleId);
+            // if a puzzle started earlier was saved with no pausedAt property
+            if (solve && solve.pausedAt===undefined) {
+                solve.pausedAt = -1
+            }
             if (solve !== undefined && solve.startedAt !== -1 && solve.elapsedTime === -1 && solve.pausedAt > solve.startedAt) {
                 const now = (new Date()).valueOf();
                 const pausedElapsedTime = now - solve.pausedAt;
