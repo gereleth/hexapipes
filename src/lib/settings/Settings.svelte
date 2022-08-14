@@ -71,6 +71,18 @@ onMount(()=>{
         </label>
         </div>
     </div>
+    <div class="controlMode">
+        <h3>Zoom and pan</h3>
+        <p>If you find current zoom and pan functions uncomfortable you can disable them. Puzzles will be shown fully zoomed out. You can rely on browser zoom to deal with small tiles.</p>
+        <label>
+            <input type=checkbox 
+                bind:checked={$settings.disableZoomPan} 
+                name="disableZoomPan" 
+                >
+                Disable zooming and panning
+        </label>
+        <p>Please <strong>refresh the page</strong> for the changes to take effect.</p>
+    </div>
     {/if}
 </div>
 

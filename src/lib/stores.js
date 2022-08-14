@@ -30,6 +30,7 @@ export const puzzleCounts = writable({
  * @property {ControlMode} controlMode
  * @property {Boolean} invertRotationDirection
  * @property {Boolean} showTimer
+ * @property {Boolean} disableZoomPan
  */
 
 function createSettings() {
@@ -38,6 +39,7 @@ function createSettings() {
         controlMode: 'rotate_lock',
         invertRotationDirection: false,
         showTimer: true,
+        disableZoomPan: false,
     }
 
 	const { subscribe, set, update } = writable(defaultSettings);
