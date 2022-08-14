@@ -106,7 +106,7 @@
 	}
 
 	function newPuzzle() {
-		goto(`/${category}/${size}/${nextPuzzleId}`);
+		goto(`/${category}/${size}/${nextPuzzleId}`, {noscroll: true});
 	}
 
 	onMount(() => {
@@ -147,7 +147,7 @@
 			{#if solved}
 				Solved!
 			{/if}
-			<a href="/{category}/{size}/{nextPuzzleId}">Next puzzle</a>
+			<a href="/{category}/{size}/{nextPuzzleId}" sveltekit:noscroll>Next puzzle</a>
 		{/if}
 	</div>
 	<PuzzleButtons
