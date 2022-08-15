@@ -70,6 +70,13 @@ on:solved={()=>hexWrapSolved = true}
 <h2> Changelog </h2>
 <ul>
     <li>
+        <em>2022-08-15</em>
+        <ul>
+            <li>Added a setting to disable zoom/pan because the new functions weren't working well for some users. If you use the setting then puzzles will be shown fully zoomed out like before and you can rely on browser zoom to deal with small tiles.</li>
+            <li>As a small improvement made the page keep scroll position the same when you click "Next puzzle".</li>
+        </ul> 
+    </li>
+    <li>
         <em>2022-08-13</em> The timer now stops ticking when you leave the puzzle page or switch to a different tab. It continues when you return to the puzzle. This should give more accurate times on large puzzles. Thanks to <a href="https://github.com/joshwilsonvu" target="_blank" rel="noopener">@joshwilsonvu</a> for the pull request.
     </li>
     <li><em>2022-08-11</em> Zoom and pan! Solving big puzzles should be easier now with the ability to zoom in and move around. 
