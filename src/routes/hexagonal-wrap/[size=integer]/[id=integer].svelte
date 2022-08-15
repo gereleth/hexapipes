@@ -47,10 +47,7 @@
 <div class="info container">
   <h2> {$page.params.size}x{$page.params.size} Hexagonal Wrap Pipes Puzzle #{$page.params.id}</h2>
   
-  <p>Rotate the tiles so that all pipes are connected with no loops. The puzzle wraps around and connects back to itself - left to right and top to bottom.</p>
-
-  <p> 
-    Multiple copies of tiles are shown to help you solve. Use mouse wheel to zoom in/out.</p>
+  <p>Rotate the tiles so that all pipes are connected with no loops. The puzzle wraps around and connects back to itself - left to right and top to bottom. Multiple copies of tiles are shown to help you solve. </p>
 </div>
 
 <PuzzleWrapper

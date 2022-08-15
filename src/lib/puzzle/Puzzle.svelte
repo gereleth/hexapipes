@@ -50,14 +50,17 @@
         // take full width without scroll bar
         const maxPixelWidth = innerWidth - 18
         // take most height, leave some for scrolling the page on mobile
-        const maxPixelHeight = Math.round(0.8*innerHeight)
+        const maxPixelHeight = $settings.disableZoomPan ? innerHeight : Math.round(0.8*innerHeight)
 
         const maxGridWidth = grid.XMAX - grid.XMIN
         const maxGridHeight = grid.YMAX - grid.YMIN
 
         const wpx = maxPixelWidth / maxGridWidth
         const hpx = maxPixelHeight / maxGridHeight
-        const pxPerCell = Math.max(60, Math.min(100, wpx, hpx))
+        let pxPerCell = Math.min(100, wpx, hpx)
+        if (!($settings.disableZoomPan)) {
+            pxPerCell = Math.max(60, pxPerCell)
+        }
         if (wrap) {
             svgWidth = Math.min(maxPixelWidth, pxPerCell * maxGridWidth)
         } else {
@@ -76,6 +79,10 @@
     }
 
     function resize() {
+        if ($settings.disableZoomPan) {
+            // do nothing to let browser zoom handle it all
+            return
+        }
         const pxPerCell = svgWidth / $viewBox.width
         // take full width without scroll bar
         const maxPixelWidth = innerWidth - 18

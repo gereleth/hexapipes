@@ -34,9 +34,13 @@ export function controls(node, game) {
 	 * @type {import('$lib/stores').Settings}
 	 */
 	let currentSettings;
+	settings.loadFromLocalStorage()
 	const unsubscribeSettings = settings.subscribe((s) => {
 		currentSettings = s;
 	});
+	// set this once to not deal with changes
+	// changes will take effect on page refresh
+	const useZoomPan = !(currentSettings.disableZoomPan)
 
 	const rect = node.getBoundingClientRect();
 	const pixelsWidth = rect.width;
@@ -174,11 +178,13 @@ export function controls(node, game) {
 		const [x, y] = getEventCoordinates(event);
 		const dx = x - mouseDownOrigin.x;
 		const dy = y - mouseDownOrigin.y;
-		const distance = Math.sqrt(dx * dx + dy * dy);
 		if (state === 'mousedown') {
+			const distance = Math.sqrt(dx * dx + dy * dy);
 			if (distance >= 1) {
-				if (mouseDownOrigin.button === 0) {
+				if (useZoomPan && (mouseDownOrigin.button === 0)) {
 					state = 'panning';
+				} else {
+					state = 'idle'
 				}
 			}
 			if (distance >= 0.05) {
@@ -433,7 +439,7 @@ export function controls(node, game) {
 			const tileIndex = ongoingTouches[0].tileIndex
 			if (tileIndex !== -1) {
 				touchState = 'touchdown';
-				event.preventDefault();
+				// event.preventDefault();
 				// start locking/unlocking if user holds for long enough
 				touchTimer = setTimeout(() => {
 					if ((currentSettings.controlMode==='rotate_lock')||currentSettings.controlMode==='orient_lock') {
@@ -454,7 +460,12 @@ export function controls(node, game) {
 				touchState = 'idle'
 			}
 		} else if (touchState === 'touchdown') {
-			touchState = 'zoom_pan';
+			if (useZoomPan) {
+				touchState = 'zoom_pan';
+			} else {
+				touchstate = 'idle'
+				ongoingTouches = []
+			}
 			clearTimeout(touchTimer)
 		}
 	}
@@ -523,7 +534,12 @@ export function controls(node, game) {
 			const distance = Math.sqrt((x-t0.x)**2 + (y-t0.y)**2)
 			if (distance >= 1) {
 				clearTimeout(touchTimer)
-				touchState = 'panning'
+				if (useZoomPan) {
+					touchState = 'panning'
+				} else {
+					ongoingTouches = []
+					touchState = 'idle'
+				}
 			}
 		} else if (touchState==='panning') {
 			event.preventDefault();
@@ -629,12 +645,14 @@ export function controls(node, game) {
 	node.addEventListener('mousemove', handleMouseMove);
 	node.addEventListener('mouseleave', handleMouseUp);
 	node.addEventListener('mouseup', handleMouseUp);
-	node.addEventListener('wheel', handleWheel);
+	if (useZoomPan) {
+		node.addEventListener('wheel', handleWheel);
+	}
 
-	node.addEventListener('touchstart', handleTouchStart);
-	node.addEventListener('touchmove', handleTouchMove);
-	node.addEventListener('touchend', handleTouchEnd);
-	node.addEventListener('touchcancel', handleTouchEnd);
+	node.addEventListener('touchstart', handleTouchStart, {passive: false});
+	node.addEventListener('touchmove', handleTouchMove, {passive: false});
+	node.addEventListener('touchend', handleTouchEnd, {passive: false});
+	node.addEventListener('touchcancel', handleTouchEnd, {passive: false});
 
 	return {
 		destroy() {
