@@ -61,9 +61,9 @@
 		Loading puzzle...
 	{:else if $settings.showTimer}
 		{#if solve.pausedAt !== -1}
-		  Paused
+			Paused
 		{:else if solve.elapsedTime === -1}
-			Time: {formatTime(elapsed, false)} 
+			Time: {formatTime(elapsed, false)}
 		{:else}
 			You have solved the puzzle in {formatTime(elapsed, true)}
 		{/if}

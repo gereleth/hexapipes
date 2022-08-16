@@ -4,7 +4,6 @@
 	import styles from '../app.css';
 </script>
 
-
 <div class="container">
 	<Header />
 </div>
@@ -12,7 +11,6 @@
 <main>
 	<slot />
 </main>
-
 
 <div class="container">
 	<Footer />

@@ -42,51 +42,51 @@ import { writable } from 'svelte/store';
 
 /**
  * @constructor
- * @param {TileState} initialState 
+ * @param {TileState} initialState
  */
 function StateStore(initialState) {
-	let self = this
+	let self = this;
 
 	const { subscribe, set, update } = writable(initialState);
-	self.data = Object.assign({}, initialState)
-	self.subscribe = subscribe
+	self.data = Object.assign({}, initialState);
+	self.subscribe = subscribe;
 
 	/**
-	 * @param {TileState} newValue 
+	 * @param {TileState} newValue
 	 */
-	self.set = function(newValue) {
-		self.data = newValue
-		set(newValue)
-	}
+	self.set = function (newValue) {
+		self.data = newValue;
+		set(newValue);
+	};
 
 	/**
 	 * @param {String} color
 	 */
-	self.setColor = function(color) {
-		self.data.color = color
-		set(self.data)
-	}
+	self.setColor = function (color) {
+		self.data.color = color;
+		set(self.data);
+	};
 
-	self.toggleLocked = function() {
-		self.data.locked = !self.data.locked
-		set(self.data)
-	}
+	self.toggleLocked = function () {
+		self.data.locked = !self.data.locked;
+		set(self.data);
+	};
 
 	/**
 	 * @param {Boolean} isPartOfLoop
 	 */
-	self.setPartOfLoop = function(isPartOfLoop) {
-		self.data.isPartOfLoop = isPartOfLoop
-		set(self.data)
-	}
+	self.setPartOfLoop = function (isPartOfLoop) {
+		self.data.isPartOfLoop = isPartOfLoop;
+		set(self.data);
+	};
 
 	/**
-	 * @param {Number} times 
+	 * @param {Number} times
 	 */
-	self.rotate = function(times) {
-		self.data.rotations += times
-		set(self.data)
-	}
+	self.rotate = function (times) {
+		self.data.rotations += times;
+		set(self.data);
+	};
 
 	return self;
 }
@@ -104,7 +104,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.grid = grid;
 	self.tiles = tiles;
 	self.initialized = false;
-	self._solved = false
+	self._solved = false;
 	self.solved = writable(false);
 
 	/**
@@ -126,7 +126,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	/**
 	 * @type {EdgeMark[]}
 	 */
-	const defaultEdgeMarks = ['empty', 'empty', 'empty']
+	const defaultEdgeMarks = ['empty', 'empty', 'empty'];
 	if (savedProgress) {
 		self.tileStates = savedProgress.tiles.map((savedTile, index) => {
 			return new StateStore({
@@ -135,7 +135,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				color: savedTile.color,
 				isPartOfLoop: false,
 				locked: savedTile.locked,
-				edgeMarks: savedTile.edgeMarks || [...defaultEdgeMarks],
+				edgeMarks: savedTile.edgeMarks || [...defaultEdgeMarks]
 			});
 		});
 	} else {
@@ -146,7 +146,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				color: 'white',
 				isPartOfLoop: false,
 				locked: false,
-				edgeMarks: [...defaultEdgeMarks],
+				edgeMarks: [...defaultEdgeMarks]
 			});
 		});
 	}
@@ -154,7 +154,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.initializeBoard = function () {
 		// create components and fill in connections data
 		self.tileStates.forEach((tileState, index) => {
-			const state = tileState.data
+			const state = tileState.data;
 			let directions = self.grid.getDirections(state.tile, state.rotations);
 			self.connections.set(
 				index,
@@ -175,7 +175,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		});
 		// merge initial components of connected tiles
 		self.tileStates.forEach((tileState, index) => {
-			const state = tileState.data
+			const state = tileState.data;
 			let directions = self.grid.getDirections(state.tile, state.rotations);
 			self.handleConnections({
 				detail: {
@@ -188,12 +188,12 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.initialized = true;
 	};
 
-	self.startOver = function() {
-		self.connections.clear()
-		self.components.clear()
-		self.initialized = false
-		self.solved.set(false)
-		self._solved = false
+	self.startOver = function () {
+		self.connections.clear();
+		self.components.clear();
+		self.initialized = false;
+		self.solved.set(false);
+		self._solved = false;
 
 		self.tileStates.forEach((tileState, index) => {
 			tileState.set({
@@ -205,65 +205,65 @@ export function PipesGame(grid, tiles, savedProgress) {
 				// some tiles could have set their edgemarks to none
 				// if they are on the outer border
 				// remember that and remove edgemarks otherwise
-				edgeMarks: tileState.data.edgeMarks.map(edgemark => {
-					return edgemark === 'none' ? 'none' : 'empty'
-				}),
+				edgeMarks: tileState.data.edgeMarks.map((edgemark) => {
+					return edgemark === 'none' ? 'none' : 'empty';
+				})
 			});
 		});
 
-		self.initializeBoard()
-	}
+		self.initializeBoard();
+	};
 
 	/**
-	 * 
-	 * @param {Number} tileIndex 
-	 * @param {Number} times 
+	 *
+	 * @param {Number} tileIndex
+	 * @param {Number} times
 	 */
-	self.rotateTile = function(tileIndex, times) {
+	self.rotateTile = function (tileIndex, times) {
 		if (self._solved) {
-			return
+			return;
 		}
-		const tileState = self.tileStates[tileIndex]
-		if ((tileState===undefined)||(tileState.data.locked)) {
-			return
+		const tileState = self.tileStates[tileIndex];
+		if (tileState === undefined || tileState.data.locked) {
+			return;
 		}
-		const oldDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations)
-		tileState.rotate(times)
-		const newDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations)
+		const oldDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations);
+		tileState.rotate(times);
+		const newDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations);
 
-		const dirOut = oldDirections.filter(direction => !(newDirections.some(d=>d===direction)))
-        const dirIn = newDirections.filter(direction => !(oldDirections.some(d=>d===direction)))
+		const dirOut = oldDirections.filter((direction) => !newDirections.some((d) => d === direction));
+		const dirIn = newDirections.filter((direction) => !oldDirections.some((d) => d === direction));
 
 		self.handleConnections({
-			detail: {tileIndex, dirOut, dirIn}
-		})
-	}
+			detail: { tileIndex, dirOut, dirIn }
+		});
+	};
 
 	/**
-	 * 
-	 * @param {EdgeMark} mark 
-	 * @param {Number} tileIndex 
-	 * @param {Number} direction 
+	 *
+	 * @param {EdgeMark} mark
+	 * @param {Number} tileIndex
+	 * @param {Number} direction
 	 */
-	self.toggleEdgeMark = function(mark, tileIndex, direction) {
-		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction)
+	self.toggleEdgeMark = function (mark, tileIndex, direction) {
+		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 		if (index === -1) {
 			// toggle mark on the neighbour instead
-			const opposite = self.grid.OPPOSITE.get(direction)
-			const { neighbour } = self.grid.find_neighbour(tileIndex, direction)
-			if ((neighbour !== -1)&&(opposite)) {
-				self.toggleEdgeMark(mark, neighbour, opposite)
+			const opposite = self.grid.OPPOSITE.get(direction);
+			const { neighbour } = self.grid.find_neighbour(tileIndex, direction);
+			if (neighbour !== -1 && opposite) {
+				self.toggleEdgeMark(mark, neighbour, opposite);
 			}
-			return
+			return;
 		}
-		const tileState = self.tileStates[tileIndex]
+		const tileState = self.tileStates[tileIndex];
 		if (tileState.data.edgeMarks[index] === mark) {
-			tileState.data.edgeMarks[index] = 'empty'
+			tileState.data.edgeMarks[index] = 'empty';
 		} else if (tileState.data.edgeMarks[index] !== 'none') {
-			tileState.data.edgeMarks[index] = mark
+			tileState.data.edgeMarks[index] = mark;
 		}
-		tileState.set(tileState.data)
-	}
+		tileState.set(tileState.data);
+	};
 
 	/**
 	 * @param {{detail: {
