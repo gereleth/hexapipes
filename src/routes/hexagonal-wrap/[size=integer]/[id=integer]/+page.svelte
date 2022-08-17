@@ -25,9 +25,9 @@
 </div>
 
 <PuzzleWrapper
-	{data.width}
-	{data.height}
-	{data.tiles}
+	width={data.width}
+	height={data.height}
+	tiles={data.tiles}
 	category={'hexagonal-wrap'}
 	size={Number($page.params.size)}
 	puzzleId={Number($page.params.id)}
