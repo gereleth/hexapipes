@@ -2,11 +2,10 @@
 	"name": "hexapipes",
 	"private": true,
 	"scripts": {
-		"dev": "svelte-kit dev",
-		"build": "svelte-kit build",
+		"dev": "vite dev",
+		"build": "vite build",
 		"package": "svelte-kit package",
-		"preview": "svelte-kit preview",
-		"prepare": "svelte-kit sync",
+		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./jsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./jsconfig.json --watch",
 		"lint": "prettier --check --plugin-search-dir=. .",
@@ -15,13 +14,14 @@
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "next",
 		"@sveltejs/adapter-static": "*",
-		"@sveltejs/kit": "next",
+		"@sveltejs/kit": "^1.0.0-next.405",
 		"@types/cookie": "^0.5.1",
 		"prettier": "^2.6.2",
 		"prettier-plugin-svelte": "^2.7.0",
 		"svelte": "^3.46.0",
 		"svelte-check": "^2.7.1",
-		"typescript": "^4.7.2"
+		"typescript": "^4.7.2",
+		"vite": "^3.0.0"
 	},
 	"type": "module",
 	"dependencies": {

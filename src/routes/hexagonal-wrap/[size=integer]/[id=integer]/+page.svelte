@@ -1,40 +1,10 @@
-<script context="module">
-	export async function load({ params, fetch }) {
-		const size = `${params.size}x${params.size}`;
-		const id = Number(params.id);
-		const folderNum = Math.floor((id - 1) / 100);
-		const url = `/_instances/hexagonal-wrap/${size}/${folderNum}/${id}.json`;
-		const response = await fetch(url);
-
-		if (response.ok) {
-			const data = await response.json();
-			return {
-				status: response.status,
-				props: {
-					width: data.width,
-					height: data.height,
-					tiles: data.tiles
-				}
-			};
-		} else {
-			return {
-				status: response.status
-			};
-		}
-	}
-</script>
-
 <script>
 	import { page } from '$app/stores';
 	import PuzzleWrapper from '$lib/puzzleWrapper/PuzzleWrapper.svelte';
 	import { puzzleCounts } from '$lib/stores';
 
-	/** @type {Number} */
-	export let width;
-	/** @type {Number} */
-	export let height;
-	/** @type {Number[]} */
-	export let tiles;
+	/** @type {import('./$types').PageData} */
+	export let data;
 </script>
 
 <svelte:head>
@@ -54,9 +24,9 @@
 </div>
 
 <PuzzleWrapper
-	{width}
-	{height}
-	{tiles}
+	width={data.width}
+	height={data.height}
+	tiles={data.tiles}
 	category={'hexagonal-wrap'}
 	size={Number($page.params.size)}
 	puzzleId={Number($page.params.id)}
