@@ -1,11 +1,10 @@
 <script>
- /** @type {import('./$types').PageData} */
-export let data;
-
 	import { page } from '$app/stores';
 	import PuzzleWrapper from '$lib/puzzleWrapper/PuzzleWrapper.svelte';
 	import { puzzleCounts } from '$lib/stores';
 
+	/** @type {import('./$types').PageData} */
+	export let data;
 </script>
 
 <svelte:head>
