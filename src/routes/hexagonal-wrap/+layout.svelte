@@ -1,7 +1,6 @@
 <script>
 	import { puzzleCounts } from '$lib/stores';
 	import { page } from '$app/stores';
-	import Settings from '$lib/settings/Settings.svelte';
 
 	/** @type {Number[]} */
 	let sizes = [];
@@ -25,7 +24,6 @@
 		{/each}
 	</div>
 </div>
-<Settings />
 <slot />
 
 <div class="container instructions">
