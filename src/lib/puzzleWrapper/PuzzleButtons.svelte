@@ -3,6 +3,7 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let solved = false;
+	export let includeNewPuzzleButton = true;
 
 	const dispatch = createEventDispatcher();
 
@@ -32,7 +33,9 @@
 		{/if}
 	</button>
 	<!-- New puzzle button -->
-	<button on:click={newPuzzle}> ➡️ New puzzle </button>
+	{#if includeNewPuzzleButton}
+		<button on:click={newPuzzle}> ➡️ New puzzle </button>
+	{/if}
 </div>
 
 <style>
