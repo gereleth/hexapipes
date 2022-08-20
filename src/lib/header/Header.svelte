@@ -14,11 +14,8 @@
 			<li class:active={$page.url.pathname === '/daily'}>
 				<a sveltekit:prefetch href="/daily">Daily</a>
 			</li>
-			<li class:active={$page.url.pathname.startsWith('/hexagonal/')}>
-				<a sveltekit:prefetch href="/hexagonal">Hexagonal</a>
-			</li>
-			<li class:active={$page.url.pathname.startsWith('/hexagonal-wrap/')}>
-				<a sveltekit:prefetch href="/hexagonal-wrap">Hexagonal wrap</a>
+			<li class:active={$page.url.pathname.startsWith('/hexagonal')}>
+				<a sveltekit:prefetch href="/hexagonal">Play</a>
 			</li>
 		</ul>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
