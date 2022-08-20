@@ -325,21 +325,26 @@ export function PipesGame(grid, tiles, savedProgress) {
 		}
 	};
 
+	let firstValidIndex = 0;
+	while (self.grid.emptyCells.has(firstValidIndex)) {
+		firstValidIndex += 1;
+	}
 	/**
 	 * @returns {boolean}
 	 */
 	self.isSolved = function () {
 		// console.log('=================== Solved check ======================')
-		const component = self.components.get(0);
+		const total = self.grid.total - self.grid.emptyCells.size;
+		const component = self.components.get(firstValidIndex);
 		if (component === undefined) {
 			return false;
 		}
-		if (component.tiles.size < self.grid.total) {
+		if (component.tiles.size < total) {
 			// console.log('not everything connected yet')
 			// not everything connected yet
 			return false;
 		}
-		let startCheckAtIndex = 0;
+		let startCheckAtIndex = firstValidIndex;
 		let toCheck = new Set([{ fromIndex: -1, tileIndex: startCheckAtIndex }]);
 		// console.log('start at', startCheckAtIndex)
 		/** @type Set<Number> */
@@ -389,8 +394,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 				toCheck = newChecks;
 			}
 		}
-		if (checked.size < grid.total) {
-			// console.log('not solved because only', checked.size, 'of', grid.total, 'were reached')
+		if (checked.size < total) {
+			// console.log('not solved because only', checked.size, 'of', total, 'were reached')
 			// it's an island
 			return false;
 		}
