@@ -21,7 +21,7 @@
 	let puzzle;
 	let solved = false;
 	let progressStoreName = '/daily_progress';
-	let pathname = 'daily';
+	let pathname = '/daily';
 
 	let solves;
 	let stats;
@@ -136,10 +136,13 @@
 		{/if}
 	</div>
 	<div class="next">
-		{#if timeTillNextPuzzle === 'now'}
-			<a href="/daily">Next puzzle</a>
-		{:else}
-			Next daily puzzle in {timeTillNextPuzzle}. <a href="/hexagonal/5">Play some others for now</a>
+		{#if solve.elapsedTime !== -1}
+			{#if timeTillNextPuzzle === 'now'}
+				<a href="/daily">Next puzzle</a>
+			{:else}
+				Next daily puzzle in {timeTillNextPuzzle}.
+				<a href="/hexagonal/5">Play some others for now</a>
+			{/if}
 		{/if}
 	</div>
 	<PuzzleButtons
