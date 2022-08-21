@@ -17,7 +17,8 @@ export async function load({ fetch }) {
 			wrap: data.wrap,
 			width: data.width,
 			height: data.height,
-			tiles: data.tiles
+			tiles: data.tiles,
+			comment: data.comment
 		};
 	} else {
 		throw error(response.status, '');

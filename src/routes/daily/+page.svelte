@@ -108,7 +108,9 @@
 
 <div class="info container">
 	<h1>Daily Pipes Puzzle {data.date}</h1>
-
+	{#if data.comment}
+		<p class="comment">{data.comment}</p>
+	{/if}
 	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
 <Settings />
@@ -138,7 +140,7 @@
 	<div class="next">
 		{#if solve.elapsedTime !== -1}
 			{#if timeTillNextPuzzle === 'now'}
-				<a href="/daily">Next puzzle</a>
+				<a href="/daily" on:click={() => document.location.reload()}>Next puzzle</a>
 			{:else}
 				Next daily puzzle in {timeTillNextPuzzle}.
 				<a href="/hexagonal/5">Play some others for now</a>
@@ -216,5 +218,13 @@
 	}
 	.instructions {
 		color: var(--text-color);
+	}
+	p.comment {
+		background: rgba(255, 255, 255, 0.4);
+		padding: 0.5em 2em;
+		border-radius: 0.5em;
+		width: max-content;
+		max-width: 100%;
+		margin: auto;
 	}
 </style>
