@@ -119,6 +119,9 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2022-08-21</em> Added initial version of daily puzzles.
+		</li>
+		<li>
 			<em>2022-08-15</em>
 			<ul>
 				<li>
