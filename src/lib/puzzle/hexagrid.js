@@ -24,8 +24,9 @@ import { writable, derived, get } from 'svelte/store';
  * @param {Number} width
  * @param {Number} height
  * @param {Boolean} wrap
+ * @param {Number[]} tiles
  */
-export function HexaGrid(width, height, wrap = false) {
+export function HexaGrid(width, height, wrap = false, tiles = []) {
 	let self = this;
 
 	const EAST = 1;
@@ -65,6 +66,13 @@ export function HexaGrid(width, height, wrap = false) {
 
 	this.width = width;
 	this.height = height;
+	/** @type {Set<Number>} */
+	this.emptyCells = new Set();
+	tiles.forEach((tile, index) => {
+		if (tile === 0) {
+			this.emptyCells.add(index);
+		}
+	});
 	this.total = width * height;
 	this.wrap = wrap;
 
@@ -287,6 +295,9 @@ export function HexaGrid(width, height, wrap = false) {
 		} else {
 			neighbour = self.width * r + c;
 		}
+		if (self.emptyCells.has(neighbour)) {
+			neighbour = -1;
+		}
 		return {
 			neighbour,
 			wrapped
@@ -367,6 +378,10 @@ export function HexaGrid(width, height, wrap = false) {
 		const visibleTiles = [];
 		for (let r = rmin; r <= rmax; r++) {
 			for (let c = cmin; c <= cmax; c++) {
+				const index = self.rc_to_index(r, c);
+				if (self.emptyCells.has(index)) {
+					continue;
+				}
 				const x = c + (r % 2 === 0 ? 0.0 : 0.5);
 				const y = r * self.YSTEP;
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}`;

@@ -1,7 +1,5 @@
 <script>
 	import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
-	import { tweened } from 'svelte/motion';
-	import { cubicOut } from 'svelte/easing';
 
 	/** @type {Number} i*/
 	export let i;
@@ -19,11 +17,6 @@
 
 	let bgColor = '#aaa';
 
-	let rotationAnimate = tweened($state.rotations, {
-		duration: 75,
-		easing: cubicOut
-	});
-
 	// disable edge marks on outer edges of non-wrap puzzles
 	if (!game.grid.wrap) {
 		game.grid.EDGEMARK_DIRECTIONS.forEach((direction, index) => {
@@ -39,13 +32,13 @@
 	const deltas = myDirections.map((direction) => game.grid.XY_DELTAS.get(direction));
 	let angle = game.grid.getTileAngle($state.tile);
 
-	let path = `M ${cx} ${cy}`;
+	let path = `M 0 0`;
 	for (let [dx, dy] of deltas) {
-		path += ` l ${0.5 * dx} ${-0.5 * dy} L ${cx} ${cy}`;
+		path += ` l ${0.5 * dx} ${-0.5 * dy} L 0 0`;
 	}
 	const isSink = myDirections.length === 1;
 
-	const hexagon = `M ${cx} ${cy} ` + game.grid.tilePath;
+	const hexagon = game.grid.tilePath;
 
 	/**
 	 * Choose tile background color
@@ -61,17 +54,14 @@
 	}
 
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
-
-	// want to animate even if rotation is from another wrap tile
-	$: rotationAnimate.set($state.rotations);
 </script>
 
-<g class="tile" data-index={i} data-x={cx} data-y={cy}>
+<g class="tile" data-index={i} data-x={cx} data-y={cy} transform="translate({cx},{cy})">
 	<!-- Tile hexagon -->
 	<path d={hexagon} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
 
 	<!-- Pipe shape -->
-	<g transform="rotate({60 * $rotationAnimate}, {cx}, {cy})">
+	<g class="pipe" style="transform:rotate({60 * $state.rotations}deg)">
 		<!-- Pipe outline -->
 		<path
 			d={path}
@@ -83,8 +73,8 @@
 		<!-- Sink circle -->
 		{#if isSink}
 			<circle
-				{cx}
-				{cy}
+				cx="0"
+				cy="0"
 				r="0.15"
 				fill={$state.color}
 				stroke="#888"
@@ -104,8 +94,8 @@
 		{#if controlMode === 'orient_lock' && !$state.locked && !solved}
 			<!-- Guide dot -->
 			<circle
-				cx={cx + 0.4 * Math.cos(angle)}
-				cy={cy - 0.4 * Math.sin(angle)}
+				cx={0.4 * Math.cos(angle)}
+				cy={-0.4 * Math.sin(angle)}
 				fill="orange"
 				stroke="white"
 				r="0.03"
@@ -117,8 +107,6 @@
 		{#each $state.edgeMarks as _, index (index)}
 			<EdgeMark
 				grid={game.grid}
-				{cx}
-				{cy}
 				state={$state.edgeMarks[index]}
 				direction={game.grid.EDGEMARK_DIRECTIONS[index]}
 			/>
@@ -127,9 +115,7 @@
 </g>
 
 <style>
-	.tile {
-		transform-origin: center;
-		transform-box: fill-box;
+	.pipe {
 		transition: transform 100ms;
 	}
 </style>

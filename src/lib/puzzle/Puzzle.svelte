@@ -22,7 +22,7 @@
 	let svgWidth = 500;
 	let svgHeight = 500;
 
-	let grid = new HexaGrid(width, height, wrap);
+	let grid = new HexaGrid(width, height, wrap, tiles);
 	let game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
 

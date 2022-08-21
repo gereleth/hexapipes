@@ -3,9 +3,6 @@
 	import { createEventDispatcher } from 'svelte';
 	/** @type {import('$lib/puzzle/hexagrid').HexaGrid} */
 	export let grid;
-	// coordinates of tile center
-	export let cx = 0;
-	export let cy = 0;
 	export let state = 'none';
 	export let direction = 1;
 
@@ -25,10 +22,10 @@
 			class="mark"
 			class:wall={state === 'wall'}
 			class:connection={state === 'connection'}
-			x1={cx + 0.5 * offsetX - dx * lineLength}
-			y1={cy - 0.5 * offsetY + dy * lineLength}
-			x2={cx + 0.5 * offsetX + dx * lineLength}
-			y2={cy - 0.5 * offsetY - dy * lineLength}
+			x1={+0.5 * offsetX - dx * lineLength}
+			y1={-0.5 * offsetY + dy * lineLength}
+			x2={+0.5 * offsetX + dx * lineLength}
+			y2={-0.5 * offsetY - dy * lineLength}
 			stroke="green"
 			stroke-width="0.04"
 		/>

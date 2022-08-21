@@ -1,7 +1,7 @@
 <script>
 	import { puzzleCounts } from '$lib/stores';
 	import { page } from '$app/stores';
-	import Settings from '$lib/settings/Settings.svelte';
+	import Grids from '$lib/header/Grids.svelte';
 
 	/** @type {Number[]} */
 	let sizes = [];
@@ -12,9 +12,9 @@
 
 <div class="container">
 	<h1>Hexagonal wrap pipes</h1>
-
+	<Grids />
 	<div class="sizes">
-		<span> Choose a size:</span>
+		<span> Size:</span>
 		{#each sizes as size}
 			<a
 				href="/hexagonal-wrap/{size}"
@@ -25,7 +25,6 @@
 		{/each}
 	</div>
 </div>
-<Settings />
 <slot />
 
 <div class="container instructions">
@@ -68,6 +67,7 @@
 		column-gap: 20px;
 		margin: auto;
 		justify-content: center;
+		color: var(--text-color);
 	}
 	.sizes a,
 	.sizes span {
