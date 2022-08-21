@@ -103,12 +103,12 @@
 	let shareButtonIcon = '📋';
 	function formatShareText() {
 		if ($settings.showTimer) {
-			shareText = `Daily pipes puzzle ${data.date}\nSolved it in ${formatTime(
+			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it in ${formatTime(
 				solve.elapsedTime,
 				false
 			)}\n${window.location.href}`;
 		} else {
-			shareText = `Daily pipes puzzle ${data.date}\nSolved it!\n${window.location.href}`;
+			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it!\n${window.location.href}`;
 		}
 	}
 	$: formatShareText(solve, $settings.showTimer);
