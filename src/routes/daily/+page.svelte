@@ -4,9 +4,9 @@
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import Settings from '$lib/settings/Settings.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import Timer from '$lib/Timer.svelte';
+	import Timer, { formatTime } from '$lib/Timer.svelte';
 	import Stats from '$lib/Stats.svelte';
-	import { getSolves, getStats } from '$lib/stores';
+	import { getSolves, getStats, settings } from '$lib/stores';
 
 	/** @type {import('./$types').PageData} */
 	export let data;
@@ -26,6 +26,7 @@
 	let solves;
 	let stats;
 	let savedProgress = undefined;
+	let shareText = '';
 
 	const nextPuzzleAt = new Date(data.date).valueOf() + 24 * 60 * 60 * 1000;
 	function formatTimeLeft() {
@@ -89,15 +90,42 @@
 				solve = solves.pause(data.date);
 			}
 		}
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 		const nextPuzzleTimer = setInterval(() => {
 			timeTillNextPuzzle = formatTimeLeft();
 		}, 10000);
-		document.addEventListener('visibilitychange', handleVisibilityChange);
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 			clearInterval(nextPuzzleTimer);
 		};
 	});
+
+	let shareButtonIcon = '📋';
+	function formatShareText() {
+		if ($settings.showTimer) {
+			shareText = `Daily pipes puzzle ${data.date}\nSolved it in ${formatTime(
+				solve.elapsedTime,
+				false
+			)}\n${window.location.href}`;
+		} else {
+			shareText = `Daily pipes puzzle ${data.date}\nSolved it!\n${window.location.href}`;
+		}
+	}
+	$: formatShareText(solve, $settings.showTimer);
+	function copyShareText() {
+		navigator.clipboard.writeText(shareText).then(
+			function () {
+				shareButtonIcon = '✅';
+			},
+			function (err) {
+				console.error('Could not copy text: ', err);
+				shareButtonIcon = '❌';
+			}
+		);
+		setTimeout(() => {
+			shareButtonIcon = '📋';
+		}, 1000);
+	}
 </script>
 
 <svelte:head>
@@ -153,7 +181,12 @@
 		includeNewPuzzleButton={false}
 	/>
 </div>
-
+<div class="container">
+	<div class="share">
+		<p>Share your result: <button on:click={copyShareText}>{shareButtonIcon} Copy text</button></p>
+		<textarea type="text" cols="60" rows="3" bind:value={shareText} />
+	</div>
+</div>
 <div class="timings">
 	<Timer {solve} />
 </div>
@@ -226,5 +259,18 @@
 		width: max-content;
 		max-width: 100%;
 		margin: auto;
+	}
+	button {
+		color: var(--text-color);
+	}
+	.share {
+		margin: 1em auto;
+		width: max-content;
+		max-width: 100%;
+		padding: 0.5em;
+		border: 1px solid var(--secondary-color);
+	}
+	.share textarea {
+		max-width: 100%;
 	}
 </style>
