@@ -181,12 +181,16 @@
 		includeNewPuzzleButton={false}
 	/>
 </div>
-<div class="container">
-	<div class="share">
-		<p>Share your result: <button on:click={copyShareText}>{shareButtonIcon} Copy text</button></p>
-		<textarea type="text" cols="60" rows="3" bind:value={shareText} />
+{#if solve.elapsedTime !== -1}
+	<div class="container">
+		<div class="share">
+			<p>
+				Share your result: <button on:click={copyShareText}>{shareButtonIcon} Copy text</button>
+			</p>
+			<textarea type="text" cols="60" rows="3" bind:value={shareText} />
+		</div>
 	</div>
-</div>
+{/if}
 <div class="timings">
 	<Timer {solve} />
 </div>
@@ -247,7 +251,6 @@
 		font-size: 150%;
 		color: var(--text-color);
 		text-align: center;
-		min-height: 30px;
 	}
 	.instructions {
 		color: var(--text-color);
