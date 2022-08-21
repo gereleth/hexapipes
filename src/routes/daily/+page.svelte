@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { browser } from '$app/env';
+	import { page } from '$app/stores';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import Settings from '$lib/settings/Settings.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
@@ -106,9 +107,9 @@
 			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it in ${formatTime(
 				solve.elapsedTime,
 				false
-			)}\n${window.location.href}`;
+			)}\n${$page.url}`;
 		} else {
-			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it!\n${window.location.href}`;
+			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it!\n${$page.url}`;
 		}
 	}
 	$: formatShareText(solve, $settings.showTimer);
