@@ -266,6 +266,7 @@
 	}
 	button {
 		color: var(--text-color);
+		min-height: 2em;
 	}
 	.share {
 		margin: 1em auto;
@@ -273,6 +274,9 @@
 		max-width: 100%;
 		padding: 0.5em;
 		border: 1px solid var(--secondary-color);
+	}
+	.share p {
+		margin: 0.5em 0;
 	}
 	.share textarea {
 		max-width: 100%;
