@@ -148,7 +148,7 @@
 	width={data.width}
 	height={data.height}
 	tiles={data.tiles}
-	wrap={data.grid.endsWith('wrap')}
+	wrap={data.wrap}
 	{savedProgress}
 	{progressStoreName}
 	bind:this={puzzle}
@@ -260,9 +260,7 @@
 		background: rgba(255, 255, 255, 0.4);
 		padding: 0.5em 2em;
 		border-radius: 0.5em;
-		width: max-content;
-		max-width: 100%;
-		margin: auto;
+		display: inline-block;
 	}
 	button {
 		color: var(--text-color);
