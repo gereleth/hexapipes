@@ -140,7 +140,13 @@ export function controls(node, game) {
 		}
 
 		if (mouseDownOrigin.tileIndex === -1) {
-			state = 'idle';
+			if (!useZoomPan) {
+				state = 'idle';
+			} else if (!grid.wrap && (x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)) {
+				state = 'idle';
+			} else {
+				state = 'panning';
+			}
 		} else {
 			const { direction, isClose } = whichEdge(mouseDownOrigin);
 
@@ -357,13 +363,13 @@ export function controls(node, game) {
 	 * @param {WheelEvent} event
 	 */
 	function handleWheel(event) {
-		if (event.target === node) {
+		const [x, y] = getEventCoordinates(event);
+		if (!grid.wrap && (x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)) {
 			// allow scrolling when the mouse is over empty space
 			return;
 		}
 		const normalized = normalizeWheel(event);
 		event.preventDefault();
-		const [x, y] = getEventCoordinates(event);
 		if (USING_A_TOUCHPAD) {
 			if (event.ctrlKey) {
 				const delta = 0.5 * viewBox.width * 0.07 * normalized.spinY;
@@ -436,6 +442,8 @@ export function controls(node, game) {
 		}
 		if (touchState === 'idle') {
 			const tileIndex = ongoingTouches[0].tileIndex;
+			const x = ongoingTouches[0].x;
+			const y = ongoingTouches[0].y;
 			if (tileIndex !== -1) {
 				touchState = 'touchdown';
 				// event.preventDefault();
@@ -459,13 +467,22 @@ export function controls(node, game) {
 					}
 				}, 700);
 			} else {
-				touchState = 'idle';
+				if (!useZoomPan) {
+					touchState = 'idle';
+				} else if (
+					!grid.wrap &&
+					(x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)
+				) {
+					touchState = 'idle';
+				} else {
+					touchState = 'panning';
+				}
 			}
 		} else if (touchState === 'touchdown') {
 			if (useZoomPan) {
 				touchState = 'zoom_pan';
 			} else {
-				touchstate = 'idle';
+				touchState = 'idle';
 				ongoingTouches = [];
 			}
 			clearTimeout(touchTimer);
