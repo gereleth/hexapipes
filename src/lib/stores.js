@@ -332,6 +332,7 @@ function createStatsStore(path) {
 	// console.log('creating stats store for', path)
 
 	const solvesStore = getSolves(path);
+	const isDaily = path === '/daily';
 
 	const data = {
 		streak: 0,
@@ -406,20 +407,39 @@ function createStatsStore(path) {
 		let bestAverageOf12 = Number.POSITIVE_INFINITY;
 		for (let i = startIndex; i < solves.length; i++) {
 			let t = solves[i].elapsedTime;
-			if (t !== -1) {
-				streak += streakIncrement;
+			let isSolved = t !== -1;
+			let isStreak = isSolved;
+			let missedDays = 0;
+			if (isDaily && isStreak && i !== startIndex) {
+				const thisDay = new Date(solves[i].puzzleId);
+				const prevDay = new Date(solves[i - 1].puzzleId);
+				const daysBetween = Math.round(
+					(prevDay.valueOf() - thisDay.valueOf()) / (24 * 60 * 60 * 1000)
+				);
+				if (daysBetween > 1) {
+					isStreak = false;
+					missedDays = Math.min(12, daysBetween - 1);
+				}
+			}
+			if (isSolved) {
 				totalSolved += 1;
 				bestTime = Math.min(bestTime, t);
-				ts.push(t);
 				if (currentTime === null) {
 					currentTime = t;
 				}
+			} else if (currentTime === null) {
+				currentTime = Number.POSITIVE_INFINITY;
+			}
+
+			if (isStreak) {
+				streak += streakIncrement;
+				ts.push(t);
 			} else {
 				streakIncrement = 0;
-				ts.push(Number.POSITIVE_INFINITY);
-				if (currentTime === null) {
-					currentTime = Number.POSITIVE_INFINITY;
+				for (let d = 0; d < missedDays; d++) {
+					ts.push(Number.POSITIVE_INFINITY);
 				}
+				ts.push(isSolved ? t : Number.POSITIVE_INFINITY);
 			}
 			if (ts.length > 12) {
 				ts.shift();
