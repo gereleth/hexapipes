@@ -102,17 +102,25 @@
 	});
 
 	let shareButtonIcon = '📋';
-	function formatShareText() {
-		if ($settings.showTimer) {
+	function formatShareText(solve, showTimer) {
+		let streak = '';
+		if ($stats.streak > 1) {
+			streak = ` - ${$stats.streak} days streak`;
+		}
+		if (showTimer) {
 			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it in ${formatTime(
 				solve.elapsedTime,
 				false
-			)}\n${$page.url}`;
+			)}${streak}!\n${$page.url}`;
 		} else {
-			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it!\n${$page.url}`;
+			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it${streak}!\n${$page.url}`;
 		}
 	}
-	$: formatShareText(solve, $settings.showTimer);
+
+	$: if (browser) {
+		formatShareText(solve, $settings.showTimer);
+	}
+
 	function copyShareText() {
 		navigator.clipboard.writeText(shareText).then(
 			function () {
