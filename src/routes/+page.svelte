@@ -119,7 +119,7 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
-			<em>2022-08-27</em>Some changes for daily puzzles:
+			<em>2022-08-27</em> Some changes for daily puzzles:
 			<ul>
 				<li>
 					Changed streak calculation logic for daily puzzles - missed days are now counted as not
