@@ -119,6 +119,19 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2022-08-27</em> Some changes for daily puzzles:
+			<ul>
+				<li>
+					Changed streak calculation logic for daily puzzles - missed days are now counted as not
+					solved. Included streak length in share text.
+				</li>
+				<li>
+					Did minor updates to controls for upcoming daily puzzles with holes. It's now possible to
+					zoom/pan when the cursor is over an empty tile.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2022-08-21</em> Added initial version of daily puzzles.
 		</li>
 		<li>
