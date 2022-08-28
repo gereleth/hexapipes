@@ -118,6 +118,7 @@
 <div class="container">
 	<h2>Changelog</h2>
 	<ul>
+		<li><em>2022-08-28</em> Zoom level now stays the same when you click "Next puzzle".</li>
 		<li>
 			<em>2022-08-27</em> Some changes for daily puzzles:
 			<ul>
