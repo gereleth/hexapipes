@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/stores';
 	import { browser } from '$app/env';
-	import { goto } from '$app/navigation';
+	import { goto, prefetch } from '$app/navigation';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer from '$lib/Timer.svelte';
@@ -40,6 +40,8 @@
 	let pathname = '';
 	let progressStoreName = '';
 	let savedProgress;
+	/** @type {Number|undefined}*/
+	let pxPerCell;
 
 	$: pathname = `/${category}/${size}/${puzzleId}`;
 	$: progressStoreName = pathname + '_progress';
@@ -65,10 +67,12 @@
 			// then we need to update solves and stats
 			solves = getSolves(pathname);
 			stats = getStats(pathname);
+			pxPerCell = undefined;
 		} else if (puzzleId !== previousParams.id) {
 			if (previousParams.id) {
 				// console.log('changed id, pausing', previousParams.id)
 				solves?.pause(previousParams.id);
+				pxPerCell = puzzle.reportPxPerCell();
 			}
 		}
 		solved = false;
@@ -87,6 +91,7 @@
 			solve = solves.reportStart(puzzleId);
 		}
 		nextPuzzleId = solves.choosePuzzleId(puzzlesCount, puzzleId);
+		prefetch(`/${category}/${size}/${nextPuzzleId}`);
 	}
 
 	function stop() {
@@ -134,6 +139,7 @@
 		wrap={category === 'hexagonal-wrap'}
 		{savedProgress}
 		{progressStoreName}
+		preferredPxPerCell={pxPerCell}
 		bind:this={puzzle}
 		on:solved={stop}
 		on:initialized={start}
