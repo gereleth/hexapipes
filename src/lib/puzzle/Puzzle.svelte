@@ -13,6 +13,8 @@
 	export let wrap = false;
 	export let savedProgress;
 	export let progressStoreName = '';
+	/** @type {Number|undefined} */
+	export let preferredPxPerCell;
 
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
@@ -41,6 +43,10 @@
 		game.startOver();
 	};
 
+	export const reportPxPerCell = function () {
+		return svgWidth / $viewBox.width;
+	};
+
 	/**
 	 * @param {Number} innerWidth
 	 * @param {Number} innerHeight
@@ -67,6 +73,9 @@
 			svgWidth = maxPixelWidth;
 		}
 		svgHeight = Math.min(maxPixelHeight, pxPerCell * maxGridHeight);
+		if (preferredPxPerCell) {
+			pxPerCell = preferredPxPerCell;
+		}
 		$viewBox.width = svgWidth / pxPerCell;
 		$viewBox.height = svgHeight / pxPerCell;
 		// center grid if the puzzle fully fits inside bounds
