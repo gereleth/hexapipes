@@ -29,7 +29,7 @@
 	let savedProgress = undefined;
 	let shareText = '';
 
-	const nextPuzzleAt = new Date(data.date).valueOf() + 24 * 60 * 60 * 1000;
+	const nextPuzzleAt = new Date(data.date).valueOf() + (new Date().getTimezoneOffset() * 60 * 1000) + 24 * 60 * 60 * 1000;
 	function formatTimeLeft() {
 		const now = new Date().valueOf();
 		const delta = nextPuzzleAt - now;
