@@ -67,7 +67,7 @@
 		if (!$settings.disableZoomPan) {
 			pxPerCell = Math.max(60, pxPerCell);
 		}
-		if (wrap) {
+		if (wrap || $settings.disableZoomPan) {
 			svgWidth = Math.min(maxPixelWidth, pxPerCell * maxGridWidth);
 		} else {
 			svgWidth = maxPixelWidth;
