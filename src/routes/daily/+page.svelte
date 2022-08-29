@@ -42,7 +42,7 @@
 			const minutes = Math.round(delta / 60000);
 			return `${minutes} minute` + (minutes > 1 ? 's' : '');
 		} else {
-			const seconds = Math.round(delta / 60000);
+			const seconds = Math.round(delta / 1000);
 			return `${seconds} second` + (seconds > 1 ? 's' : '');
 		}
 	}
