@@ -119,6 +119,19 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2022-08-30</em> More minor updates:
+			<ul>
+				<li>
+					<a href="https://github.com/adamburgess" target="_blank" rel="noopener">Adam Burgess</a> fixed
+					a bug with seconds countdown display on daily puzzle page. Thanks =).
+				</li>
+				<li>
+					Improved handling of X tiles in click to orient control mode. The guiding dot is now
+					placed consistently between top ends of the X instead of on a random end.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2022-08-28</em> Minor quality of life updates
 			<ul>
 				<li>Zoom level now stays the same when you click "Next puzzle".</li>
