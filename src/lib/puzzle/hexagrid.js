@@ -341,8 +341,22 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 		dx /= tileDirections.length;
 		dy /= tileDirections.length;
 		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-			dx = deltas[0][0];
-			dy = deltas[0][1];
+			// a symmetric tile - I, X, Y or fully connected
+			if (
+				tileDirections.length <= self.DIRECTIONS.length / 2 ||
+				tileDirections.length === self.DIRECTIONS.length
+			) {
+				// I or Y or fully connected tile
+				// grab any leg
+				dx = deltas[0][0];
+				dy = deltas[0][1];
+			} else {
+				// X - treat as "not I" - grab I direction and rotate 90deg
+				const direction = self.DIRECTIONS.find((d) => !tileDirections.includes(d));
+				const [deltaX, deltaY] = self.XY_DELTAS.get(direction);
+				dx = -deltaY;
+				dy = deltaX;
+			}
 		}
 		return Math.atan2(dy, dx);
 	};
