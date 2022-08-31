@@ -13,8 +13,12 @@
 		if (days > 0) {
 			result += `${days}d `;
 		}
-		const timeStr = new Date(time).toISOString().substring(11, includeMs ? 23 : 19);
-		result += timeStr.replace('00:', '');
+		let timeStr = new Date(time).toISOString().substring(11, includeMs ? 23 : 19);
+		// cut off zero hours
+		if (timeStr.startsWith('00:')) {
+			timeStr = timeStr.slice(3);
+		}
+		result += timeStr;
 		return result;
 	}
 </script>
