@@ -305,12 +305,22 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	};
 
 	/**
+	 * A number corresponding to fully connected tile
+	 * @param {Number} index
+	 * @returns {Number}
+	 */
+	this.fullyConnected = function (index) {
+		return 63;
+	};
+
+	/**
 	 * Compute tile orientation after a number of rotations
 	 * @param {Number} tile
 	 * @param {Number} rotations
+	 * @param {Number} index - index of tile, not used here
 	 * @returns
 	 */
-	this.rotate = function (tile, rotations) {
+	this.rotate = function (tile, rotations, index = 0) {
 		let rotated = tile;
 		rotations = rotations % 6;
 		if (rotations > 3) {
