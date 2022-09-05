@@ -1,6 +1,22 @@
-function NoOrientationsPossibleException(message) {
+/* Constraint Violation Exceptions */
+
+/**
+ * A cell has no more viable orientations
+ * @param {Cell} cell
+ */
+function NoOrientationsPossibleException(cell) {
 	this.name = 'NoOrientationsPossible';
-	this.message = message;
+	this.message = `No orientations possible for tile ${cell.initial} at index ${cell.index}`;
+}
+
+function LoopDetectedException() {
+	this.name = 'LoopDetected';
+	this.message = 'Loop detected';
+}
+
+function IslandDetectedException() {
+	this.name = 'IslandDetected';
+	this.message = 'Island detected';
 }
 
 /**
@@ -56,9 +72,7 @@ export function Cell(grid, index, initial) {
 		}
 		self.possible = newPossible;
 		if (newPossible.size === 0) {
-			throw new NoOrientationsPossibleException(
-				`No orientations possible for tile ${self.initial} at index ${self.index}`
-			);
+			throw new NoOrientationsPossibleException(self);
 		}
 		const full = grid.fullyConnected(index);
 		let newWalls = full;
