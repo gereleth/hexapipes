@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HexaGrid } from './hexagrid';
-import { Cell } from './solver';
+import { Cell, Solver } from './solver';
 
 describe('Test hexagrid cell constraints', () => {
 	const grid = new HexaGrid(3, 3, false);
@@ -135,5 +135,56 @@ describe('Test hexagrid cell constraints', () => {
 		let cell = new Cell(grid, index, initial);
 		cell.addWall(3);
 		expect(cell.applyConstraints).toThrowError('No orientations possible');
+	});
+});
+
+
+describe('Test solver border constraints', () => {
+	const grid = new HexaGrid(3, 1, false);
+	const tiles = [1, 9, 1]
+
+	it('Starts with correct possible states', () => {
+		const solver = new Solver(tiles, grid)
+		expect([...solver.unsolved.keys()]).toEqual(expect.arrayContaining([0,1,2]))
+		let cell = solver.unsolved.get(0)
+		expect(cell.possible.size).toBe(6);
+		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
+		cell = solver.unsolved.get(1)
+		expect(cell.possible.size).toBe(3);
+		expect([...cell.possible]).toEqual(expect.arrayContaining([9, 18, 36]));
+		cell = solver.unsolved.get(2)
+		expect(cell.possible.size).toBe(6);
+		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
+	});
+
+	it('Adds walls to border cells', () => {
+		const solver = new Solver(tiles, grid)
+		solver.applyBorderConditions()
+		let cell = solver.unsolved.get(0)
+		expect(cell.walls).toBe(62);
+		cell = solver.unsolved.get(1)
+		expect(cell.walls).toBe(54);
+		cell = solver.unsolved.get(2)
+		expect(cell.walls).toBe(55);
+		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2]));
+	});
+
+	it('Adds full and empty cells to dirty set', () => {
+		const solver = new Solver([0, 63, 0], grid)
+		solver.applyBorderConditions()
+		let cell = solver.unsolved.get(0)
+		expect(cell.walls).toBe(0);
+		cell = solver.unsolved.get(1)
+		expect(cell.connections).toBe(0);
+		cell = solver.unsolved.get(2)
+		expect(cell.walls).toBe(0);
+		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2]));
+	});
+
+	it('Does not add constraints to cells in a wrap puzzle', () => {
+		let grid = new HexaGrid(3, 1, true)
+		const solver = new Solver(tiles, grid)
+		solver.applyBorderConditions()
+		expect(solver.dirty.size).toBe(0);
 	});
 });
