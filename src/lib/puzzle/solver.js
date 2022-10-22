@@ -114,6 +114,9 @@ export function Solver(tiles, grid) {
 	/** @type {Set<Number>} */
 	self.dirty = new Set()
 
+	/** @type {Number[][]} */
+	self.progress = []
+
 	self.applyBorderConditions = function() {
 		for (let index=0; index<self.grid.total; index++) {
 			const cell = self.unsolved.get(index)
@@ -148,6 +151,7 @@ export function Solver(tiles, grid) {
 				const orientation = cell.possible.keys().next().value
 				self.solution[index] = orientation
 				self.unsolved.delete(index)
+				self.progress.push([index, orientation])
 			}
 			// add walls to walled off neighbours
 			if (addedWalls > 0) {

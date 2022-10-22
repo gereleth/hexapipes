@@ -3,8 +3,9 @@
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
-	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
 	import { PipesGame } from '$lib/puzzle/game';
+	import { Solver } from './solver';
 
 	export let width = 0;
 	export let height = 0;
@@ -172,6 +173,28 @@
 		});
 	}
 
+	function sleep(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+	async function unleashTheSolver() {
+		const solver = new Solver(tiles, grid)
+		solver.applyBorderConditions()
+		solver.processDirtyCells()
+		for (let [index, orientation] of solver.progress) {
+			const initial = tiles[index]
+			let newState = initial
+			let rotations = 0
+			while (newState !== orientation) {
+				newState = grid.rotate(newState, -1, index)
+				rotations -= 1
+			}
+			const current = game.tileStates[index].data.rotations
+			game.rotateTile(index, rotations - current)
+			await tick()
+			await sleep(100)
+		}
+	}
+
 	const save = createThrottle(saveProgress, 3000);
 
 	$: if ($solved) {
@@ -202,7 +225,9 @@
 		{/each}
 	</svg>
 </div>
-
+<div class="solve-button">
+<button on:click={unleashTheSolver}>🧩 Solve it</button>
+</div>
 <style>
 	svg {
 		display: block;
@@ -213,5 +238,14 @@
 	.solved :global(.inside) {
 		filter: hue-rotate(360deg);
 		transition: filter 2s;
+	}
+	div.solve-button {
+		text-align: center;
+		padding: 0.5em;
+	}
+	button {
+		color: var(--text-color);
+		display: inline-block;
+		min-height: 2em;
 	}
 </style>
