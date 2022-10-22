@@ -88,6 +88,19 @@ export function Cell(grid, index, initial) {
 		return { addedWalls, addedConnections };
 	};
 
+	/**
+	 * Returns a copy of the cell
+	 * @returns {Cell}
+	 */
+	 self.clone = function() {
+		const clone = new Cell(grid, self.index, 0)
+		clone.initial = self.initial
+		clone.possible = new Set(self.possible)
+		clone.walls = self.walls
+		clone.connections = self.connections
+		return clone
+	}
+
 	return self;
 }
 

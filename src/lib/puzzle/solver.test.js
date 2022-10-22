@@ -138,6 +138,35 @@ describe('Test hexagrid cell constraints', () => {
 	});
 });
 
+describe('Test cell cloning', () => {
+	const grid = new HexaGrid(1, 1, false);
+
+	it('Makes a copy of the cell', () => {
+		const cell = new Cell(grid, 0, 1)
+		const clone = cell.clone()
+		expect(clone.initial).toBe(cell.initial)
+		expect(clone.index).toBe(cell.index)
+		expect([...clone.possible]).toEqual(expect.arrayContaining([...cell.possible]));
+	});
+
+	it('Removing orientation from cell does not affect clone', () => {
+		const cell = new Cell(grid, 0, 1)
+		const possible = [...cell.possible]
+		const clone = cell.clone()
+		cell.possible.delete(1)
+		expect([...clone.possible]).toEqual(expect.arrayContaining(possible));
+		expect([...cell.possible]).toEqual(expect.arrayContaining(possible.filter(x=>x!==1)));
+	});
+
+	it('Removing orientation from clone does not affect cell', () => {
+		const cell = new Cell(grid, 0, 1)
+		const possible = [...cell.possible]
+		const clone = cell.clone()
+		clone.possible.delete(1)
+		expect([...cell.possible]).toEqual(expect.arrayContaining(possible));
+		expect([...clone.possible]).toEqual(expect.arrayContaining(possible.filter(x=>x!==1)));
+	});
+})
 
 describe('Test solver border constraints', () => {
 	const grid = new HexaGrid(3, 1, false);
