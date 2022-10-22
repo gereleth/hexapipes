@@ -170,15 +170,17 @@ describe('Test solver border constraints', () => {
 	});
 
 	it('Adds full and empty cells to dirty set', () => {
-		const solver = new Solver([0, 63, 0], grid)
+		const solver = new Solver([
+			1, 1, 1, 1,
+			1, 0, 63, 1,
+			1, 1, 1, 1], new HexaGrid(4, 3, false))
 		solver.applyBorderConditions()
-		let cell = solver.unsolved.get(0)
-		expect(cell.walls).toBe(0);
-		cell = solver.unsolved.get(1)
-		expect(cell.connections).toBe(0);
-		cell = solver.unsolved.get(2)
-		expect(cell.walls).toBe(0);
-		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2]));
+		let cell = solver.unsolved.get(5)
+		expect(cell?.walls).toBe(0);
+		cell = solver.unsolved.get(6)
+		expect(cell?.connections).toBe(0);
+		expect([...solver.dirty]).toContain(5);
+		expect([...solver.dirty]).toContain(6);
 	});
 
 	it('Does not add constraints to cells in a wrap puzzle', () => {
