@@ -103,13 +103,20 @@ export function Solver(tiles, grid) {
 	/** @type {Map<Number, Cell>} */
 	self.unsolved = new Map([])
 
+	/** @type {Map<Number, Set<Number>>} */
+	self.components = new Map([])
+
+	const directions = new Set(grid.DIRECTIONS)
+
 	tiles.forEach((tile, index) => {
 		self.unsolved.set(index, new Cell(grid, index, tile))
+		// add deadend tiles to components to keep track of loops/islands
+		if (directions.has(tile)) {
+			self.components.set(index, new Set([index]))
+		}
 	});
 	/** @type {Number[]} */
 	self.solution = tiles.map(() => -1)
-
-	self.components = new Map([])
 	
 	/** @type {Set<Number>} */
 	self.dirty = new Set()
@@ -137,6 +144,31 @@ export function Solver(tiles, grid) {
 		}
 	}
 
+	/**
+	 * 
+	 * @param {Number} index 
+	 * @param {Number} neighbourIndex 
+	 */
+	self.mergeComponents = function(index, neighbourIndex) {
+		const component = self.components.get(index)
+		if (component === undefined) {
+			throw 'Component to merge is undefined!';
+		}
+		const neighbourComponent = self.components.get(neighbourIndex)
+		if (component === neighbourComponent) {
+			throw LoopDetectedException()
+		}
+		if (neighbourComponent===undefined) {
+			component.add(neighbourIndex)
+			self.components.set(neighbourIndex, component)
+		} else {
+			for (let otherIndex of neighbourComponent) {
+				self.components.set(otherIndex, component)
+				component.add(otherIndex)
+			}
+		}
+	}
+
 	self.processDirtyCells = function() {
 		while (self.dirty.size > 0) {
 			// get a dirty cell
@@ -146,12 +178,9 @@ export function Solver(tiles, grid) {
 			if (cell === undefined) {continue}
 			// apply constraints to limit possible orientations
 			const {addedWalls, addedConnections} = cell.applyConstraints()
-			// check if cell is solved
-			if (cell.possible.size === 1) {
-				const orientation = cell.possible.keys().next().value
-				self.solution[index] = orientation
-				self.unsolved.delete(index)
-				self.progress.push([index, orientation])
+			// create a component for this tile if it got a connection
+			if ((addedConnections > 0)&&(!self.components.has(index))) {
+				self.components.set(index, new Set([index]))
 			}
 			// add walls to walled off neighbours
 			if (addedWalls > 0) {
@@ -177,11 +206,36 @@ export function Solver(tiles, grid) {
 							continue
 						}
 						neighbourCell.addConnection(self.grid.OPPOSITE.get(direction)||0)
-						// merge components!!!
+						self.mergeComponents(index, neighbour)
 						self.dirty.add(neighbour)
 					}
 				}
 			}
+			// check if cell is solved
+			if (cell.possible.size === 1) {
+				// remove solved cell from its component
+				const component = self.components.get(index)
+				if (component!==undefined) {
+					component.delete(index)
+					if ((component.size === 0)&&(self.unsolved.size > 0)) {
+						throw IslandDetectedException()
+					}
+				}
+				const orientation = cell.possible.keys().next().value
+				self.solution[index] = orientation
+				self.unsolved.delete(index)
+				self.progress.push([index, orientation])
+			}
+		}
+	}
+
+	self.solve = function() {
+		if (self.dirty.size === 0) {
+			self.applyBorderConditions()
+		}
+		let solved = false
+		while (!solved) {
+			self.processDirtyCells()
 		}
 	}
 }
