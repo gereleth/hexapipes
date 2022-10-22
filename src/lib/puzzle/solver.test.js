@@ -147,13 +147,13 @@ describe('Test solver border constraints', () => {
 		const solver = new Solver(tiles, grid)
 		expect([...solver.unsolved.keys()]).toEqual(expect.arrayContaining([0,1,2]))
 		let cell = solver.unsolved.get(0)
-		expect(cell.possible.size).toBe(6);
+		expect(cell?.possible.size).toBe(6);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
 		cell = solver.unsolved.get(1)
-		expect(cell.possible.size).toBe(3);
+		expect(cell?.possible.size).toBe(3);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([9, 18, 36]));
 		cell = solver.unsolved.get(2)
-		expect(cell.possible.size).toBe(6);
+		expect(cell?.possible.size).toBe(6);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
 	});
 
@@ -161,11 +161,11 @@ describe('Test solver border constraints', () => {
 		const solver = new Solver(tiles, grid)
 		solver.applyBorderConditions()
 		let cell = solver.unsolved.get(0)
-		expect(cell.walls).toBe(62);
+		expect(cell?.walls).toBe(62);
 		cell = solver.unsolved.get(1)
-		expect(cell.walls).toBe(54);
+		expect(cell?.walls).toBe(54);
 		cell = solver.unsolved.get(2)
-		expect(cell.walls).toBe(55);
+		expect(cell?.walls).toBe(55);
 		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2]));
 	});
 
