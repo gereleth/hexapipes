@@ -142,80 +142,85 @@ describe('Test cell cloning', () => {
 	const grid = new HexaGrid(1, 1, false);
 
 	it('Makes a copy of the cell', () => {
-		const cell = new Cell(grid, 0, 1)
-		const clone = cell.clone()
-		expect(clone.initial).toBe(cell.initial)
-		expect(clone.index).toBe(cell.index)
+		const cell = new Cell(grid, 0, 1);
+		const clone = cell.clone();
+		expect(clone.initial).toBe(cell.initial);
+		expect(clone.index).toBe(cell.index);
 		expect([...clone.possible]).toEqual(expect.arrayContaining([...cell.possible]));
 	});
 
 	it('Removing orientation from cell does not affect clone', () => {
-		const cell = new Cell(grid, 0, 1)
-		const possible = [...cell.possible]
-		const clone = cell.clone()
-		cell.possible.delete(1)
+		const cell = new Cell(grid, 0, 1);
+		const possible = [...cell.possible];
+		const clone = cell.clone();
+		cell.possible.delete(1);
 		expect([...clone.possible]).toEqual(expect.arrayContaining(possible));
-		expect([...cell.possible]).toEqual(expect.arrayContaining(possible.filter(x=>x!==1)));
+		expect([...cell.possible]).toEqual(expect.arrayContaining(possible.filter((x) => x !== 1)));
 	});
 
 	it('Removing orientation from clone does not affect cell', () => {
-		const cell = new Cell(grid, 0, 1)
-		const possible = [...cell.possible]
-		const clone = cell.clone()
-		clone.possible.delete(1)
+		const cell = new Cell(grid, 0, 1);
+		const possible = [...cell.possible];
+		const clone = cell.clone();
+		clone.possible.delete(1);
 		expect([...cell.possible]).toEqual(expect.arrayContaining(possible));
-		expect([...clone.possible]).toEqual(expect.arrayContaining(possible.filter(x=>x!==1)));
+		expect([...clone.possible]).toEqual(expect.arrayContaining(possible.filter((x) => x !== 1)));
 	});
-})
+});
 
 describe('Test solver border constraints', () => {
 	const grid = new HexaGrid(3, 1, false);
-	const tiles = [1, 9, 1]
+	const tiles = [1, 9, 1];
 
 	it('Starts with correct possible states', () => {
-		const solver = new Solver(tiles, grid)
-		expect([...solver.unsolved.keys()]).toEqual(expect.arrayContaining([0,1,2]))
-		let cell = solver.unsolved.get(0)
+		const solver = new Solver(tiles, grid);
+		expect([...solver.unsolved.keys()]).toEqual(expect.arrayContaining([0, 1, 2]));
+		let cell = solver.unsolved.get(0);
 		expect(cell?.possible.size).toBe(6);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
-		cell = solver.unsolved.get(1)
+		cell = solver.unsolved.get(1);
 		expect(cell?.possible.size).toBe(3);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([9, 18, 36]));
-		cell = solver.unsolved.get(2)
+		cell = solver.unsolved.get(2);
 		expect(cell?.possible.size).toBe(6);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
 	});
 
 	it('Adds walls to border cells', () => {
-		const solver = new Solver(tiles, grid)
-		solver.applyBorderConditions()
-		let cell = solver.unsolved.get(0)
+		const solver = new Solver(tiles, grid);
+		solver.applyBorderConditions();
+		let cell = solver.unsolved.get(0);
 		expect(cell?.walls).toBe(62);
-		cell = solver.unsolved.get(1)
+		cell = solver.unsolved.get(1);
 		expect(cell?.walls).toBe(54);
-		cell = solver.unsolved.get(2)
+		cell = solver.unsolved.get(2);
 		expect(cell?.walls).toBe(55);
 		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2]));
 	});
 
 	it('Adds full and empty cells to dirty set', () => {
-		const solver = new Solver([
-			1, 1, 1, 1,
-			1, 0, 63, 1,
-			1, 1, 1, 1], new HexaGrid(4, 3, false))
-		solver.applyBorderConditions()
-		let cell = solver.unsolved.get(5)
+		const solver = new Solver([1, 1, 1, 1, 1, 0, 63, 1, 1, 1, 1, 1], new HexaGrid(4, 3, false));
+		solver.applyBorderConditions();
+		let cell = solver.unsolved.get(5);
 		expect(cell?.walls).toBe(0);
-		cell = solver.unsolved.get(6)
+		cell = solver.unsolved.get(6);
 		expect(cell?.connections).toBe(0);
 		expect([...solver.dirty]).toContain(5);
 		expect([...solver.dirty]).toContain(6);
 	});
 
 	it('Does not add constraints to cells in a wrap puzzle', () => {
-		let grid = new HexaGrid(3, 1, true)
-		const solver = new Solver(tiles, grid)
-		solver.applyBorderConditions()
+		let grid = new HexaGrid(3, 1, true);
+		const solver = new Solver([3, 3, 3], grid);
+		solver.applyBorderConditions();
 		expect(solver.dirty.size).toBe(0);
+	});
+
+	it('Rules out orientations connecting only deadends', () => {
+		const solver = new Solver([3, 3, 3, 1, 9, 1, 3, 3, 3], new HexaGrid(3, 3, false));
+		solver.applyBorderConditions();
+		expect([...solver.dirty]).toContain(4);
+		const cell = solver.unsolved.get(4);
+		expect([...cell.possible]).toEqual(expect.arrayContaining([18, 36]));
 	});
 });

@@ -134,12 +134,10 @@ export function Solver(tiles, grid) {
 	/** @type {Set<Number>} */
 	self.dirty = new Set();
 
-	/** @type {Number[][]} */
-	self.progress = [];
-
 	/** Adds walls to border cells
 	 * Adds border cells to dirty set
 	 * Adds empty/fully-connected cells to dirty set
+	 * Removes orientations that result in instant islands
 	 */
 	self.applyBorderConditions = function () {
 		for (let index = 0; index < self.grid.total; index++) {
@@ -150,10 +148,33 @@ export function Solver(tiles, grid) {
 			if (cell.possible.size === 1) {
 				self.dirty.add(index);
 			} else {
+				let deadendConnections = 0;
 				for (let direction of self.grid.DIRECTIONS) {
 					const { neighbour } = self.grid.find_neighbour(index, direction);
 					if (neighbour === -1) {
 						cell.addWall(direction);
+						self.dirty.add(index);
+					} else {
+						const neighbourTile = self.unsolved.get(neighbour)?.initial || 0;
+						if (directions.has(neighbourTile)) {
+							// neighbour is a deadend
+							deadendConnections += direction;
+						}
+					}
+				}
+				if (deadendConnections > 0) {
+					const newPossible = new Set();
+					for (let orientation of cell.possible) {
+						if (
+							// orientation does not only connect deadends
+							(orientation & deadendConnections) !==
+							orientation
+						) {
+							newPossible.add(orientation);
+						}
+					}
+					if (newPossible.size < cell.possible.size) {
+						cell.possible = newPossible;
 						self.dirty.add(index);
 					}
 				}
@@ -271,7 +292,6 @@ export function Solver(tiles, grid) {
 		});
 		clone.solution = [...self.solution];
 		clone.dirty = new Set();
-		clone.progress = [];
 		return clone;
 	};
 

@@ -194,6 +194,19 @@
 		}
 	}
 
+	let steps = 0;
+	let ms = 0;
+	function measureSolveTime() {
+		const t0 = performance.now();
+		const solver = new Solver(tiles, grid);
+		steps = 0;
+		for (let step of solver.solve()) {
+			steps += 1;
+		}
+		const t1 = performance.now();
+		ms = t1 - t0;
+	}
+
 	const save = createThrottle(saveProgress, 3000);
 
 	$: if ($solved) {
@@ -226,6 +239,8 @@
 </div>
 <div class="solve-button">
 	<button on:click={unleashTheSolver}>🧩 Solve it</button>
+	<button on:click={measureSolveTime}>Measure solve time</button>
+	<div>Solved in {ms} ms, {steps} steps</div>
 </div>
 
 <style>
