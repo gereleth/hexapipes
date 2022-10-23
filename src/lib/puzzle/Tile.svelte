@@ -103,6 +103,7 @@
 			/>
 		{/if}
 	</g>
+	<!-- <text x="0" y="0" text-anchor="middle" font-size="0.2">{i}</text> -->
 	{#if !solved}
 		{#each $state.edgeMarks as _, index (index)}
 			<EdgeMark

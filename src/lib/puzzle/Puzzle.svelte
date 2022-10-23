@@ -174,24 +174,23 @@
 	}
 
 	function sleep(ms) {
-		return new Promise(resolve => setTimeout(resolve, ms));
+		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
+
 	async function unleashTheSolver() {
-		const solver = new Solver(tiles, grid)
-		solver.applyBorderConditions()
-		solver.processDirtyCells()
-		for (let [index, orientation] of solver.progress) {
-			const initial = tiles[index]
-			let newState = initial
-			let rotations = 0
+		const solver = new Solver(tiles, grid);
+		for (let [index, orientation] of solver.solve()) {
+			const initial = tiles[index];
+			let newState = initial;
+			let rotations = 0;
 			while (newState !== orientation) {
-				newState = grid.rotate(newState, -1, index)
-				rotations -= 1
+				newState = grid.rotate(newState, -1, index);
+				rotations -= 1;
 			}
-			const current = game.tileStates[index].data.rotations
-			game.rotateTile(index, rotations - current)
-			await tick()
-			await sleep(100)
+			const current = game.tileStates[index].data.rotations;
+			game.rotateTile(index, rotations - current);
+			await tick();
+			await sleep(100);
 		}
 	}
 
@@ -226,8 +225,9 @@
 	</svg>
 </div>
 <div class="solve-button">
-<button on:click={unleashTheSolver}>🧩 Solve it</button>
+	<button on:click={unleashTheSolver}>🧩 Solve it</button>
 </div>
+
 <style>
 	svg {
 		display: block;
