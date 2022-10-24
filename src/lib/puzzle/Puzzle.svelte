@@ -176,35 +176,43 @@
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
-
+	let animate = false;
 	async function unleashTheSolver() {
-		const solver = new Solver(tiles, grid);
-		for (let [index, orientation] of solver.solve()) {
-			const initial = tiles[index];
-			let newState = initial;
-			let rotations = 0;
-			while (newState !== orientation) {
-				newState = grid.rotate(newState, -1, index);
-				rotations -= 1;
+		measureSolveTime();
+		if (!$solved) {
+			const solver = new Solver(tiles, grid);
+			for (let [index, orientation] of solver.solve()) {
+				const initial = tiles[index];
+				let newState = initial;
+				let rotations = 0;
+				while (newState !== orientation) {
+					newState = grid.rotate(newState, -1, index);
+					rotations -= 1;
+				}
+				const current = game.tileStates[index].data.rotations;
+				game.rotateTile(index, rotations - current);
+				if (animate) {
+					await sleep(200);
+				}
 			}
-			const current = game.tileStates[index].data.rotations;
-			game.rotateTile(index, rotations - current);
-			await tick();
-			await sleep(100);
 		}
 	}
 
 	let steps = 0;
 	let ms = 0;
+	/** @type {Number[]}*/
+	let msStats = [];
 	function measureSolveTime() {
 		const t0 = performance.now();
 		const solver = new Solver(tiles, grid);
 		steps = 0;
-		for (let step of solver.solve()) {
+		for (let _ of solver.solve()) {
 			steps += 1;
 		}
 		const t1 = performance.now();
 		ms = t1 - t0;
+		msStats.push(ms);
+		msStats = msStats.sort((a, b) => a - b);
 	}
 
 	const save = createThrottle(saveProgress, 3000);
@@ -239,8 +247,18 @@
 </div>
 <div class="solve-button">
 	<button on:click={unleashTheSolver}>🧩 Solve it</button>
-	<button on:click={measureSolveTime}>Measure solve time</button>
-	<div>Solved in {ms} ms, {steps} steps</div>
+	<label for="animate">
+		<input type="checkbox" bind:checked={animate} id="animate" />
+		Animate
+	</label>
+</div>
+<div class="solve-button">
+	{#if ms > 0}
+		<div>
+			Solved in {steps} steps, {msStats[Math.floor(msStats.length / 2)]} ms (median of {msStats.length}
+			runs from {msStats[0]} to {msStats[msStats.length - 1]} ms).
+		</div>
+	{/if}
 </div>
 
 <style>
