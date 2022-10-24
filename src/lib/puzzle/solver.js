@@ -295,6 +295,33 @@ export function Solver(tiles, grid) {
 		return clone;
 	};
 
+	/**
+	 * Chooses a tile/orientation to try out.
+	 * Selects an orientation from a tile with the least number of options
+	 * @returns {Number[]} - [index, orientation]
+	 */
+	self.makeAGuess = function () {
+		let minPossibleSize = Number.POSITIVE_INFINITY;
+		let guessIndex = -1;
+		for (let [index, cell] of self.unsolved.entries()) {
+			if (cell.possible.size < minPossibleSize) {
+				guessIndex = index;
+				minPossibleSize = cell.possible.size;
+				if (minPossibleSize == 2) {
+					break;
+				}
+			}
+		}
+		const cell = self.unsolved.get(guessIndex);
+		if (cell === undefined) {
+			throw 'Cell selected for guessing is undefined!';
+		}
+		const orientation = cell.possible.keys().next().value;
+		cell.possible = new Set([orientation]);
+		self.dirty.add(guessIndex);
+		return [guessIndex, orientation];
+	};
+
 	self.solve = function* () {
 		if (self.dirty.size === 0) {
 			self.applyBorderConditions();
@@ -335,13 +362,10 @@ export function Solver(tiles, grid) {
 			} else {
 				// we have to make a guess
 				const clone = solver.clone();
-				const [index, cell] = clone.unsolved.entries().next().value;
-				const guess = cell.possible.keys().next().value;
-				cell.possible = new Set([guess]);
-				clone.dirty.add(index);
+				const [index, orientation] = clone.makeAGuess();
 				trials.push({
 					index,
-					guess,
+					guess: orientation,
 					solver: clone
 				});
 			}
