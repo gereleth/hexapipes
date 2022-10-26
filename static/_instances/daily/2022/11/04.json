@@ -1,0 +1,1 @@
+{"comment": "We're back to evil walks! This one is constrained in one direction at least.", "grid": "hexagonal", "tiles": [0, 0, 0, 0, 0, 0, 0, 6, 5, 33, 5, 33, 17, 34, 17, 3, 6, 12, 10, 33, 10, 12, 34, 34, 12, 20, 6, 17, 3, 12, 33, 2, 16, 17, 20, 6, 24, 40, 34, 12, 6, 34, 6, 48, 40, 34, 10, 10, 5, 40, 33, 3, 40, 12, 5, 33], "width": 7, "height": 8, "wrap": true}
