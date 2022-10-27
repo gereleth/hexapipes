@@ -353,6 +353,8 @@ export function Solver(tiles, grid) {
 					cell?.possible.delete(guess);
 					parent.dirty.add(index);
 					continue;
+				} else {
+					break;
 				}
 			}
 			if (solver.unsolved.size == 0) {
