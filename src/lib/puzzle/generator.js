@@ -31,17 +31,20 @@ export function Generator(grid) {
 	this.generate = function () {
 		const total = grid.width * grid.height;
 
-		/** @type {Number[]} */
-		const unvisited = [...Array(total).keys()];
-		const tiles = unvisited.map((i) => 0);
-		/** @type {Number[]} */
+		/** @type {Set<Number>} A set of unvisited nodes*/
+		const unvisited = new Set([...Array(total).keys()]);
+		/** @type {Number[]} A list of tile shapes */
+		const tiles = [];
+		for (let i = 0; i < total; i++) {
+			tiles.push(0);
+		}
 		/** @type {Number} */
 		const startIndex = Math.floor(total / 2);
 		const visited = [startIndex];
-		unvisited.splice(startIndex, 1);
+		unvisited.delete(startIndex);
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
 		const lastResortNodes = [];
-		while (unvisited.length > 0) {
+		while (unvisited.size > 0) {
 			let fromNode = getRandomElement(visited);
 			if (fromNode === undefined) {
 				fromNode = getRandomElement(lastResortNodes);
@@ -52,7 +55,7 @@ export function Generator(grid) {
 				if (neighbour === -1) {
 					continue;
 				}
-				if (unvisited.some((x) => x === neighbour)) {
+				if (unvisited.has(neighbour)) {
 					unvisitedNeighbours.push({ neighbour, direction });
 				}
 			}
@@ -76,8 +79,7 @@ export function Generator(grid) {
 			}
 			tiles[fromNode] += toVisit.direction;
 			tiles[toVisit.neighbour] += grid.OPPOSITE.get(toVisit.direction) || 0;
-			const i = unvisited.indexOf(toVisit.neighbour);
-			unvisited.splice(i, 1);
+			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
 		}
 		return randomRotate(tiles, grid);
