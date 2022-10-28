@@ -39,8 +39,13 @@ export function Generator(grid) {
 		const startIndex = Math.floor(total / 2);
 		const visited = [startIndex];
 		unvisited.splice(startIndex, 1);
+		/** @type {Number[]} - visited tiles that will become fully connected if used again */
+		const lastResortNodes = [];
 		while (unvisited.length > 0) {
-			const fromNode = getRandomElement(visited);
+			let fromNode = getRandomElement(visited);
+			if (fromNode === undefined) {
+				fromNode = getRandomElement(lastResortNodes);
+			}
 			const unvisitedNeighbours = [];
 			for (let direction of grid.DIRECTIONS) {
 				const { neighbour } = grid.find_neighbour(fromNode, direction);
@@ -52,11 +57,23 @@ export function Generator(grid) {
 				}
 			}
 			if (unvisitedNeighbours.length == 0) {
-				const index = visited.indexOf(fromNode);
-				visited.splice(index, 1);
+				const array = visited.length > 0 ? visited : lastResortNodes;
+				const index = array.indexOf(fromNode);
+				array.splice(index, 1);
 				continue;
 			}
 			const toVisit = getRandomElement(unvisitedNeighbours);
+			if (
+				tiles[fromNode] + toVisit.direction == grid.fullyConnected(fromNode) &&
+				visited.length > 1
+			) {
+				// this tile wants to become fully connected
+				// try to avoid using it if possible
+				const index = visited.indexOf(fromNode);
+				visited.splice(index, 1);
+				lastResortNodes.push(fromNode);
+				continue;
+			}
 			tiles[fromNode] += toVisit.direction;
 			tiles[toVisit.neighbour] += grid.OPPOSITE.get(toVisit.direction) || 0;
 			const i = unvisited.indexOf(toVisit.neighbour);
