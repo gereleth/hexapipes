@@ -121,13 +121,6 @@ export function Solver(tiles, grid) {
 
 	const directions = new Set(grid.DIRECTIONS);
 
-	tiles.forEach((tile, index) => {
-		self.unsolved.set(index, new Cell(grid, index, tile));
-		// add deadend tiles to components to keep track of loops/islands
-		// if (directions.has(tile)) {
-		// 	self.components.set(index, new Set([index]));
-		// }
-	});
 	/** @type {Number[]} */
 	self.solution = tiles.map(() => -1);
 
@@ -137,52 +130,55 @@ export function Solver(tiles, grid) {
 	/** @type {Set<Number>} */
 	self.dirty = new Set();
 
-	/** Adds walls to border cells
-	 * Adds border cells to dirty set
-	 * Adds empty/fully-connected cells to dirty set
-	 * Removes orientations that result in instant islands
+	/**
+	 * Returns the cell at index. Initializes the cell if necessary.
+	 * @param {Number} index
+	 * @returns {Cell}
 	 */
-	self.applyBorderConditions = function () {
-		for (let index = 0; index < self.grid.total; index++) {
-			const cell = self.unsolved.get(index);
-			if (cell === undefined) {
-				continue;
-			}
-			if (cell.possible.size === 1) {
-				self.dirty.add(index);
-			} else {
-				let deadendConnections = 0;
-				for (let direction of self.grid.DIRECTIONS) {
-					const { neighbour } = self.grid.find_neighbour(index, direction);
-					if (neighbour === -1) {
-						cell.addWall(direction);
-						self.dirty.add(index);
-					} else {
-						const neighbourTile = self.unsolved.get(neighbour)?.initial || 0;
-						if (directions.has(neighbourTile)) {
-							// neighbour is a deadend
-							deadendConnections += direction;
-						}
+	self.getCell = function (index) {
+		let cell = self.unsolved.get(index);
+		if (cell !== undefined) {
+			return cell;
+		}
+		cell = new Cell(self.grid, index, tiles[index]);
+		self.unsolved.set(index, cell);
+
+		if (cell.possible.size === 1) {
+			self.dirty.add(index);
+		} else {
+			let deadendConnections = 0;
+			for (let direction of self.grid.DIRECTIONS) {
+				const { neighbour } = self.grid.find_neighbour(index, direction);
+				if (neighbour === -1) {
+					cell.addWall(direction);
+					self.dirty.add(index);
+				} else {
+					const neighbourTile = tiles[neighbour] || 0;
+					if (directions.has(neighbourTile)) {
+						// neighbour is a deadend
+						deadendConnections += direction;
 					}
 				}
-				if (deadendConnections > 0) {
-					const newPossible = new Set();
-					for (let orientation of cell.possible) {
-						if (
-							// orientation does not only connect deadends
-							(orientation & deadendConnections) !==
-							orientation
-						) {
-							newPossible.add(orientation);
-						}
+			}
+			if (deadendConnections > 0) {
+				const newPossible = new Set();
+				// TODO - delete from existing set instead
+				for (let orientation of cell.possible) {
+					if (
+						// orientation does not only connect deadends
+						(orientation & deadendConnections) !==
+						orientation
+					) {
+						newPossible.add(orientation);
 					}
-					if (newPossible.size < cell.possible.size) {
-						cell.possible = newPossible;
-						self.dirty.add(index);
-					}
+				}
+				if (newPossible.size < cell.possible.size) {
+					cell.possible = newPossible;
+					self.dirty.add(index);
 				}
 			}
 		}
+		return cell;
 	};
 
 	/**
@@ -214,8 +210,7 @@ export function Solver(tiles, grid) {
 		while (self.dirty.size > 0) {
 			// get a dirty cell
 			const index = self.dirty.keys().next().value;
-			self.dirty.delete(index);
-			const cell = self.unsolved.get(index);
+			const cell = self.getCell(index);
 			if (cell === undefined) {
 				continue;
 			}
@@ -230,7 +225,10 @@ export function Solver(tiles, grid) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedWalls) > 0) {
 						const { neighbour } = self.grid.find_neighbour(index, direction);
-						const neighbourCell = self.unsolved.get(neighbour);
+						if (neighbour === -1) {
+							continue;
+						}
+						const neighbourCell = self.getCell(neighbour);
 						if (neighbourCell === undefined) {
 							continue;
 						}
@@ -244,7 +242,10 @@ export function Solver(tiles, grid) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedConnections) > 0) {
 						const { neighbour } = self.grid.find_neighbour(index, direction);
-						const neighbourCell = self.unsolved.get(neighbour);
+						if (neighbour === -1) {
+							continue;
+						}
+						const neighbourCell = self.getCell(neighbour);
 						if (neighbourCell === undefined) {
 							continue;
 						}
@@ -270,6 +271,7 @@ export function Solver(tiles, grid) {
 				self.components.delete(index);
 				yield [index, orientation];
 			}
+			self.dirty.delete(index);
 		}
 	};
 
@@ -327,7 +329,19 @@ export function Solver(tiles, grid) {
 
 	self.solve = function* () {
 		if (self.dirty.size === 0) {
-			self.applyBorderConditions();
+			const toInit = new Set([...Array(grid.width * grid.height).keys()]);
+			while (toInit.size > 0) {
+				const nextTile = toInit.values().next().value;
+				toInit.delete(nextTile);
+				if (self.unsolved.has(nextTile)) {
+					continue;
+				}
+				self.dirty.add(nextTile);
+				for (let [index, orientation] of self.processDirtyCells()) {
+					toInit.delete(index);
+					yield [index, orientation];
+				}
+			}
 		}
 
 		/** @type {{index: Number, guess: Number, solver:Solver}[]} */

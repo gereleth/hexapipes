@@ -169,42 +169,33 @@ describe('Test cell cloning', () => {
 });
 
 describe('Test solver border constraints', () => {
-	const grid = new HexaGrid(3, 1, false);
-	const tiles = [1, 9, 1];
+	const grid = new HexaGrid(3, 3, false);
+	const tiles = [3, 3, 3, 1, 9, 1, 3, 3, 3];
 
 	it('Starts with correct possible states', () => {
 		const solver = new Solver(tiles, grid);
-		expect([...solver.unsolved.keys()]).toEqual(expect.arrayContaining([0, 1, 2]));
-		let cell = solver.unsolved.get(0);
-		expect(cell?.possible.size).toBe(6);
-		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
-		cell = solver.unsolved.get(1);
-		expect(cell?.possible.size).toBe(3);
-		expect([...cell.possible]).toEqual(expect.arrayContaining([9, 18, 36]));
-		cell = solver.unsolved.get(2);
-		expect(cell?.possible.size).toBe(6);
+		let cell = solver.getCell(3);
+		expect(cell.possible.size).toBe(6);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
 	});
 
 	it('Adds walls to border cells', () => {
 		const solver = new Solver(tiles, grid);
-		solver.applyBorderConditions();
-		let cell = solver.unsolved.get(0);
-		expect(cell?.walls).toBe(62);
-		cell = solver.unsolved.get(1);
-		expect(cell?.walls).toBe(54);
-		cell = solver.unsolved.get(2);
-		expect(cell?.walls).toBe(55);
+		let cell = solver.getCell(0);
+		expect(cell.walls).toBe(30);
+		cell = solver.getCell(1);
+		expect(cell.walls).toBe(6);
+		cell = solver.getCell(2);
+		expect(cell.walls).toBe(7);
 		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2]));
 	});
 
 	it('Adds full and empty cells to dirty set', () => {
 		const solver = new Solver([1, 1, 1, 1, 1, 0, 63, 1, 1, 1, 1, 1], new HexaGrid(4, 3, false));
-		solver.applyBorderConditions();
-		let cell = solver.unsolved.get(5);
-		expect(cell?.walls).toBe(0);
-		cell = solver.unsolved.get(6);
-		expect(cell?.connections).toBe(0);
+		let cell = solver.getCell(5);
+		expect(cell.walls).toBe(0);
+		cell = solver.getCell(6);
+		expect(cell.connections).toBe(0);
 		expect([...solver.dirty]).toContain(5);
 		expect([...solver.dirty]).toContain(6);
 	});
@@ -212,15 +203,14 @@ describe('Test solver border constraints', () => {
 	it('Does not add constraints to cells in a wrap puzzle', () => {
 		let grid = new HexaGrid(3, 1, true);
 		const solver = new Solver([3, 3, 3], grid);
-		solver.applyBorderConditions();
+		const cell = solver.getCell(0);
 		expect(solver.dirty.size).toBe(0);
 	});
 
 	it('Rules out orientations connecting only deadends', () => {
 		const solver = new Solver([3, 3, 3, 1, 9, 1, 3, 3, 3], new HexaGrid(3, 3, false));
-		solver.applyBorderConditions();
+		const cell = solver.getCell(4);
 		expect([...solver.dirty]).toContain(4);
-		const cell = solver.unsolved.get(4);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([18, 36]));
 	});
 });
