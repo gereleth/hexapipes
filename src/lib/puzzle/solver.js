@@ -131,6 +131,9 @@ export function Solver(tiles, grid) {
 	/** @type {Number[]} */
 	self.solution = tiles.map(() => -1);
 
+	/** @type {Number[][]} */
+	self.solutions = [];
+
 	/** @type {Set<Number>} */
 	self.dirty = new Set();
 
@@ -342,7 +345,9 @@ export function Solver(tiles, grid) {
 			const { index, guess, solver } = lastTrial;
 			try {
 				for (let step of solver.processDirtyCells()) {
-					yield step;
+					if (self.solutions.length === 0) {
+						yield step;
+					}
 				}
 			} catch (error) {
 				// something went wrong, no solution here
@@ -360,7 +365,17 @@ export function Solver(tiles, grid) {
 			if (solver.unsolved.size == 0) {
 				// got a solution
 				self.solution = solver.solution;
-				break;
+				self.solutions.push([...solver.solution]);
+				if (trials.length > 1) {
+					trials.pop();
+					const parent = trials[trials.length - 1].solver;
+					const cell = parent.unsolved.get(index);
+					cell?.possible.delete(guess);
+					parent.dirty.add(index);
+					continue;
+				} else {
+					break;
+				}
 			} else {
 				// we have to make a guess
 				const clone = solver.clone();
