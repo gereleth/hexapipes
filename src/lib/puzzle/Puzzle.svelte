@@ -119,6 +119,7 @@
 		game.initializeBoard();
 		initialResize(innerWidth, innerHeight);
 		dispatch('initialized');
+		// unleashTheSolver();
 	});
 
 	onDestroy(() => {
@@ -177,10 +178,12 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	let animate = false;
+	let solver;
+	let numsol = 0;
 	async function unleashTheSolver() {
 		measureSolveTime();
 		if (!$solved) {
-			const solver = new Solver(tiles, grid);
+			solver = new Solver(tiles, grid);
 			for (let [index, orientation] of solver.solve()) {
 				const initial = tiles[index];
 				let newState = initial;
@@ -193,6 +196,15 @@
 				game.rotateTile(index, rotations - current);
 				if (animate) {
 					await sleep(200);
+				}
+			}
+			game.solved.set(false);
+			game._solved = false;
+			if (solver.solutions.length > 1) {
+				for (let [i, tile] of solver.solutions[0].entries()) {
+					if (solver.solutions.every((solution) => solution[i] === tile)) {
+						game.tileStates[i].toggleLocked();
+					}
 				}
 			}
 		}
@@ -213,6 +225,7 @@
 		ms = t1 - t0;
 		msStats.push(ms);
 		msStats = msStats.sort((a, b) => a - b);
+		numsol = solver.solutions.length;
 	}
 
 	const save = createThrottle(saveProgress, 3000);
@@ -223,6 +236,49 @@
 </script>
 
 <svelte:window bind:innerWidth bind:innerHeight on:resize={resize} />
+
+<div class="solve-button">
+	<button on:click={unleashTheSolver}>🧩 Solve it</button>
+	<label for="animate">
+		<input type="checkbox" bind:checked={animate} id="animate" />
+		Animate
+	</label>
+</div>
+<div class="solve-button">
+	{#if ms > 0}
+		<div>
+			Solved in {steps} steps, {msStats[Math.floor(msStats.length / 2)]} ms (median of {msStats.length}
+			runs from {msStats[0]} to {msStats[msStats.length - 1]} ms).
+		</div>
+		<div>Number of solutions: {numsol}</div>
+		{#if numsol > 1}
+			<div>
+				{#each solver.solutions as solution, i}
+					<button
+						on:click={() => {
+							solution.forEach((orientation, index) => {
+								const initial = tiles[index];
+								let newState = initial;
+								let rotations = 0;
+								while (newState !== orientation) {
+									newState = grid.rotate(newState, -1, index);
+									rotations -= 1;
+								}
+								const current = game.tileStates[index].data.rotations;
+								if (rotations - current !== 0) {
+									game.rotateTile(index, rotations - current);
+								}
+							});
+							game.solved.set(false);
+							game._solved = false;
+						}}
+						>Solution {i + 1}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	{/if}
+</div>
 
 <div class="puzzle" class:solved={$solved}>
 	<svg
@@ -244,21 +300,6 @@
 			/>
 		{/each}
 	</svg>
-</div>
-<div class="solve-button">
-	<button on:click={unleashTheSolver}>🧩 Solve it</button>
-	<label for="animate">
-		<input type="checkbox" bind:checked={animate} id="animate" />
-		Animate
-	</label>
-</div>
-<div class="solve-button">
-	{#if ms > 0}
-		<div>
-			Solved in {steps} steps, {msStats[Math.floor(msStats.length / 2)]} ms (median of {msStats.length}
-			runs from {msStats[0]} to {msStats[msStats.length - 1]} ms).
-		</div>
-	{/if}
 </div>
 
 <style>

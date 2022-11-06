@@ -9,7 +9,8 @@
 	import Stats from '$lib/Stats.svelte';
 	import { getSolves, getStats, settings } from '$lib/stores';
 	import { HexaGrid } from '$lib/puzzle/hexagrid';
-	import { Generator } from '$lib/puzzle/generator';
+	import { Generator, randomRotate } from '$lib/puzzle/generator';
+	import { Solver } from '$lib/puzzle/solver';
 
 	let width = 5;
 	let height = 5;
@@ -27,7 +28,6 @@
 	function generate() {
 		grid = new HexaGrid(width, height, wrap);
 		id += 1;
-
 		const gen = new Generator(grid);
 		tiles = gen.generate();
 	}
@@ -71,12 +71,17 @@
 
 {#if id > 0}
 	{#key id}
-		<Puzzle {width} {height} {tiles} {wrap} bind:this={puzzle} />
+		<Puzzle {width} {height} {tiles} {wrap} bind:this={puzzle} on:solved={() => (solved = true)} />
 	{/key}
 {/if}
 
 <div class="container">
-	<PuzzleButtons {solved} on:startOver={startOver} includeNewPuzzleButton={false} />
+	<PuzzleButtons
+		solved={true}
+		on:startOver={startOver}
+		includeNewPuzzleButton={true}
+		on:newPuzzle={generate}
+	/>
 </div>
 
 <div class="container instructions">

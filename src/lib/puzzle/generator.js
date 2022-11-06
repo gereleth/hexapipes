@@ -1,3 +1,5 @@
+import { Solver } from './solver';
+
 /**
  * Returns a random element from an array
  * @param {Array} array
@@ -28,7 +30,11 @@ export function Generator(grid) {
 	let self = this;
 	self.grid = grid;
 
-	this.generate = function () {
+	/**
+	 * Fills a grid with tiles according to Prim's algorithm
+	 * @returns {Number[]} - unrandomized tiles array
+	 */
+	this.pregenerate_prims = function () {
 		const total = grid.width * grid.height;
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
@@ -82,7 +88,33 @@ export function Generator(grid) {
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
 		}
-		return randomRotate(tiles, grid);
+		return tiles;
+	};
+
+	/**
+	 * Alter some tiles to make the solution unique
+	 * @param {Number[]} tiles - tiles from initial generation
+	 * @returns {Number[]} - unrandomized tiles array
+	 */
+	self.ensureUniqueSolution = function (tiles) {
+		const solver = new Solver(tiles, self.grid);
+		const marked = solver.markAmbiguousTiles();
+		const fixed = solver.fixAmbiguousTiles(marked);
+		return fixed;
+	};
+
+	self.generate = function () {
+		let t0 = performance.now();
+		let tiles = self.pregenerate_prims();
+		let t1 = performance.now();
+		tiles = self.ensureUniqueSolution(tiles);
+		let t2 = performance.now();
+		tiles = randomRotate(tiles, self.grid);
+		console.log({
+			initialGen: t1 - t0,
+			ensureUnique: t2 - t1
+		});
+		return tiles;
 	};
 
 	return this;
