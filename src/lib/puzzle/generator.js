@@ -2,7 +2,7 @@ import { Solver } from './solver';
 
 /**
  * Returns a random element from an array
- * @param {Array} array
+ * @param {Array<any>} array
  */
 function getRandomElement(array) {
 	const index = Math.floor(Math.random() * array.length);
@@ -92,29 +92,27 @@ export function Generator(grid) {
 	};
 
 	/**
-	 * Alter some tiles to make the solution unique
-	 * @param {Number[]} tiles - tiles from initial generation
-	 * @returns {Number[]} - unrandomized tiles array
+	 * Generate a puzzle instance with a unique solution
+	 * @returns {Number[]}
 	 */
-	self.ensureUniqueSolution = function (tiles) {
-		const solver = new Solver(tiles, self.grid);
-		const marked = solver.markAmbiguousTiles();
-		const fixed = solver.fixAmbiguousTiles(marked);
-		return fixed;
-	};
-
 	self.generate = function () {
-		let t0 = performance.now();
-		let tiles = self.pregenerate_prims();
-		let t1 = performance.now();
-		tiles = self.ensureUniqueSolution(tiles);
-		let t2 = performance.now();
-		tiles = randomRotate(tiles, self.grid);
-		console.log({
-			initialGen: t1 - t0,
-			ensureUnique: t2 - t1
-		});
-		return tiles;
+		let attempt = 0;
+		// I don't expect many attempts to be needed, just 1 in .9999 cases
+		while (attempt < 3) {
+			attempt += 1;
+			let tiles = self.pregenerate_prims();
+			let uniqueIter = 0;
+			while (uniqueIter < 3) {
+				uniqueIter += 1;
+				const solver = new Solver(tiles, self.grid);
+				const { marked, unique } = solver.markAmbiguousTiles();
+				if (unique) {
+					return randomRotate(marked, self.grid);
+				}
+				tiles = solver.fixAmbiguousTiles(marked);
+			}
+		}
+		throw 'Could not generate a puzzle with a unique solution';
 	};
 
 	return this;

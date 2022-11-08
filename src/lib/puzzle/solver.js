@@ -611,38 +611,21 @@ export function Solver(tiles, grid) {
 	 * @returns
 	 */
 	self.fixAmbiguousTiles = function (marked) {
-		self.solution = marked;
+		self.solution = marked.map((tile) => (tile === self.AMBIGUOUS ? self.UNSOLVED : tile));
 		self.tiles = marked;
 		self.components.clear();
 		self.unsolved.clear();
 		self.dirty.clear();
+		let numAmbiguous = Number.POSITIVE_INFINITY;
 		// Allow any tiles in ambiguous places
-		// Their direct neighbours can have any orientation but the type stays fixed
 		// All other tiles stay completely fixed
-		/** @type {Set<Number>} */
-		let toRelax = new Set();
 		for (let [index, tile] of marked.entries()) {
 			const cell = self.getCell(index);
 			self.dirty.add(index);
-			if (marked[index] === self.AMBIGUOUS) {
-				// cell initialized with all possible options
-				// any tile, any orientation
-				// remember neighbours to relax their possible orientations later
-				for (let direction of self.grid.DIRECTIONS) {
-					const { neighbour } = self.grid.find_neighbour(index, direction);
-					if (neighbour !== -1 && marked[neighbour] !== self.AMBIGUOUS) {
-						toRelax.add(neighbour);
-					}
-				}
-			} else {
+			if (marked[index] !== self.AMBIGUOUS) {
 				// this is a solved cell, only allow it one orientation
 				cell.possible = new Set([tile]);
 			}
-		}
-		// relax possible orientation constraints on tiles next to ambiguous areas
-		for (let index of toRelax) {
-			self.unsolved.delete(index);
-			self.getCell(index);
 		}
 		// Process dirty cells so that only ambiguous areas are left unsolved
 		// This ensures correct borders/components info in ambiguous areas
@@ -688,10 +671,15 @@ export function Solver(tiles, grid) {
 					checkSolver.unsolved.set(index, newCell);
 					checkSolver.dirty.add(index);
 				}
-				const { marked, unique } = checkSolver.markAmbiguousTiles();
-				if (unique) {
+				const checkSolution = checkSolver.markAmbiguousTiles();
+				if (checkSolution.unique) {
 					// it's a win
-					return marked;
+					return checkSolution.marked;
+				}
+				let newNumAmbiguous = marked.reduce((s, tile) => s + (tile === self.AMBIGUOUS ? 1 : 0));
+				if (newNumAmbiguous < numAmbiguous) {
+					numAmbiguous = newNumAmbiguous;
+					self.solution = [...solver.solution];
 				}
 				// wasn't unique, keep going
 				if (trials.length > 1) {
@@ -716,7 +704,7 @@ export function Solver(tiles, grid) {
 			}
 		}
 		// getting here implies we only got multiple solutions
-		// maybe should throw an error instead?
+		// but maybe with less ambiguity than before
 		return self.solution;
 	};
 }

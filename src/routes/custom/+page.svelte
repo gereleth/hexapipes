@@ -9,7 +9,7 @@
 	import Stats from '$lib/Stats.svelte';
 	import { getSolves, getStats, settings } from '$lib/stores';
 	import { HexaGrid } from '$lib/puzzle/hexagrid';
-	import { Generator, randomRotate } from '$lib/puzzle/generator';
+	import { Generator } from '$lib/puzzle/generator';
 	import { Solver } from '$lib/puzzle/solver';
 
 	let width = 5;
