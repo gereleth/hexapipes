@@ -123,6 +123,9 @@ export function Solver(tiles, grid) {
 	self.tiles = tiles;
 	self.grid = grid;
 
+	self.UNSOLVED = -1;
+	self.AMBIGUOUS = -2;
+
 	/** @type {Map<Number, Cell>} */
 	self.unsolved = new Map([]);
 
@@ -132,13 +135,18 @@ export function Solver(tiles, grid) {
 	const directions = new Set(grid.DIRECTIONS);
 
 	/** @type {Number[]} */
-	self.solution = tiles.map(() => -1);
+	self.solution = tiles.map(() => self.UNSOLVED);
 
 	/** @type {Number[][]} */
 	self.solutions = [];
 
 	/** @type {Set<Number>} */
 	self.dirty = new Set();
+
+	// ruling out orientations connecting only deadends messes up
+	// solving very small instances
+	// so it's only enabled if there's enough tiles
+	self.checkDeadendConnections = self.grid.total > self.grid.DIRECTIONS.length + 1;
 
 	/**
 	 * Returns the cell at index. Initializes the cell if necessary.
@@ -162,7 +170,7 @@ export function Solver(tiles, grid) {
 				if (neighbour === -1) {
 					cell.addWall(direction);
 					self.dirty.add(index);
-				} else {
+				} else if (self.checkDeadendConnections) {
 					const neighbourTile = self.tiles[neighbour] || 0;
 					if (directions.has(neighbourTile)) {
 						// neighbour is a deadend
@@ -459,29 +467,38 @@ export function Solver(tiles, grid) {
 		}
 	};
 
-	const UNSOLVED = -1;
-	const AMBIGUOUS = -2;
-
-	// This is like solve but marks ambiguous areas with a special value
-	// Does not yield steps
-	// For a puzzle with a unique solution just returns the solution
+	/**
+	 * Solve the puzzle but mark ambiguous areas with a special value
+	 * Does not yield steps
+	 * If the solution is unique then marked == solution
+	 * @returns {{
+	 * 	marked: Number[],
+	 *  solvable: boolean,
+	 * 	unique: boolean,
+	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique,
+	 */
 	self.markAmbiguousTiles = function () {
-		let solution = [...self.solution];
+		let marked = [...self.solution];
+		let unique = true;
 		// process what we can for a start
-		if (self.dirty.size === 0) {
-			const toInit = new Set([...Array(grid.width * grid.height).keys()]);
-			while (toInit.size > 0) {
-				const nextTile = toInit.values().next().value;
-				toInit.delete(nextTile);
-				if (self.unsolved.has(nextTile)) {
-					continue;
-				}
-				self.dirty.add(nextTile);
-				for (let [index, orientation] of self.processDirtyCells()) {
-					toInit.delete(index);
-					solution[index] = orientation;
+		try {
+			if (self.dirty.size === 0) {
+				const toInit = new Set([...Array(grid.width * grid.height).keys()]);
+				while (toInit.size > 0) {
+					const nextTile = toInit.values().next().value;
+					toInit.delete(nextTile);
+					if (self.unsolved.has(nextTile)) {
+						continue;
+					}
+					self.dirty.add(nextTile);
+					for (let [index, orientation] of self.processDirtyCells()) {
+						toInit.delete(index);
+						marked[index] = orientation;
+					}
 				}
 			}
+		} catch (error) {
+			return { marked, solvable: false, unique: false };
 		}
 		// console.log('done initial deductions, unsolved size', self.unsolved.size);
 		// console.log(solution);
@@ -523,14 +540,15 @@ export function Solver(tiles, grid) {
 			if (solver.unsolved.size == 0) {
 				// got a solution
 				// console.log('got a solution');
-				for (let i = 0; i < solution.length; i++) {
-					if (solution[i] === UNSOLVED) {
-						solution[i] = solver.solution[i];
-					} else if (solution[i] === AMBIGUOUS) {
+				for (let i = 0; i < marked.length; i++) {
+					if (marked[i] === self.UNSOLVED) {
+						marked[i] = solver.solution[i];
+					} else if (marked[i] === self.AMBIGUOUS) {
 						// do nothing
-					} else if (solution[i] !== solver.solution[i]) {
+					} else if (marked[i] !== solver.solution[i]) {
 						// console.log('ambiguous tile', i);
-						solution[i] = AMBIGUOUS;
+						marked[i] = self.AMBIGUOUS;
+						unique = false;
 					}
 				}
 				if (trials.length > 1) {
@@ -553,7 +571,7 @@ export function Solver(tiles, grid) {
 				let minPossibleSize = Number.POSITIVE_INFINITY;
 				let guessIndex = -1;
 				for (let [index, cell] of clone.unsolved.entries()) {
-					if (solution[index] === AMBIGUOUS) {
+					if (marked[index] === self.AMBIGUOUS) {
 						continue;
 					}
 					if (cell.possible.size < minPossibleSize) {
@@ -582,22 +600,19 @@ export function Solver(tiles, grid) {
 				});
 			}
 		}
-		return solution;
+		const solvable = marked.every((tile) => tile !== self.UNSOLVED);
+		return { marked, solvable, unique };
 	};
 
 	/**
 	 * Replace ambiguous tiles with other tiles to get a puzzle
 	 * with a unique solution
-	 * @param {Number[]} solution
+	 * @param {Number[]} marked
 	 * @returns
 	 */
-	self.fixAmbiguousTiles = function (solution) {
-		if (solution.every((tile) => tile !== AMBIGUOUS)) {
-			// ok as it is
-			return solution;
-		}
-		self.solution = solution;
-		self.tiles = solution;
+	self.fixAmbiguousTiles = function (marked) {
+		self.solution = marked;
+		self.tiles = marked;
 		self.components.clear();
 		self.unsolved.clear();
 		self.dirty.clear();
@@ -606,15 +621,16 @@ export function Solver(tiles, grid) {
 		// All other tiles stay completely fixed
 		/** @type {Set<Number>} */
 		let toRelax = new Set();
-		for (let [index, tile] of solution.entries()) {
+		for (let [index, tile] of marked.entries()) {
 			const cell = self.getCell(index);
 			self.dirty.add(index);
-			if (solution[index] === AMBIGUOUS) {
-				// do nothing, cell initializes with all possible options
+			if (marked[index] === self.AMBIGUOUS) {
+				// cell initialized with all possible options
 				// any tile, any orientation
+				// remember neighbours to relax their possible orientations later
 				for (let direction of self.grid.DIRECTIONS) {
 					const { neighbour } = self.grid.find_neighbour(index, direction);
-					if (neighbour !== -1 && solution[neighbour] !== AMBIGUOUS) {
+					if (neighbour !== -1 && marked[neighbour] !== self.AMBIGUOUS) {
 						toRelax.add(neighbour);
 					}
 				}
@@ -623,14 +639,13 @@ export function Solver(tiles, grid) {
 				cell.possible = new Set([tile]);
 			}
 		}
+		// relax possible orientation constraints on tiles next to ambiguous areas
 		for (let index of toRelax) {
-			const cell = self.unsolved.get(index);
-			const tile = cell?.possible.values().next().value;
 			self.unsolved.delete(index);
 			self.getCell(index);
 		}
 		// Process dirty cells so that only ambiguous areas are left unsolved
-		// This ensures correct borders/components info in ambi-areas
+		// This ensures correct borders/components info in ambiguous areas
 		for (let _ of self.processDirtyCells()) {
 		}
 		// backup solver for final verification of unique solution
@@ -673,12 +688,10 @@ export function Solver(tiles, grid) {
 					checkSolver.unsolved.set(index, newCell);
 					checkSolver.dirty.add(index);
 				}
-				for (let _ of checkSolver.solve()) {
-					// fingers crossed
-				}
-				if (checkSolver.solutions.length === 1) {
+				const { marked, unique } = checkSolver.markAmbiguousTiles();
+				if (unique) {
 					// it's a win
-					return solver.solution;
+					return marked;
 				}
 				// wasn't unique, keep going
 				if (trials.length > 1) {
@@ -702,6 +715,8 @@ export function Solver(tiles, grid) {
 				});
 			}
 		}
+		// getting here implies we only got multiple solutions
+		// maybe should throw an error instead?
 		return self.solution;
 	};
 }

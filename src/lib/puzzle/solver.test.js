@@ -214,3 +214,63 @@ describe('Test solver border constraints', () => {
 		expect([...cell.possible]).toEqual(expect.arrayContaining([18, 36]));
 	});
 });
+
+describe('Test solutions check and marking ambiguous tiles', () => {
+	it('Detects unsolvable puzzle - quickly from border constraints', () => {
+		const grid = new HexaGrid(2, 2, false);
+		const tiles = [9, 5, 5, 3];
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(false);
+	});
+
+	it('Detects unsolvable puzzle - after some trials', () => {
+		const grid = new HexaGrid(2, 2, true);
+		const tiles = [1, 5, 5, 3];
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(false);
+	});
+
+	it('Detects a small puzzle with a unique solution', () => {
+		const grid = new HexaGrid(2, 2, false);
+		const tiles = [1, 1, 7, 1];
+		const solver = new Solver(tiles, grid);
+		const { marked, solvable, unique } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(true);
+		expect(marked).toStrictEqual(expect.arrayContaining([32, 16, 7, 8]));
+	});
+
+	it('Detects a larger puzzle with a unique solution', () => {
+		const grid = new HexaGrid(2, 3, false);
+		const tiles = [1, 1, 15, 1, 1, 3];
+		const solver = new Solver(tiles, grid);
+		const { marked, solvable, unique } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(true);
+		expect(marked).toStrictEqual(expect.arrayContaining([32, 16, 39, 8, 1, 12]));
+	});
+
+	it('Detects a puzzle with multiple solutions', () => {
+		const grid = new HexaGrid(3, 3, false);
+		const tiles = [1, 5, 1, 1, 62, 3, 1, 5, 1];
+		const solver = new Solver(tiles, grid);
+		const { marked, solvable, unique } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(false);
+		const a = solver.AMBIGUOUS;
+		expect(marked).toStrictEqual(expect.arrayContaining([1, 40, a, 1, a, a, 1, 10, a]));
+	});
+
+	it('Detects a wrap puzzle with multiple solutions', () => {
+		const grid = new HexaGrid(3, 3, true);
+		const tiles = [1, 3, 1, 43, 5, 5, 1, 3, 1];
+		const solver = new Solver(tiles, grid);
+		const { marked, solvable, unique } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(false);
+		const a = solver.AMBIGUOUS;
+		expect(marked).toStrictEqual(expect.arrayContaining([1, 24, a, 43, a, a, 1, 12, a]));
+	});
+});
