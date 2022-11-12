@@ -52,6 +52,9 @@ export function Cell(grid, index, initial) {
 	 * @param {Number} direction
 	 */
 	self.addWall = function (direction) {
+		if ((self.connections & direction) > 0) {
+			throw 'Trying to add a wall in place of an existing connection';
+		}
 		self.walls += direction;
 	};
 
@@ -59,6 +62,9 @@ export function Cell(grid, index, initial) {
 	 * @param {Number} direction
 	 */
 	self.addConnection = function (direction) {
+		if ((self.walls & direction) > 0) {
+			throw 'Trying to add a connection in place of an existing wall';
+		}
 		self.connections += direction;
 	};
 
@@ -133,6 +139,30 @@ export function Solver(tiles, grid) {
 	self.components = new Map([]);
 
 	const directions = new Set(grid.DIRECTIONS);
+
+	const T0 = 0;
+	const T1 = 1;
+	const T2v = 3;
+	const T2c = 5;
+	const T2I = 9;
+	const T3w = 7;
+	const T3y = 11;
+	const T3la = 13;
+	const T3Y = 21;
+	const T4K = 15;
+	const T4X = 27;
+	const T4psi = 23;
+	const T5 = 31;
+	const T6 = 63;
+	/** @type {Map<Number,Number>} */
+	const tileTypes = new Map();
+	for (let t=0; t<self.grid.fullyConnected(0); t++) {
+		let rotated = t;
+		while (!tileTypes.has(rotated)) {
+			tileTypes.set(rotated, t);
+			rotated = self.grid.rotate(rotated, 1);
+		}
+	}
 
 	/** @type {Number[]} */
 	self.solution = tiles.map(() => self.UNSOLVED);
@@ -209,17 +239,119 @@ export function Solver(tiles, grid) {
 		if (component === undefined) {
 			throw 'Component to merge is undefined!';
 		}
-		const neighbourComponent = self.components.get(neighbourIndex);
+		const neighbourComponent = self.components.get(neighbourIndex) || new Set([neighbourIndex]);
 		if (component === neighbourComponent) {
 			throw new LoopDetectedException();
 		}
-		if (neighbourComponent === undefined) {
-			component.add(neighbourIndex);
-			self.components.set(neighbourIndex, component);
-		} else {
-			for (let otherIndex of neighbourComponent) {
-				self.components.set(otherIndex, component);
-				component.add(otherIndex);
+		for (let otherIndex of neighbourComponent) {
+			self.components.set(otherIndex, component);
+			component.add(otherIndex);
+		}
+	};
+
+	self.avoidLoops = function () {
+		/** @type {Set<Number>} */
+		const checked = new Set();
+		for (let [cellIndex, component] of self.components.entries()) {
+			if (checked.has(cellIndex)) {
+				continue;
+			}
+			component.forEach((i) => checked.add(i));
+			if (component.size < 3) {
+				continue;
+			}
+			for (let index of component) {
+				const cell = self.unsolved.get(index);
+				if (cell === undefined) {
+					throw 'Component cell is undefined';
+				}
+				const occupiedDirections = cell.walls + cell.connections;
+				for (let direction of self.grid.DIRECTIONS) {
+					if ((occupiedDirections & direction) > 0) {
+						continue;
+					}
+					const neighbourIndex = self.grid.find_neighbour(index, direction).neighbour;
+					if (component.has(neighbourIndex)) {
+						// console.log('add wall btw', index, neighbourIndex);
+						cell.addWall(direction);
+						self.dirty.add(index);
+						const neighbourCell = self.unsolved.get(neighbourIndex);
+						neighbourCell?.addWall(self.grid.OPPOSITE.get(direction) || 0);
+						self.dirty.add(neighbourIndex);
+					}
+				}
+			}
+		}
+	};
+
+	self.trySomeTricks = function () {
+		for (let [index, cell] of self.unsolved.entries()) {
+			const tile = tileTypes.get(cell.initial);
+			/** @type {Number[]} */
+			const neighbourTiles = [];
+			for (let direction of self.grid.DIRECTIONS) {
+				const { neighbour } = self.grid.find_neighbour(index, direction);
+				if (neighbour === -1) {
+					break;
+				}
+				neighbourTiles.push(tileTypes.get(self.tiles[neighbour]) || 0);
+			}
+			if (neighbourTiles.length < self.grid.DIRECTIONS.length) {
+				continue;
+			}
+			// can't connect middle prongs to a sharp turns tile
+			if ([T4K, T3w, T5, T4psi].some((x) => x === tile)) {
+				for (let [i, neighbourTile] of neighbourTiles.entries()) {
+					if ([T4K, T2v, T3w, T5, T4X].some((x) => x === neighbourTile)) {
+						const direction = self.grid.DIRECTIONS[i];
+						const forbidden =
+							direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
+						for (let orientation of cell.possible) {
+							if ((orientation & forbidden) === forbidden) {
+								cell.possible.delete(orientation);
+								self.dirty.add(index);
+							}
+						}
+					}
+				}
+			}
+			// must connect psi-likes when they are adjacent
+			if ([T4psi, T4X, T5, T3Y].some((x) => x === tile)) {
+				for (let [i, neighbourTile] of neighbourTiles.entries()) {
+					if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
+						const direction = self.grid.DIRECTIONS[i];
+						for (let orientation of cell.possible) {
+							if ((orientation & direction) === 0) {
+								cell.possible.delete(orientation);
+								self.dirty.add(index);
+							}
+						}
+					}
+				}
+			}
+			// never make two adjacent walls next to a psi & co
+			if ([T4psi, T4X, T5, T3Y].every((x) => x !== tile)) {
+				for (let [i, neighbourTile] of neighbourTiles.entries()) {
+					if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
+						const direction = self.grid.DIRECTIONS[i];
+						let forbidden = 0;
+						if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 1) % 6])) {
+							forbidden += self.grid.DIRECTIONS[(i + 1) % 6];
+						}
+						if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 5) % 6])) {
+							forbidden += self.grid.DIRECTIONS[(i + 5) % 6];
+						}
+						if (forbidden === 0) {
+							continue;
+						}
+						for (let orientation of cell.possible) {
+							if ((orientation & forbidden) > 0 && (orientation & direction) === 0) {
+								cell.possible.delete(orientation);
+								self.dirty.add(index);
+							}
+						}
+					}
+				}
 			}
 		}
 	};
@@ -406,6 +538,12 @@ export function Solver(tiles, grid) {
 					yield [index, orientation];
 				}
 			}
+			if (self.unsolved.size > 0) {
+				self.trySomeTricks();
+				for (let [index, orientation] of self.processDirtyCells()) {
+					yield [index, orientation];
+				}
+			}
 		}
 
 		/** @type {{index: Number, guess: Number, solver:Solver}[]} */
@@ -493,6 +631,12 @@ export function Solver(tiles, grid) {
 					self.dirty.add(nextTile);
 					for (let [index, orientation] of self.processDirtyCells()) {
 						toInit.delete(index);
+						marked[index] = orientation;
+					}
+				}
+				if (self.unsolved.size > 0) {
+					self.trySomeTricks();
+					for (let [index, orientation] of self.processDirtyCells()) {
 						marked[index] = orientation;
 					}
 				}
