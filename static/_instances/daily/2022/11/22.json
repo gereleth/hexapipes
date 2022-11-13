@@ -1,0 +1,13 @@
+{
+    "comment": "5x5 wrap deemed evil by my solver. 6/6",
+    "grid": "hexagonal",
+    "tiles": [
+      8, 24, 16,  4, 10,  6, 37, 28,
+     32, 36, 34,  1, 44, 13, 48,  4,
+     38, 52,  5, 22,  1,  1, 24, 40,
+     16
+   ],
+    "width": 5,
+    "height": 5,
+    "wrap": true
+}

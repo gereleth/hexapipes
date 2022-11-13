@@ -1,0 +1,13 @@
+{
+    "comment": "5x5 wrap deemed hard by my solver. 1/6",
+    "grid": "hexagonal",
+    "tiles": [
+        37,  2, 16,  4, 34, 32,  5, 16,
+         1, 32, 40, 25, 30,  1, 20,  2,
+        36, 34, 36,  8, 11, 39, 38, 41,
+        16
+      ],
+    "width": 5,
+    "height": 5,
+    "wrap": true
+}
