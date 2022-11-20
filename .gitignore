@@ -4,6 +4,7 @@ node_modules
 /.svelte-kit
 /package
 /coverage
+/generator_stats
 .env
 .env.*
 !.env.example
