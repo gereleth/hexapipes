@@ -175,8 +175,8 @@ describe('Test solver border constraints', () => {
 	it('Starts with correct possible states', () => {
 		const solver = new Solver(tiles, grid);
 		let cell = solver.getCell(3);
-		expect(cell.possible.size).toBe(6);
-		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
+		expect(cell.possible.size).toBe(5);
+		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 16, 32]));
 	});
 
 	it('Adds walls to border cells', () => {

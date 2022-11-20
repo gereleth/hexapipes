@@ -206,42 +206,7 @@ export function Solver(tiles, grid) {
 		}
 		cell = new Cell(self.grid, index, self.tiles[index]);
 		self.unsolved.set(index, cell);
-
-		if (cell.possible.size === 1) {
-			self.dirty.add(index);
-		} else {
-			let deadendConnections = 0;
-			for (let direction of self.grid.DIRECTIONS) {
-				const { neighbour } = self.grid.find_neighbour(index, direction);
-				if (neighbour === -1) {
-					cell.addWall(direction);
-					self.dirty.add(index);
-				} else if (self.checkDeadendConnections) {
-					const neighbourTile = self.tiles[neighbour] || 0;
-					if (directions.has(neighbourTile)) {
-						// neighbour is a deadend
-						deadendConnections += direction;
-					}
-				}
-			}
-			if (deadendConnections > 0) {
-				const newPossible = new Set();
-				// TODO - delete from existing set instead
-				for (let orientation of cell.possible) {
-					if (
-						// orientation does not only connect deadends
-						(orientation & deadendConnections) !==
-						orientation
-					) {
-						newPossible.add(orientation);
-					}
-				}
-				if (newPossible.size < cell.possible.size) {
-					cell.possible = newPossible;
-					self.dirty.add(index);
-				}
-			}
-		}
+		self.doLocalDeductions(index, cell);
 		return cell;
 	};
 
@@ -300,75 +265,118 @@ export function Solver(tiles, grid) {
 		}
 	};
 
-	self.trySomeTricks = function () {
-		for (let [index, cell] of self.unsolved.entries()) {
-			const tile = tileTypes.get(cell.initial);
-			/** @type {Number[]} */
-			const neighbourTiles = [];
-			for (let direction of self.grid.DIRECTIONS) {
-				const { neighbour } = self.grid.find_neighbour(index, direction);
-				if (neighbour === -1) {
-					break;
+	/**
+	 * Checks if any orientations can be ruled out based on immediate neighbours
+	 * @param {Number} index
+	 * @param {Cell} cell - cell at index
+	 */
+	self.doLocalDeductions = function (index, cell) {
+		if (cell.possible.size === 1) {
+			// either empty or fully connected, is solved right away
+			self.dirty.add(index);
+			return;
+		}
+
+		const tile = tileTypes.get(cell.initial);
+		const possibleBefore = cell.possible.size;
+
+		// collect neighbour tile types
+		/** @type {Number[]} */
+		const neighbourTiles = [];
+		let walls = 0;
+		for (let direction of self.grid.DIRECTIONS) {
+			const { neighbour } = self.grid.find_neighbour(index, direction);
+			if (neighbour === -1) {
+				walls += direction;
+			}
+			neighbourTiles.push(tileTypes.get(self.tiles[neighbour]) || self.UNSOLVED);
+		}
+		// remove orientations that contradict outer walls
+		// any grid
+		if (walls > 0) {
+			cell.addWall(walls);
+			for (let orientation of cell.possible) {
+				if ((orientation & walls) > 0) {
+					cell.possible.delete(orientation);
 				}
-				neighbourTiles.push(tileTypes.get(self.tiles[neighbour]) || 0);
 			}
-			if (neighbourTiles.length < self.grid.DIRECTIONS.length) {
-				continue;
+		}
+
+		// remove orientations that connect only deadends
+		// any grid
+		if (self.checkDeadendConnections) {
+			let deadendConnections = 0;
+			for (let [i, neighbourTile] of neighbourTiles.entries()) {
+				if (neighbourTile === T1) {
+					deadendConnections += self.grid.DIRECTIONS[i];
+				}
 			}
-			// can't connect middle prongs to a sharp turns tile
-			if ([T4K, T3w, T5, T4psi].some((x) => x === tile)) {
-				for (let [i, neighbourTile] of neighbourTiles.entries()) {
-					if ([T4K, T2v, T3w, T5, T4X].some((x) => x === neighbourTile)) {
-						const direction = self.grid.DIRECTIONS[i];
-						const forbidden =
-							direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
-						for (let orientation of cell.possible) {
-							if ((orientation & forbidden) === forbidden) {
-								cell.possible.delete(orientation);
-								self.dirty.add(index);
-							}
+			for (let orientation of cell.possible) {
+				if ((orientation & deadendConnections) === orientation) {
+					cell.possible.delete(orientation);
+				}
+			}
+		}
+
+		// Hexagrid specific tricks
+
+		// can't connect middle prongs to a sharp turns tile
+		if ([T4K, T3w, T5, T4psi].some((x) => x === tile)) {
+			for (let [i, neighbourTile] of neighbourTiles.entries()) {
+				if ([T4K, T2v, T3w, T5, T4X].some((x) => x === neighbourTile)) {
+					const direction = self.grid.DIRECTIONS[i];
+					const forbidden =
+						direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
+					for (let orientation of cell.possible) {
+						if ((orientation & forbidden) === forbidden) {
+							cell.possible.delete(orientation);
 						}
 					}
 				}
 			}
-			// must connect psi-likes when they are adjacent
-			if ([T4psi, T4X, T5, T3Y].some((x) => x === tile)) {
-				for (let [i, neighbourTile] of neighbourTiles.entries()) {
-					if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
-						const direction = self.grid.DIRECTIONS[i];
-						for (let orientation of cell.possible) {
-							if ((orientation & direction) === 0) {
-								cell.possible.delete(orientation);
-								self.dirty.add(index);
-							}
+		}
+
+		// must connect psi-likes when they are adjacent
+		if ([T4psi, T4X, T5, T3Y].some((x) => x === tile)) {
+			for (let [i, neighbourTile] of neighbourTiles.entries()) {
+				if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
+					const direction = self.grid.DIRECTIONS[i];
+					for (let orientation of cell.possible) {
+						if ((orientation & direction) === 0) {
+							cell.possible.delete(orientation);
 						}
 					}
 				}
 			}
-			// never make two adjacent walls next to a psi & co
-			if ([T4psi, T4X, T5, T3Y].every((x) => x !== tile)) {
-				for (let [i, neighbourTile] of neighbourTiles.entries()) {
-					if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
-						const direction = self.grid.DIRECTIONS[i];
-						let forbidden = 0;
-						if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 1) % 6])) {
-							forbidden += self.grid.DIRECTIONS[(i + 1) % 6];
-						}
-						if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 5) % 6])) {
-							forbidden += self.grid.DIRECTIONS[(i + 5) % 6];
-						}
-						if (forbidden === 0) {
-							continue;
-						}
-						for (let orientation of cell.possible) {
-							if ((orientation & forbidden) > 0 && (orientation & direction) === 0) {
-								cell.possible.delete(orientation);
-								self.dirty.add(index);
-							}
+		}
+
+		// never make two adjacent walls next to a psi & co
+		if ([T4psi, T4X, T5, T3Y].every((x) => x !== tile)) {
+			for (let [i, neighbourTile] of neighbourTiles.entries()) {
+				if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
+					const direction = self.grid.DIRECTIONS[i];
+					let forbidden = 0;
+					if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 1) % 6])) {
+						forbidden += self.grid.DIRECTIONS[(i + 1) % 6];
+					}
+					if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 5) % 6])) {
+						forbidden += self.grid.DIRECTIONS[(i + 5) % 6];
+					}
+					if (forbidden === 0) {
+						continue;
+					}
+					for (let orientation of cell.possible) {
+						if ((orientation & forbidden) > 0 && (orientation & direction) === 0) {
+							cell.possible.delete(orientation);
 						}
 					}
 				}
 			}
+		}
+
+		if (cell.possible.size < possibleBefore) {
+			// deduced something...
+			self.dirty.add(index);
 		}
 	};
 
@@ -565,15 +573,6 @@ export function Solver(tiles, grid) {
 				for (let step of self.processDirtyCells()) {
 					toInit.delete(step.index);
 					yield { stage: 'initial', step };
-				}
-			}
-			if (self.unsolved.size > 0) {
-				self.trySomeTricks();
-				for (let step of self.processDirtyCells()) {
-					yield {
-						stage: 'initial',
-						step
-					};
 				}
 			}
 		}
