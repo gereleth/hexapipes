@@ -1,7 +1,9 @@
+import { countReset } from 'console';
 import { describe, expect, it } from 'vitest';
 import { Generator } from './generator';
 import { HexaGrid } from './hexagrid';
 import { Solver } from './solver';
+const fs = require('fs');
 
 describe('Test Prims pregeneration', () => {
 	it('Pregenerates a solvable puzzle 5x5', () => {
@@ -57,7 +59,7 @@ describe('Test solution uniqueness', () => {
 });
 
 describe('Test steps distribution', () => {
-	it('Checks difficulty distribution in generated 5x5 wraps', () => {
+	it.skip('Checks difficulty distribution in generated 5x5 wraps', () => {
 		const grid = new HexaGrid(5, 5, true);
 		const counts = new Map();
 		const examples = new Map();
@@ -74,7 +76,6 @@ describe('Test steps distribution', () => {
 				examples.set(steps, tiles);
 			}
 		}
-		const fs = require('fs');
 		const filename = `generator_stats/${grid.width}x${grid.height}${
 			grid.wrap ? 'wrap' : ''
 		}_steps.json`;
@@ -91,22 +92,45 @@ describe('Test steps distribution', () => {
 		});
 	});
 
-	// it('Checks difficulty distribution in generated 5x5 wraps', () => {
-	// 	for (let width of [3, 5, 7, 10]) {
-	// 		const counts = new Map();
-	// 		for (let i = 0; i < 1000; i++) {
-	// 			const grid = new HexaGrid(width, width, false);
-	// 			const gen = new Generator(grid);
-	// 			const tiles = gen.generate();
-	// 			const solver = new Solver(tiles, grid);
-	// 			let steps = 0;
-	// 			for (let _ of solver.solve()) {
-	// 				steps += 1;
-	// 			}
-	// 			counts.set(steps, (counts.get(steps) || 0) + 1);
-	// 		}
-
-	// 		console.log({ width, count: counts.get(width * width) });
-	// 	}
-	// });
+	it.skip('Finds median steps per tile for puzzles of different sizes', () => {
+		const NUM_TRIALS = 100;
+		const results = [];
+		for (let width of [3, 4, 5, 6, 7, 8, 9, 10]) {
+			for (let height of [3, 4, 5, 6, 7, 8, 9, 10]) {
+				let counts = [];
+				for (let i = 0; i < NUM_TRIALS; i++) {
+					const grid = new HexaGrid(width, height, true);
+					const gen = new Generator(grid);
+					const tiles = gen.generate();
+					const solver = new Solver(tiles, grid);
+					let steps = 0;
+					for (let _ of solver.solve(true)) {
+						steps += 1;
+					}
+					counts.push(steps);
+				}
+				counts.sort((a, b) => a - b);
+				results.push({
+					width,
+					height,
+					min: counts[0],
+					max: counts[counts.length - 1],
+					p50: counts[Math.floor(NUM_TRIALS / 2)],
+					p25: counts[Math.floor(NUM_TRIALS * 0.25)],
+					p75: counts[Math.floor(NUM_TRIALS * 0.75)]
+				});
+			}
+		}
+		fs.writeFile(
+			'generator_stats/iterations_per_tile.json',
+			JSON.stringify(results, undefined, '\t'),
+			function (err) {
+				if (err) {
+					console.log(err);
+				} else {
+					console.log('file saved');
+				}
+			}
+		);
+	});
 });
