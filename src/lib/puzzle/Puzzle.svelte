@@ -184,16 +184,22 @@
 		measureSolveTime();
 		if (!$solved) {
 			solver = new Solver(tiles, grid);
-			for (let [index, orientation] of solver.solve()) {
-				const initial = tiles[index];
+			for (let { stage, step } of solver.solve(true)) {
+				if (stage === 'aftercheck') {
+					continue;
+				}
+				const initial = tiles[step.index];
 				let newState = initial;
 				let rotations = 0;
-				while (newState !== orientation) {
-					newState = grid.rotate(newState, -1, index);
+				while (newState !== step.orientation) {
+					newState = grid.rotate(newState, -1, step.index);
 					rotations -= 1;
 				}
-				const current = game.tileStates[index].data.rotations;
-				game.rotateTile(index, rotations - current);
+				const current = game.tileStates[step.index].data.rotations;
+				game.rotateTile(step.index, rotations - current || grid.DIRECTIONS.length);
+				if (step.final && stage === 'initial') {
+					game.tileStates[step.index].toggleLocked();
+				}
 				if (animate) {
 					await sleep(200);
 				}
@@ -218,7 +224,7 @@
 		const t0 = performance.now();
 		const solver = new Solver(tiles, grid);
 		steps = 0;
-		for (let _ of solver.solve()) {
+		for (let _ of solver.solve(true)) {
 			steps += 1;
 		}
 		const t1 = performance.now();

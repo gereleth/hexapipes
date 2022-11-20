@@ -20,6 +20,22 @@ function IslandDetectedException() {
 }
 
 /**
+ * Solving stage
+ * initial: deductions made about the original puzzle
+ * guess: deductions made after a guess
+ * aftercheck: steps made after a solution has been found
+ * @typedef {'initial'|'guess'|'aftercheck'} SolvingStage
+ */
+
+/**
+ * Solve step represents processing new info on a single cell
+ * @typedef {Object} Step
+ * @property {Number} index
+ * @property {Number} orientation
+ * @property {Boolean} final - true if this orientation is the only one left
+ */
+
+/**
  * @constructor
  * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
  * @param {Number} index - tile index in grid
@@ -156,7 +172,7 @@ export function Solver(tiles, grid) {
 	const T6 = 63;
 	/** @type {Map<Number,Number>} */
 	const tileTypes = new Map();
-	for (let t=0; t<self.grid.fullyConnected(0); t++) {
+	for (let t = 0; t < self.grid.fullyConnected(0); t++) {
 		let rotated = t;
 		while (!tileTypes.has(rotated)) {
 			tileTypes.set(rotated, t);
@@ -356,6 +372,12 @@ export function Solver(tiles, grid) {
 		}
 	};
 
+	/**
+	 * Process new info on cells
+	 * Removes orientations that contradict known constraints
+	 * Creates new walls/connections if remaining orientations require them
+	 * @yields {Step} - info about the processed cell
+	 */
 	self.processDirtyCells = function* () {
 		while (self.dirty.size > 0) {
 			// get a dirty cell
@@ -406,7 +428,9 @@ export function Solver(tiles, grid) {
 				}
 			}
 			// check if cell is solved
-			if (cell.possible.size === 1) {
+			const orientation = cell.possible.keys().next().value;
+			const final = cell.possible.size === 1;
+			if (final) {
 				// remove solved cell from its component
 				const component = self.components.get(index);
 				if (component !== undefined) {
@@ -415,12 +439,11 @@ export function Solver(tiles, grid) {
 						throw new IslandDetectedException();
 					}
 				}
-				const orientation = cell.possible.keys().next().value;
 				self.solution[index] = orientation;
 				self.unsolved.delete(index);
 				self.components.delete(index);
-				yield [index, orientation];
 			}
+			yield { index, orientation, final };
 			self.dirty.delete(index);
 		}
 	};
@@ -480,7 +503,7 @@ export function Solver(tiles, grid) {
 	/**
 	 * Chooses a tile/orientation to try out.
 	 * Used when fixing multiple solutions.
-	 * Selects an tile type that has a single possible orientation in this cell.
+	 * Selects a tile type that has a single possible orientation in this cell.
 	 * If there is no way to do this then uses regular guessing
 	 * @returns {Number[]} - [index, orientation]
 	 */
@@ -523,7 +546,13 @@ export function Solver(tiles, grid) {
 		return [guessIndex, guessOrientation];
 	};
 
-	self.solve = function* () {
+	/**
+	 * Solve the puzzle
+	 * @param {boolean} allSolutions = false, whether to find all solutions.
+	 * If false then stops as soon as the first one is found
+	 * @yields {{stage:{SolvingStage}, step:{Step}}}
+	 */
+	self.solve = function* (allSolutions = false) {
 		if (self.dirty.size === 0) {
 			const toInit = new Set([...Array(grid.width * grid.height).keys()]);
 			while (toInit.size > 0) {
@@ -533,15 +562,18 @@ export function Solver(tiles, grid) {
 					continue;
 				}
 				self.dirty.add(nextTile);
-				for (let [index, orientation] of self.processDirtyCells()) {
-					toInit.delete(index);
-					yield [index, orientation];
+				for (let step of self.processDirtyCells()) {
+					toInit.delete(step.index);
+					yield { stage: 'initial', step };
 				}
 			}
 			if (self.unsolved.size > 0) {
 				self.trySomeTricks();
-				for (let [index, orientation] of self.processDirtyCells()) {
-					yield [index, orientation];
+				for (let step of self.processDirtyCells()) {
+					yield {
+						stage: 'initial',
+						step
+					};
 				}
 			}
 		}
@@ -560,10 +592,10 @@ export function Solver(tiles, grid) {
 			}
 			const { index, guess, solver } = lastTrial;
 			try {
+				let stage = trials.length === 1 ? 'initial' : 'guess';
+				stage = self.solutions.length === 0 ? stage : 'aftercheck';
 				for (let step of solver.processDirtyCells()) {
-					if (self.solutions.length === 0) {
-						yield step;
-					}
+					yield { stage, step };
 				}
 			} catch (error) {
 				// something went wrong, no solution here
@@ -582,6 +614,9 @@ export function Solver(tiles, grid) {
 				// got a solution
 				self.solution = solver.solution;
 				self.solutions.push([...solver.solution]);
+				if (!allSolutions) {
+					break;
+				}
 				if (trials.length > 1) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
@@ -629,15 +664,11 @@ export function Solver(tiles, grid) {
 						continue;
 					}
 					self.dirty.add(nextTile);
-					for (let [index, orientation] of self.processDirtyCells()) {
-						toInit.delete(index);
-						marked[index] = orientation;
-					}
-				}
-				if (self.unsolved.size > 0) {
-					self.trySomeTricks();
-					for (let [index, orientation] of self.processDirtyCells()) {
-						marked[index] = orientation;
+					for (let step of self.processDirtyCells()) {
+						toInit.delete(step.index);
+						if (step.final) {
+							marked[step.index] = step.orientation;
+						}
 					}
 				}
 			}
