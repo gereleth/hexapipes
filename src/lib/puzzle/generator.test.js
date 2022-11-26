@@ -1,4 +1,3 @@
-import { countReset } from 'console';
 import { describe, expect, it } from 'vitest';
 import { Generator } from './generator';
 import { HexaGrid } from './hexagrid';
