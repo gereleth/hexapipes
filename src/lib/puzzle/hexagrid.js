@@ -297,6 +297,14 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	};
 
 	/**
+	 * Makes cell at index empty
+	 * @param {Number} index
+	 */
+	this.makeEmpty = function (index) {
+		self.emptyCells.add(index);
+	};
+
+	/**
 	 * A number corresponding to fully connected tile
 	 * @param {Number} index
 	 * @returns {Number}
