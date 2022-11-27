@@ -184,34 +184,38 @@
 		measureSolveTime();
 		if (!$solved) {
 			solver = new Solver(tiles, grid);
-			for (let { stage, step } of solver.solve(true)) {
-				if (stage === 'aftercheck') {
-					continue;
-				}
-				const initial = tiles[step.index];
-				let newState = initial;
-				let rotations = 0;
-				while (newState !== step.orientation) {
-					newState = grid.rotate(newState, -1, step.index);
-					rotations -= 1;
-				}
-				const current = game.tileStates[step.index].data.rotations;
-				game.rotateTile(step.index, rotations - current || grid.DIRECTIONS.length);
-				if (step.final && stage === 'initial') {
-					game.tileStates[step.index].toggleLocked();
-				}
-				if (animate) {
-					await sleep(200);
-				}
-			}
-			game.solved.set(false);
-			game._solved = false;
-			if (solver.solutions.length > 1) {
-				for (let [i, tile] of solver.solutions[0].entries()) {
-					if (solver.solutions.every((solution) => solution[i] === tile)) {
-						game.tileStates[i].toggleLocked();
+			try {
+				for (let { stage, step } of solver.solve(true)) {
+					if (stage === 'aftercheck') {
+						continue;
+					}
+					const initial = tiles[step.index];
+					let newState = initial;
+					let rotations = 0;
+					while (newState !== step.orientation) {
+						newState = grid.rotate(newState, -1, step.index);
+						rotations -= 1;
+					}
+					const current = game.tileStates[step.index].data.rotations;
+					game.rotateTile(step.index, rotations - current || grid.DIRECTIONS.length);
+					if (step.final && stage === 'initial') {
+						game.tileStates[step.index].toggleLocked();
+					}
+					if (animate) {
+						await sleep(200);
 					}
 				}
+				game.solved.set(false);
+				game._solved = false;
+				if (solver.solutions.length > 1) {
+					for (let [i, tile] of solver.solutions[0].entries()) {
+						if (solver.solutions.every((solution) => solution[i] === tile)) {
+							game.tileStates[i].toggleLocked();
+						}
+					}
+				}
+			} catch (error) {
+				console.error(error);
 			}
 		}
 	}
@@ -224,8 +228,12 @@
 		const t0 = performance.now();
 		const solver = new Solver(tiles, grid);
 		steps = 0;
-		for (let _ of solver.solve(true)) {
-			steps += 1;
+		try {
+			for (let _ of solver.solve(true)) {
+				steps += 1;
+			}
+		} catch (error) {
+			console.log('unsolvable puzzle');
 		}
 		const t1 = performance.now();
 		ms = t1 - t0;
