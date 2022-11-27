@@ -68,20 +68,14 @@ export function Cell(grid, index, initial) {
 	 * @param {Number} direction
 	 */
 	self.addWall = function (direction) {
-		if ((self.connections & direction) > 0) {
-			throw 'Trying to add a wall in place of an existing connection';
-		}
-		self.walls += direction;
+		self.walls += direction - ((self.connections + self.walls) & direction);
 	};
 
 	/**
 	 * @param {Number} direction
 	 */
 	self.addConnection = function (direction) {
-		if ((self.walls & direction) > 0) {
-			throw 'Trying to add a connection in place of an existing wall';
-		}
-		self.connections += direction;
+		self.connections += direction - ((self.connections + self.walls) & direction);
 	};
 
 	/**
@@ -285,7 +279,7 @@ export function Solver(tiles, grid) {
 		const neighbourTiles = [];
 		let walls = 0;
 		for (let direction of self.grid.DIRECTIONS) {
-			const { neighbour } = self.grid.find_neighbour(index, direction);
+			const { neighbour, empty } = self.grid.find_neighbour(index, direction);
 			if (neighbour === -1) {
 				walls += direction;
 			}
@@ -404,8 +398,8 @@ export function Solver(tiles, grid) {
 			if (addedWalls > 0) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedWalls) > 0) {
-						const { neighbour } = self.grid.find_neighbour(index, direction);
-						if (neighbour === -1) {
+						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+						if (empty) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
@@ -421,8 +415,8 @@ export function Solver(tiles, grid) {
 			if (addedConnections > 0) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedConnections) > 0) {
-						const { neighbour } = self.grid.find_neighbour(index, direction);
-						if (neighbour === -1) {
+						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+						if (empty) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
@@ -562,7 +556,14 @@ export function Solver(tiles, grid) {
 	 */
 	self.solve = function* (allSolutions = false) {
 		if (self.dirty.size === 0) {
-			const toInit = new Set([...Array(grid.width * grid.height).keys()]);
+			const toInit = new Set();
+			// process empty cells first, then the rest
+			for (let index of grid.emptyCells) {
+				toInit.add(index);
+			}
+			for (let index = 0; index < grid.width * grid.height; index++) {
+				toInit.add(index);
+			}
 			while (toInit.size > 0) {
 				const nextTile = toInit.values().next().value;
 				toInit.delete(nextTile);
@@ -655,7 +656,14 @@ export function Solver(tiles, grid) {
 		// process what we can for a start
 		try {
 			if (self.dirty.size === 0) {
-				const toInit = new Set([...Array(grid.width * grid.height).keys()]);
+				// process empty cells first, then the rest
+				const toInit = new Set();
+				for (let index of grid.emptyCells) {
+					toInit.add(index);
+				}
+				for (let index = 0; index < grid.width * grid.height; index++) {
+					toInit.add(index);
+				}
 				while (toInit.size > 0) {
 					const nextTile = toInit.values().next().value;
 					toInit.delete(nextTile);

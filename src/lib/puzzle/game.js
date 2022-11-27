@@ -156,16 +156,14 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.tileStates.forEach((tileState, index) => {
 			const state = tileState.data;
 			let directions = self.grid.getDirections(state.tile, state.rotations);
-			self.connections.set(
-				index,
-				new Set(
-					directions.map((direction) => {
-						return grid.find_neighbour(index, direction).neighbour;
-					})
-				)
-			);
-			// @ts-ignore
-			self.connections.get(index).delete(-1);
+			const connections = new Set();
+			for (let direction of directions) {
+				const { neighbour, empty } = grid.find_neighbour(index, direction);
+				if (!empty) {
+					connections.add(neighbour);
+				}
+			}
+			self.connections.set(index, connections);
 
 			const component = {
 				color: state.color,
@@ -250,8 +248,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 		if (index === -1) {
 			// toggle mark on the neighbour instead
 			const opposite = self.grid.OPPOSITE.get(direction);
-			const { neighbour } = self.grid.find_neighbour(tileIndex, direction);
-			if (neighbour !== -1 && opposite) {
+			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+			if (!empty && opposite) {
 				self.toggleEdgeMark(mark, neighbour, opposite);
 			}
 			return;
@@ -282,8 +280,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 			return;
 		}
 		dirOut.forEach((direction) => {
-			const { neighbour } = self.grid.find_neighbour(tileIndex, direction);
-			if (neighbour === -1) {
+			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+			if (empty) {
 				return;
 			}
 			tileConnections.delete(neighbour);
@@ -302,8 +300,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 			}
 		});
 		dirIn.forEach((direction) => {
-			const { neighbour } = grid.find_neighbour(tileIndex, direction);
-			if (neighbour === -1) {
+			const { neighbour, empty } = grid.find_neighbour(tileIndex, direction);
+			if (empty) {
 				return;
 			}
 			tileConnections.add(neighbour);

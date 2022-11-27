@@ -39,13 +39,17 @@ export function Generator(grid) {
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
 		const unvisited = new Set([...Array(total).keys()]);
+		for (let index of grid.emptyCells) {
+			unvisited.delete(index);
+		}
 		/** @type {Number[]} A list of tile shapes */
 		const tiles = [];
 		for (let i = 0; i < total; i++) {
 			tiles.push(0);
 		}
 		/** @type {Number} */
-		const startIndex = Math.floor(total / 2);
+		const startIndex = [...unvisited][Math.floor(unvisited.size / 2)];
+
 		const visited = [startIndex];
 		unvisited.delete(startIndex);
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
@@ -57,8 +61,8 @@ export function Generator(grid) {
 			}
 			const unvisitedNeighbours = [];
 			for (let direction of grid.DIRECTIONS) {
-				const { neighbour } = grid.find_neighbour(fromNode, direction);
-				if (neighbour === -1) {
+				const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
+				if (empty) {
 					continue;
 				}
 				if (unvisited.has(neighbour)) {

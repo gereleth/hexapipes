@@ -273,4 +273,22 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		const a = solver.AMBIGUOUS;
 		expect(marked).toStrictEqual(expect.arrayContaining([1, 24, a, 43, a, a, 1, 12, a]));
 	});
+
+	it('Detects a puzzle with an empty cell and a unique solution', () => {
+		const tiles = [3, 9, 5, 5, 0, 1, 3, 9, 1];
+		const grid = new HexaGrid(3, 3, false, tiles);
+		const solver = new Solver(tiles, grid);
+		const { marked, solvable, unique } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(true);
+	});
+
+	it('Detects a wrap puzzle with an empty cell and a unique solution', () => {
+		const tiles = [3, 9, 5, 5, 0, 1, 3, 9, 1];
+		const grid = new HexaGrid(3, 3, true, tiles);
+		const solver = new Solver(tiles, grid);
+		const { marked, solvable, unique } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(true);
+	});
 });
