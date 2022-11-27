@@ -388,6 +388,12 @@ export function Solver(tiles, grid) {
 			if (cell === undefined) {
 				continue;
 			}
+			// console.log('start processing dirty cell at', index, [...self.dirty]);
+			// console.log({
+			// 	walls: cell.walls,
+			// 	connections: cell.connections,
+			// 	possible: [...cell.possible]
+			// });
 			// apply constraints to limit possible orientations
 			const { addedWalls, addedConnections } = cell.applyConstraints();
 			// create a component for this tile if it got a connection
@@ -403,10 +409,8 @@ export function Solver(tiles, grid) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
-						if (neighbourCell === undefined) {
-							continue;
-						}
 						neighbourCell.addWall(self.grid.OPPOSITE.get(direction) || 0);
+						// console.log('add wall to', neighbour, 'in direction', direction);
 						self.dirty.add(neighbour);
 					}
 				}
@@ -420,10 +424,8 @@ export function Solver(tiles, grid) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
-						if (neighbourCell === undefined) {
-							continue;
-						}
 						neighbourCell.addConnection(self.grid.OPPOSITE.get(direction) || 0);
+						// console.log('add connection to', neighbour, 'in direction', direction);
 						self.mergeComponents(index, neighbour);
 						self.dirty.add(neighbour);
 					}
@@ -445,6 +447,7 @@ export function Solver(tiles, grid) {
 				self.unsolved.delete(index);
 				self.components.delete(index);
 			}
+			// console.log({ index, orientation, final });
 			yield { index, orientation, final };
 			self.dirty.delete(index);
 		}
@@ -558,11 +561,12 @@ export function Solver(tiles, grid) {
 		if (self.dirty.size === 0) {
 			const toInit = new Set();
 			// process empty cells first, then the rest
-			for (let index of grid.emptyCells) {
-				toInit.add(index);
-			}
 			for (let index = 0; index < grid.width * grid.height; index++) {
-				toInit.add(index);
+				if (grid.emptyCells.has(index)) {
+					self.dirty.add(index);
+				} else {
+					toInit.add(index);
+				}
 			}
 			while (toInit.size > 0) {
 				const nextTile = toInit.values().next().value;
@@ -658,11 +662,12 @@ export function Solver(tiles, grid) {
 			if (self.dirty.size === 0) {
 				// process empty cells first, then the rest
 				const toInit = new Set();
-				for (let index of grid.emptyCells) {
-					toInit.add(index);
-				}
 				for (let index = 0; index < grid.width * grid.height; index++) {
-					toInit.add(index);
+					if (grid.emptyCells.has(index)) {
+						self.dirty.add(index);
+					} else {
+						toInit.add(index);
+					}
 				}
 				while (toInit.size > 0) {
 					const nextTile = toInit.values().next().value;

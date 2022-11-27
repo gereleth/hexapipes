@@ -291,4 +291,16 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		expect(solvable).toBe(true);
 		expect(unique).toBe(true);
 	});
+
+	it('Detects a puzzle with many empty cells and a unique solution', () => {
+		const tiles = [
+			0, 0, 16, 1, 25, 40, 0, 0, 18, 1, 42, 16, 4, 0, 0, 18, 32, 32, 7, 25, 8, 35, 8, 20, 36, 19, 8,
+			16, 0, 36, 19, 9, 62, 17, 10, 0, 6, 32, 18, 7, 8, 0, 0, 0, 1, 15, 9, 8, 0
+		];
+		const grid = new HexaGrid(7, 7, false, tiles);
+		const solver = new Solver(tiles, grid);
+		const { marked, solvable, unique } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(true);
+	});
 });
