@@ -398,8 +398,8 @@ export function Solver(tiles, grid) {
 			if (addedWalls > 0) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedWalls) > 0) {
-						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
-						if (empty) {
+						const { neighbour } = self.grid.find_neighbour(index, direction);
+						if (neighbour === -1) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
@@ -415,8 +415,8 @@ export function Solver(tiles, grid) {
 			if (addedConnections > 0) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedConnections) > 0) {
-						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
-						if (empty) {
+						const { neighbour } = self.grid.find_neighbour(index, direction);
+						if (neighbour === -1) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
