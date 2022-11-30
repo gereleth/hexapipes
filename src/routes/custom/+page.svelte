@@ -47,6 +47,7 @@
 <div class="info container">
 	<h1>Custom Pipes Puzzle</h1>
 	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
+	<p>⚠️ Custom puzzle page does not save the generated puzzle or your progress!</p>
 </div>
 
 <div class="generator-params container">
@@ -71,7 +72,15 @@
 
 {#if id > 0}
 	{#key id}
-		<Puzzle {width} {height} {tiles} {wrap} bind:this={puzzle} on:solved={() => (solved = true)} />
+		<Puzzle
+			{width}
+			{height}
+			{tiles}
+			{wrap}
+			bind:this={puzzle}
+			on:solved={() => (solved = true)}
+			showSolveButton={true}
+		/>
 	{/key}
 {/if}
 

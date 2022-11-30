@@ -16,6 +16,7 @@
 	export let progressStoreName = '';
 	/** @type {Number|undefined} */
 	export let preferredPxPerCell;
+	export let showSolveButton = false;
 
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
@@ -183,6 +184,12 @@
 	async function unleashTheSolver() {
 		measureSolveTime();
 		if (!$solved) {
+			// unlock all tiles
+			for (let tileState of game.tileStates) {
+				if (tileState.data.locked) {
+					tileState.toggleLocked();
+				}
+			}
 			solver = new Solver(tiles, grid);
 			try {
 				for (let { stage, step } of solver.solve(true)) {
@@ -205,11 +212,14 @@
 						await sleep(200);
 					}
 				}
-				game.solved.set(false);
-				game._solved = false;
 				if (solver.solutions.length > 1) {
+					// unlock tiles that are different between solutions
+					// and lock those that are the same
+					game.solved.set(false);
+					game._solved = false;
 					for (let [i, tile] of solver.solutions[0].entries()) {
-						if (solver.solutions.every((solution) => solution[i] === tile)) {
+						const isSame = solver.solutions.every((solution) => solution[i] === tile);
+						if (game.tileStates[i].data.locked !== isSame) {
 							game.tileStates[i].toggleLocked();
 						}
 					}
@@ -220,8 +230,8 @@
 		}
 	}
 
-	let steps = 0;
-	let ms = 0;
+	let steps = -1;
+	let ms = -1;
 	/** @type {Number[]}*/
 	let msStats = [];
 	function measureSolveTime() {
@@ -251,48 +261,50 @@
 
 <svelte:window bind:innerWidth bind:innerHeight on:resize={resize} />
 
-<div class="solve-button">
-	<button on:click={unleashTheSolver}>🧩 Solve it</button>
-	<label for="animate">
-		<input type="checkbox" bind:checked={animate} id="animate" />
-		Animate
-	</label>
-</div>
-<div class="solve-button">
-	{#if ms > 0}
-		<div>
-			Solved in {steps} steps, {msStats[Math.floor(msStats.length / 2)]} ms (median of {msStats.length}
-			runs from {msStats[0]} to {msStats[msStats.length - 1]} ms).
-		</div>
-		<div>Number of solutions: {numsol}</div>
-		{#if numsol > 1}
+{#if showSolveButton}
+	<div class="solve-button">
+		<button on:click={unleashTheSolver}>🧩 Solve it</button>
+		<label for="animate">
+			<input type="checkbox" bind:checked={animate} id="animate" />
+			Animate
+		</label>
+	</div>
+	<div class="solve-button">
+		{#if ms > -1}
 			<div>
-				{#each solver.solutions as solution, i}
-					<button
-						on:click={() => {
-							solution.forEach((orientation, index) => {
-								const initial = tiles[index];
-								let newState = initial;
-								let rotations = 0;
-								while (newState !== orientation) {
-									newState = grid.rotate(newState, -1, index);
-									rotations -= 1;
-								}
-								const current = game.tileStates[index].data.rotations;
-								if (rotations - current !== 0) {
-									game.rotateTile(index, rotations - current);
-								}
-							});
-							game.solved.set(false);
-							game._solved = false;
-						}}
-						>Solution {i + 1}
-					</button>
-				{/each}
+				Solved in {steps} steps, {msStats[Math.floor(msStats.length / 2)]} ms (median of {msStats.length}
+				runs from {msStats[0]} to {msStats[msStats.length - 1]} ms).
 			</div>
+			<div>Number of solutions: {numsol}</div>
+			{#if numsol > 1}
+				<div>
+					{#each solver.solutions as solution, i}
+						<button
+							on:click={() => {
+								solution.forEach((orientation, index) => {
+									const initial = tiles[index];
+									let newState = initial;
+									let rotations = 0;
+									while (newState !== orientation) {
+										newState = grid.rotate(newState, -1, index);
+										rotations -= 1;
+									}
+									const current = game.tileStates[index].data.rotations;
+									if (rotations - current !== 0) {
+										game.rotateTile(index, rotations - current);
+									}
+								});
+								game.solved.set(false);
+								game._solved = false;
+							}}
+							>Solution {i + 1}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		{/if}
-	{/if}
-</div>
+	</div>
+{/if}
 
 <div class="puzzle" class:solved={$solved}>
 	<svg
