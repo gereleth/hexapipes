@@ -133,3 +133,53 @@ describe('Test steps distribution', () => {
 		);
 	});
 });
+
+describe('Generate dailies', () => {
+	it.skip('Creates evil puzzles', () => {
+		// setup params
+		const width = 7;
+		const height = 8;
+		const wrap = true;
+		// add grid features
+		const grid = new HexaGrid(width, height, wrap);
+		[0, 1, 2, 3, 4, 5, 6].forEach((i) => grid.makeEmpty(i));
+		// target difficulty in steps per tile
+		const writeFileIfMoreThan = 3.7;
+		let bestSteps = 0;
+		const files = fs.readdirSync('generator_stats/dailies');
+		let fileNumber = files.reduce((n, file) => Math.max(n, Number(file.split('.')[0])), 0) + 1;
+		console.log(fileNumber);
+		for (let i = 0; i < 100000; i++) {
+			const gen = new Generator(grid);
+			const tiles = gen.generate();
+			const solver = new Solver(tiles, grid);
+			let steps = 0;
+			for (let _ of solver.solve(true)) {
+				steps += 1;
+			}
+			steps /= grid.total;
+			if (steps > bestSteps) {
+				bestSteps = steps;
+				const filename = `generator_stats/dailies/${fileNumber < 10 ? '0' : ''}${fileNumber}.json`;
+				console.log({ steps: steps * grid.total, bestSteps, filename });
+				if (bestSteps > writeFileIfMoreThan) {
+					fs.writeFileSync(
+						filename,
+						JSON.stringify(
+							{
+								width,
+								height,
+								wrap,
+								tiles,
+								comment: `Hard 7x7 horizontal wrap`
+							},
+							undefined,
+							'\t'
+						)
+					);
+					fileNumber += 1;
+				}
+			}
+		}
+	});
+});
