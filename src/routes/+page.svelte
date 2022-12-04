@@ -26,11 +26,14 @@
 	<p>
 		It is usually played on a grid of squares. That variant is available for example on <a
 			href="https://puzzle-pipes.com"
-			target="_blank">puzzle-pipes.com</a
+			target="_blank"
+			rel="noreferrer">puzzle-pipes.com</a
 		>
 		or in Simon Tatham's puzzle
-		<a href="https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/net.html" target="_blank"
-			>collection</a
+		<a
+			href="https://www.chiark.greenend.org.uk/~sgtatham/puzzles/js/net.html"
+			target="_blank"
+			rel="noreferrer">collection</a
 		>.
 	</p>
 
@@ -119,11 +122,25 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2022-12-05</em> Client-side puzzle generation
+			<ul>
+				<li>
+					I've rewritten puzzle solving and generation logic from python to js. So now you can try
+					generated puzzles of any size at the <a href="/custom">custom puzzle page</a>.
+				</li>
+				<li>
+					The custom page doesn't currently have progress saving or timings so please don't start a
+					100x100 unless you have enough time to finish it in one go =).
+				</li>
+				<li>There's a "Solve it" button too so you can watch the robot work on a puzzle.</li>
+			</ul>
+		</li>
+		<li>
 			<em>2022-08-30</em> More minor updates:
 			<ul>
 				<li>
-					<a href="https://github.com/adamburgess" target="_blank" rel="noopener">Adam Burgess</a> fixed
-					a bug with seconds countdown display on daily puzzle page. Thanks =).
+					<a href="https://github.com/adamburgess" target="_blank" rel="noreferrer">Adam Burgess</a>
+					fixed a bug with seconds countdown display on daily puzzle page. Thanks =).
 				</li>
 				<li>
 					Improved handling of X tiles in click to orient control mode. The guiding dot is now
@@ -172,7 +189,7 @@
 			<em>2022-08-13</em> The timer now stops ticking when you leave the puzzle page or switch to a
 			different tab. It continues when you return to the puzzle. This should give more accurate
 			times on large puzzles. Thanks to
-			<a href="https://github.com/joshwilsonvu" target="_blank" rel="noopener">@joshwilsonvu</a> for
+			<a href="https://github.com/joshwilsonvu" target="_blank" rel="noreferrer">@joshwilsonvu</a> for
 			the pull request.
 		</li>
 		<li>
