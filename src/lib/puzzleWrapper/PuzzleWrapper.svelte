@@ -154,7 +154,7 @@
 			{#if solved}
 				Solved!
 			{/if}
-			<a href="/{category}/{size}/{nextPuzzleId}" sveltekit:noscroll>Next puzzle</a>
+			<a href="/{category}/{size}/{nextPuzzleId}" data-sveltekit-noscroll>Next puzzle</a>
 		{/if}
 	</div>
 	<PuzzleButtons
