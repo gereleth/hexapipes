@@ -16,7 +16,10 @@
 			<li class:active={$page.url.pathname === '/daily'}>
 				<a data-sveltekit-prefetch href="/daily">Daily</a>
 			</li>
-			<li class:active={$page.url.pathname.startsWith('/hexagonal')}>
+			<li
+				class:active={$page.url.pathname.startsWith('/hexagonal') ||
+					$page.url.pathname.startsWith('/custom')}
+			>
 				<a data-sveltekit-prefetch href="/hexagonal">Play</a>
 			</li>
 		</ul>

@@ -1,16 +1,11 @@
 <script>
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
+	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import Settings from '$lib/settings/Settings.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import Timer, { formatTime } from '$lib/Timer.svelte';
-	import Stats from '$lib/Stats.svelte';
-	import { getSolves, getStats, settings } from '$lib/stores';
 	import { HexaGrid } from '$lib/puzzle/hexagrid';
 	import { Generator } from '$lib/puzzle/generator';
-	import { Solver } from '$lib/puzzle/solver';
 
 	let width = 5;
 	let height = 5;
@@ -43,6 +38,11 @@
 <svelte:head>
 	<title>Custom Pipes Puzzle</title>
 </svelte:head>
+
+<div class="container">
+	<h1>Hexagonal pipes</h1>
+	<Grids />
+</div>
 
 <div class="info container">
 	<h1>Custom Pipes Puzzle</h1>
@@ -84,7 +84,7 @@
 	{/key}
 {/if}
 
-<div class="container">
+<div class="container buttons">
 	<PuzzleButtons
 		solved={true}
 		on:startOver={startOver}
@@ -134,8 +134,17 @@
 	.generator-params {
 		color: var(--text-color);
 	}
+	.generator-params {
+		text-align: center;
+	}
 	button {
 		color: var(--text-color);
 		min-height: 2em;
+	}
+	input {
+		max-width: 60px;
+	}
+	.buttons {
+		margin-top: 20px;
 	}
 </style>
