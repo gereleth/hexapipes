@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { browser } from '$app/env';
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import Settings from '$lib/settings/Settings.svelte';

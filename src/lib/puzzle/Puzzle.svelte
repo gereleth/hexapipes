@@ -3,8 +3,9 @@
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
-	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
 	import { PipesGame } from '$lib/puzzle/game';
+	import { Solver } from './solver';
 
 	export let width = 0;
 	export let height = 0;
@@ -15,6 +16,7 @@
 	export let progressStoreName = '';
 	/** @type {Number|undefined} */
 	export let preferredPxPerCell;
+	export let showSolveButton = false;
 
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
@@ -118,6 +120,7 @@
 		game.initializeBoard();
 		initialResize(innerWidth, innerHeight);
 		dispatch('initialized');
+		// unleashTheSolver();
 	});
 
 	onDestroy(() => {
@@ -172,6 +175,83 @@
 		});
 	}
 
+	function sleep(ms) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+	let animate = false;
+	let solver;
+	let numsol = 0;
+	async function unleashTheSolver() {
+		measureSolveTime();
+		if (!$solved) {
+			// unlock all tiles
+			for (let tileState of game.tileStates) {
+				if (tileState.data.locked) {
+					tileState.toggleLocked();
+				}
+			}
+			solver = new Solver(tiles, grid);
+			try {
+				for (let { stage, step } of solver.solve(true)) {
+					if (stage === 'aftercheck') {
+						continue;
+					}
+					const initial = tiles[step.index];
+					let newState = initial;
+					let rotations = 0;
+					while (newState !== step.orientation) {
+						newState = grid.rotate(newState, -1, step.index);
+						rotations -= 1;
+					}
+					const current = game.tileStates[step.index].data.rotations;
+					game.rotateTile(step.index, rotations - current || grid.DIRECTIONS.length);
+					if (step.final && stage === 'initial') {
+						game.tileStates[step.index].toggleLocked();
+					}
+					if (animate) {
+						await sleep(200);
+					}
+				}
+				if (solver.solutions.length > 1) {
+					// unlock tiles that are different between solutions
+					// and lock those that are the same
+					game.solved.set(false);
+					game._solved = false;
+					for (let [i, tile] of solver.solutions[0].entries()) {
+						const isSame = solver.solutions.every((solution) => solution[i] === tile);
+						if (game.tileStates[i].data.locked !== isSame) {
+							game.tileStates[i].toggleLocked();
+						}
+					}
+				}
+			} catch (error) {
+				console.error(error);
+			}
+		}
+	}
+
+	let steps = -1;
+	let ms = -1;
+	/** @type {Number[]}*/
+	let msStats = [];
+	function measureSolveTime() {
+		const t0 = performance.now();
+		const solver = new Solver(tiles, grid);
+		steps = 0;
+		try {
+			for (let _ of solver.solve(true)) {
+				steps += 1;
+			}
+		} catch (error) {
+			console.log('unsolvable puzzle');
+		}
+		const t1 = performance.now();
+		ms = t1 - t0;
+		msStats.push(ms);
+		msStats = msStats.sort((a, b) => a - b);
+		numsol = solver.solutions.length;
+	}
+
 	const save = createThrottle(saveProgress, 3000);
 
 	$: if ($solved) {
@@ -180,6 +260,51 @@
 </script>
 
 <svelte:window bind:innerWidth bind:innerHeight on:resize={resize} />
+
+{#if showSolveButton}
+	<div class="solve-button">
+		<button on:click={unleashTheSolver}>🧩 Solve it</button>
+		<label for="animate">
+			<input type="checkbox" bind:checked={animate} id="animate" />
+			Animate
+		</label>
+	</div>
+	<div class="solve-button">
+		{#if ms > -1}
+			<div>
+				Solved in {steps} steps, {msStats[Math.floor(msStats.length / 2)]} ms (median of {msStats.length}
+				runs from {msStats[0]} to {msStats[msStats.length - 1]} ms).
+			</div>
+			<div>Number of solutions: {numsol}</div>
+			{#if numsol > 1}
+				<div>
+					{#each solver.solutions as solution, i}
+						<button
+							on:click={() => {
+								solution.forEach((orientation, index) => {
+									const initial = tiles[index];
+									let newState = initial;
+									let rotations = 0;
+									while (newState !== orientation) {
+										newState = grid.rotate(newState, -1, index);
+										rotations -= 1;
+									}
+									const current = game.tileStates[index].data.rotations;
+									if (rotations - current !== 0) {
+										game.rotateTile(index, rotations - current);
+									}
+								});
+								game.solved.set(false);
+								game._solved = false;
+							}}
+							>Solution {i + 1}
+						</button>
+					{/each}
+				</div>
+			{/if}
+		{/if}
+	</div>
+{/if}
 
 <div class="puzzle" class:solved={$solved}>
 	<svg
@@ -213,5 +338,14 @@
 	.solved :global(.inside) {
 		filter: hue-rotate(360deg);
 		transition: filter 2s;
+	}
+	div.solve-button {
+		text-align: center;
+		padding: 0.5em;
+	}
+	button {
+		color: var(--text-color);
+		display: inline-block;
+		min-height: 2em;
 	}
 </style>

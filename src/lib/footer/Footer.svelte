@@ -1,10 +1,11 @@
 <div class="footer">
 	Created by @gereleth. Source code: <a
 		target="_blank"
-		rel="noopener"
+		rel="noreferrer"
 		href="https://github.com/gereleth/hexapipes">GitHub</a
 	><br />
-	Say hi to me on <a target="_blank" rel="noopener" href="https://twitter.com/gereleth">Twitter</a>
+	Say hi to me on
+	<a target="_blank" rel="noreferrer" href="https://twitter.com/gereleth">Twitter</a>
 </div>
 
 <style>

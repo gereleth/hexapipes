@@ -20,8 +20,8 @@
 	// disable edge marks on outer edges of non-wrap puzzles
 	if (!game.grid.wrap) {
 		game.grid.EDGEMARK_DIRECTIONS.forEach((direction, index) => {
-			const { neighbour } = game.grid.find_neighbour(i, direction);
-			if (neighbour === -1) {
+			const { neighbour, empty } = game.grid.find_neighbour(i, direction);
+			if (empty) {
 				$state.edgeMarks[index] = 'none';
 			}
 		});
@@ -103,6 +103,7 @@
 			/>
 		{/if}
 	</g>
+	<!-- <text x="0" y="0" text-anchor="middle" font-size="0.2">{i}</text> -->
 	{#if !solved}
 		{#each $state.edgeMarks as _, index (index)}
 			<EdgeMark

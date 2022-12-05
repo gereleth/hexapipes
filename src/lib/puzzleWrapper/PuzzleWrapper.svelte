@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/stores';
-	import { browser } from '$app/env';
+	import { browser } from '$app/environment';
 	import { goto, prefetch } from '$app/navigation';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
@@ -154,7 +154,7 @@
 			{#if solved}
 				Solved!
 			{/if}
-			<a href="/{category}/{size}/{nextPuzzleId}" sveltekit:noscroll>Next puzzle</a>
+			<a href="/{category}/{size}/{nextPuzzleId}" data-sveltekit-noscroll>Next puzzle</a>
 		{/if}
 	</div>
 	<PuzzleButtons

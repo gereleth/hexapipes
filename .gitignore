@@ -3,8 +3,11 @@ node_modules
 /build
 /.svelte-kit
 /package
+/coverage
+/generator_stats
 .env
 .env.*
 !.env.example
 .vercel
 .output
+.vscode

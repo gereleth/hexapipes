@@ -262,11 +262,11 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	/**
 	 * @param {Number} index
 	 * @param {Number} direction
+	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	this.find_neighbour = function (index, direction) {
 		let c = index % self.width;
 		let r = (index - c) / self.width;
-		let wrapped = false;
 		let neighbour = -1;
 
 		const [dr, dc] = self.RC_DELTA.get(direction)[r % 2];
@@ -276,16 +276,13 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 			if (r == -1) {
 				r = self.height - 1;
 				c += 1;
-				wrapped = true;
 			}
 			if (r == self.height) {
 				r = 0;
 				c -= 1 - (self.height % 2);
-				wrapped = true;
 			}
 			if (c < 0 || c === self.width) {
 				c = (c + self.width) % self.width;
-				wrapped = true;
 			}
 		}
 		if (r < 0 || r >= self.height) {
@@ -295,30 +292,49 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 		} else {
 			neighbour = self.width * r + c;
 		}
-		if (self.emptyCells.has(neighbour)) {
-			neighbour = -1;
-		}
-		return {
-			neighbour,
-			wrapped
-		};
+		const empty = neighbour === -1 || self.emptyCells.has(neighbour);
+		return { neighbour, empty };
+	};
+
+	/**
+	 * Makes cell at index empty
+	 * @param {Number} index
+	 */
+	this.makeEmpty = function (index) {
+		self.emptyCells.add(index);
+	};
+
+	/**
+	 * A number corresponding to fully connected tile
+	 * @param {Number} index
+	 * @returns {Number}
+	 */
+	this.fullyConnected = function (index) {
+		return 63;
 	};
 
 	/**
 	 * Compute tile orientation after a number of rotations
 	 * @param {Number} tile
 	 * @param {Number} rotations
+	 * @param {Number} index - index of tile, not used here
 	 * @returns
 	 */
-	this.rotate = function (tile, rotations) {
+	this.rotate = function (tile, rotations, index = 0) {
 		let rotated = tile;
 		rotations = rotations % 6;
-		while (rotations > 0) {
+		if (rotations > 3) {
 			rotations -= 6;
+		} else if (rotations < -3) {
+			rotations += 6;
 		}
 		while (rotations < 0) {
 			rotated = ((rotated * 2) % 64) + Math.floor(rotated / 32);
 			rotations += 1;
+		}
+		while (rotations > 0) {
+			rotated = Math.floor(rotated / 2) + 32 * (rotated % 2);
+			rotations -= 1;
 		}
 		return rotated;
 	};
