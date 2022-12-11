@@ -111,7 +111,7 @@
 	}
 
 	function newPuzzle() {
-		goto(`/${category}/${size}/${nextPuzzleId}`, { noscroll: true });
+		goto(`/${category}/${size}/${nextPuzzleId}`, { noScroll: true });
 	}
 
 	onMount(() => {
