@@ -1,5 +1,5 @@
 <script>
-	import { settings } from '$lib/stores';
+	import Settings from '$lib/settings/Settings.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let solved = false;
@@ -18,25 +18,23 @@
 			dispatch('newPuzzle');
 		}
 	}
+	let showSettings = false;
 </script>
 
 <div class="buttons">
 	<!-- Start over button-->
 	<button on:click={startOver}> 🔁 Start over </button>
-	<!-- Hide/Show timer button -->
-	<button on:click={() => ($settings.showTimer = !$settings.showTimer)}>
-		🕑
-		{#if $settings.showTimer}
-			Hide timer
-		{:else}
-			Show timer
-		{/if}
-	</button>
+	<!-- Settings button -->
+	<button on:click={() => (showSettings = !showSettings)}> ⚙️ Settings </button>
 	<!-- New puzzle button -->
 	{#if includeNewPuzzleButton}
 		<button on:click={newPuzzle}> ➡️ New puzzle </button>
 	{/if}
 </div>
+
+{#if showSettings}
+	<Settings />
+{/if}
 
 <style>
 	.buttons {
