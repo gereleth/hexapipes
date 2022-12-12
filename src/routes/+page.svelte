@@ -122,6 +122,22 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2022-12-12</em> Changed settings placement
+			<ul>
+				<li>
+					The settings can now be accessed through a button below the puzzle. This should make them
+					more
+					<a
+						href="https://github.com/gereleth/hexapipes/issues/60"
+						target="_blank"
+						rel="noreferrer"
+					>
+						discoverable
+					</a>.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2022-12-05</em> Client-side puzzle generation
 			<ul>
 				<li>
