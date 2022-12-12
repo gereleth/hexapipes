@@ -3,7 +3,6 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import Settings from '$lib/settings/Settings.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer, { formatTime } from '$lib/Timer.svelte';
 	import Stats from '$lib/Stats.svelte';
@@ -150,7 +149,6 @@
 	{/if}
 	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
-<Settings />
 
 <Puzzle
 	width={data.width}

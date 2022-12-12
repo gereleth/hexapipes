@@ -6,7 +6,6 @@
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer from '$lib/Timer.svelte';
 	import Stats from '$lib/Stats.svelte';
-	import Settings from '$lib/settings/Settings.svelte';
 	import { getSolves, getStats } from '$lib/stores';
 	import { onMount } from 'svelte';
 
@@ -112,7 +111,7 @@
 	}
 
 	function newPuzzle() {
-		goto(`/${category}/${size}/${nextPuzzleId}`, { noscroll: true });
+		goto(`/${category}/${size}/${nextPuzzleId}`, { noScroll: true });
 	}
 
 	onMount(() => {
@@ -130,7 +129,6 @@
 	});
 </script>
 
-<Settings />
 {#key `/${category}/${size}/${puzzleId}`}
 	<Puzzle
 		{width}

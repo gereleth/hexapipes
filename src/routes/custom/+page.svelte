@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import Settings from '$lib/settings/Settings.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { HexaGrid } from '$lib/puzzle/hexagrid';
 	import { Generator } from '$lib/puzzle/generator';
@@ -53,21 +52,17 @@
 <div class="generator-params container">
 	<label for="width">
 		Width
-		<input type="number" name="width" id="width" bind:value={width} />
+		<input type="number" name="width" id="width" bind:value={width} min="3" />
 	</label>
 	<label for="height">
 		Height
-		<input type="number" name="height" id="height" bind:value={height} />
+		<input type="number" name="height" id="height" bind:value={height} min="3" />
 	</label>
 	<label for="wrap">
 		Wrap
 		<input type="checkbox" name="wrap" id="wrap" bind:checked={wrap} />
 	</label>
 	<button on:click={generate}>Generate</button>
-</div>
-
-<div class="container">
-	<Settings />
 </div>
 
 {#if id > 0}
