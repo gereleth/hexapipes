@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { goto, prefetch } from '$app/navigation';
+	import { goto, preloadData } from '$app/navigation';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer from '$lib/Timer.svelte';
@@ -90,7 +90,7 @@
 			solve = solves.reportStart(puzzleId);
 		}
 		nextPuzzleId = solves.choosePuzzleId(puzzlesCount, puzzleId);
-		prefetch(`/${category}/${size}/${nextPuzzleId}`);
+		preloadData(`/${category}/${size}/${nextPuzzleId}`);
 	}
 
 	function stop() {

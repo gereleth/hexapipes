@@ -11,16 +11,16 @@
 		</svg>
 		<ul>
 			<li class:active={$page.url.pathname === '/'}>
-				<a data-sveltekit-prefetch href="/">Home</a>
+				<a data-sveltekit-preload-data href="/">Home</a>
 			</li>
 			<li class:active={$page.url.pathname === '/daily'}>
-				<a data-sveltekit-prefetch href="/daily">Daily</a>
+				<a data-sveltekit-preload-data href="/daily">Daily</a>
 			</li>
 			<li
 				class:active={$page.url.pathname.startsWith('/hexagonal') ||
 					$page.url.pathname.startsWith('/custom')}
 			>
-				<a data-sveltekit-prefetch href="/hexagonal">Play</a>
+				<a data-sveltekit-preload-data href="/hexagonal">Play</a>
 			</li>
 		</ul>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
