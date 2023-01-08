@@ -133,43 +133,6 @@ function createSolvesStore(path) {
 		}
 	});
 
-	function choosePuzzleId(totalCount, currentPuzzleId = 0) {
-		// console.log('choose new id for total', totalCount, 'and current id', currentPuzzleId)
-		// try to recommend what was unsolved last
-		if (data.length > 0 && data[0].elapsedTime === -1 && data[0].puzzleId !== currentPuzzleId) {
-			// console.log('returned unsolved id', data[0].puzzleId)
-			return data[0].puzzleId;
-		}
-		// get solved puzzles to exclude them
-		const solvedIds = new Set(
-			data.filter((solve) => solve.elapsedTime !== -1).map((solve) => solve.puzzleId)
-		);
-		// console.log('will exclude these ids (solved)', solvedIds)
-		let nextPuzzleId = currentPuzzleId;
-		if (solvedIds.size < totalCount * 0.7) {
-			while (nextPuzzleId === currentPuzzleId || solvedIds.has(nextPuzzleId)) {
-				nextPuzzleId = Math.ceil(Math.random() * totalCount);
-				// console.log('tried', nextPuzzleId)
-			}
-			// console.log('chose', nextPuzzleId)
-			return nextPuzzleId;
-		} else if (solvedIds.size === totalCount) {
-			// if everything is solved just give a random puzzle
-			while (nextPuzzleId === currentPuzzleId) {
-				nextPuzzleId = Math.ceil(Math.random() * totalCount);
-			}
-			return nextPuzzleId;
-		} else {
-			const unsolvedIds = [];
-			for (let i = 1; i <= totalCount; i++) {
-				if (!solvedIds.has(i)) {
-					unsolvedIds.push(i);
-				}
-			}
-			return unsolvedIds[Math.floor(Math.random() * unsolvedIds.length)];
-		}
-	}
-
 	function reportStart(puzzleId) {
 		unpause(puzzleId);
 
@@ -307,7 +270,6 @@ function createSolvesStore(path) {
 		subscribe,
 		reportStart,
 		reportFinish,
-		choosePuzzleId,
 		pause,
 		unpause
 	};
