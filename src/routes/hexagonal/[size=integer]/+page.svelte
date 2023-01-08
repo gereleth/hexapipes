@@ -1,18 +1,6 @@
 <script>
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { getSolves, puzzleCounts } from '$lib/stores';
 	import PuzzleWrapper from '$lib/puzzleWrapper/PuzzleWrapper.svelte';
-
-	let solves;
-
-	onMount(async () => {
-		// const size = $page.params.size;
-		// solves = getSolves($page.url.pathname);
-		// const id = solves.choosePuzzleId($puzzleCounts.hexagonal[`${size}x${size}`]);
-		// await goto(`/hexagonal/${size}/${id}`, { replaceState: true });
-	});
 </script>
 
 <svelte:head>
