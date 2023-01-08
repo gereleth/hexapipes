@@ -1,6 +1,7 @@
 <script>
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer from '$lib/Timer.svelte';
@@ -53,10 +54,9 @@
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
 
-	$: if (browser && $page.params && genId) {
+	function reactToNavigation(...args) {
 		if (size !== previousParams.size) {
 			if (previousParams.size) {
-				// console.log('changed size, pausing', previousParams.id)
 				solves?.pause(previousParams.id);
 			}
 			// if a player used the back button
@@ -67,7 +67,16 @@
 			stats = getStats(pathname);
 			pxPerCell = undefined;
 			if (puzzleId === -1) {
-				getRandomPuzzle();
+				// redirect to unfinished non-random puzzle if there is one
+				// to avoid interrupting player's streak
+				const haveUnfinishedBusiness =
+					$solves.length > 0 && $solves[0].puzzleId !== -1 && $solves[0].elapsedTime === -1;
+				if (haveUnfinishedBusiness) {
+					const id = $solves[0].puzzleId;
+					goto(`/${category}/${size}/${id}`, { replaceState: true });
+				} else {
+					getRandomPuzzle();
+				}
 			}
 		} else if (puzzleId !== previousParams.id) {
 			if (previousParams.id) {
@@ -85,6 +94,10 @@
 		} else {
 			savedProgress = undefined;
 		}
+	}
+
+	$: if (browser) {
+		reactToNavigation($page.params, genId);
 	}
 
 	function start() {
