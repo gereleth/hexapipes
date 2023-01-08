@@ -1,7 +1,6 @@
 <script>
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { goto, preloadData } from '$app/navigation';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer from '$lib/Timer.svelte';
@@ -18,8 +17,6 @@
 	/** @type {Number} */
 	export let puzzleId;
 	/** @type {Number} */
-	export let puzzlesCount;
-	/** @type {Number} */
 	export let width;
 	/** @type {Number} */
 	export let height;
@@ -27,8 +24,6 @@
 	export let tiles;
 
 	let solved = false;
-
-	let nextPuzzleId = 1;
 
 	let previousParams = {
 		size: 0,
@@ -96,10 +91,6 @@
 		if (solves !== undefined) {
 			solve = solves.reportStart(puzzleId);
 		}
-		if (puzzleId !== -1) {
-			nextPuzzleId = solves.choosePuzzleId(puzzlesCount, puzzleId);
-			preloadData(`/${category}/${size}/${nextPuzzleId}`);
-		}
 	}
 
 	function stop() {
@@ -118,14 +109,6 @@
 	function startOver() {
 		solved = false;
 		puzzle.startOver();
-	}
-
-	function newPuzzle() {
-		if (puzzleId !== -1) {
-			goto(`/${category}/${size}/${nextPuzzleId}`, { noScroll: true });
-		} else {
-			generatePuzzle();
-		}
 	}
 
 	function getRandomPuzzle() {
@@ -194,7 +177,7 @@
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
 		on:startOver={startOver}
-		on:newPuzzle={newPuzzle}
+		on:newPuzzle={generatePuzzle}
 	/>
 </div>
 
