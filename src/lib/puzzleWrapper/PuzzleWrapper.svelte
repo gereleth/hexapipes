@@ -29,7 +29,7 @@
 		size: 0,
 		id: 0
 	};
-	let genId = 0;
+	let genId = 1;
 
 	let solves; // a store of puzzles solve times
 	let stats; // a store of puzzle time stats
@@ -53,7 +53,7 @@
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
 
-	$: if (browser && $page.params) {
+	$: if (browser && $page.params && genId) {
 		if (size !== previousParams.size) {
 			if (previousParams.size) {
 				// console.log('changed size, pausing', previousParams.id)
@@ -75,6 +75,8 @@
 				solves?.pause(previousParams.id);
 				pxPerCell = puzzle.reportPxPerCell();
 			}
+		} else if (puzzleId === -1) {
+			pxPerCell = puzzle.reportPxPerCell();
 		}
 		solved = false;
 		const progress = window.localStorage.getItem(progressStoreName);
@@ -128,6 +130,15 @@
 		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles: tiles }));
 	}
 
+	function newPuzzle() {
+		if (!solved) {
+			solves.skip();
+			window.localStorage.removeItem(progressStoreName);
+			window.localStorage.removeItem(instanceStoreName);
+		}
+		generatePuzzle();
+	}
+
 	onMount(() => {
 		if (puzzleId === -1) {
 			getRandomPuzzle();
@@ -177,7 +188,7 @@
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
 		on:startOver={startOver}
-		on:newPuzzle={generatePuzzle}
+		on:newPuzzle={newPuzzle}
 	/>
 </div>
 

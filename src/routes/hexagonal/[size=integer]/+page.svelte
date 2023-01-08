@@ -34,7 +34,6 @@
 	category={'hexagonal'}
 	size={Number($page.params.size)}
 	puzzleId={-1}
-	puzzlesCount={-1}
 />
 
 <style>
