@@ -30,7 +30,6 @@
 	category={'hexagonal-wrap'}
 	size={Number($page.params.size)}
 	puzzleId={Number($page.params.id)}
-	puzzlesCount={$puzzleCounts.hexagonalWrap[`${$page.params.size}x${$page.params.size}`]}
 />
 
 <style>
