@@ -106,6 +106,7 @@ export const settings = createSettings();
  * @property {Number} startedAt
  * @property {Number} elapsedTime
  * @property {Number} pausedAt
+ * @property {String|undefined} error
  */
 
 /**
@@ -253,6 +254,7 @@ function createSolvesStore(path) {
 	/**
 	 * Add a pausedAt time to a puzzle if the puzzle is running and not paused
 	 * @param {Number} puzzleId
+	 * @returns {Solve|undefined}
 	 */
 	function pause(puzzleId) {
 		// console.log('pausing', puzzleId)
@@ -277,6 +279,7 @@ function createSolvesStore(path) {
 	/**
 	 * Remove pausedAt and adjust startedAt if the puzzle is paused
 	 * @param {Number} puzzleId
+	 * @returns {Solve|undefined}
 	 */
 	function unpause(puzzleId) {
 		// console.log('unpausing', puzzleId);
@@ -338,6 +341,10 @@ function createSolvesStore(path) {
 		skip
 	};
 }
+
+/**
+ * @typedef {ReturnType<createSolvesStore>} SolvesStore
+ */
 
 const solvesStores = new Map();
 
@@ -565,9 +572,13 @@ function createStatsStore(path) {
 const statsStores = new Map();
 
 /**
+ * @typedef {ReturnType<createStatsStore>} StatsStore
+ */
+
+/**
  *
  * @param {String} path
- * @returns {ReturnType<createStatsStore>}
+ * @returns {StatsStore}
  */
 export function getStats(path) {
 	const storeName = path.split('/', 3).join('/');

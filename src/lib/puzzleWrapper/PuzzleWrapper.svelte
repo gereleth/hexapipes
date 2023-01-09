@@ -31,12 +31,14 @@
 		id: 0
 	};
 	let genId = 1;
-
-	let solves; // a store of puzzles solve times
-	let stats; // a store of puzzle time stats
+	/** @type {import('$lib/stores').SolvesStore}*/
+	let solves;
+	/** @type {import('$lib/stores').StatsStore}*/
+	let stats;
 
 	let pathname = '';
 	let progressStoreName = '';
+	/** @type {import('$lib/puzzle/game').Progress|undefined} */
 	let savedProgress;
 	/** @type {Number|undefined}*/
 	let pxPerCell;
@@ -45,11 +47,13 @@
 	$: progressStoreName = pathname + '_progress';
 	$: instanceStoreName = `/${category}/${size}` + '_instance';
 
+	/** @type {import('$lib/stores').Solve} */
 	let solve = {
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
-		elapsedTime: -1
+		elapsedTime: -1,
+		error: undefined
 	};
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
@@ -85,6 +89,9 @@
 				pxPerCell = puzzle.reportPxPerCell();
 			}
 		} else if (puzzleId === -1) {
+			// switching from one random puzzle to another
+			// remove progress data to avoid reuse
+			window.localStorage.removeItem(progressStoreName);
 			pxPerCell = puzzle.reportPxPerCell();
 		}
 		solved = false;
@@ -115,6 +122,9 @@
 		window.localStorage.removeItem(instanceStoreName);
 	}
 
+	/**
+	 * @param {{ detail: { data: any; name: String; }; }} event
+	 */
 	function saveProgress(event) {
 		const { data, name } = event.detail;
 		const dataStr = JSON.stringify(data);
@@ -156,12 +166,18 @@
 		if (puzzleId === -1) {
 			getRandomPuzzle();
 		}
-		function handleVisibilityChange(e) {
+		function handleVisibilityChange() {
 			// console.log(`got visibility change event: ${document.visibilityState}`)
 			if (document.visibilityState === 'visible') {
-				solve = solves.unpause(puzzleId);
+				const result = solves.unpause(puzzleId);
+				if (result !== undefined) {
+					solve = result;
+				}
 			} else {
-				solve = solves.pause(puzzleId);
+				const result = solves.pause(puzzleId);
+				if (result !== undefined) {
+					solve = result;
+				}
 			}
 		}
 
