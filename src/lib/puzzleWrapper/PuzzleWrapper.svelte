@@ -163,9 +163,6 @@
 	}
 
 	onMount(() => {
-		if (puzzleId === -1) {
-			getRandomPuzzle();
-		}
 		function handleVisibilityChange() {
 			// console.log(`got visibility change event: ${document.visibilityState}`)
 			if (document.visibilityState === 'visible') {
