@@ -71,6 +71,9 @@
 			stats = getStats(pathname);
 			pxPerCell = undefined;
 			if (puzzleId === -1) {
+				// I don't know why this is necessary but it is
+				// (in case of switching between static and random puzzles)
+				tiles = [];
 				// redirect to unfinished non-random puzzle if there is one
 				// to avoid interrupting player's streak
 				const haveUnfinishedBusiness =
