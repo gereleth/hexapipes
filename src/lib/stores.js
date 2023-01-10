@@ -244,7 +244,9 @@ function createSolvesStore(path) {
 			}
 			solve = solves[0];
 			// finally record elapsed time
-			solve.elapsedTime = finishedAt - solve.startedAt;
+			if (solve.elapsedTime === -1) {
+				solve.elapsedTime = finishedAt - solve.startedAt;
+			}
 			return solves;
 		});
 		// @ts-ignore
