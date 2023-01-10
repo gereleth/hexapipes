@@ -58,6 +58,7 @@
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
 
+	// @ts-ignore
 	function reactToNavigation(...args) {
 		if (size !== previousParams.size) {
 			if (previousParams.size) {
@@ -122,7 +123,9 @@
 		solved = true;
 		solve = solves.reportFinish(puzzleId);
 		window.localStorage.removeItem(progressStoreName);
-		window.localStorage.removeItem(instanceStoreName);
+		if (puzzleId === -1) {
+			window.localStorage.removeItem(instanceStoreName);
+		}
 	}
 
 	/**
@@ -149,6 +152,9 @@
 	}
 
 	function generatePuzzle() {
+		if (puzzleId !== -1) {
+			return;
+		}
 		const grid = new HexaGrid(width, height, category === 'hexagonal-wrap');
 		const gen = new Generator(grid);
 		tiles = gen.generate();
@@ -187,7 +193,7 @@
 </script>
 
 {#if tiles.length > 0}
-	{#key `/${category}/${size}/${puzzleId}/${genId}`}
+	{#key `/${category}/${size}/${puzzleId === -1 ? genId : puzzleId}`}
 		<Puzzle
 			{width}
 			{height}
