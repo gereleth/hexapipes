@@ -227,6 +227,7 @@ describe('Check difficulty', () => {
 						wrap ? '-wrap' : ''
 					}/${size}x${size}/${Math.floor((i - 1) / 100)}/${i}.json`;
 					const data = fs.readFileSync(path, { encoding: 'utf-8' });
+					/** @type {{tiles:Number[]}} */
 					const instance = JSON.parse(data);
 					const grid = new HexaGrid(size, size, wrap);
 					const solver = new Solver(instance.tiles, grid);
