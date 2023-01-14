@@ -1,3 +1,4 @@
+import { check } from 'prettier';
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
 
@@ -164,25 +165,54 @@ export function PipesGame(grid, tiles, savedProgress) {
 				}
 			}
 			self.connections.set(index, connections);
-
-			const component = {
-				color: state.color,
-				tiles: new Set([index])
-			};
-			self.components.set(index, component);
 		});
 		// merge initial components of connected tiles
-		self.tileStates.forEach((tileState, index) => {
-			const state = tileState.data;
-			let directions = self.grid.getDirections(state.tile, state.rotations);
-			self.handleConnections({
-				detail: {
-					dirIn: directions,
-					dirOut: [],
-					tileIndex: index
+		const checked = new Set();
+		let i = 0;
+		const empty = new Set();
+		while (checked.size < self.tileStates.length) {
+			const toCheck = new Set([i]);
+			const state = self.tileStates[i].data;
+			const component = {
+				color: state.color,
+				tiles: new Set([i])
+			};
+			const connectedThrough = new Map();
+			let loop = false;
+			while (toCheck.size > 0) {
+				const index = toCheck.values().next().value;
+				toCheck.delete(index);
+				checked.add(index);
+				self.components.set(index, component);
+				component.tiles.add(index);
+				const connected = self.connections.get(index) || empty;
+				for (let neighbour of connected) {
+					const through = connectedThrough.get(neighbour) || -1;
+					if (through === index) {
+						// seen this connection before
+						continue;
+					} else if (through !== -1) {
+						// connected to the same component through some other tile
+						loop = true;
+						continue;
+					}
+					if ((self.connections.get(neighbour) || empty).has(index)) {
+						toCheck.add(neighbour);
+						connectedThrough.set(neighbour, index);
+					}
 				}
-			});
-		});
+			}
+			if (loop) {
+				const loopTiles = self.detectLoops(component.tiles);
+				for (let loopTile of loopTiles) {
+					self.tileStates[loopTile].setPartOfLoop(true);
+				}
+			}
+
+			while (checked.has(i)) {
+				i += 1;
+			}
+		}
 		self.initialized = true;
 	};
 
