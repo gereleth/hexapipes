@@ -100,6 +100,18 @@ function createSettings() {
 
 export const settings = createSettings();
 
+/**
+ * @typedef {Object} Solve
+ * @property {Number} puzzleId
+ * @property {Number} startedAt
+ * @property {Number} elapsedTime
+ * @property {Number} pausedAt
+ * @property {String|undefined} error
+ */
+
+/**
+ * @param {String} path
+ */
 function createSolvesStore(path) {
 	// console.log('creating store for', path)
 	const name = path + '_solves';
@@ -133,54 +145,34 @@ function createSolvesStore(path) {
 		}
 	});
 
-	function choosePuzzleId(totalCount, currentPuzzleId = 0) {
-		// console.log('choose new id for total', totalCount, 'and current id', currentPuzzleId)
-		// try to recommend what was unsolved last
-		if (data.length > 0 && data[0].elapsedTime === -1 && data[0].puzzleId !== currentPuzzleId) {
-			// console.log('returned unsolved id', data[0].puzzleId)
-			return data[0].puzzleId;
-		}
-		// get solved puzzles to exclude them
-		const solvedIds = new Set(
-			data.filter((solve) => solve.elapsedTime !== -1).map((solve) => solve.puzzleId)
-		);
-		// console.log('will exclude these ids (solved)', solvedIds)
-		let nextPuzzleId = currentPuzzleId;
-		if (solvedIds.size < totalCount * 0.7) {
-			while (nextPuzzleId === currentPuzzleId || solvedIds.has(nextPuzzleId)) {
-				nextPuzzleId = Math.ceil(Math.random() * totalCount);
-				// console.log('tried', nextPuzzleId)
-			}
-			// console.log('chose', nextPuzzleId)
-			return nextPuzzleId;
-		} else if (solvedIds.size === totalCount) {
-			// if everything is solved just give a random puzzle
-			while (nextPuzzleId === currentPuzzleId) {
-				nextPuzzleId = Math.ceil(Math.random() * totalCount);
-			}
-			return nextPuzzleId;
-		} else {
-			const unsolvedIds = [];
-			for (let i = 1; i <= totalCount; i++) {
-				if (!solvedIds.has(i)) {
-					unsolvedIds.push(i);
-				}
-			}
-			return unsolvedIds[Math.floor(Math.random() * unsolvedIds.length)];
-		}
-	}
-
+	/**
+	 * Start a new puzzle or continue a previous one
+	 * @param {Number} puzzleId
+	 * @returns {Solve}
+	 */
 	function reportStart(puzzleId) {
 		unpause(puzzleId);
 
 		let solve;
 		update((solves) => {
 			// check if we started this already
-			solve = solves.find((solve) => solve.puzzleId === puzzleId);
+			solve = solves.find((/** @type {Solve} */ solve) => solve.puzzleId === puzzleId);
 			if (solve !== undefined) {
 				if (solve.elapsedTime !== -1) {
-					// finished puzzle
-					return solves;
+					if (puzzleId === -1) {
+						// finished random puzzle - start new random puzzle solve
+						solve = {
+							puzzleId,
+							startedAt: new Date().valueOf(),
+							pausedAt: -1,
+							elapsedTime: -1
+						};
+						solves.unshift(solve);
+						return solves;
+					} else {
+						// finished non-random puzzle
+						return solves;
+					}
 				}
 				// started this earlier but did not finish
 				if (solve === solves[0]) {
@@ -207,9 +199,15 @@ function createSolvesStore(path) {
 			}
 			return solves;
 		});
+		// @ts-ignore
 		return solve;
 	}
 
+	/**
+	 * Complete a puzzle
+	 * @param {Number} puzzleId
+	 * @returns {Solve}
+	 */
 	function reportFinish(puzzleId) {
 		const finishedAt = new Date().valueOf();
 		let solve;
@@ -225,9 +223,13 @@ function createSolvesStore(path) {
 				return solves;
 			}
 			// find if we solved this already
-			solve = solves.find((solve) => solve.puzzleId === puzzleId && solve.elapsedTime !== -1);
-			if (solve !== undefined) {
-				return solves;
+			if (puzzleId !== -1) {
+				solve = solves.find(
+					(/** @type {Solve} */ solve) => solve.puzzleId === puzzleId && solve.elapsedTime !== -1
+				);
+				if (solve !== undefined) {
+					return solves;
+				}
 			}
 			// check if this puzzle was the last one started
 			if (solves[0].puzzleId !== puzzleId) {
@@ -242,19 +244,26 @@ function createSolvesStore(path) {
 			}
 			solve = solves[0];
 			// finally record elapsed time
-			solve.elapsedTime = finishedAt - solve.startedAt;
+			if (solve.elapsedTime === -1) {
+				solve.elapsedTime = finishedAt - solve.startedAt;
+			}
 			return solves;
 		});
+		// @ts-ignore
 		return solve;
 	}
 
-	// adds a pausedAt time to a puzzle if the puzzle is running and not paused
+	/**
+	 * Add a pausedAt time to a puzzle if the puzzle is running and not paused
+	 * @param {Number} puzzleId
+	 * @returns {Solve|undefined}
+	 */
 	function pause(puzzleId) {
 		// console.log('pausing', puzzleId)
 		let solve;
 		update((solves) => {
 			// find if this puzzle is in progress
-			solve = solves.find((solve) => solve.puzzleId === puzzleId);
+			solve = solves.find((/** @type {Solve} */ solve) => solve.puzzleId === puzzleId);
 			if (
 				solve !== undefined &&
 				solve.startedAt !== -1 &&
@@ -269,13 +278,17 @@ function createSolvesStore(path) {
 		return solve;
 	}
 
-	// removes pausedAt and adjusts startedAt if the puzzle is paused
+	/**
+	 * Remove pausedAt and adjust startedAt if the puzzle is paused
+	 * @param {Number} puzzleId
+	 * @returns {Solve|undefined}
+	 */
 	function unpause(puzzleId) {
 		// console.log('unpausing', puzzleId);
 		let solve;
 		update((solves) => {
 			// find if this puzzle in in progress and paused
-			solve = solves.find((solve) => solve.puzzleId === puzzleId);
+			solve = solves.find((/** @type {Solve} */ solve) => solve.puzzleId === puzzleId);
 			// if a puzzle started earlier was saved with no pausedAt property
 			if (solve && solve.pausedAt === undefined) {
 				solve.pausedAt = -1;
@@ -284,7 +297,7 @@ function createSolvesStore(path) {
 				solve !== undefined &&
 				solve.startedAt !== -1 &&
 				solve.elapsedTime === -1 &&
-				solve.pausedAt > solve.startedAt
+				solve.pausedAt >= solve.startedAt
 			) {
 				const now = new Date().valueOf();
 				const pausedElapsedTime = now - solve.pausedAt;
@@ -303,18 +316,45 @@ function createSolvesStore(path) {
 		return solve;
 	}
 
+	/**
+	 * Indicate that we want to drop a previous random puzzle and start a new one
+	 * No puzzleId parameter because it's only needed for random puzzles
+	 */
+	function skip() {
+		const timestamp = new Date().valueOf();
+		const solve = {
+			puzzleId: -1,
+			startedAt: timestamp,
+			pausedAt: timestamp,
+			elapsedTime: -1
+		};
+		update((solves) => {
+			solves.unshift(solve);
+			return solves;
+		});
+	}
+
 	return {
 		subscribe,
 		reportStart,
 		reportFinish,
-		choosePuzzleId,
 		pause,
-		unpause
+		unpause,
+		skip
 	};
 }
 
+/**
+ * @typedef {ReturnType<createSolvesStore>} SolvesStore
+ */
+
 const solvesStores = new Map();
 
+/**
+ *
+ * @param {String} path
+ * @returns {ReturnType<createSolvesStore>}
+ */
 export function getSolves(path) {
 	// path is like /<category>/<size>/<puzzle id>
 	// this takes the category and size parts only
@@ -328,6 +368,9 @@ export function getSolves(path) {
 	}
 }
 
+/**
+ * @param {String} path
+ */
 function createStatsStore(path) {
 	// console.log('creating stats store for', path)
 
@@ -391,6 +434,11 @@ function createStatsStore(path) {
 		return mean;
 	}
 
+	/**
+	 *
+	 * @param {Solve[]} solves
+	 * @returns
+	 */
 	function _calculateStats(solves) {
 		let streak = 0;
 		let totalSolved = 0;
@@ -525,6 +573,15 @@ function createStatsStore(path) {
 
 const statsStores = new Map();
 
+/**
+ * @typedef {ReturnType<createStatsStore>} StatsStore
+ */
+
+/**
+ *
+ * @param {String} path
+ * @returns {StatsStore}
+ */
 export function getStats(path) {
 	const storeName = path.split('/', 3).join('/');
 	if (statsStores.has(storeName)) {

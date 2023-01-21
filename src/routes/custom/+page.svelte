@@ -9,6 +9,7 @@
 	let width = 5;
 	let height = 5;
 	let wrap = false;
+	let branchingAmount = 0.6;
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
 	let solved = false;
@@ -23,7 +24,7 @@
 		grid = new HexaGrid(width, height, wrap);
 		id += 1;
 		const gen = new Generator(grid);
-		tiles = gen.generate();
+		tiles = gen.generate(branchingAmount);
 	}
 
 	function startOver() {
@@ -61,6 +62,18 @@
 	<label for="wrap">
 		Wrap
 		<input type="checkbox" name="wrap" id="wrap" bind:checked={wrap} />
+	</label>
+	<label for="branching">
+		Branching
+		<input
+			type="range"
+			min="0"
+			max="1"
+			step="0.05"
+			name="branching"
+			id="branching"
+			bind:value={branchingAmount}
+		/>
 	</label>
 	<button on:click={generate}>Generate</button>
 </div>
@@ -136,7 +149,7 @@
 		color: var(--text-color);
 		min-height: 2em;
 	}
-	input {
+	input[type='number'] {
 		max-width: 60px;
 	}
 	.buttons {

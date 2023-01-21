@@ -1,7 +1,6 @@
 <script>
 	import { page } from '$app/stores';
 	import PuzzleWrapper from '$lib/puzzleWrapper/PuzzleWrapper.svelte';
-	import { puzzleCounts } from '$lib/stores';
 
 	/** @type {import('./$types').PageData} */
 	export let data;
@@ -26,7 +25,6 @@
 	category={'hexagonal'}
 	size={Number($page.params.size)}
 	puzzleId={Number($page.params.id)}
-	puzzlesCount={$puzzleCounts.hexagonal[`${$page.params.size}x${$page.params.size}`]}
 />
 
 <style>

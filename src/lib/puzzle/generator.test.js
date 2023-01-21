@@ -5,10 +5,12 @@ import { Solver } from './solver';
 const fs = require('fs');
 
 describe('Test Prims pregeneration', () => {
+	const branchingAmount = 1;
+
 	it('Pregenerates a solvable puzzle 5x5', () => {
 		const grid = new HexaGrid(5, 5, false);
 		const gen = new Generator(grid);
-		const tiles = gen.pregenerate_prims();
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
 		const solver = new Solver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
@@ -17,7 +19,7 @@ describe('Test Prims pregeneration', () => {
 	it('Pregenerates a solvable puzzle 5x5 wrap', () => {
 		const grid = new HexaGrid(5, 5, true);
 		const gen = new Generator(grid);
-		const tiles = gen.pregenerate_prims();
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
 		const solver = new Solver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
@@ -26,7 +28,7 @@ describe('Test Prims pregeneration', () => {
 	it('Pregenerates a solvable puzzle 4x6', () => {
 		const grid = new HexaGrid(4, 6, false);
 		const gen = new Generator(grid);
-		const tiles = gen.pregenerate_prims();
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
 		const solver = new Solver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
@@ -35,7 +37,87 @@ describe('Test Prims pregeneration', () => {
 	it('Pregenerates a solvable puzzle 4x6 wrap', () => {
 		const grid = new HexaGrid(4, 6, true);
 		const gen = new Generator(grid);
-		const tiles = gen.pregenerate_prims();
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+});
+
+describe('Test Recursive Backtracking pregeneration', () => {
+	const branchingAmount = 0;
+
+	it('Pregenerates a solvable puzzle 5x5', () => {
+		const grid = new HexaGrid(5, 5, false);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+
+	it('Pregenerates a solvable puzzle 5x5 wrap', () => {
+		const grid = new HexaGrid(5, 5, true);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+
+	it('Pregenerates a solvable puzzle 4x6', () => {
+		const grid = new HexaGrid(4, 6, false);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+
+	it('Pregenerates a solvable puzzle 4x6 wrap', () => {
+		const grid = new HexaGrid(4, 6, true);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+});
+
+describe('Test Growing Tree pregeneration', () => {
+	const branchingAmount = 0.5;
+
+	it('Pregenerates a solvable puzzle 5x5', () => {
+		const grid = new HexaGrid(5, 5, false);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+
+	it('Pregenerates a solvable puzzle 5x5 wrap', () => {
+		const grid = new HexaGrid(5, 5, true);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+
+	it('Pregenerates a solvable puzzle 4x6', () => {
+		const grid = new HexaGrid(4, 6, false);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
+		const solver = new Solver(tiles, grid);
+		const { solvable } = solver.markAmbiguousTiles();
+		expect(solvable).toBe(true);
+	});
+
+	it('Pregenerates a solvable puzzle 4x6 wrap', () => {
+		const grid = new HexaGrid(4, 6, true);
+		const gen = new Generator(grid);
+		const tiles = gen.pregenerate_growingtree(branchingAmount);
 		const solver = new Solver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
@@ -130,6 +212,79 @@ describe('Test steps distribution', () => {
 					console.log('file saved');
 				}
 			}
+		);
+	});
+});
+
+describe('Check difficulty', () => {
+	it.skip('Check difficulty of static instances', () => {
+		const results = [];
+		const deadends = new Set(new HexaGrid(2, 2).DIRECTIONS);
+		for (let wrap of [false, true]) {
+			for (let size of [5, 7, 10, 15, 20, 30, 40]) {
+				for (let i = 1; i <= 1000; i++) {
+					const path = `static/_instances/hexagonal${
+						wrap ? '-wrap' : ''
+					}/${size}x${size}/${Math.floor((i - 1) / 100)}/${i}.json`;
+					const data = fs.readFileSync(path, { encoding: 'utf-8' });
+					/** @type {{tiles:Number[]}} */
+					const instance = JSON.parse(data);
+					const grid = new HexaGrid(size, size, wrap);
+					const solver = new Solver(instance.tiles, grid);
+					let steps = 0;
+					for (let _ of solver.solve(true)) {
+						steps += 1;
+					}
+					results.push({
+						width: size,
+						height: size,
+						wrap,
+						numDeadends: instance.tiles.reduce((prev, x) => prev + (deadends.has(x) ? 1 : 0), 0),
+						id: i,
+						steps,
+						stepsPerTile: steps / grid.total
+					});
+				}
+			}
+		}
+		fs.writeFileSync(
+			'generator_stats/static_difficulty.json',
+			JSON.stringify(results, undefined, '\t')
+		);
+	});
+
+	it.skip('Check difficulty of generated instances', () => {
+		const results = [];
+		const deadends = new Set(new HexaGrid(2, 2).DIRECTIONS);
+		for (let branchingAmount of [0, 0.25, 0.5, 0.75, 1]) {
+			for (let wrap of [false, true]) {
+				for (let size of [5, 7, 10, 15, 20, 30, 40]) {
+					for (let i = 1; i <= 1000; i++) {
+						const grid = new HexaGrid(size, size, wrap);
+						const gen = new Generator(grid);
+						const tiles = gen.generate(branchingAmount);
+						const solver = new Solver(tiles, grid);
+						let steps = 0;
+						for (let _ of solver.solve(true)) {
+							steps += 1;
+						}
+						results.push({
+							width: size,
+							height: size,
+							wrap,
+							branchingAmount,
+							numDeadends: tiles.reduce((prev, x) => prev + (deadends.has(x) ? 1 : 0), 0),
+							id: i,
+							steps,
+							stepsPerTile: steps / grid.total
+						});
+					}
+				}
+			}
+		}
+		fs.writeFileSync(
+			'generator_stats/generated_difficulty.json',
+			JSON.stringify(results, undefined, '\t')
 		);
 	});
 });

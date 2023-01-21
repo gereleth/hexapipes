@@ -122,6 +122,26 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-01-21</em> Switch to client-side generated puzzles
+			<ul>
+				<li>
+					Say hello to an infinite supply of puzzles that are now generated for you client-side.
+					Static puzzles stay accessible at their direct links but won't normally be used any more.
+				</li>
+				<li>
+					Play puzzles of any NxN size by changing the number in the url. For example, go to <a
+						href="/hexagonal/50">/hexagonal/50</a
+					> for 50x50 puzzles. Please tweet a screenshot at me if you complete something that huge =).
+				</li>
+				<li>
+					<a href="/custom">Custom puzzle page</a> now has a "branching" control. Low branching values
+					create puzzles with long winding corridors, high branching leads to lots of intersections and
+					deadends. This affects puzzle difficulty: try a wrap puzzle with low branching if you want
+					something evil.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2022-12-12</em> Changed settings placement
 			<ul>
 				<li>

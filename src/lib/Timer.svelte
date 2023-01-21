@@ -25,12 +25,13 @@
 
 <script>
 	import { settings } from '$lib/stores';
+	/** @type {import('$lib/stores').Solve} */
 	export let solve = {
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1,
-		error: null
+		error: undefined
 	};
 
 	/**
@@ -39,6 +40,9 @@
 	let timerId;
 	let elapsed = 0;
 
+	/**
+	 * @param {import('$lib/stores').Solve} solve
+	 */
 	function toggleTimer(solve) {
 		clearInterval(timerId);
 		if (solve.startedAt === -1) {

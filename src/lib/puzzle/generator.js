@@ -31,10 +31,14 @@ export function Generator(grid) {
 	self.grid = grid;
 
 	/**
-	 * Fills a grid with tiles according to Prim's algorithm
+	 * Fills a grid with tiles using GrowingTree algorithm
+	 * At branchingAmount = 0 it's like recursive backtracking
+	 * At branchingAmount = 1 it's like Prim's algorithm
+	 * Intermediate values give some mix of these methods
+	 * @param {Number} branchingAmount - a number in range 0..1
 	 * @returns {Number[]} - unrandomized tiles array
 	 */
-	this.pregenerate_prims = function () {
+	this.pregenerate_growingtree = function (branchingAmount) {
 		const total = grid.width * grid.height;
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
@@ -48,16 +52,28 @@ export function Generator(grid) {
 			tiles.push(0);
 		}
 		/** @type {Number} */
-		const startIndex = [...unvisited][Math.floor(unvisited.size / 2)];
+		const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
 
 		const visited = [startIndex];
 		unvisited.delete(startIndex);
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
 		const lastResortNodes = [];
 		while (unvisited.size > 0) {
-			let fromNode = getRandomElement(visited);
-			if (fromNode === undefined) {
-				fromNode = getRandomElement(lastResortNodes);
+			let fromNode = 0;
+			const usePrims = Math.random() < branchingAmount;
+			if (usePrims) {
+				// go from a random element
+				fromNode = getRandomElement(visited);
+				if (fromNode === undefined) {
+					fromNode = getRandomElement(lastResortNodes);
+				}
+			} else {
+				// go from the last element
+				if (visited.length >= 1) {
+					fromNode = visited[visited.length - 1];
+				} else {
+					fromNode = getRandomElement(lastResortNodes);
+				}
 			}
 			const unvisitedNeighbours = [];
 			for (let direction of grid.DIRECTIONS) {
@@ -71,8 +87,12 @@ export function Generator(grid) {
 			}
 			if (unvisitedNeighbours.length == 0) {
 				const array = visited.length > 0 ? visited : lastResortNodes;
-				const index = array.indexOf(fromNode);
-				array.splice(index, 1);
+				if (usePrims) {
+					const index = array.indexOf(fromNode);
+					array.splice(index, 1);
+				} else {
+					array.pop();
+				}
 				continue;
 			}
 			const toVisit = getRandomElement(unvisitedNeighbours);
@@ -99,12 +119,12 @@ export function Generator(grid) {
 	 * Generate a puzzle instance with a unique solution
 	 * @returns {Number[]}
 	 */
-	self.generate = function () {
+	self.generate = function (branchingAmount = 0.6) {
 		let attempt = 0;
 		// I don't expect many attempts to be needed, just 1 in .9999 cases
 		while (attempt < 3) {
 			attempt += 1;
-			let tiles = self.pregenerate_prims();
+			let tiles = self.pregenerate_growingtree(branchingAmount);
 			let uniqueIter = 0;
 			while (uniqueIter < 3) {
 				uniqueIter += 1;
