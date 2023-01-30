@@ -659,8 +659,7 @@ export function controls(node, game) {
 
 	node.addEventListener('mousedown', handleMouseDown);
 	node.addEventListener('mousemove', handleMouseMove);
-	node.addEventListener('mouseleave', handleMouseUp);
-	node.addEventListener('mouseup', handleMouseUp);
+	document.addEventListener('mouseup', handleMouseUp);
 	if (useZoomPan) {
 		node.addEventListener('wheel', handleWheel);
 	}
@@ -674,8 +673,7 @@ export function controls(node, game) {
 		destroy() {
 			node.removeEventListener('mousedown', handleMouseDown);
 			node.removeEventListener('mousemove', handleMouseMove);
-			node.removeEventListener('mouseleave', handleMouseUp);
-			node.removeEventListener('mouseup', handleMouseUp);
+			document.removeEventListener('mouseup', handleMouseUp);
 			node.removeEventListener('wheel', handleWheel);
 			window.removeEventListener('wheel', checkForTouchpad);
 
