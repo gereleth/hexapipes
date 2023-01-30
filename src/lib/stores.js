@@ -35,6 +35,7 @@ export const puzzleCounts = writable({
 
 function createSettings() {
 	let defaultSettings = {
+		/** @type {ControlMode} */
 		controlMode: 'rotate_lock',
 		invertRotationDirection: false,
 		showTimer: true,
