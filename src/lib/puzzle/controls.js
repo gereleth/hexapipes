@@ -257,8 +257,8 @@ export function controls(node, game) {
 			const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 			const meanRadius = 0.5 * (startRadius + endRadius);
 			if (
-				Math.abs(meanRadius - 0.5) <= 0.1 &&
-				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.2
+				Math.abs(meanRadius - 0.5) <= 0.5 &&
+				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
 			) {
 				// was close to tile border
 				// in a well defined direction
@@ -274,7 +274,7 @@ export function controls(node, game) {
 				state = 'idle';
 			}
 		}
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1) {
+		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance <= 0.1) {
 			const maybeTile = event.target.closest('g.tile');
 			if (maybeTile) {
 				const tileIndex = Number(maybeTile.getAttribute('data-index'));
@@ -601,8 +601,8 @@ export function controls(node, game) {
 				const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 				const meanRadius = 0.5 * (startRadius + endRadius);
 				if (
-					Math.abs(meanRadius - 0.5) <= 0.1 &&
-					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.2
+					Math.abs(meanRadius - 0.5) <= 0.5 &&
+					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
 				) {
 					// was close to tile border
 					// in a well defined direction
@@ -618,7 +618,7 @@ export function controls(node, game) {
 					touchState = 'idle';
 				}
 			}
-			if (touchState === 'touchdown' && t.tileIndex !== -1) {
+			if (touchState === 'touchdown' && t.tileIndex !== -1 && distance <= 0.1) {
 				const upTileIndex = grid.xy_to_index(x, y);
 				if (upTileIndex === t.tileIndex) {
 					// stayed in the same tile, process this as a click
