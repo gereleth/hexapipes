@@ -236,7 +236,7 @@ export function controls(node, game) {
 		const dy = y - mouseDownOrigin.y;
 		const distance = Math.sqrt(dx * dx + dy * dy);
 
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.1) {
+		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.2) {
 			// this might be drawing an edge mark
 			const tileIndex = mouseDownOrigin.tileIndex;
 			const { tileX, tileY } = mouseDownOrigin;
@@ -582,7 +582,7 @@ export function controls(node, game) {
 			const t = ongoingTouches[0];
 			const distance = Math.sqrt((x - t.x) ** 2 + (y - t.y) ** 2);
 
-			if (t.tileIndex !== -1 && distance >= 0.1) {
+			if (t.tileIndex !== -1 && distance >= 0.2) {
 				// this might be drawing an edge mark
 				const tileIndex = t.tileIndex;
 				const { tileX, tileY } = t;
