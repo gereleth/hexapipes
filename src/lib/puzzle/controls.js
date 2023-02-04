@@ -47,10 +47,11 @@ export function controls(node, game) {
 	const pixelsHeight = rect.height;
 
 	/**
-	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'|'edgemark'}
+	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'|'edgemark'|'fingerpainting'}
 	 */
 	let state = 'idle';
-
+	let fingerpainting = false;
+	let fingerpaintingTileIndex = -1;
 	/** @type PointerOrigin */
 	let mouseDownOrigin = {
 		x: 0,
@@ -165,6 +166,8 @@ export function controls(node, game) {
 					tileState.toggleLocked();
 					state = tileState.data.locked ? 'locking' : 'unlocking';
 					save();
+				} else if (fingerpainting) {
+					state = 'fingerpainting';
 				} else {
 					state = 'mousedown';
 				}
@@ -217,6 +220,22 @@ export function controls(node, game) {
 					tileState.set(tileState.data);
 					save();
 				}
+			}
+		}
+		if (state === 'fingerpainting') {
+			const maybeTile = event.target.closest('g.tile');
+			if (maybeTile) {
+				const tileIndex = Number(maybeTile.getAttribute('data-index'));
+				if (fingerpaintingTileIndex >= 0 && tileIndex !== fingerpaintingTileIndex) {
+					// make a connection between these tiles
+					// TODO what if we moved fast and skipped a tile?..
+					const [ox, oy] = game.grid.index_to_xy(fingerpaintingTileIndex);
+					const dir = (Math.round(Math.atan2(oy - y, x - ox) / ((2 * Math.PI) / 6)) + 6) % 6;
+					game.createConnection(fingerpaintingTileIndex, 2 ** dir);
+				}
+				fingerpaintingTileIndex = tileIndex;
+			} else {
+				fingerpaintingTileIndex = -1;
 			}
 		}
 	}
@@ -317,6 +336,9 @@ export function controls(node, game) {
 				}
 			}
 			save();
+		}
+		if (state === 'fingerpainting') {
+			fingerpaintingTileIndex = -1;
 		}
 		lockingSet.clear();
 		state = 'idle';
@@ -645,9 +667,31 @@ export function controls(node, game) {
 		lockingSet.clear();
 	}
 
+	/**
+	 * Handle keydown events
+	 * @param {KeyboardEvent} event
+	 */
+	function handleKeyDown(event) {
+		if (event.code === 'KeyX' && !fingerpainting) {
+			fingerpainting = true;
+		}
+	}
+
+	/**
+	 * Handle keyup events
+	 * @param {KeyboardEvent} event
+	 */
+	function handleKeyUp(event) {
+		if (event.code === 'KeyX') {
+			fingerpainting = false;
+		}
+	}
+
 	node.addEventListener('mousedown', handleMouseDown);
 	node.addEventListener('mousemove', handleMouseMove);
 	document.addEventListener('mouseup', handleMouseUp);
+	document.addEventListener('keydown', handleKeyDown);
+	document.addEventListener('keyup', handleKeyUp);
 	if (useZoomPan) {
 		node.addEventListener('wheel', handleWheel);
 	}
@@ -662,6 +706,8 @@ export function controls(node, game) {
 			node.removeEventListener('mousedown', handleMouseDown);
 			node.removeEventListener('mousemove', handleMouseMove);
 			document.removeEventListener('mouseup', handleMouseUp);
+			document.addEventListener('keydown', handleKeyDown);
+			document.addEventListener('keyup', handleKeyUp);
 			node.removeEventListener('wheel', handleWheel);
 			window.removeEventListener('wheel', checkForTouchpad);
 

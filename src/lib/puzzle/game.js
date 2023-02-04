@@ -1,6 +1,7 @@
 import { check } from 'prettier';
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
+import { getTypeParameterOwner } from 'typescript';
 
 /**
  * An edge mark
@@ -291,6 +292,83 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileState.data.edgeMarks[index] = mark;
 		}
 		tileState.set(tileState.data);
+	};
+
+	/**
+	 * Connect two tiles in fingerpainting mode
+	 * Create a connection mark
+	 * Rotate both tiles to match existing
+	 * @param {Number} tileIndex
+	 * @param {Number} direction
+	 */
+	self.createConnection = function (tileIndex, direction) {
+		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
+		const opposite = self.grid.OPPOSITE.get(direction);
+		const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+		if (index === -1) {
+			// toggle mark on the neighbour instead
+			if (!empty && opposite) {
+				self.createConnection(neighbour, opposite);
+			}
+			return;
+		}
+		const tileState = self.tileStates[tileIndex];
+		const currentMark = tileState.data.edgeMarks[index];
+		if (currentMark !== 'none') {
+			if (currentMark !== 'conn') {
+				tileState.data.edgeMarks[index] = 'conn';
+			} else {
+				tileState.data.edgeMarks[index] = 'empty';
+			}
+			tileState.set(tileState.data);
+			self.rotateToMatchMarks(tileIndex);
+			self.rotateToMatchMarks(neighbour);
+		}
+	};
+
+	/**
+	 * Rotate a tile so that it fits existing edgemarks
+	 * For fingerpainting mode
+	 * @param {number} tileIndex
+	 */
+	self.rotateToMatchMarks = function (tileIndex) {
+		const tileState = self.tileStates[tileIndex];
+		let walls = 0;
+		let connections = 0;
+		for (let direction of self.grid.DIRECTIONS) {
+			const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
+			if (index === -1) {
+				// neighbour state has info about this mark
+				const opposite = self.grid.OPPOSITE.get(direction) || 0;
+				const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+				if (empty) {
+					walls += direction;
+					continue;
+				}
+				const oppositeIndex = self.grid.EDGEMARK_DIRECTIONS.indexOf(opposite);
+				const mark = self.tileStates[neighbour].data.edgeMarks[oppositeIndex];
+				if (mark === 'conn') {
+					connections += direction;
+				} else if (mark === 'wall') {
+					walls += direction;
+				}
+			} else {
+				const mark = tileState.data.edgeMarks[index];
+				if (mark === 'conn') {
+					connections += direction;
+				} else if (mark === 'wall') {
+					walls += direction;
+				}
+			}
+		}
+		for (let r = 0; r < 6; r++) {
+			const rotations = tileState.data.rotations + r;
+			const rotated = self.grid.rotate(tileState.data.tile, rotations, tileIndex);
+			if ((rotated & connections) === connections && (rotated & walls) === 0) {
+				self.rotateTile(tileIndex, r);
+				break;
+			}
+		}
 	};
 
 	/**
