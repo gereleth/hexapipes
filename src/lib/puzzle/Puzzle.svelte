@@ -12,10 +12,10 @@
 	/** @type {Number[]} */
 	export let tiles = [];
 	export let wrap = false;
-	export let savedProgress;
+	export let savedProgress = undefined;
 	export let progressStoreName = '';
 	/** @type {Number|undefined} */
-	export let preferredPxPerCell;
+	export let preferredPxPerCell = undefined;
 	export let showSolveButton = false;
 
 	// Remember the name that the puzzle was created with
