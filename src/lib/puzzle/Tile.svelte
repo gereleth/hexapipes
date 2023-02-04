@@ -29,7 +29,7 @@
 
 	const myDirections = game.grid.getDirections($state.tile);
 
-	const deltas = myDirections.map((direction) => game.grid.XY_DELTAS.get(direction));
+	const deltas = myDirections.map((direction) => game.grid.XY_DELTAS.get(direction) || [0, 0]);
 	let angle = game.grid.getTileAngle($state.tile);
 
 	let path = `M 0 0`;
