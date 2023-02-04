@@ -274,20 +274,8 @@ export function controls(node, game) {
 				state = 'idle';
 			}
 		}
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance <= 0.1) {
-			const maybeTile = event.target.closest('g.tile');
-			if (maybeTile) {
-				const tileIndex = Number(maybeTile.getAttribute('data-index'));
-				if (tileIndex !== mouseDownOrigin.tileIndex) {
-					// left the tile
-					// but traveled a small distance
-					// and not like drawing an edgemark
-					// don't know how to process this case, do nothing for now
-					state = 'idle';
-					return;
-				}
-			}
-			// stayed in the same tile, process this as a click
+		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance <= 0.2) {
+			// process this as a click
 			// rotate or lock a tile
 			const tileIndex = mouseDownOrigin.tileIndex;
 			const tileState = game.tileStates[tileIndex];
@@ -618,7 +606,7 @@ export function controls(node, game) {
 					touchState = 'idle';
 				}
 			}
-			if (touchState === 'touchdown' && t.tileIndex !== -1 && distance <= 0.1) {
+			if (touchState === 'touchdown' && t.tileIndex !== -1 && distance <= 0.2) {
 				const upTileIndex = grid.xy_to_index(x, y);
 				if (upTileIndex === t.tileIndex) {
 					// stayed in the same tile, process this as a click
