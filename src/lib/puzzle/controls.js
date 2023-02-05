@@ -276,7 +276,7 @@ export function controls(node, game) {
 			const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 			const meanRadius = 0.5 * (startRadius + endRadius);
 			if (
-				Math.abs(meanRadius - 0.5) <= 0.5 &&
+				Math.abs(meanRadius - 0.5) <= 0.2 &&
 				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
 			) {
 				// was close to tile border
@@ -611,7 +611,7 @@ export function controls(node, game) {
 				const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 				const meanRadius = 0.5 * (startRadius + endRadius);
 				if (
-					Math.abs(meanRadius - 0.5) <= 0.5 &&
+					Math.abs(meanRadius - 0.5) <= 0.2 &&
 					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
 				) {
 					// was close to tile border
