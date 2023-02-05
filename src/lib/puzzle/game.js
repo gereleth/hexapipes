@@ -1,7 +1,5 @@
-import { check } from 'prettier';
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
-import { getTypeParameterOwner } from 'typescript';
 
 /**
  * An edge mark
