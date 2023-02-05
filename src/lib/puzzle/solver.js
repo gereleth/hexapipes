@@ -150,30 +150,6 @@ export function Solver(tiles, grid) {
 
 	const directions = new Set(grid.DIRECTIONS);
 
-	const T0 = 0;
-	const T1 = 1;
-	const T2v = 3;
-	const T2c = 5;
-	const T2I = 9;
-	const T3w = 7;
-	const T3y = 11;
-	const T3la = 13;
-	const T3Y = 21;
-	const T4K = 15;
-	const T4X = 27;
-	const T4psi = 23;
-	const T5 = 31;
-	const T6 = 63;
-	/** @type {Map<Number,Number>} */
-	const tileTypes = new Map();
-	for (let t = 0; t < self.grid.fullyConnected(0); t++) {
-		let rotated = t;
-		while (!tileTypes.has(rotated)) {
-			tileTypes.set(rotated, t);
-			rotated = self.grid.rotate(rotated, 1);
-		}
-	}
-
 	/** @type {Number[]} */
 	self.solution = tiles.map(() => self.UNSOLVED);
 
@@ -271,7 +247,7 @@ export function Solver(tiles, grid) {
 			return;
 		}
 
-		const tile = tileTypes.get(cell.initial);
+		const tile = self.grid.tileTypes.get(cell.initial);
 		const possibleBefore = cell.possible.size;
 
 		// collect neighbour tile types
@@ -283,7 +259,7 @@ export function Solver(tiles, grid) {
 			if (neighbour === -1) {
 				walls += direction;
 			}
-			neighbourTiles.push(tileTypes.get(self.tiles[neighbour]) || self.UNSOLVED);
+			neighbourTiles.push(self.grid.tileTypes.get(self.tiles[neighbour]) || self.UNSOLVED);
 		}
 		// remove orientations that contradict outer walls
 		// any grid
@@ -301,7 +277,7 @@ export function Solver(tiles, grid) {
 		if (self.checkDeadendConnections) {
 			let deadendConnections = 0;
 			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (neighbourTile === T1) {
+				if (neighbourTile === self.grid.T1) {
 					deadendConnections += self.grid.DIRECTIONS[i];
 				}
 			}
@@ -315,9 +291,13 @@ export function Solver(tiles, grid) {
 		// Hexagrid specific tricks
 
 		// can't connect middle prongs to a sharp turns tile
-		if ([T4K, T3w, T5, T4psi].some((x) => x === tile)) {
+		if ([self.grid.T4K, self.grid.T3w, self.grid.T5, self.grid.T4psi].some((x) => x === tile)) {
 			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if ([T4K, T2v, T3w, T5, T4X].some((x) => x === neighbourTile)) {
+				if (
+					[self.grid.T4K, self.grid.T2v, self.grid.T3w, self.grid.T5, self.grid.T4X].some(
+						(x) => x === neighbourTile
+					)
+				) {
 					const direction = self.grid.DIRECTIONS[i];
 					const forbidden =
 						direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
@@ -331,9 +311,13 @@ export function Solver(tiles, grid) {
 		}
 
 		// must connect psi-likes when they are adjacent
-		if ([T4psi, T4X, T5, T3Y].some((x) => x === tile)) {
+		if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some((x) => x === tile)) {
 			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
+				if (
+					[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
+						(x) => x === neighbourTile
+					)
+				) {
 					const direction = self.grid.DIRECTIONS[i];
 					for (let orientation of cell.possible) {
 						if ((orientation & direction) === 0) {
@@ -345,15 +329,27 @@ export function Solver(tiles, grid) {
 		}
 
 		// never make two adjacent walls next to a psi & co
-		if ([T4psi, T4X, T5, T3Y].every((x) => x !== tile)) {
+		if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].every((x) => x !== tile)) {
 			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if ([T4psi, T4X, T5, T3Y].some((x) => x === neighbourTile)) {
+				if (
+					[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
+						(x) => x === neighbourTile
+					)
+				) {
 					const direction = self.grid.DIRECTIONS[i];
 					let forbidden = 0;
-					if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 1) % 6])) {
+					if (
+						[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
+							(x) => x === neighbourTiles[(i + 1) % 6]
+						)
+					) {
 						forbidden += self.grid.DIRECTIONS[(i + 1) % 6];
 					}
-					if ([T1, T2c, T2I].some((x) => x === neighbourTiles[(i + 5) % 6])) {
+					if (
+						[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
+							(x) => x === neighbourTiles[(i + 5) % 6]
+						)
+					) {
 						forbidden += self.grid.DIRECTIONS[(i + 5) % 6];
 					}
 					if (forbidden === 0) {
