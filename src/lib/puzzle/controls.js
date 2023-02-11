@@ -162,9 +162,8 @@ export function controls(node, game) {
 			} else {
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const tileState = game.tileStates[mouseDownOrigin.tileIndex];
-					tileState.toggleLocked();
-					state = tileState.data.locked ? 'locking' : 'unlocking';
+					const locked = game.toggleLocked(mouseDownOrigin.tileIndex);
+					state = locked ? 'locking' : 'unlocking';
 					save();
 				} else if (fingerpainting) {
 					state = 'fingerpainting';
@@ -200,9 +199,8 @@ export function controls(node, game) {
 				clearTimeout(edgeMarkTimer);
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const tileState = game.tileStates[mouseDownOrigin.tileIndex];
-					tileState.toggleLocked();
-					state = tileState.data.locked ? 'locking' : 'unlocking';
+					const locked = game.toggleLocked(mouseDownOrigin.tileIndex);
+					state = locked ? 'locking' : 'unlocking';
 					save();
 				}
 			}
@@ -215,9 +213,7 @@ export function controls(node, game) {
 				const tileIndex = Number(maybeTile.getAttribute('data-index'));
 				if (!lockingSet.has(tileIndex)) {
 					lockingSet.add(tileIndex);
-					const tileState = game.tileStates[tileIndex];
-					tileState.data.locked = state === 'locking' ? true : false;
-					tileState.set(tileState.data);
+					game.toggleLocked(tileIndex, state === 'locking');
 					save();
 				}
 			}
@@ -307,12 +303,12 @@ export function controls(node, game) {
 				} else if (leftButton && event.ctrlKey) {
 					game.rotateTile(tileIndex, -rotationTimes);
 				} else if (rightButton) {
-					tileState.toggleLocked();
+					game.toggleLocked(tileIndex);
 				}
 			} else if (currentSettings.controlMode === 'rotate_rotate') {
 				let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
 				if (leftButton && event.ctrlKey) {
-					tileState.toggleLocked();
+					game.toggleLocked(tileIndex);
 				} else if (leftButton && !event.ctrlKey) {
 					game.rotateTile(tileIndex, rotationTimes);
 				} else if (rightButton) {
@@ -332,7 +328,7 @@ export function controls(node, game) {
 					}
 					game.rotateTile(tileIndex, timesRotate);
 				} else if (rightButton) {
-					tileState.toggleLocked();
+					game.toggleLocked(tileIndex);
 				}
 			}
 			save();
@@ -463,10 +459,9 @@ export function controls(node, game) {
 						currentSettings.controlMode === 'rotate_lock' ||
 						currentSettings.controlMode === 'orient_lock'
 					) {
-						const tileState = game.tileStates[tileIndex];
-						tileState.toggleLocked();
+						const locked = game.toggleLocked(tileIndex);
 						save();
-						touchState = tileState.data.locked ? 'locking' : 'unlocking';
+						touchState = locked ? 'locking' : 'unlocking';
 						lockingSet.add(tileIndex);
 					} else if (currentSettings.controlMode === 'rotate_rotate') {
 						const rotationTimes = currentSettings.invertRotationDirection ? 1 : -1;
@@ -550,9 +545,7 @@ export function controls(node, game) {
 			if (tileIndex !== -1) {
 				if (!lockingSet.has(tileIndex)) {
 					lockingSet.add(tileIndex);
-					const tileState = game.tileStates[tileIndex];
-					tileState.data.locked = touchState === 'locking' ? true : false;
-					tileState.set(tileState.data);
+					game.toggleLocked(tileIndex, touchState === 'locking');
 					save();
 				}
 			}
