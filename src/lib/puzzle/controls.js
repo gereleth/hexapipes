@@ -155,14 +155,23 @@ export function controls(node, game) {
 				// close to the edge, may be wanting an edge mark
 				edgeMarkTimer = setTimeout(() => {
 					const mark = mouseDownOrigin.button === 0 ? 'wall' : 'conn';
-					game.toggleEdgeMark(mark, mouseDownOrigin.tileIndex, direction);
+					game.toggleEdgeMark(
+						mark,
+						mouseDownOrigin.tileIndex,
+						direction,
+						currentSettings.assistant
+					);
 					state = 'edgemark';
 				}, 500);
 				state = 'mousedown';
 			} else {
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const locked = game.toggleLocked(mouseDownOrigin.tileIndex);
+					const locked = game.toggleLocked(
+						mouseDownOrigin.tileIndex,
+						undefined,
+						currentSettings.assistant
+					);
 					state = locked ? 'locking' : 'unlocking';
 					save();
 				} else if (fingerpainting) {
@@ -199,7 +208,11 @@ export function controls(node, game) {
 				clearTimeout(edgeMarkTimer);
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const locked = game.toggleLocked(mouseDownOrigin.tileIndex);
+					const locked = game.toggleLocked(
+						mouseDownOrigin.tileIndex,
+						undefined,
+						currentSettings.assistant
+					);
 					state = locked ? 'locking' : 'unlocking';
 					save();
 				}
@@ -213,7 +226,7 @@ export function controls(node, game) {
 				const tileIndex = Number(maybeTile.getAttribute('data-index'));
 				if (!lockingSet.has(tileIndex)) {
 					lockingSet.add(tileIndex);
-					game.toggleLocked(tileIndex, state === 'locking');
+					game.toggleLocked(tileIndex, state === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -281,9 +294,19 @@ export function controls(node, game) {
 				const distanceAlongBorder = 0.5 * deltaAngle;
 				const distanceAcrossBorder = Math.abs(startRadius - endRadius);
 				if (distanceAlongBorder > distanceAcrossBorder) {
-					game.toggleEdgeMark('wall', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+					game.toggleEdgeMark(
+						'wall',
+						tileIndex,
+						grid.DIRECTIONS[directionIndex % 6],
+						currentSettings.assistant
+					);
 				} else {
-					game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+					game.toggleEdgeMark(
+						'conn',
+						tileIndex,
+						grid.DIRECTIONS[directionIndex % 6],
+						currentSettings.assistant
+					);
 				}
 				save();
 				state = 'idle';
@@ -303,12 +326,12 @@ export function controls(node, game) {
 				} else if (leftButton && event.ctrlKey) {
 					game.rotateTile(tileIndex, -rotationTimes);
 				} else if (rightButton) {
-					game.toggleLocked(tileIndex);
+					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 				}
 			} else if (currentSettings.controlMode === 'rotate_rotate') {
 				let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
 				if (leftButton && event.ctrlKey) {
-					game.toggleLocked(tileIndex);
+					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 				} else if (leftButton && !event.ctrlKey) {
 					game.rotateTile(tileIndex, rotationTimes);
 				} else if (rightButton) {
@@ -328,7 +351,7 @@ export function controls(node, game) {
 					}
 					game.rotateTile(tileIndex, timesRotate);
 				} else if (rightButton) {
-					game.toggleLocked(tileIndex);
+					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 				}
 			}
 			save();
@@ -459,7 +482,7 @@ export function controls(node, game) {
 						currentSettings.controlMode === 'rotate_lock' ||
 						currentSettings.controlMode === 'orient_lock'
 					) {
-						const locked = game.toggleLocked(tileIndex);
+						const locked = game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 						save();
 						touchState = locked ? 'locking' : 'unlocking';
 						lockingSet.add(tileIndex);
@@ -545,7 +568,7 @@ export function controls(node, game) {
 			if (tileIndex !== -1) {
 				if (!lockingSet.has(tileIndex)) {
 					lockingSet.add(tileIndex);
-					game.toggleLocked(tileIndex, touchState === 'locking');
+					game.toggleLocked(tileIndex, touchState === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -613,9 +636,19 @@ export function controls(node, game) {
 					const distanceAlongBorder = 0.5 * deltaAngle;
 					const distanceAcrossBorder = Math.abs(startRadius - endRadius);
 					if (distanceAlongBorder > distanceAcrossBorder) {
-						game.toggleEdgeMark('wall', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+						game.toggleEdgeMark(
+							'wall',
+							tileIndex,
+							grid.DIRECTIONS[directionIndex % 6],
+							currentSettings.assistant
+						);
 					} else {
-						game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+						game.toggleEdgeMark(
+							'conn',
+							tileIndex,
+							grid.DIRECTIONS[directionIndex % 6],
+							currentSettings.assistant
+						);
 					}
 					save();
 					touchState = 'idle';

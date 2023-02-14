@@ -271,15 +271,16 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * @param {EdgeMark} mark
 	 * @param {Number} tileIndex
 	 * @param {Number} direction
+	 * @param {Boolean} assistant
 	 */
-	self.toggleEdgeMark = function (mark, tileIndex, direction) {
+	self.toggleEdgeMark = function (mark, tileIndex, direction, assistant = false) {
 		const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 		if (index === -1) {
 			// toggle mark on the neighbour instead
 			const opposite = self.grid.OPPOSITE.get(direction);
 			if (!empty && opposite) {
-				self.toggleEdgeMark(mark, neighbour, opposite);
+				self.toggleEdgeMark(mark, neighbour, opposite, assistant);
 			}
 			return;
 		}
@@ -290,8 +291,10 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileState.data.edgeMarks[index] = mark;
 		}
 		tileState.set(tileState.data);
-		self.rotateToMatchMarks(tileIndex);
-		self.rotateToMatchMarks(neighbour);
+		if (tileState.data.edgeMarks[index] !== 'empty' && assistant) {
+			self.rotateToMatchMarks(tileIndex);
+			self.rotateToMatchMarks(neighbour);
+		}
 	};
 
 	/**
@@ -570,9 +573,10 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * Toggle tile's locked state, return new state
 	 * @param {Number} tileIndex
 	 * @param {boolean|undefined} state
+	 * @param {boolean} assistant
 	 * @returns {boolean} - new locked value
 	 */
-	self.toggleLocked = function (tileIndex, state = undefined) {
+	self.toggleLocked = function (tileIndex, state = undefined, assistant = false) {
 		const tileState = self.tileStates[tileIndex];
 		let targetState = false;
 		if (state === undefined) {
@@ -583,7 +587,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		if (tileState.data.locked !== targetState) {
 			tileState.toggleLocked();
 		}
-		if (targetState) {
+		if (targetState && assistant) {
 			for (let direction of self.grid.DIRECTIONS) {
 				const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 				if (empty) {
