@@ -363,33 +363,37 @@ describe('Check difficulty', () => {
 });
 
 describe('Generate dailies', () => {
-	it.skip('Creates evil puzzles', () => {
+	it('Creates evil puzzles', () => {
 		// setup params
-		const width = 11;
+		const width = 13;
 		const height = 13;
-		const wrap = true;
+		const wrap = false;
 		// add grid features
 		const grid = new HexaGrid(width, height, wrap);
-		[0, 11, 23, 34, 46, 57, 69, 79, 90, 100, 111, 121, 132].forEach((i) => grid.makeEmpty(i));
+		// [0, 1, 2, 3, 4, 5, 6].forEach((i) => grid.makeEmpty(i));
+		grid.useShape('hexagon');
 		// target difficulty in steps per tile
-		const writeFileIfMoreThan = 3;
+		const writeFileIfMoreThan = 2.0;
 		let bestSteps = 0;
 		const files = fs.readdirSync('generator_stats/dailies');
 		const minFileNumber = files.reduce((n, file) => Math.max(n, Number(file.split('.')[0])), 0) + 1;
 		let fileNumber = minFileNumber;
 		for (let i = 0; i < 10001; i++) {
 			const gen = new Generator(grid);
-			const tiles = gen.generate(0.3);
+			const tiles = gen.generate(0.3, true);
 			const solver = new Solver(tiles, grid);
 			let steps = 0;
 			for (let _ of solver.solve(true)) {
 				steps += 1;
 			}
-			steps /= grid.total;
+			steps = steps / (grid.total - grid.emptyCells.size);
 			if (steps > bestSteps) {
-				bestSteps = Math.min(bestSteps + 0.1, steps);
-				const filename = `generator_stats/dailies/${fileNumber < 10 ? '0' : ''}${fileNumber}.json`;
-				if (bestSteps > writeFileIfMoreThan) {
+				bestSteps = steps;
+				const filename = `generator_stats/dailies/${
+					fileNumber < 10 ? '0' : ''
+				}${fileNumber}.${Math.round(steps * 1000)}.json`;
+				// console.log({ steps, bestSteps, filename });
+				if (bestSteps >= writeFileIfMoreThan) {
 					fs.writeFileSync(
 						filename,
 						JSON.stringify(
@@ -398,7 +402,7 @@ describe('Generate dailies', () => {
 								height,
 								wrap,
 								tiles,
-								comment: `A wiggly road up (${fileNumber - minFileNumber + 1}/7) ${steps}`
+								comment: `Back to the classics (${fileNumber - 18}/7)`
 							},
 							undefined,
 							'\t'
