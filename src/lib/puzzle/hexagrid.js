@@ -479,6 +479,44 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 		getVisibleTiles(get(self.viewBox))
 	);
 
+	/**
+	 * Shape the playing field by making some tiles empty
+	 * @param {'hexagon'} shape
+	 */
+	this.useShape = function (shape) {
+		if (shape === 'hexagon') {
+			const wrap = self.wrap;
+			self.wrap = false;
+			const middle_row = Math.floor(self.height / 2);
+			let left_cell = self.width * middle_row;
+			let right_cell = left_cell + self.width - 1;
+			for (let [start_cell, shift_direction, erase_direction] of [
+				[left_cell, NORTHEAST, WEST],
+				[right_cell, NORTHWEST, EAST],
+				[left_cell, SOUTHEAST, WEST],
+				[right_cell, SOUTHWEST, EAST]
+			]) {
+				let cell = start_cell;
+				for (let delta_row = 1; delta_row < middle_row + 1; delta_row++) {
+					let new_cell = self.find_neighbour(cell, shift_direction);
+					if (new_cell.empty) {
+						break;
+					} else {
+						cell = new_cell.neighbour;
+					}
+					let { neighbour, empty } = self.find_neighbour(cell, erase_direction);
+					while (!empty) {
+						self.makeEmpty(neighbour);
+						({ neighbour, empty } = self.find_neighbour(neighbour, erase_direction));
+					}
+				}
+			}
+			self.wrap = wrap;
+		} else {
+			throw 'unknown shape ' + shape;
+		}
+	};
+
 	let tilePath = '';
 	for (let p = 0; p < 6; p++) {
 		const angle = (Math.PI * (2 * p + 1)) / 6;
