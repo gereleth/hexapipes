@@ -71,6 +71,11 @@
 				Invert rotation direction
 			</label>
 		</div>
+		<label>
+			<input type="checkbox" bind:checked={$settings.assistant} name="assistant" />
+			Use smart assistant. When you lock a tile or create an edgemark surrounding tiles will rotate to
+			match.
+		</label>
 	</div>
 	<div class="controlMode">
 		<h3>Timer</h3>
