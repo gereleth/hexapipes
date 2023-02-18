@@ -298,40 +298,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	};
 
 	/**
-	 * Connect two tiles in fingerpainting mode
-	 * Create a connection mark
-	 * Rotate both tiles to match existing
-	 * @param {Number} tileIndex
-	 * @param {Number} direction
-	 */
-	self.createConnection = function (tileIndex, direction) {
-		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
-		const opposite = self.grid.OPPOSITE.get(direction);
-		const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
-		if (index === -1) {
-			// toggle mark on the neighbour instead
-			if (!empty && opposite) {
-				self.createConnection(neighbour, opposite);
-			}
-			return;
-		}
-		const tileState = self.tileStates[tileIndex];
-		const currentMark = tileState.data.edgeMarks[index];
-		if (currentMark !== 'none') {
-			if (currentMark !== 'conn') {
-				tileState.data.edgeMarks[index] = 'conn';
-			} else {
-				tileState.data.edgeMarks[index] = 'empty';
-			}
-			tileState.set(tileState.data);
-			self.rotateToMatchMarks(tileIndex);
-			self.rotateToMatchMarks(neighbour);
-		}
-	};
-
-	/**
-	 * Rotate a tile so that it fits existing edgemarks
-	 * And locked tiles
+	 * Rotate a tile so that it fits existing edgemarks and locked tiles
 	 * @param {number} tileIndex
 	 */
 	self.rotateToMatchMarks = function (tileIndex) {

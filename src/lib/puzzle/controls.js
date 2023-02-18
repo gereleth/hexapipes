@@ -240,7 +240,7 @@ export function controls(node, game) {
 					// TODO what if we moved fast and skipped a tile?..
 					const [ox, oy] = game.grid.index_to_xy(fingerpaintingTileIndex);
 					const dir = (Math.round(Math.atan2(oy - y, x - ox) / ((2 * Math.PI) / 6)) + 6) % 6;
-					game.createConnection(fingerpaintingTileIndex, 2 ** dir);
+					game.toggleEdgeMark('conn', fingerpaintingTileIndex, 2 ** dir, true);
 				}
 				fingerpaintingTileIndex = tileIndex;
 			} else {
