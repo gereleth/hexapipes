@@ -360,10 +360,46 @@ describe('Check difficulty', () => {
 			JSON.stringify(results, undefined, '\t')
 		);
 	});
+
+	it.skip('Check difficulty effect of avoidObvious', () => {
+		const results = [];
+		const wrap = false;
+		for (let branchingAmount of [0.6]) {
+			for (let avoidObvious of [false, true]) {
+				for (let size of [11]) {
+					const grid = new HexaGrid(size, size, wrap);
+					grid.useShape('hexagon');
+					for (let i = 1; i <= 10000; i++) {
+						const gen = new Generator(grid);
+						const tiles = gen.generate(branchingAmount, avoidObvious);
+						const solver = new Solver(tiles, grid);
+						let steps = 0;
+						for (let _ of solver.solve(true)) {
+							steps += 1;
+						}
+						results.push({
+							width: size,
+							height: size,
+							wrap,
+							branchingAmount,
+							avoidObvious,
+							id: i,
+							steps,
+							stepsPerTile: steps / grid.total
+						});
+					}
+				}
+			}
+		}
+		fs.writeFileSync(
+			'generator_stats/avoidObviousEffect.json',
+			JSON.stringify(results, undefined, '\t')
+		);
+	});
 });
 
 describe('Generate dailies', () => {
-	it('Creates evil puzzles', () => {
+	it.skip('Creates evil puzzles', () => {
 		// setup params
 		const width = 13;
 		const height = 13;
