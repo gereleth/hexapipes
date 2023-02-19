@@ -323,23 +323,20 @@ export function PipesGame(grid, tiles, savedProgress) {
 				continue;
 			}
 			const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
+			/** @type {EdgeMark} */
+			let mark = 'empty';
 			if (index === -1) {
 				// neighbour state has info about this mark
 				const opposite = self.grid.OPPOSITE.get(direction) || 0;
 				const oppositeIndex = self.grid.EDGEMARK_DIRECTIONS.indexOf(opposite);
-				const mark = self.tileStates[neighbour].data.edgeMarks[oppositeIndex];
-				if (mark === 'conn') {
-					connections += direction;
-				} else if (mark === 'wall') {
-					walls += direction;
-				}
+				mark = self.tileStates[neighbour].data.edgeMarks[oppositeIndex];
 			} else {
-				const mark = tileState.data.edgeMarks[index];
-				if (mark === 'conn') {
-					connections += direction;
-				} else if (mark === 'wall') {
-					walls += direction;
-				}
+				mark = tileState.data.edgeMarks[index];
+			}
+			if (mark === 'conn') {
+				connections += direction;
+			} else if (mark === 'wall') {
+				walls += direction;
 			}
 		}
 		for (let r = 0; r < 6; r++) {
