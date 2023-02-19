@@ -68,10 +68,6 @@ export function Generator(grid) {
 					}
 				}
 			}
-			const solver = new Solver(
-				tiles.map((x) => x + 1),
-				self.grid
-			);
 			for (let walls of new Set(borders.values())) {
 				let cell = new Cell(self.grid, 0, -1);
 				cell.addWall(walls);
@@ -79,7 +75,7 @@ export function Generator(grid) {
 				/** @type {Map<Number, Set<Number>>} */
 				const tileTypes = new Map();
 				for (let orientation of cell.possible) {
-					const tileType = solver.tileTypes.get(orientation) || 0;
+					const tileType = self.grid.tileTypes.get(orientation) || 0;
 					if (!tileTypes.has(tileType)) {
 						tileTypes.set(tileType, new Set());
 					}
