@@ -491,5 +491,31 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	}
 	tilePath += ' z';
 	this.tilePath = tilePath;
+
+	/* Tile types for use in solver */
+	this.T0 = 0;
+	this.T1 = 1;
+	this.T2v = 3;
+	this.T2c = 5;
+	this.T2I = 9;
+	this.T3w = 7;
+	this.T3y = 11;
+	this.T3la = 13;
+	this.T3Y = 21;
+	this.T4K = 15;
+	this.T4X = 27;
+	this.T4psi = 23;
+	this.T5 = 31;
+	this.T6 = 63;
+	/** @type {Map<Number,Number>} */
+	this.tileTypes = new Map();
+	for (let t = 0; t < 64; t++) {
+		let rotated = t;
+		while (!this.tileTypes.has(rotated)) {
+			this.tileTypes.set(rotated, t);
+			rotated = self.rotate(rotated, 1);
+		}
+	}
+
 	return this;
 }

@@ -47,10 +47,11 @@ export function controls(node, game) {
 	const pixelsHeight = rect.height;
 
 	/**
-	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'|'edgemark'}
+	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'|'edgemark'|'fingerpainting'}
 	 */
 	let state = 'idle';
-
+	let fingerpainting = false;
+	let fingerpaintingTileIndex = -1;
 	/** @type PointerOrigin */
 	let mouseDownOrigin = {
 		x: 0,
@@ -154,17 +155,27 @@ export function controls(node, game) {
 				// close to the edge, may be wanting an edge mark
 				edgeMarkTimer = setTimeout(() => {
 					const mark = mouseDownOrigin.button === 0 ? 'wall' : 'conn';
-					game.toggleEdgeMark(mark, mouseDownOrigin.tileIndex, direction);
+					game.toggleEdgeMark(
+						mark,
+						mouseDownOrigin.tileIndex,
+						direction,
+						currentSettings.assistant
+					);
 					state = 'edgemark';
 				}, 500);
 				state = 'mousedown';
 			} else {
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const tileState = game.tileStates[mouseDownOrigin.tileIndex];
-					tileState.toggleLocked();
-					state = tileState.data.locked ? 'locking' : 'unlocking';
+					const locked = game.toggleLocked(
+						mouseDownOrigin.tileIndex,
+						undefined,
+						currentSettings.assistant
+					);
+					state = locked ? 'locking' : 'unlocking';
 					save();
+				} else if (fingerpainting) {
+					state = 'fingerpainting';
 				} else {
 					state = 'mousedown';
 				}
@@ -197,9 +208,12 @@ export function controls(node, game) {
 				clearTimeout(edgeMarkTimer);
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const tileState = game.tileStates[mouseDownOrigin.tileIndex];
-					tileState.toggleLocked();
-					state = tileState.data.locked ? 'locking' : 'unlocking';
+					const locked = game.toggleLocked(
+						mouseDownOrigin.tileIndex,
+						undefined,
+						currentSettings.assistant
+					);
+					state = locked ? 'locking' : 'unlocking';
 					save();
 				}
 			}
@@ -212,11 +226,25 @@ export function controls(node, game) {
 				const tileIndex = Number(maybeTile.getAttribute('data-index'));
 				if (!lockingSet.has(tileIndex)) {
 					lockingSet.add(tileIndex);
-					const tileState = game.tileStates[tileIndex];
-					tileState.data.locked = state === 'locking' ? true : false;
-					tileState.set(tileState.data);
+					game.toggleLocked(tileIndex, state === 'locking', currentSettings.assistant);
 					save();
 				}
+			}
+		}
+		if (state === 'fingerpainting') {
+			const maybeTile = event.target.closest('g.tile');
+			if (maybeTile) {
+				const tileIndex = Number(maybeTile.getAttribute('data-index'));
+				if (fingerpaintingTileIndex >= 0 && tileIndex !== fingerpaintingTileIndex) {
+					// make a connection between these tiles
+					// TODO what if we moved fast and skipped a tile?..
+					const [ox, oy] = game.grid.index_to_xy(fingerpaintingTileIndex);
+					const dir = (Math.round(Math.atan2(oy - y, x - ox) / ((2 * Math.PI) / 6)) + 6) % 6;
+					game.toggleEdgeMark('conn', fingerpaintingTileIndex, 2 ** dir, true);
+				}
+				fingerpaintingTileIndex = tileIndex;
+			} else {
+				fingerpaintingTileIndex = -1;
 			}
 		}
 	}
@@ -236,7 +264,7 @@ export function controls(node, game) {
 		const dy = y - mouseDownOrigin.y;
 		const distance = Math.sqrt(dx * dx + dy * dy);
 
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.1) {
+		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.2) {
 			// this might be drawing an edge mark
 			const tileIndex = mouseDownOrigin.tileIndex;
 			const { tileX, tileY } = mouseDownOrigin;
@@ -257,8 +285,8 @@ export function controls(node, game) {
 			const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 			const meanRadius = 0.5 * (startRadius + endRadius);
 			if (
-				Math.abs(meanRadius - 0.5) <= 0.1 &&
-				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.2
+				Math.abs(meanRadius - 0.5) <= 0.2 &&
+				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
 			) {
 				// was close to tile border
 				// in a well defined direction
@@ -266,28 +294,26 @@ export function controls(node, game) {
 				const distanceAlongBorder = 0.5 * deltaAngle;
 				const distanceAcrossBorder = Math.abs(startRadius - endRadius);
 				if (distanceAlongBorder > distanceAcrossBorder) {
-					game.toggleEdgeMark('wall', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+					game.toggleEdgeMark(
+						'wall',
+						tileIndex,
+						grid.DIRECTIONS[directionIndex % 6],
+						currentSettings.assistant
+					);
 				} else {
-					game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+					game.toggleEdgeMark(
+						'conn',
+						tileIndex,
+						grid.DIRECTIONS[directionIndex % 6],
+						currentSettings.assistant
+					);
 				}
 				save();
 				state = 'idle';
 			}
 		}
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1) {
-			const maybeTile = event.target.closest('g.tile');
-			if (maybeTile) {
-				const tileIndex = Number(maybeTile.getAttribute('data-index'));
-				if (tileIndex !== mouseDownOrigin.tileIndex) {
-					// left the tile
-					// but traveled a small distance
-					// and not like drawing an edgemark
-					// don't know how to process this case, do nothing for now
-					state = 'idle';
-					return;
-				}
-			}
-			// stayed in the same tile, process this as a click
+		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance <= 0.2) {
+			// process this as a click
 			// rotate or lock a tile
 			const tileIndex = mouseDownOrigin.tileIndex;
 			const tileState = game.tileStates[tileIndex];
@@ -300,12 +326,12 @@ export function controls(node, game) {
 				} else if (leftButton && event.ctrlKey) {
 					game.rotateTile(tileIndex, -rotationTimes);
 				} else if (rightButton) {
-					tileState.toggleLocked();
+					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 				}
 			} else if (currentSettings.controlMode === 'rotate_rotate') {
 				let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
 				if (leftButton && event.ctrlKey) {
-					tileState.toggleLocked();
+					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 				} else if (leftButton && !event.ctrlKey) {
 					game.rotateTile(tileIndex, rotationTimes);
 				} else if (rightButton) {
@@ -325,10 +351,13 @@ export function controls(node, game) {
 					}
 					game.rotateTile(tileIndex, timesRotate);
 				} else if (rightButton) {
-					tileState.toggleLocked();
+					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 				}
 			}
 			save();
+		}
+		if (state === 'fingerpainting') {
+			fingerpaintingTileIndex = -1;
 		}
 		lockingSet.clear();
 		state = 'idle';
@@ -453,10 +482,9 @@ export function controls(node, game) {
 						currentSettings.controlMode === 'rotate_lock' ||
 						currentSettings.controlMode === 'orient_lock'
 					) {
-						const tileState = game.tileStates[tileIndex];
-						tileState.toggleLocked();
+						const locked = game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
 						save();
-						touchState = tileState.data.locked ? 'locking' : 'unlocking';
+						touchState = locked ? 'locking' : 'unlocking';
 						lockingSet.add(tileIndex);
 					} else if (currentSettings.controlMode === 'rotate_rotate') {
 						const rotationTimes = currentSettings.invertRotationDirection ? 1 : -1;
@@ -540,9 +568,7 @@ export function controls(node, game) {
 			if (tileIndex !== -1) {
 				if (!lockingSet.has(tileIndex)) {
 					lockingSet.add(tileIndex);
-					const tileState = game.tileStates[tileIndex];
-					tileState.data.locked = touchState === 'locking' ? true : false;
-					tileState.set(tileState.data);
+					game.toggleLocked(tileIndex, touchState === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -582,7 +608,7 @@ export function controls(node, game) {
 			const t = ongoingTouches[0];
 			const distance = Math.sqrt((x - t.x) ** 2 + (y - t.y) ** 2);
 
-			if (t.tileIndex !== -1 && distance >= 0.1) {
+			if (t.tileIndex !== -1 && distance >= 0.2) {
 				// this might be drawing an edge mark
 				const tileIndex = t.tileIndex;
 				const { tileX, tileY } = t;
@@ -601,8 +627,8 @@ export function controls(node, game) {
 				const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 				const meanRadius = 0.5 * (startRadius + endRadius);
 				if (
-					Math.abs(meanRadius - 0.5) <= 0.1 &&
-					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.2
+					Math.abs(meanRadius - 0.5) <= 0.2 &&
+					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
 				) {
 					// was close to tile border
 					// in a well defined direction
@@ -610,15 +636,25 @@ export function controls(node, game) {
 					const distanceAlongBorder = 0.5 * deltaAngle;
 					const distanceAcrossBorder = Math.abs(startRadius - endRadius);
 					if (distanceAlongBorder > distanceAcrossBorder) {
-						game.toggleEdgeMark('wall', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+						game.toggleEdgeMark(
+							'wall',
+							tileIndex,
+							grid.DIRECTIONS[directionIndex % 6],
+							currentSettings.assistant
+						);
 					} else {
-						game.toggleEdgeMark('conn', tileIndex, grid.DIRECTIONS[directionIndex % 6]);
+						game.toggleEdgeMark(
+							'conn',
+							tileIndex,
+							grid.DIRECTIONS[directionIndex % 6],
+							currentSettings.assistant
+						);
 					}
 					save();
 					touchState = 'idle';
 				}
 			}
-			if (touchState === 'touchdown' && t.tileIndex !== -1) {
+			if (touchState === 'touchdown' && t.tileIndex !== -1 && distance <= 0.2) {
 				const upTileIndex = grid.xy_to_index(x, y);
 				if (upTileIndex === t.tileIndex) {
 					// stayed in the same tile, process this as a click
@@ -657,10 +693,31 @@ export function controls(node, game) {
 		lockingSet.clear();
 	}
 
+	/**
+	 * Handle keydown events
+	 * @param {KeyboardEvent} event
+	 */
+	function handleKeyDown(event) {
+		if (event.code === 'KeyX' && !fingerpainting) {
+			fingerpainting = true;
+		}
+	}
+
+	/**
+	 * Handle keyup events
+	 * @param {KeyboardEvent} event
+	 */
+	function handleKeyUp(event) {
+		if (event.code === 'KeyX') {
+			fingerpainting = false;
+		}
+	}
+
 	node.addEventListener('mousedown', handleMouseDown);
 	node.addEventListener('mousemove', handleMouseMove);
-	node.addEventListener('mouseleave', handleMouseUp);
-	node.addEventListener('mouseup', handleMouseUp);
+	document.addEventListener('mouseup', handleMouseUp);
+	document.addEventListener('keydown', handleKeyDown);
+	document.addEventListener('keyup', handleKeyUp);
 	if (useZoomPan) {
 		node.addEventListener('wheel', handleWheel);
 	}
@@ -674,8 +731,9 @@ export function controls(node, game) {
 		destroy() {
 			node.removeEventListener('mousedown', handleMouseDown);
 			node.removeEventListener('mousemove', handleMouseMove);
-			node.removeEventListener('mouseleave', handleMouseUp);
-			node.removeEventListener('mouseup', handleMouseUp);
+			document.removeEventListener('mouseup', handleMouseUp);
+			document.addEventListener('keydown', handleKeyDown);
+			document.addEventListener('keyup', handleKeyUp);
 			node.removeEventListener('wheel', handleWheel);
 			window.removeEventListener('wheel', checkForTouchpad);
 

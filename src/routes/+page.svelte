@@ -122,6 +122,19 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-02-19</em> Automate obvious stuff away with a smart assistant.
+			<ul>
+				<li>
+					When you lock a tile or create an edge mark the surrounding tiles will rotate to match.
+					Enable the assistant in the settings and give it a try.
+				</li>
+				<li>
+					I also did some tweaks to edgemark gesture detection to make them somewhat less finicky
+					and easier to create.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-01-21</em> Switch to client-side generated puzzles
 			<ul>
 				<li>

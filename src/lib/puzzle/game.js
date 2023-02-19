@@ -1,4 +1,3 @@
-import { check } from 'prettier';
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
 
@@ -272,15 +271,16 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * @param {EdgeMark} mark
 	 * @param {Number} tileIndex
 	 * @param {Number} direction
+	 * @param {Boolean} assistant
 	 */
-	self.toggleEdgeMark = function (mark, tileIndex, direction) {
+	self.toggleEdgeMark = function (mark, tileIndex, direction, assistant = false) {
+		const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 		if (index === -1) {
 			// toggle mark on the neighbour instead
 			const opposite = self.grid.OPPOSITE.get(direction);
-			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 			if (!empty && opposite) {
-				self.toggleEdgeMark(mark, neighbour, opposite);
+				self.toggleEdgeMark(mark, neighbour, opposite, assistant);
 			}
 			return;
 		}
@@ -291,6 +291,62 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileState.data.edgeMarks[index] = mark;
 		}
 		tileState.set(tileState.data);
+		if (tileState.data.edgeMarks[index] !== 'empty' && assistant) {
+			self.rotateToMatchMarks(tileIndex);
+			self.rotateToMatchMarks(neighbour);
+		}
+	};
+
+	/**
+	 * Rotate a tile so that it fits existing edgemarks and locked tiles
+	 * @param {number} tileIndex
+	 */
+	self.rotateToMatchMarks = function (tileIndex) {
+		const tileState = self.tileStates[tileIndex];
+		if (tileState.data.locked) {
+			return;
+		}
+		let walls = 0;
+		let connections = 0;
+		for (let direction of self.grid.DIRECTIONS) {
+			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+			if (empty) {
+				walls += direction;
+				continue;
+			}
+			if (self.tileStates[neighbour].data.locked) {
+				if (self.connections.get(neighbour)?.has(tileIndex)) {
+					connections += direction;
+				} else {
+					walls += direction;
+				}
+				continue;
+			}
+			const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
+			/** @type {EdgeMark} */
+			let mark = 'empty';
+			if (index === -1) {
+				// neighbour state has info about this mark
+				const opposite = self.grid.OPPOSITE.get(direction) || 0;
+				const oppositeIndex = self.grid.EDGEMARK_DIRECTIONS.indexOf(opposite);
+				mark = self.tileStates[neighbour].data.edgeMarks[oppositeIndex];
+			} else {
+				mark = tileState.data.edgeMarks[index];
+			}
+			if (mark === 'conn') {
+				connections += direction;
+			} else if (mark === 'wall') {
+				walls += direction;
+			}
+		}
+		for (let r = 0; r < 6; r++) {
+			const rotations = tileState.data.rotations + r;
+			const rotated = self.grid.rotate(tileState.data.tile, rotations, tileIndex);
+			if ((rotated & connections) === connections && (rotated & walls) === 0) {
+				self.rotateTile(tileIndex, r);
+				break;
+			}
+		}
 	};
 
 	/**
@@ -475,6 +531,36 @@ export function PipesGame(grid, tiles, savedProgress) {
 			constantComponent.tiles.add(changedTile);
 			self.tileStates[changedTile].setColor(constantComponent.color);
 		}
+	};
+
+	/**
+	 * Toggle tile's locked state, return new state
+	 * @param {Number} tileIndex
+	 * @param {boolean|undefined} state
+	 * @param {boolean} assistant
+	 * @returns {boolean} - new locked value
+	 */
+	self.toggleLocked = function (tileIndex, state = undefined, assistant = false) {
+		const tileState = self.tileStates[tileIndex];
+		let targetState = false;
+		if (state === undefined) {
+			targetState = !tileState.data.locked;
+		} else {
+			targetState = state;
+		}
+		if (tileState.data.locked !== targetState) {
+			tileState.toggleLocked();
+		}
+		if (targetState && assistant) {
+			for (let direction of self.grid.DIRECTIONS) {
+				const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+				if (empty) {
+					continue;
+				}
+				self.rotateToMatchMarks(neighbour);
+			}
+		}
+		return targetState;
 	};
 
 	/**

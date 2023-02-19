@@ -287,26 +287,99 @@ describe('Check difficulty', () => {
 			JSON.stringify(results, undefined, '\t')
 		);
 	});
+
+	it.skip('Check tile distributions of static instances', () => {
+		const results = [];
+		for (let wrap of [false, true]) {
+			for (let size of [5, 7, 10, 15, 20, 30, 40]) {
+				/** @type {Map<Number,Number>} */
+				const counts = new Map();
+				for (let i = 1; i <= 1000; i++) {
+					const path = `static/_instances/hexagonal${
+						wrap ? '-wrap' : ''
+					}/${size}x${size}/${Math.floor((i - 1) / 100)}/${i}.json`;
+					const data = fs.readFileSync(path, { encoding: 'utf-8' });
+					/** @type {{tiles:Number[]}} */
+					const instance = JSON.parse(data);
+					const grid = new HexaGrid(size, size, wrap);
+					const solver = new Solver(instance.tiles, grid);
+					for (let tile of instance.tiles) {
+						const tileType = grid.tileTypes.get(tile);
+						if (tileType === undefined) {
+							throw 'unknown tile type ' + tile;
+						}
+						counts.set(tileType, (counts.get(tileType) || 0) + 1);
+					}
+				}
+				results.push({
+					width: size,
+					height: size,
+					wrap,
+					tileCounts: [...counts.entries()]
+				});
+			}
+		}
+		fs.writeFileSync(
+			'generator_stats/static_tile_counts.json',
+			JSON.stringify(results, undefined, '\t')
+		);
+	});
+
+	it.skip('Check tile distributions of generated instances', () => {
+		const results = [];
+		for (let branchingAmount of [0.6]) {
+			for (let wrap of [false, true]) {
+				for (let size of [5, 7, 10, 15, 20, 30, 40]) {
+					/** @type {Map<Number,Number>} */
+					const counts = new Map();
+					for (let i = 1; i <= 1000; i++) {
+						const grid = new HexaGrid(size, size, wrap);
+						const gen = new Generator(grid);
+						const tiles = gen.generate(branchingAmount);
+						const solver = new Solver(tiles, grid);
+						for (let tile of tiles) {
+							const tileType = grid.tileTypes.get(tile);
+							if (tileType === undefined) {
+								throw 'unknown tile type ' + tile;
+							}
+							counts.set(tileType, (counts.get(tileType) || 0) + 1);
+						}
+					}
+					results.push({
+						width: size,
+						height: size,
+						wrap,
+						branchingAmount,
+						tileCounts: [...counts.entries()]
+					});
+				}
+			}
+		}
+		fs.writeFileSync(
+			'generator_stats/generated_tile_counts.json',
+			JSON.stringify(results, undefined, '\t')
+		);
+	});
 });
 
 describe('Generate dailies', () => {
 	it.skip('Creates evil puzzles', () => {
 		// setup params
-		const width = 7;
-		const height = 8;
+		const width = 11;
+		const height = 13;
 		const wrap = true;
 		// add grid features
 		const grid = new HexaGrid(width, height, wrap);
-		[0, 1, 2, 3, 4, 5, 6].forEach((i) => grid.makeEmpty(i));
+		[0, 11, 23, 34, 46, 57, 69, 79, 90, 100, 111, 121, 132].forEach((i) => grid.makeEmpty(i));
 		// target difficulty in steps per tile
-		const writeFileIfMoreThan = 3.7;
+		const writeFileIfMoreThan = 3;
 		let bestSteps = 0;
 		const files = fs.readdirSync('generator_stats/dailies');
-		let fileNumber = files.reduce((n, file) => Math.max(n, Number(file.split('.')[0])), 0) + 1;
-		console.log(fileNumber);
-		for (let i = 0; i < 100000; i++) {
+		const minFileNumber = files.reduce((n, file) => Math.max(n, Number(file.split('.')[0])), 0) + 1;
+		let fileNumber = minFileNumber;
+		for (let i = 0; i < 10001; i++) {
 			const gen = new Generator(grid);
-			const tiles = gen.generate();
+			const tiles = gen.generate(0.3);
 			const solver = new Solver(tiles, grid);
 			let steps = 0;
 			for (let _ of solver.solve(true)) {
@@ -314,9 +387,8 @@ describe('Generate dailies', () => {
 			}
 			steps /= grid.total;
 			if (steps > bestSteps) {
-				bestSteps = steps;
+				bestSteps = Math.min(bestSteps + 0.1, steps);
 				const filename = `generator_stats/dailies/${fileNumber < 10 ? '0' : ''}${fileNumber}.json`;
-				console.log({ steps: steps * grid.total, bestSteps, filename });
 				if (bestSteps > writeFileIfMoreThan) {
 					fs.writeFileSync(
 						filename,
@@ -326,7 +398,7 @@ describe('Generate dailies', () => {
 								height,
 								wrap,
 								tiles,
-								comment: `Hard 7x7 horizontal wrap`
+								comment: `A wiggly road up (${fileNumber - minFileNumber + 1}/7) ${steps}`
 							},
 							undefined,
 							'\t'
