@@ -132,12 +132,11 @@ export function controls(node, game) {
 			tileY: 0,
 			locking
 		};
-
-		const maybeTile = target.closest('g.tile');
-		if (maybeTile) {
-			mouseDownOrigin.tileIndex = Number(maybeTile.getAttribute('data-index'));
-			mouseDownOrigin.tileX = Number(maybeTile.getAttribute('data-x'));
-			mouseDownOrigin.tileY = Number(maybeTile.getAttribute('data-y'));
+		const tile = game.grid.which_tile_at(x, y);
+		if (tile.index !== -1) {
+			mouseDownOrigin.tileIndex = tile.index;
+			mouseDownOrigin.tileX = tile.x;
+			mouseDownOrigin.tileY = tile.y;
 		}
 
 		if (mouseDownOrigin.tileIndex === -1) {
@@ -221,28 +220,26 @@ export function controls(node, game) {
 		if (state === 'panning') {
 			grid.pan(dx, dy);
 		} else if (state === 'locking' || state === 'unlocking') {
-			const maybeTile = event.target.closest('g.tile');
-			if (maybeTile) {
-				const tileIndex = Number(maybeTile.getAttribute('data-index'));
-				if (!lockingSet.has(tileIndex)) {
-					lockingSet.add(tileIndex);
-					game.toggleLocked(tileIndex, state === 'locking', currentSettings.assistant);
+			const tile = game.grid.which_tile_at(x, y);
+			if (tile.index !== -1) {
+				if (!lockingSet.has(tile.index)) {
+					lockingSet.add(tile.index);
+					game.toggleLocked(tile.index, state === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
 		}
 		if (state === 'fingerpainting') {
-			const maybeTile = event.target.closest('g.tile');
-			if (maybeTile) {
-				const tileIndex = Number(maybeTile.getAttribute('data-index'));
-				if (fingerpaintingTileIndex >= 0 && tileIndex !== fingerpaintingTileIndex) {
+			const tile = game.grid.which_tile_at(x, y);
+			if (tile.index !== -1) {
+				if (fingerpaintingTileIndex >= 0 && tile.index !== fingerpaintingTileIndex) {
 					// make a connection between these tiles
 					// TODO what if we moved fast and skipped a tile?..
 					const [ox, oy] = game.grid.index_to_xy(fingerpaintingTileIndex);
 					const dir = (Math.round(Math.atan2(oy - y, x - ox) / ((2 * Math.PI) / 6)) + 6) % 6;
 					game.toggleEdgeMark('conn', fingerpaintingTileIndex, 2 ** dir, true);
 				}
-				fingerpaintingTileIndex = tileIndex;
+				fingerpaintingTileIndex = tile.index;
 			} else {
 				fingerpaintingTileIndex = -1;
 			}
@@ -460,11 +457,11 @@ export function controls(node, game) {
 					tileY: 0,
 					width: viewBox.width
 				};
-				const maybeTile = touch.target.closest('g.tile');
-				if (maybeTile) {
-					data.tileIndex = Number(maybeTile.getAttribute('data-index'));
-					data.tileX = Number(maybeTile.getAttribute('data-x'));
-					data.tileY = Number(maybeTile.getAttribute('data-y'));
+				const tile = game.grid.which_tile_at(x, y);
+				if (tile.index !== -1) {
+					data.tileIndex = tile.index;
+					data.tileX = tile.x;
+					data.tileY = tile.y;
 				}
 				ongoingTouches.push(data);
 			}
@@ -564,11 +561,11 @@ export function controls(node, game) {
 		} else if (touchState === 'locking' || touchState === 'unlocking') {
 			event.preventDefault();
 			const [x, y] = getEventCoordinates(event.touches[0]);
-			const tileIndex = grid.xy_to_index(x, y);
-			if (tileIndex !== -1) {
-				if (!lockingSet.has(tileIndex)) {
-					lockingSet.add(tileIndex);
-					game.toggleLocked(tileIndex, touchState === 'locking', currentSettings.assistant);
+			const tile = grid.which_tile_at(x, y);
+			if (tile.index !== -1) {
+				if (!lockingSet.has(tile.index)) {
+					lockingSet.add(tile.index);
+					game.toggleLocked(tile.index, touchState === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -655,8 +652,8 @@ export function controls(node, game) {
 				}
 			}
 			if (touchState === 'touchdown' && t.tileIndex !== -1 && distance <= 0.2) {
-				const upTileIndex = grid.xy_to_index(x, y);
-				if (upTileIndex === t.tileIndex) {
+				const upTile = grid.which_tile_at(x, y);
+				if (upTile.index === t.tileIndex) {
 					// stayed in the same tile, process this as a click
 					// rotate or lock a tile
 					const tileIndex = t.tileIndex;
