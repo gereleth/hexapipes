@@ -1,6 +1,10 @@
 import { Cell, Solver } from './solver';
 
 /**
+ * @typedef {'unique'|'multiple'|'whatever'} SolutionsNumber
+ */
+
+/**
  * Returns a random element from an array
  * @param {Array<any>} array
  */
@@ -55,9 +59,9 @@ export function Generator(grid) {
 		/** @type {Number} */
 		const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
 
-		/** @type {Map<Number, Number>} */
+		/** @type {Map<Number, Number>} tile index => tile walls */
 		const borders = new Map();
-		/** @type {Map<Number, Set<Number>>} */
+		/** @type {Map<Number, Set<Number>>} tile walls => set of forbidden types-orientations */
 		const forbidden = new Map();
 		if (avoidObvious) {
 			for (let tileIndex of unvisited) {
@@ -111,8 +115,11 @@ export function Generator(grid) {
 				if (visited.length >= 1) {
 					fromNode = visited[visited.length - 1];
 				} else {
-					fromNode = getRandomElement(lastResortNodes);
+					fromNode = lastResortNodes[lastResortNodes.length - 1];
 				}
+			}
+			if (fromNode === undefined) {
+				throw 'Error in pregeneration: fromNode is undefined';
 			}
 			const unvisitedNeighbours = [];
 			for (let direction of grid.DIRECTIONS) {
@@ -134,7 +141,7 @@ export function Generator(grid) {
 				}
 				continue;
 			}
-			let filteredNeighbours = unvisitedNeighbours;
+			let filteredNeighbours = [];
 			if (avoidObvious) {
 				filteredNeighbours = unvisitedNeighbours.filter((item) => {
 					const { neighbour, direction } = item;
@@ -155,6 +162,8 @@ export function Generator(grid) {
 					}
 					return true;
 				});
+			} else {
+				filteredNeighbours = [...unvisitedNeighbours];
 			}
 			if (filteredNeighbours.length === 0) {
 				if (visited.length > 0) {
@@ -167,7 +176,7 @@ export function Generator(grid) {
 				} else {
 					// this is already a last resort node,
 					// let it do whatever it needs to
-					filteredNeighbours = unvisitedNeighbours;
+					filteredNeighbours = [...unvisitedNeighbours];
 				}
 			}
 			const toVisit = getRandomElement(filteredNeighbours);
@@ -191,27 +200,54 @@ export function Generator(grid) {
 	};
 
 	/**
-	 * Generate a puzzle instance with a unique solution
-	 * @returns {Number[]}
+	 * Generate a puzzle according to settings
+	 * @param {Number} branchingAmount - value in range [0, 1]
+	 * @param {Boolean} avoidObvious - try to avoid placing tiles if their orientation would be obvious from borders
+	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
+	 * @returns {Number[]} - generated tiles
 	 */
-	self.generate = function (branchingAmount = 0.6, avoidObvious = false) {
-		let attempt = 0;
-		// I don't expect many attempts to be needed, just 1 in .9999 cases
-		while (attempt < 3) {
-			attempt += 1;
-			let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
-			let uniqueIter = 0;
-			while (uniqueIter < 3) {
-				uniqueIter += 1;
-				const solver = new Solver(tiles, self.grid);
-				const { marked, unique } = solver.markAmbiguousTiles();
-				if (unique) {
-					return randomRotate(marked, self.grid);
+	self.generate = function (
+		branchingAmount = 0.6,
+		avoidObvious = false,
+		solutionsNumber = 'unique'
+	) {
+		if (solutionsNumber === 'unique') {
+			let attempt = 0;
+			// I don't expect many attempts to be needed, just 1 in .9999 cases
+			while (attempt < 3) {
+				attempt += 1;
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+				let uniqueIter = 0;
+				while (uniqueIter < 3) {
+					uniqueIter += 1;
+					const solver = new Solver(tiles, self.grid);
+					const { marked, unique } = solver.markAmbiguousTiles();
+					if (unique) {
+						return randomRotate(marked, self.grid);
+					}
+					tiles = solver.fixAmbiguousTiles(marked);
 				}
-				tiles = solver.fixAmbiguousTiles(marked);
 			}
+			throw 'Could not generate a puzzle with a unique solution';
+		} else if (solutionsNumber === 'whatever') {
+			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+			return randomRotate(tiles, self.grid);
+		} else if (solutionsNumber === 'multiple') {
+			let attempt = 0;
+			while (attempt < 100) {
+				attempt += 1;
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+				const solver = new Solver(tiles, self.grid);
+				const { unique } = solver.markAmbiguousTiles();
+				if (!unique) {
+					return randomRotate(tiles, self.grid);
+				}
+			}
+			throw 'Could not generate a puzzle with multiple solutions';
+		} else {
+			throw 'Unknown setting for solutionsNumber';
 		}
-		throw 'Could not generate a puzzle with a unique solution';
+		return [];
 	};
 
 	return this;
