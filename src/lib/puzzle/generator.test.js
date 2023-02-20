@@ -124,6 +124,24 @@ describe('Test Growing Tree pregeneration', () => {
 	});
 });
 
+describe('Test Growing Tree pregeneration with avoid obvious tiles', () => {
+	it('Pregenerates a solvable puzzle every time', () => {
+		// test with a larger number of attempts to be really sure
+		for (let i = 0; i < 100; i++) {
+			const width = 2 + Math.floor(Math.random() * 7);
+			const height = 2 + Math.floor(Math.random() * 7);
+			const grid = new HexaGrid(width, height, false);
+			const gen = new Generator(grid);
+			const tiles = gen.pregenerate_growingtree(Math.random(), true);
+			const hasEmptyTiles = tiles.some((t) => t === 0);
+			expect(hasEmptyTiles).toBe(false);
+			const solver = new Solver(tiles, grid);
+			const { solvable } = solver.markAmbiguousTiles();
+			expect(solvable).toBe(true);
+		}
+	});
+});
+
 describe('Test solution uniqueness', () => {
 	it('Generates a 20x20 wrap puzzle with a unique solution every time', () => {
 		const grid = new HexaGrid(20, 20, true);
@@ -428,7 +446,6 @@ describe('Generate dailies', () => {
 				const filename = `generator_stats/dailies/${
 					fileNumber < 10 ? '0' : ''
 				}${fileNumber}.${Math.round(steps * 1000)}.json`;
-				// console.log({ steps, bestSteps, filename });
 				if (bestSteps >= writeFileIfMoreThan) {
 					fs.writeFileSync(
 						filename,
