@@ -10,6 +10,11 @@
 	let height = 5;
 	let wrap = false;
 	let branchingAmount = 0.6;
+	let avoidObvious = false;
+	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
+	let solutionsNumber = 'unique';
+	let errorMessage = '';
+
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
 	let solved = false;
@@ -21,10 +26,23 @@
 	let id = 0;
 
 	function generate() {
+		// ensure valid sizes
+		// the game does not handle XS wraps well, so each size must be at least 3
+		width = Math.max(width, wrap ? 3 : 1);
+		height = Math.max(height, wrap ? 3 : 1);
+		if (width * height === 1) {
+			width += 1;
+		}
 		grid = new HexaGrid(width, height, wrap);
 		id += 1;
 		const gen = new Generator(grid);
-		tiles = gen.generate(branchingAmount);
+		try {
+			tiles = gen.generate(branchingAmount, avoidObvious, solutionsNumber);
+			errorMessage = '';
+		} catch (error) {
+			console.error(error);
+			errorMessage = '' + error;
+		}
 	}
 
 	function startOver() {
@@ -63,19 +81,42 @@
 		Wrap
 		<input type="checkbox" name="wrap" id="wrap" bind:checked={wrap} />
 	</label>
-	<label for="branching">
-		Branching
-		<input
-			type="range"
-			min="0"
-			max="1"
-			step="0.05"
-			name="branching"
-			id="branching"
-			bind:value={branchingAmount}
-		/>
-	</label>
 	<button on:click={generate}>Generate</button>
+	<details>
+		<summary>More options</summary>
+		<label for="branching">
+			Branching amount
+			<input
+				type="range"
+				min="0"
+				max="1"
+				step="0.05"
+				name="branching"
+				id="branching"
+				bind:value={branchingAmount}
+			/>
+		</label>
+		<label for="avoidObvious">
+			Avoid obvious tiles along borders
+			<input type="checkbox" name="wrap" id="wrap" bind:checked={avoidObvious} />
+		</label>
+
+		<label>
+			Number of solutions
+			<label for="unique">
+				<input type="radio" bind:group={solutionsNumber} id="unique" value="unique" /> Unique
+			</label>
+			<label for="multiple">
+				<input type="radio" bind:group={solutionsNumber} id="multiple" value="multiple" /> Multiple
+			</label>
+			<label for="whatever">
+				<input type="radio" bind:group={solutionsNumber} id="whatever" value="whatever" /> Whatever
+			</label>
+		</label>
+	</details>
+	{#if errorMessage !== ''}
+		<div class="error">{errorMessage}</div>
+	{/if}
 </div>
 
 {#if id > 0}
@@ -154,5 +195,13 @@
 	}
 	.buttons {
 		margin-top: 20px;
+	}
+	details > label {
+		display: block;
+		margin-bottom: 1em;
+	}
+	.error {
+		padding: 1em;
+		background-color: rgba(255, 0, 0, 0.1);
 	}
 </style>
