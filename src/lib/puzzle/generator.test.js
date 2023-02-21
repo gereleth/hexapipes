@@ -419,22 +419,19 @@ describe('Check difficulty', () => {
 describe('Generate dailies', () => {
 	it.skip('Creates evil puzzles', () => {
 		// setup params
-		const width = 13;
-		const height = 13;
-		const wrap = false;
+		const width = 8;
+		const height = 8;
+		const wrap = true;
 		// add grid features
 		const grid = new HexaGrid(width, height, wrap);
-		// [0, 1, 2, 3, 4, 5, 6].forEach((i) => grid.makeEmpty(i));
-		grid.useShape('hexagon');
+		[19, 20, 21, 27, 28, 36].forEach((i) => grid.makeEmpty(i));
+		// grid.useShape('hexagon');
 		// target difficulty in steps per tile
 		const writeFileIfMoreThan = 2.0;
 		let bestSteps = 0;
-		const files = fs.readdirSync('generator_stats/dailies');
-		const minFileNumber = files.reduce((n, file) => Math.max(n, Number(file.split('.')[0])), 0) + 1;
-		let fileNumber = minFileNumber;
-		for (let i = 0; i < 10001; i++) {
+		for (let i = 0; i < 100001; i++) {
 			const gen = new Generator(grid);
-			const tiles = gen.generate(0.3, true);
+			const tiles = gen.generate(0.8, true);
 			const solver = new Solver(tiles, grid);
 			let steps = 0;
 			for (let _ of solver.solve(true)) {
@@ -443,25 +440,22 @@ describe('Generate dailies', () => {
 			steps = steps / (grid.total - grid.emptyCells.size);
 			if (steps > bestSteps) {
 				bestSteps = steps;
-				const filename = `generator_stats/dailies/${
-					fileNumber < 10 ? '0' : ''
-				}${fileNumber}.${Math.round(steps * 1000)}.json`;
+				const filename = `generator_stats/dailies/${Math.round(steps * 1000)}.json`;
 				if (bestSteps >= writeFileIfMoreThan) {
 					fs.writeFileSync(
 						filename,
 						JSON.stringify(
 							{
+								comment: `Inverted triangles this week (X/7)`,
 								width,
 								height,
 								wrap,
-								tiles,
-								comment: `Back to the classics (${fileNumber - 18}/7)`
+								tiles
 							},
 							undefined,
 							'\t'
 						)
 					);
-					fileNumber += 1;
 				}
 			}
 		}
