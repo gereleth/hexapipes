@@ -31,6 +31,10 @@
 		<button on:click={newPuzzle}> ➡️ New puzzle </button>
 	{/if}
 </div>
+<div class="buttons secondary">
+	<!-- Download button -->
+	<button on:click={() => dispatch('download')}> ⬇️ Download this puzzle</button>
+</div>
 
 {#if showSettings}
 	<Settings />
@@ -49,5 +53,12 @@
 		color: var(--text-color);
 		display: block;
 		min-height: 2em;
+		cursor: pointer;
+	}
+	.secondary button {
+		background: none;
+		border: none;
+		text-decoration: underline;
+		color: #888;
 	}
 </style>

@@ -139,6 +139,7 @@
 		on:startOver={startOver}
 		includeNewPuzzleButton={true}
 		on:newPuzzle={generate}
+		on:download={puzzle.download}
 	/>
 </div>
 
