@@ -254,6 +254,28 @@
 
 	const save = createThrottle(saveProgress, 3000);
 
+	export const download = function () {
+		const data = {
+			grid: 'hexagonal',
+			width,
+			height,
+			wrap,
+			tiles
+		};
+		const dataString = JSON.stringify(data, null, '\t');
+		let element = document.createElement('a');
+		const href = 'data:text/json;charset=utf-8,' + encodeURIComponent(dataString);
+		element.setAttribute('href', href);
+		const filename = `${data.width}x${data.height}-${data.grid}${
+			data.wrap ? '-wrap' : ''
+		}-puzzle.json`;
+		element.setAttribute('download', filename);
+		element.style.display = 'none';
+		document.body.appendChild(element);
+		element.click();
+		document.body.removeChild(element);
+	};
+
 	$: if ($solved) {
 		dispatch('solved');
 	}
