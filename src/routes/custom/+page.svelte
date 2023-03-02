@@ -45,6 +45,68 @@
 		}
 	}
 
+	function importPuzzle(event) {
+		try {
+			const data = JSON.parse(event.target.result);
+
+			const w = Number(data.width);
+			if (isNaN(w) || w < 2 || !Number.isInteger(w)) {
+				throw `Invalid value for width: "${data.width}". Expected an integer >= 2`;
+			}
+			const h = Number(data.height);
+			if (isNaN(h) || h < 2 || !Number.isInteger(h)) {
+				throw `Invalid value for height: "${data.height}". Expected an integer >= 2`;
+			}
+			let wr = data.wrap;
+			if (!(wr === true || wr === false)) {
+				throw `Bad value for wrap: "${data.wrap}". Expected "true" or "false"`;
+			}
+			if (!data.tiles) {
+				throw 'Tiles list not found';
+			}
+			const t = data.tiles;
+			t.forEach((tile, index) => {
+				if (isNaN(tile)) {
+					throw `NaN value found in tiles list at index ${index}`;
+				}
+			});
+			if (data.grid === 'hexagonal') {
+				grid = new HexaGrid(w, h, wr, t);
+			} else {
+				throw `Bad value for grid: "${data.grid}". Expected "hexagonal"`;
+			}
+			if (w * h !== t.length) {
+				throw `Size mismatch: width*height = ${w} * ${h} = ${w * h}, length of tiles = ${t.length}`;
+			}
+			t.forEach((tile, index) => {
+				if (tile < 0 || tile > grid.fullyConnected(index)) {
+					throw `Bad tile value at index ${index}: ${tile}`;
+				}
+			});
+			// now it looks like the imported puzzle is ok
+			width = w;
+			height = h;
+			wrap = wr;
+			tiles = t;
+			id += 1;
+			errorMessage = '';
+		} catch (error) {
+			console.error(error);
+			errorMessage = '' + error;
+		}
+	}
+
+	function importFromFile(event) {
+		const files = event.target.files;
+		if (files.length <= 0) {
+			// no data selected
+			return false;
+		}
+		let fileReader = new FileReader();
+		fileReader.onload = importPuzzle;
+		fileReader.readAsText(files.item(0));
+	}
+
 	function startOver() {
 		solved = false;
 		puzzle.startOver();
@@ -114,6 +176,10 @@
 			</label>
 		</label>
 	</details>
+
+	<label class="file-input" for="file-input"> Import from file </label>
+	<input class="file-input" id="file-input" type="file" on:change={importFromFile} />
+
 	{#if errorMessage !== ''}
 		<div class="error">{errorMessage}</div>
 	{/if}
@@ -190,6 +256,7 @@
 	button {
 		color: var(--text-color);
 		min-height: 2em;
+		cursor: pointer;
 	}
 	input[type='number'] {
 		max-width: 60px;
@@ -204,5 +271,16 @@
 	.error {
 		padding: 1em;
 		background-color: rgba(255, 0, 0, 0.1);
+	}
+	summary {
+		padding: 0.5em 0;
+	}
+	input.file-input {
+		display: none;
+	}
+	label.file-input {
+		color: #888;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 </style>

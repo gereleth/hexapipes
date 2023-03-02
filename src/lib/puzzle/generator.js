@@ -228,7 +228,7 @@ export function Generator(grid) {
 					tiles = solver.fixAmbiguousTiles(marked);
 				}
 			}
-			throw 'Could not generate a puzzle with a unique solution';
+			throw 'Could not generate a puzzle with a unique solution. Maybe try again.';
 		} else if (solutionsNumber === 'whatever') {
 			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
 			return randomRotate(tiles, self.grid);
@@ -243,7 +243,7 @@ export function Generator(grid) {
 					return randomRotate(tiles, self.grid);
 				}
 			}
-			throw 'Could not generate a puzzle with multiple solutions';
+			throw 'Could not generate a puzzle with multiple solutions in 100 attempts. Maybe try again.';
 		} else {
 			throw 'Unknown setting for solutionsNumber';
 		}
