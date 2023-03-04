@@ -196,17 +196,10 @@
 					if (stage === 'aftercheck') {
 						continue;
 					}
-					const initial = tiles[step.index];
-					let newState = initial;
-					let rotations = 0;
-					while (newState !== step.orientation) {
-						newState = grid.rotate(newState, -1, step.index);
-						rotations -= 1;
-					}
-					const current = game.tileStates[step.index].data.rotations;
-					game.rotateTile(step.index, rotations - current || grid.DIRECTIONS.length);
+					game.toggleLocked(step.index, false);
+					game.setTileOrientation(step.index, step.orientation, true);
 					if (step.final && stage === 'initial') {
-						game.tileStates[step.index].toggleLocked();
+						game.toggleLocked(step.index, true, true);
 					}
 					if (animate) {
 						await sleep(200);
@@ -304,18 +297,8 @@
 						<button
 							on:click={() => {
 								solution.forEach((orientation, index) => {
-									const initial = tiles[index];
-									let newState = initial;
-									let rotations = 0;
-									while (newState !== orientation) {
-										newState = grid.rotate(newState, -1, index);
-										rotations -= 1;
-									}
-									const current = game.tileStates[index].data.rotations;
-									if ((rotations - current) % 6 !== 0) {
-										game.rotateTile(index, rotations - current);
-										game._solved = false;
-									}
+									game.setTileOrientation(index, orientation);
+									game._solved = false;
 								});
 								game.solved.set(false);
 								game._solved = false;
