@@ -312,8 +312,9 @@
 										rotations -= 1;
 									}
 									const current = game.tileStates[index].data.rotations;
-									if (rotations - current !== 0) {
+									if ((rotations - current) % 6 !== 0) {
 										game.rotateTile(index, rotations - current);
+										game._solved = false;
 									}
 								});
 								game.solved.set(false);
