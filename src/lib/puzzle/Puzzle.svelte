@@ -17,6 +17,7 @@
 	/** @type {Number|undefined} */
 	export let preferredPxPerCell = undefined;
 	export let showSolveButton = false;
+	export let animate = false;
 
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
@@ -178,7 +179,6 @@
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
-	let animate = false;
 	let solver;
 	let numsol = 0;
 	async function unleashTheSolver() {

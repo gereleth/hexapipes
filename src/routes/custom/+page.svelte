@@ -24,6 +24,7 @@
 	let tiles = [];
 
 	let id = 0;
+	let animate = false;
 
 	function generate() {
 		// ensure valid sizes
@@ -195,6 +196,7 @@
 			bind:this={puzzle}
 			on:solved={() => (solved = true)}
 			showSolveButton={true}
+			bind:animate
 		/>
 	{/key}
 {/if}
