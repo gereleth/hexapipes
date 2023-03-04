@@ -573,6 +573,10 @@ export function Solver(tiles, grid) {
 				self.dirty.add(nextTile);
 				for (let step of self.processDirtyCells()) {
 					toInit.delete(step.index);
+					if (step.orientation === 0) {
+						// don't report processing empty cell as a step
+						continue;
+					}
 					yield { stage: 'initial', step };
 				}
 			}
