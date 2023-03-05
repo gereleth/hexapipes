@@ -79,6 +79,42 @@ export function Cell(grid, index, initial) {
 	};
 
 	/**
+	 * Removes orientations if they don't have all the mentioned walls
+	 * @param {Number} directions
+	 */
+	self.mustHaveAllWalls = function (directions) {
+		for (let orientation of self.possible) {
+			if ((orientation & directions) > 0) {
+				self.possible.delete(orientation);
+			}
+		}
+	};
+
+	/**
+	 * Removes orientations if they don't have at least one of the mentioned walls
+	 * @param {Number} directions
+	 */
+	self.mustHaveSomeWalls = function (directions) {
+		for (let orientation of self.possible) {
+			if ((orientation & directions) === orientation) {
+				self.possible.delete(orientation);
+			}
+		}
+	};
+
+	/**
+	 * Removes orientations if they don't have all the mentioned connections
+	 * @param {Number} directions
+	 */
+	self.mustHaveAllConnections = function (directions) {
+		for (let orientation of self.possible) {
+			if ((orientation & directions) !== directions) {
+				self.possible.delete(orientation);
+			}
+		}
+	};
+
+	/**
 	 * Filters out tile orientations that contradict known constraints
 	 * @throws {NoOrientationsPossible}
 	 * @returns {{addedWalls:Number, addedConnections: Number}}
@@ -197,40 +233,23 @@ export function Solver(tiles, grid) {
 		for (let otherIndex of neighbourComponent) {
 			self.components.set(otherIndex, component);
 			component.add(otherIndex);
-		}
-	};
-
-	self.avoidLoops = function () {
-		/** @type {Set<Number>} */
-		const checked = new Set();
-		for (let [cellIndex, component] of self.components.entries()) {
-			if (checked.has(cellIndex)) {
-				continue;
-			}
-			component.forEach((i) => checked.add(i));
-			if (component.size < 3) {
-				continue;
-			}
-			for (let index of component) {
-				const cell = self.unsolved.get(index);
-				if (cell === undefined) {
-					throw 'Component cell is undefined';
+			// loop avoidance logic
+			// for every joining cell check if it has neighbours already in component
+			// and add a wall between them in this case
+			const cell = self.getCell(otherIndex);
+			const occupiedDirections = cell.walls + cell.connections;
+			let forbidden = 0;
+			for (let direction of self.grid.DIRECTIONS) {
+				if ((occupiedDirections & direction) > 0) {
+					continue;
 				}
-				const occupiedDirections = cell.walls + cell.connections;
-				for (let direction of self.grid.DIRECTIONS) {
-					if ((occupiedDirections & direction) > 0) {
-						continue;
-					}
-					const neighbourIndex = self.grid.find_neighbour(index, direction).neighbour;
-					if (component.has(neighbourIndex)) {
-						// console.log('add wall btw', index, neighbourIndex);
-						cell.addWall(direction);
-						self.dirty.add(index);
-						const neighbourCell = self.unsolved.get(neighbourIndex);
-						neighbourCell?.addWall(self.grid.OPPOSITE.get(direction) || 0);
-						self.dirty.add(neighbourIndex);
-					}
+				const nIndex = self.grid.find_neighbour(otherIndex, direction).neighbour;
+				if (component.has(nIndex)) {
+					forbidden += direction;
 				}
+			}
+			if (forbidden > 0) {
+				cell.mustHaveAllWalls(forbidden);
 			}
 		}
 	};
@@ -256,7 +275,7 @@ export function Solver(tiles, grid) {
 		let walls = 0;
 		for (let direction of self.grid.DIRECTIONS) {
 			const { neighbour, empty } = self.grid.find_neighbour(index, direction);
-			if (neighbour === -1) {
+			if (empty) {
 				walls += direction;
 			}
 			neighbourTiles.push(self.grid.tileTypes.get(self.tiles[neighbour]) || self.UNSOLVED);
@@ -265,11 +284,7 @@ export function Solver(tiles, grid) {
 		// any grid
 		if (walls > 0) {
 			cell.addWall(walls);
-			for (let orientation of cell.possible) {
-				if ((orientation & walls) > 0) {
-					cell.possible.delete(orientation);
-				}
-			}
+			cell.mustHaveAllWalls(walls);
 		}
 
 		// remove orientations that connect only deadends
@@ -281,11 +296,7 @@ export function Solver(tiles, grid) {
 					deadendConnections += self.grid.DIRECTIONS[i];
 				}
 			}
-			for (let orientation of cell.possible) {
-				if ((orientation & deadendConnections) === orientation) {
-					cell.possible.delete(orientation);
-				}
-			}
+			cell.mustHaveSomeWalls(deadendConnections);
 		}
 
 		// Hexagrid specific tricks
@@ -301,11 +312,7 @@ export function Solver(tiles, grid) {
 					const direction = self.grid.DIRECTIONS[i];
 					const forbidden =
 						direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
-					for (let orientation of cell.possible) {
-						if ((orientation & forbidden) === forbidden) {
-							cell.possible.delete(orientation);
-						}
-					}
+					cell.mustHaveSomeWalls(forbidden);
 				}
 			}
 		}
@@ -319,11 +326,7 @@ export function Solver(tiles, grid) {
 					)
 				) {
 					const direction = self.grid.DIRECTIONS[i];
-					for (let orientation of cell.possible) {
-						if ((orientation & direction) === 0) {
-							cell.possible.delete(orientation);
-						}
-					}
+					cell.mustHaveAllConnections(direction);
 				}
 			}
 		}
