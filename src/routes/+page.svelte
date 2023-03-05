@@ -122,6 +122,24 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-03-05</em> Export/import of puzzles as json files. Plus some new generator options.
+			<ul>
+				<li>
+					You can now download a puzzle as a json file. Open the downloaded file on the
+					<a href="/custom">custom puzzle page</a>. If a daily is too hard you can let the solver
+					have a go at it =).
+				</li>
+				<li>
+					Custom puzzle page has a new setting to "Avoid obvious tiles". This can spice up regular
+					puzzles by avoiding things like straight tiles along outer walls.
+				</li>
+				<li>
+					You can also ask the generator for a puzzle with multiple solutions. See if you can spot
+					the ambiguities =).
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-02-19</em> Automate obvious stuff away with a smart assistant.
 			<ul>
 				<li>
