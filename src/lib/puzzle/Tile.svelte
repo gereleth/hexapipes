@@ -56,7 +56,7 @@
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
 </script>
 
-<g class="tile" data-index={i} data-x={cx} data-y={cy} transform="translate({cx},{cy})">
+<g class="tile" transform="translate({cx},{cy})">
 	<!-- Tile hexagon -->
 	<path d={hexagon} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
 

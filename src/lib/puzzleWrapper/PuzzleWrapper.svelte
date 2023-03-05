@@ -224,6 +224,7 @@
 		solved={solve.elapsedTime !== -1}
 		on:startOver={startOver}
 		on:newPuzzle={newPuzzle}
+		on:download={puzzle.download}
 	/>
 </div>
 

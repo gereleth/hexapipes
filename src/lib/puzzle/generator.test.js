@@ -124,6 +124,24 @@ describe('Test Growing Tree pregeneration', () => {
 	});
 });
 
+describe('Test Growing Tree pregeneration with avoid obvious tiles', () => {
+	it('Pregenerates a solvable puzzle every time', () => {
+		// test with a larger number of attempts to be really sure
+		for (let i = 0; i < 100; i++) {
+			const width = 2 + Math.floor(Math.random() * 7);
+			const height = 2 + Math.floor(Math.random() * 7);
+			const grid = new HexaGrid(width, height, false);
+			const gen = new Generator(grid);
+			const tiles = gen.pregenerate_growingtree(Math.random(), true);
+			const hasEmptyTiles = tiles.some((t) => t === 0);
+			expect(hasEmptyTiles).toBe(false);
+			const solver = new Solver(tiles, grid);
+			const { solvable } = solver.markAmbiguousTiles();
+			expect(solvable).toBe(true);
+		}
+	});
+});
+
 describe('Test solution uniqueness', () => {
 	it('Generates a 20x20 wrap puzzle with a unique solution every time', () => {
 		const grid = new HexaGrid(20, 20, true);
@@ -360,51 +378,84 @@ describe('Check difficulty', () => {
 			JSON.stringify(results, undefined, '\t')
 		);
 	});
+
+	it.skip('Check difficulty effect of avoidObvious', () => {
+		const results = [];
+		const wrap = false;
+		for (let branchingAmount of [0.6]) {
+			for (let avoidObvious of [false, true]) {
+				for (let size of [11]) {
+					const grid = new HexaGrid(size, size, wrap);
+					grid.useShape('hexagon');
+					for (let i = 1; i <= 10000; i++) {
+						const gen = new Generator(grid);
+						const tiles = gen.generate(branchingAmount, avoidObvious);
+						const solver = new Solver(tiles, grid);
+						let steps = 0;
+						for (let _ of solver.solve(true)) {
+							steps += 1;
+						}
+						results.push({
+							width: size,
+							height: size,
+							wrap,
+							branchingAmount,
+							avoidObvious,
+							id: i,
+							steps,
+							stepsPerTile: steps / grid.total
+						});
+					}
+				}
+			}
+		}
+		fs.writeFileSync(
+			'generator_stats/avoidObviousEffect.json',
+			JSON.stringify(results, undefined, '\t')
+		);
+	});
 });
 
 describe('Generate dailies', () => {
 	it.skip('Creates evil puzzles', () => {
 		// setup params
-		const width = 11;
-		const height = 13;
+		const width = 8;
+		const height = 8;
 		const wrap = true;
 		// add grid features
 		const grid = new HexaGrid(width, height, wrap);
-		[0, 11, 23, 34, 46, 57, 69, 79, 90, 100, 111, 121, 132].forEach((i) => grid.makeEmpty(i));
+		[19, 20, 21, 27, 28, 36].forEach((i) => grid.makeEmpty(i));
+		// grid.useShape('hexagon');
 		// target difficulty in steps per tile
-		const writeFileIfMoreThan = 3;
+		const writeFileIfMoreThan = 2.0;
 		let bestSteps = 0;
-		const files = fs.readdirSync('generator_stats/dailies');
-		const minFileNumber = files.reduce((n, file) => Math.max(n, Number(file.split('.')[0])), 0) + 1;
-		let fileNumber = minFileNumber;
-		for (let i = 0; i < 10001; i++) {
+		for (let i = 0; i < 100001; i++) {
 			const gen = new Generator(grid);
-			const tiles = gen.generate(0.3);
+			const tiles = gen.generate(0.8, true);
 			const solver = new Solver(tiles, grid);
 			let steps = 0;
 			for (let _ of solver.solve(true)) {
 				steps += 1;
 			}
-			steps /= grid.total;
+			steps = steps / (grid.total - grid.emptyCells.size);
 			if (steps > bestSteps) {
-				bestSteps = Math.min(bestSteps + 0.1, steps);
-				const filename = `generator_stats/dailies/${fileNumber < 10 ? '0' : ''}${fileNumber}.json`;
-				if (bestSteps > writeFileIfMoreThan) {
+				bestSteps = steps;
+				const filename = `generator_stats/dailies/${Math.round(steps * 1000)}.json`;
+				if (bestSteps >= writeFileIfMoreThan) {
 					fs.writeFileSync(
 						filename,
 						JSON.stringify(
 							{
+								comment: `Inverted triangles this week (X/7)`,
 								width,
 								height,
 								wrap,
-								tiles,
-								comment: `A wiggly road up (${fileNumber - minFileNumber + 1}/7) ${steps}`
+								tiles
 							},
 							undefined,
 							'\t'
 						)
 					);
-					fileNumber += 1;
 				}
 			}
 		}

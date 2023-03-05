@@ -17,6 +17,7 @@
 	/** @type {Number|undefined} */
 	export let preferredPxPerCell = undefined;
 	export let showSolveButton = false;
+	export let animate = false;
 
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
@@ -178,7 +179,6 @@
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
-	let animate = false;
 	let solver;
 	let numsol = 0;
 	async function unleashTheSolver() {
@@ -196,17 +196,11 @@
 					if (stage === 'aftercheck') {
 						continue;
 					}
-					const initial = tiles[step.index];
-					let newState = initial;
-					let rotations = 0;
-					while (newState !== step.orientation) {
-						newState = grid.rotate(newState, -1, step.index);
-						rotations -= 1;
-					}
-					const current = game.tileStates[step.index].data.rotations;
-					game.rotateTile(step.index, rotations - current || grid.DIRECTIONS.length);
-					if (step.final && stage === 'initial') {
-						game.tileStates[step.index].toggleLocked();
+					game.toggleLocked(step.index, false);
+					const shouldLock = step.final && stage === 'initial';
+					game.setTileOrientation(step.index, step.orientation, !shouldLock);
+					if (shouldLock) {
+						game.toggleLocked(step.index, true);
 					}
 					if (animate) {
 						await sleep(200);
@@ -254,6 +248,28 @@
 
 	const save = createThrottle(saveProgress, 3000);
 
+	export const download = function () {
+		const data = {
+			grid: 'hexagonal',
+			width,
+			height,
+			wrap,
+			tiles
+		};
+		const dataString = JSON.stringify(data, null, '\t');
+		let element = document.createElement('a');
+		const href = 'data:text/json;charset=utf-8,' + encodeURIComponent(dataString);
+		element.setAttribute('href', href);
+		const filename = `${data.width}x${data.height}-${data.grid}${
+			data.wrap ? '-wrap' : ''
+		}-puzzle.json`;
+		element.setAttribute('download', filename);
+		element.style.display = 'none';
+		document.body.appendChild(element);
+		element.click();
+		document.body.removeChild(element);
+	};
+
 	$: if ($solved) {
 		dispatch('solved');
 	}
@@ -282,17 +298,8 @@
 						<button
 							on:click={() => {
 								solution.forEach((orientation, index) => {
-									const initial = tiles[index];
-									let newState = initial;
-									let rotations = 0;
-									while (newState !== orientation) {
-										newState = grid.rotate(newState, -1, index);
-										rotations -= 1;
-									}
-									const current = game.tileStates[index].data.rotations;
-									if (rotations - current !== 0) {
-										game.rotateTile(index, rotations - current);
-									}
+									game.setTileOrientation(index, orientation);
+									game._solved = false;
 								});
 								game.solved.set(false);
 								game._solved = false;

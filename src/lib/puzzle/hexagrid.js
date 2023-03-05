@@ -229,11 +229,14 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	};
 
 	/**
+	 * Determines which tile a point at (x, y) belongs to
+	 * Returns tile index and tile center coordinates
+	 * If the point is over empty space then tileIndex is -1
 	 * @param {Number} x
 	 * @param {Number} y
-	 * @returns {Number}
+	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	this.xy_to_index = function (x, y) {
+	this.which_tile_at = function (x, y) {
 		const r = y / self.YSTEP;
 		const r0 = Math.round(r);
 		const c0 = Math.round(x - (r0 % 2 === 0 ? 0 : 0.5));
@@ -241,7 +244,11 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 		const y0 = r0 * self.YSTEP;
 		const distance0 = Math.sqrt((x - x0) ** 2 + (y - y0) ** 2);
 		if (distance0 <= 0.5) {
-			return self.rc_to_index(r0, c0);
+			return {
+				index: self.rc_to_index(r0, c0),
+				x: x0,
+				y: y0
+			};
 		} else {
 			let r1 = Math.floor(r);
 			if (r1 === r0) {
@@ -252,9 +259,17 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 			const y1 = r1 * self.YSTEP;
 			const distance1 = Math.sqrt((x - x1) ** 2 + (y - y1) ** 2);
 			if (distance0 < distance1) {
-				return self.rc_to_index(r0, c0);
+				return {
+					index: self.rc_to_index(r0, c0),
+					x: x0,
+					y: y0
+				};
 			} else {
-				return self.rc_to_index(r1, c1);
+				return {
+					index: self.rc_to_index(r1, c1),
+					x: x1,
+					y: y1
+				};
 			}
 		}
 	};
@@ -409,14 +424,14 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 		for (let r = rmin; r <= rmax; r++) {
 			for (let c = cmin; c <= cmax; c++) {
 				const index = self.rc_to_index(r, c);
-				if (self.emptyCells.has(index)) {
+				if (index === -1) {
 					continue;
 				}
 				const x = c + (r % 2 === 0 ? 0.0 : 0.5);
 				const y = r * self.YSTEP;
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}`;
 				visibleTiles.push({
-					index: self.rc_to_index(r, c),
+					index,
 					x,
 					y,
 					key
@@ -427,10 +442,10 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	};
 
 	/**
-	 *
+	 * Get tile index from row and column number
 	 * @param {Number} r
 	 * @param {Number} c
-	 * @returns {Number}
+	 * @returns {Number} tile index or -1 if empty or out of bounds
 	 */
 	this.rc_to_index = function (r, c) {
 		if (self.wrap) {
@@ -456,8 +471,14 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 			if (c < 0) {
 				c += self.width;
 			}
+		} else if (r < 0 || r >= self.height || c < 0 || c >= self.width) {
+			return -1;
 		}
-		return self.width * r + c;
+		const index = self.width * r + c;
+		if (self.emptyCells.has(index)) {
+			return -1;
+		}
+		return index;
 	};
 
 	// Throttled derived store to get visible tiles from viewbox
@@ -478,6 +499,69 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 		},
 		getVisibleTiles(get(self.viewBox))
 	);
+
+	/**
+	 * Shape the playing field by making some tiles empty
+	 * @param {'hexagon'|'triangle'} shape
+	 */
+	this.useShape = function (shape) {
+		if (shape === 'hexagon') {
+			const wrap = self.wrap;
+			self.wrap = false;
+			const middle_row = Math.floor(self.height / 2);
+			let left_cell = self.width * middle_row;
+			let right_cell = left_cell + self.width - 1;
+			for (let [start_cell, shift_direction, erase_direction] of [
+				[left_cell, NORTHEAST, WEST],
+				[right_cell, NORTHWEST, EAST],
+				[left_cell, SOUTHEAST, WEST],
+				[right_cell, SOUTHWEST, EAST]
+			]) {
+				let cell = start_cell;
+				for (let delta_row = 1; delta_row < middle_row + 1; delta_row++) {
+					let new_cell = self.find_neighbour(cell, shift_direction);
+					if (new_cell.empty) {
+						break;
+					} else {
+						cell = new_cell.neighbour;
+					}
+					let { neighbour, empty } = self.find_neighbour(cell, erase_direction);
+					while (!empty) {
+						self.makeEmpty(neighbour);
+						({ neighbour, empty } = self.find_neighbour(neighbour, erase_direction));
+					}
+				}
+			}
+			self.wrap = wrap;
+		} else if (shape === 'triangle') {
+			const wrap = self.wrap;
+			self.wrap = false;
+			let left_cell = 0;
+			let right_cell = self.width - 1;
+			for (let [start_cell, shift_direction, erase_direction] of [
+				[left_cell, SOUTHEAST, WEST],
+				[right_cell, SOUTHWEST, EAST]
+			]) {
+				let cell = start_cell;
+				while (true) {
+					let new_cell = self.find_neighbour(cell, shift_direction);
+					if (new_cell.empty) {
+						break;
+					} else {
+						cell = new_cell.neighbour;
+					}
+					let { neighbour, empty } = self.find_neighbour(cell, erase_direction);
+					while (!empty) {
+						self.makeEmpty(neighbour);
+						({ neighbour, empty } = self.find_neighbour(neighbour, erase_direction));
+					}
+				}
+			}
+			self.wrap = wrap;
+		} else {
+			throw 'unknown shape ' + shape;
+		}
+	};
 
 	let tilePath = '';
 	for (let p = 0; p < 6; p++) {

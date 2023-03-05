@@ -185,6 +185,7 @@
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
 		on:startOver={startOver}
+		on:download={puzzle.download}
 		includeNewPuzzleButton={false}
 	/>
 </div>

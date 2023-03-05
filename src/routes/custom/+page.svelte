@@ -10,6 +10,11 @@
 	let height = 5;
 	let wrap = false;
 	let branchingAmount = 0.6;
+	let avoidObvious = false;
+	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
+	let solutionsNumber = 'unique';
+	let errorMessage = '';
+
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
 	let solved = false;
@@ -19,12 +24,88 @@
 	let tiles = [];
 
 	let id = 0;
+	let animate = false;
 
 	function generate() {
+		// ensure valid sizes
+		// the game does not handle XS wraps well, so each size must be at least 3
+		width = Math.max(width, wrap ? 3 : 1);
+		height = Math.max(height, wrap ? 3 : 1);
+		if (width * height === 1) {
+			width += 1;
+		}
 		grid = new HexaGrid(width, height, wrap);
 		id += 1;
 		const gen = new Generator(grid);
-		tiles = gen.generate(branchingAmount);
+		try {
+			tiles = gen.generate(branchingAmount, avoidObvious, solutionsNumber);
+			errorMessage = '';
+		} catch (error) {
+			console.error(error);
+			errorMessage = '' + error;
+		}
+	}
+
+	function importPuzzle(event) {
+		try {
+			const data = JSON.parse(event.target.result);
+
+			const w = Number(data.width);
+			if (isNaN(w) || w < 2 || !Number.isInteger(w)) {
+				throw `Invalid value for width: "${data.width}". Expected an integer >= 2`;
+			}
+			const h = Number(data.height);
+			if (isNaN(h) || h < 2 || !Number.isInteger(h)) {
+				throw `Invalid value for height: "${data.height}". Expected an integer >= 2`;
+			}
+			let wr = data.wrap;
+			if (!(wr === true || wr === false)) {
+				throw `Bad value for wrap: "${data.wrap}". Expected "true" or "false"`;
+			}
+			if (!data.tiles) {
+				throw 'Tiles list not found';
+			}
+			const t = data.tiles;
+			t.forEach((tile, index) => {
+				if (isNaN(tile)) {
+					throw `NaN value found in tiles list at index ${index}`;
+				}
+			});
+			if (data.grid === 'hexagonal') {
+				grid = new HexaGrid(w, h, wr, t);
+			} else {
+				throw `Bad value for grid: "${data.grid}". Expected "hexagonal"`;
+			}
+			if (w * h !== t.length) {
+				throw `Size mismatch: width*height = ${w} * ${h} = ${w * h}, length of tiles = ${t.length}`;
+			}
+			t.forEach((tile, index) => {
+				if (tile < 0 || tile > grid.fullyConnected(index)) {
+					throw `Bad tile value at index ${index}: ${tile}`;
+				}
+			});
+			// now it looks like the imported puzzle is ok
+			width = w;
+			height = h;
+			wrap = wr;
+			tiles = t;
+			id += 1;
+			errorMessage = '';
+		} catch (error) {
+			console.error(error);
+			errorMessage = '' + error;
+		}
+	}
+
+	function importFromFile(event) {
+		const files = event.target.files;
+		if (files.length <= 0) {
+			// no data selected
+			return false;
+		}
+		let fileReader = new FileReader();
+		fileReader.onload = importPuzzle;
+		fileReader.readAsText(files.item(0));
 	}
 
 	function startOver() {
@@ -63,19 +144,46 @@
 		Wrap
 		<input type="checkbox" name="wrap" id="wrap" bind:checked={wrap} />
 	</label>
-	<label for="branching">
-		Branching
-		<input
-			type="range"
-			min="0"
-			max="1"
-			step="0.05"
-			name="branching"
-			id="branching"
-			bind:value={branchingAmount}
-		/>
-	</label>
 	<button on:click={generate}>Generate</button>
+	<details>
+		<summary>More options</summary>
+		<label for="branching">
+			Branching amount
+			<input
+				type="range"
+				min="0"
+				max="1"
+				step="0.05"
+				name="branching"
+				id="branching"
+				bind:value={branchingAmount}
+			/>
+		</label>
+		<label for="avoidObvious">
+			Avoid obvious tiles along borders
+			<input type="checkbox" name="wrap" id="wrap" bind:checked={avoidObvious} />
+		</label>
+
+		<label>
+			Number of solutions
+			<label for="unique">
+				<input type="radio" bind:group={solutionsNumber} id="unique" value="unique" /> Unique
+			</label>
+			<label for="multiple">
+				<input type="radio" bind:group={solutionsNumber} id="multiple" value="multiple" /> Multiple
+			</label>
+			<label for="whatever">
+				<input type="radio" bind:group={solutionsNumber} id="whatever" value="whatever" /> Whatever
+			</label>
+		</label>
+	</details>
+
+	<label class="file-input" for="file-input"> Import from file </label>
+	<input class="file-input" id="file-input" type="file" on:change={importFromFile} />
+
+	{#if errorMessage !== ''}
+		<div class="error">{errorMessage}</div>
+	{/if}
 </div>
 
 {#if id > 0}
@@ -88,6 +196,7 @@
 			bind:this={puzzle}
 			on:solved={() => (solved = true)}
 			showSolveButton={true}
+			bind:animate
 		/>
 	{/key}
 {/if}
@@ -98,6 +207,7 @@
 		on:startOver={startOver}
 		includeNewPuzzleButton={true}
 		on:newPuzzle={generate}
+		on:download={puzzle.download}
 	/>
 </div>
 
@@ -148,11 +258,31 @@
 	button {
 		color: var(--text-color);
 		min-height: 2em;
+		cursor: pointer;
 	}
 	input[type='number'] {
 		max-width: 60px;
 	}
 	.buttons {
 		margin-top: 20px;
+	}
+	details > label {
+		display: block;
+		margin-bottom: 1em;
+	}
+	.error {
+		padding: 1em;
+		background-color: rgba(255, 0, 0, 0.1);
+	}
+	summary {
+		padding: 0.5em 0;
+	}
+	input.file-input {
+		display: none;
+	}
+	label.file-input {
+		color: #888;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 </style>
