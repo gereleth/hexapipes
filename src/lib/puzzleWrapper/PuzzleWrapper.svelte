@@ -9,7 +9,7 @@
 	import { getSolves, getStats } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { Generator } from '$lib/puzzle/generator';
-	import { HexaGrid } from '$lib/puzzle/hexagrid';
+	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 
 	/** @type {'hexagonal'|'hexagonal-wrap'} */
 	export let category;

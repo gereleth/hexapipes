@@ -22,7 +22,7 @@ export function controls(node, game) {
 	const grid = game.grid;
 
 	/**
-	 * @type {import('./hexagrid').ViewBox}
+	 * @type {import('./grids/hexagrid').ViewBox}
 	 */
 	let viewBox;
 

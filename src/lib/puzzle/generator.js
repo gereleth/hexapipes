@@ -16,7 +16,7 @@ function getRandomElement(array) {
 /**
  * Randomize tile rotations
  * @param {Number[]} tiles
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  * @returns {Number[]}
  */
 function randomRotate(tiles, grid) {
@@ -28,7 +28,7 @@ function randomRotate(tiles, grid) {
 
 /**
  * @constructor
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  */
 export function Generator(grid) {
 	let self = this;

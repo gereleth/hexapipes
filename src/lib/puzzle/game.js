@@ -94,7 +94,7 @@ function StateStore(initialState) {
 /**
  * Pipes puzzle internal state
  * @constructor
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  * @param {Number[]} tiles
  * @param {Progress|undefined} savedProgress
  */

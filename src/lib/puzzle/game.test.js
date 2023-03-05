@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HexaGrid } from './hexagrid';
+import { HexaGrid } from './grids/hexagrid';
 import { PipesGame } from './game';
 
 describe('Test initialize board', () => {

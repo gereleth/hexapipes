@@ -37,7 +37,7 @@ function IslandDetectedException() {
 
 /**
  * @constructor
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  * @param {Number} index - tile index in grid
  * @param {Number} initial - initial orientation
  */
@@ -168,7 +168,7 @@ export function Cell(grid, index, initial) {
 /**
  * @constructor
  * @param {Number[]} tiles - tile index in grid
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  */
 export function Solver(tiles, grid) {
 	let self = this;

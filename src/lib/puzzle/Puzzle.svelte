@@ -1,5 +1,5 @@
 <script>
-	import { HexaGrid } from '$lib/puzzle/hexagrid';
+	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';

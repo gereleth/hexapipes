@@ -3,7 +3,7 @@
 	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { HexaGrid } from '$lib/puzzle/hexagrid';
+	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 	import { Generator } from '$lib/puzzle/generator';
 
 	let width = 5;
