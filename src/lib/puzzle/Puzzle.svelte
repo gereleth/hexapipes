@@ -197,9 +197,10 @@
 						continue;
 					}
 					game.toggleLocked(step.index, false);
-					game.setTileOrientation(step.index, step.orientation, true);
-					if (step.final && stage === 'initial') {
-						game.toggleLocked(step.index, true, true);
+					const shouldLock = step.final && stage === 'initial';
+					game.setTileOrientation(step.index, step.orientation, !shouldLock);
+					if (shouldLock) {
+						game.toggleLocked(step.index, true);
 					}
 					if (animate) {
 						await sleep(200);
