@@ -250,6 +250,7 @@ export function Solver(tiles, grid) {
 			}
 			if (forbidden > 0) {
 				cell.mustHaveAllWalls(forbidden);
+				self.dirty.add(otherIndex);
 			}
 		}
 	};
