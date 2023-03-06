@@ -8,6 +8,7 @@
 	import { PipesGame } from '$lib/puzzle/game';
 	import { Solver } from './solver';
 
+	export let gridKind = 'hexagonal';
 	export let width = 0;
 	export let height = 0;
 	/** @type {Number[]} */
@@ -28,7 +29,12 @@
 	let svgWidth = 500;
 	let svgHeight = 500;
 
-	let grid = new SquareGrid(width, height, wrap, tiles);
+	let grid;
+	if (gridKind === 'hexagonal') {
+		grid = new HexaGrid(width, height, wrap, tiles);
+	} else {
+		grid = new SquareGrid(width, height, wrap, tiles);
+	}
 	let game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
 

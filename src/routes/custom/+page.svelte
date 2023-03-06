@@ -4,8 +4,10 @@
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
+	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 	import { Generator } from '$lib/puzzle/generator';
 
+	let gridKind = 'hexagonal';
 	let width = 5;
 	let height = 5;
 	let wrap = false;
@@ -34,7 +36,11 @@
 		if (width * height === 1) {
 			width += 1;
 		}
-		grid = new HexaGrid(width, height, wrap);
+		if (gridKind === 'hexagonal') {
+			grid = new HexaGrid(width, height, wrap);
+		} else {
+			grid = new SquareGrid(width, height, wrap);
+		}
 		id += 1;
 		const gen = new Generator(grid);
 		try {
@@ -73,6 +79,8 @@
 			});
 			if (data.grid === 'hexagonal') {
 				grid = new HexaGrid(w, h, wr, t);
+			} else if (data.grid === 'square') {
+				grid = new SquareGrid(w, h, wr, t);
 			} else {
 				throw `Bad value for grid: "${data.grid}". Expected "hexagonal"`;
 			}
@@ -132,6 +140,17 @@
 </div>
 
 <div class="generator-params container">
+	<div style="margin-bottom: 0.5em">
+		<label>
+			Grid type
+			<label for="hexagonal">
+				<input type="radio" bind:group={gridKind} id="hexagonal" value="hexagonal" /> Hexagonal
+			</label>
+			<label for="square">
+				<input type="radio" bind:group={gridKind} id="square" value="square" /> Square
+			</label>
+		</label>
+	</div>
 	<label for="width">
 		Width
 		<input type="number" name="width" id="width" bind:value={width} min="3" />
@@ -189,6 +208,7 @@
 {#if id > 0}
 	{#key id}
 		<Puzzle
+			{gridKind}
 			{width}
 			{height}
 			{tiles}
