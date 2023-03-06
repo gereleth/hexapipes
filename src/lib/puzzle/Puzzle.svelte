@@ -1,5 +1,6 @@
 <script>
 	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
+	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
@@ -27,7 +28,7 @@
 	let svgWidth = 500;
 	let svgHeight = 500;
 
-	let grid = new HexaGrid(width, height, wrap, tiles);
+	let grid = new SquareGrid(width, height, wrap, tiles);
 	let game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
 

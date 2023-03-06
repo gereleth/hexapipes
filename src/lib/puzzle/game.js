@@ -366,7 +366,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				walls += direction;
 			}
 		}
-		for (let r = 0; r < 6; r++) {
+		for (let r = 0; r < grid.DIRECTIONS.length; r++) {
 			const rotations = tileState.data.rotations + r;
 			const rotated = self.grid.rotate(tileState.data.tile, rotations, tileIndex);
 			if ((rotated & connections) === connections && (rotated & walls) === 0) {

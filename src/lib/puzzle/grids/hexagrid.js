@@ -37,6 +37,9 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	const SOUTHEAST = 32;
 
 	this.YSTEP = Math.sqrt(3) / 2;
+	this.ANGLE_DEG = 60;
+	this.ANGLE_RAD = Math.PI / 3;
+	this.NUM_DIRECTIONS = 6;
 
 	this.DIRECTIONS = [EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST];
 	// Only use these directions for edge marks because they should be
@@ -401,6 +404,28 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	this.getDirections = function (tile, rotations = 0) {
 		const rotated = self.rotate(tile, rotations);
 		return self.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
+	};
+
+	/**
+	 * Tells if a point is close to one of tile's edges
+	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
+	 */
+	this.whichEdge = function (point) {
+		const { x, y, tileX, tileY } = point;
+		const dx = x - tileX;
+		const dy = tileY - y;
+		const deltaRadius = Math.abs(Math.sqrt(dx ** 2 + dy ** 2) - 0.5);
+		let angle = Math.atan2(dy, dx);
+		angle += angle < 0 ? 2 * Math.PI : 0;
+		const directionIndex = Math.round((angle * 3) / Math.PI) % 6;
+		const direction = self.DIRECTIONS[directionIndex];
+		const directionAngle = (directionIndex * Math.PI) / 3;
+		let deltaAngle = Math.abs(angle - directionAngle);
+		deltaAngle = Math.min(deltaAngle, 2 * Math.PI - deltaAngle);
+		return {
+			direction,
+			isClose: deltaRadius <= 0.15 && deltaAngle <= 0.35
+		};
 	};
 
 	/**
