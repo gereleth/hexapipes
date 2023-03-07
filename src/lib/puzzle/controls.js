@@ -575,13 +575,13 @@ export function controls(node, game) {
 					deltaAngle = 2 * Math.PI - deltaAngle;
 					meanAngle -= Math.PI;
 				}
-				const directionIndex = Math.round((meanAngle * 3) / Math.PI);
+				const directionIndex = Math.round(meanAngle / grid.ANGLE_RAD);
 				const startRadius = Math.sqrt((tileY - t.y) ** 2 + (t.x - tileX) ** 2);
 				const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 				const meanRadius = 0.5 * (startRadius + endRadius);
 				if (
 					Math.abs(meanRadius - 0.5) <= 0.2 &&
-					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
+					Math.abs(meanAngle - directionIndex * grid.ANGLE_RAD) < 0.4
 				) {
 					// was close to tile border
 					// in a well defined direction
@@ -592,14 +592,14 @@ export function controls(node, game) {
 						game.toggleEdgeMark(
 							'wall',
 							tileIndex,
-							grid.DIRECTIONS[directionIndex % 6],
+							grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
 							currentSettings.assistant
 						);
 					} else {
 						game.toggleEdgeMark(
 							'conn',
 							tileIndex,
-							grid.DIRECTIONS[directionIndex % 6],
+							grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
 							currentSettings.assistant
 						);
 					}
@@ -625,12 +625,13 @@ export function controls(node, game) {
 						const { tileX, tileY } = t;
 						const newAngle = Math.atan2(tileY - y, x - tileX);
 						const oldAngle = grid.getTileAngle(tileState.data.tile);
-						const newRotations = Math.round(((oldAngle - newAngle) * 3) / Math.PI);
-						let timesRotate = newRotations - (tileState.data.rotations % 6);
-						if (timesRotate < -3.5) {
-							timesRotate += 6;
-						} else if (timesRotate > 3.5) {
-							timesRotate -= 6;
+						const newRotations = Math.round((oldAngle - newAngle) / grid.ANGLE_RAD);
+						let timesRotate = newRotations - (tileState.data.rotations % grid.NUM_DIRECTIONS);
+						const half = (grid.NUM_DIRECTIONS + 1) / 2;
+						if (timesRotate < -half) {
+							timesRotate += grid.NUM_DIRECTIONS;
+						} else if (timesRotate > half) {
+							timesRotate -= grid.NUM_DIRECTIONS;
 						}
 						game.rotateTile(tileIndex, timesRotate);
 						save();
