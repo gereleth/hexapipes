@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Generator } from './generator';
 import { HexaGrid } from './grids/hexagrid';
+import { SquareGrid } from './grids/squaregrid';
 import { Solver } from './solver';
 const fs = require('fs');
 
@@ -143,10 +144,8 @@ describe('Test Growing Tree pregeneration with avoid obvious tiles', () => {
 });
 
 describe('Test solution uniqueness', () => {
-	it('Generates a 20x20 wrap puzzle with a unique solution every time', () => {
-		const grid = new HexaGrid(20, 20, true);
-		// test with a larger number of attempts to be really sure
-		for (let i = 0; i < 100; i++) {
+	function verifyUnique(grid, numAttempts = 100) {
+		for (let i = 0; i < numAttempts; i++) {
 			const gen = new Generator(grid);
 			const tiles = gen.generate();
 			const solver = new Solver(tiles, grid);
@@ -154,6 +153,26 @@ describe('Test solution uniqueness', () => {
 			}
 			expect(solver.solutions.length).toBe(1);
 		}
+	}
+
+	it('Generates a 20x20 hexagonal puzzle with a unique solution every time', () => {
+		const grid = new HexaGrid(20, 20, false);
+		verifyUnique(grid);
+	});
+
+	it('Generates a 20x20 hexagonal wrap puzzle with a unique solution every time', () => {
+		const grid = new HexaGrid(20, 20, true);
+		verifyUnique(grid);
+	});
+
+	it('Generates a 20x20 square puzzle with a unique solution every time', () => {
+		const grid = new SquareGrid(20, 20, false);
+		verifyUnique(grid);
+	});
+
+	it('Generates a 20x20 square wrap puzzle with a unique solution every time', () => {
+		const grid = new SquareGrid(20, 20, true);
+		verifyUnique(grid);
 	});
 });
 

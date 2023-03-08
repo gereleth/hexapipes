@@ -41,9 +41,10 @@ export function Generator(grid) {
 	 * Intermediate values give some mix of these methods
 	 * @param {Number} branchingAmount - a number in range 0..1
 	 * @param {boolean} avoidObvious - whether to try to avoid straight tiles along a border and the like
+	 * @param {Number[]} startTiles - starting point tiles if we're fixing ambiguities
 	 * @returns {Number[]} - unrandomized tiles array
 	 */
-	this.pregenerate_growingtree = function (branchingAmount, avoidObvious = false) {
+	this.pregenerate_growingtree = function (branchingAmount, avoidObvious = false, startTiles = []) {
 		const total = grid.width * grid.height;
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
@@ -56,8 +57,53 @@ export function Generator(grid) {
 		for (let i = 0; i < total; i++) {
 			tiles.push(0);
 		}
-		/** @type {Number} */
-		const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
+		/** @type {Number[]} A list of visited nodes */
+		const visited = [];
+
+		// reuse non-ambiguous portions of startTiles
+		if (startTiles.length === total) {
+			const to_check = new Set(unvisited);
+			const components = [];
+			while (to_check.size > 0) {
+				const index = to_check.values().next().value;
+				to_check.delete(index);
+				if (startTiles[index] < 0) {
+					// ambiguous tile, ignore it
+					continue;
+				}
+				const to_visit = new Set([index]);
+				const component = new Set();
+				while (to_visit.size > 0) {
+					const i = to_visit.values().next().value;
+					to_visit.delete(i);
+					to_check.delete(i);
+					component.add(i);
+					for (let direction of grid.getDirections(startTiles[i])) {
+						const { neighbour, empty } = grid.find_neighbour(i, direction);
+						if (empty || startTiles[neighbour] < 0 || component.has(neighbour)) {
+							continue;
+						}
+						to_visit.add(neighbour);
+					}
+				}
+				components.push(component);
+				components.sort((a, b) => -(a.size - b.size));
+				if (components[0].size > to_check.size) {
+					break;
+				}
+			}
+			// components[0] now has the largest region of non-ambiguous connected tiles
+			for (let index of components[0]) {
+				for (let direction of grid.getDirections(startTiles[index])) {
+					const { neighbour } = grid.find_neighbour(index, direction);
+					if (components[0].has(neighbour)) {
+						tiles[index] += direction;
+					}
+				}
+				visited.push(index);
+				unvisited.delete(index);
+			}
+		}
 
 		/** @type {Map<Number, Number>} tile index => tile walls */
 		const borders = new Map();
@@ -96,8 +142,14 @@ export function Generator(grid) {
 			}
 		}
 
-		const visited = [startIndex];
-		unvisited.delete(startIndex);
+		if (visited.length === 0) {
+			/** @type {Number} */
+			const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
+
+			visited.push(startIndex);
+			unvisited.delete(startIndex);
+		}
+
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
 		const lastResortNodes = [];
 
@@ -218,14 +270,14 @@ export function Generator(grid) {
 				attempt += 1;
 				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
 				let uniqueIter = 0;
-				while (uniqueIter < 3) {
+				while (uniqueIter < 10) {
 					uniqueIter += 1;
 					const solver = new Solver(tiles, self.grid);
 					const { marked, unique } = solver.markAmbiguousTiles();
 					if (unique) {
 						return randomRotate(marked, self.grid);
 					}
-					tiles = solver.fixAmbiguousTiles(marked);
+					tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, marked);
 				}
 			}
 			throw 'Could not generate a puzzle with a unique solution. Maybe try again.';
