@@ -29,6 +29,7 @@
 	let svgWidth = 500;
 	let svgHeight = 500;
 
+	/** @type {import('$lib/puzzle/grids/hexagrid').HexaGrid}*/
 	let grid;
 	if (gridKind === 'hexagonal') {
 		grid = new HexaGrid(width, height, wrap, tiles);
@@ -257,7 +258,7 @@
 
 	export const download = function () {
 		const data = {
-			grid: 'hexagonal',
+			grid: grid.KIND,
 			width,
 			height,
 			wrap,
