@@ -6,6 +6,7 @@
 	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 	import { Generator } from '$lib/puzzle/generator';
+	import { Solver } from '$lib/puzzle/solver';
 
 	let gridKind = 'hexagonal';
 	let width = 5;
@@ -13,6 +14,7 @@
 	let wrap = false;
 	let branchingAmount = 0.6;
 	let avoidObvious = false;
+	let avoidStraights = 0.0;
 	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
 	let solutionsNumber = 'unique';
 	let errorMessage = '';
@@ -44,7 +46,7 @@
 		id += 1;
 		const gen = new Generator(grid);
 		try {
-			tiles = gen.generate(branchingAmount, avoidObvious, solutionsNumber);
+			tiles = gen.generate(branchingAmount, avoidObvious, solutionsNumber, avoidStraights);
 			errorMessage = '';
 		} catch (error) {
 			console.error(error);
@@ -77,12 +79,13 @@
 					throw `NaN value found in tiles list at index ${index}`;
 				}
 			});
+			let gr;
 			if (data.grid === 'hexagonal') {
-				grid = new HexaGrid(w, h, wr, t);
+				gr = new HexaGrid(w, h, wr, t);
 			} else if (data.grid === 'square') {
-				grid = new SquareGrid(w, h, wr, t);
+				gr = new SquareGrid(w, h, wr, t);
 			} else {
-				throw `Bad value for grid: "${data.grid}". Expected "hexagonal"`;
+				throw `Bad value for grid: "${data.grid}". Expected "hexagonal" or "square"`;
 			}
 			if (w * h !== t.length) {
 				throw `Size mismatch: width*height = ${w} * ${h} = ${w * h}, length of tiles = ${t.length}`;
@@ -97,6 +100,8 @@
 			height = h;
 			wrap = wr;
 			tiles = t;
+			grid = gr;
+			gridKind = data.grid;
 			id += 1;
 			errorMessage = '';
 		} catch (error) {
@@ -178,11 +183,22 @@
 				bind:value={branchingAmount}
 			/>
 		</label>
+		<label for="avoidStraights">
+			Avoid straight tiles
+			<input
+				type="range"
+				min="0"
+				max="1"
+				step="0.05"
+				name="avoidStraights"
+				id="avoidStraights"
+				bind:value={avoidStraights}
+			/>
+		</label>
 		<label for="avoidObvious">
 			Avoid obvious tiles along borders
 			<input type="checkbox" name="wrap" id="wrap" bind:checked={avoidObvious} />
 		</label>
-
 		<label>
 			Number of solutions
 			<label for="unique">

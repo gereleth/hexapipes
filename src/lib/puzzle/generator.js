@@ -287,7 +287,7 @@ export function Generator(grid) {
 			// I don't expect many attempts to be needed, just 1 in .9999 cases
 			while (attempt < 3) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, [], avoidStraights);
 				let uniqueIter = 0;
 				while (uniqueIter < 10) {
 					uniqueIter += 1;
@@ -296,18 +296,23 @@ export function Generator(grid) {
 					if (unique) {
 						return randomRotate(marked, self.grid);
 					}
-					tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, marked);
+					tiles = self.pregenerate_growingtree(
+						branchingAmount,
+						avoidObvious,
+						marked,
+						avoidStraights
+					);
 				}
 			}
 			throw 'Could not generate a puzzle with a unique solution. Maybe try again.';
 		} else if (solutionsNumber === 'whatever') {
-			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, [], avoidStraights);
 			return randomRotate(tiles, self.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
 			while (attempt < 100) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, [], avoidStraights);
 				const solver = new Solver(tiles, self.grid);
 				const { unique } = solver.markAmbiguousTiles();
 				if (!unique) {
