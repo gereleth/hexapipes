@@ -42,9 +42,15 @@ export function Generator(grid) {
 	 * @param {Number} branchingAmount - a number in range 0..1
 	 * @param {boolean} avoidObvious - whether to try to avoid straight tiles along a border and the like
 	 * @param {Number[]} startTiles - starting point tiles if we're fixing ambiguities
+	 * @param {Number} avoidStraights - number in range 0..1, higher values lead to fewer straight tiles
 	 * @returns {Number[]} - unrandomized tiles array
 	 */
-	this.pregenerate_growingtree = function (branchingAmount, avoidObvious = false, startTiles = []) {
+	this.pregenerate_growingtree = function (
+		branchingAmount,
+		avoidObvious = false,
+		startTiles = [],
+		avoidStraights = 0
+	) {
 		const total = grid.width * grid.height;
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
@@ -59,6 +65,10 @@ export function Generator(grid) {
 		}
 		/** @type {Number[]} A list of visited nodes */
 		const visited = [];
+		/** @type {Number[]} - visited tiles that will become obvious if used again */
+		const avoiding = [];
+		/** @type {Number[]} - visited tiles that will become fully connected if used again */
+		const lastResortNodes = [];
 
 		// reuse non-ambiguous portions of startTiles
 		if (startTiles.length === total) {
@@ -88,7 +98,7 @@ export function Generator(grid) {
 				}
 				components.push(component);
 				components.sort((a, b) => -(a.size - b.size));
-				if (components[0].size > to_check.size) {
+				if (components[0].size >= to_check.size) {
 					break;
 				}
 			}
@@ -150,41 +160,80 @@ export function Generator(grid) {
 			unvisited.delete(startIndex);
 		}
 
-		/** @type {Number[]} - visited tiles that will become fully connected if used again */
-		const lastResortNodes = [];
-
 		while (unvisited.size > 0) {
 			let fromNode = 0;
 			const usePrims = Math.random() < branchingAmount;
-			if (usePrims) {
-				// go from a random element
-				fromNode = getRandomElement(visited);
-				if (fromNode === undefined) {
-					fromNode = getRandomElement(lastResortNodes);
+			for (let nodes of [visited, avoiding, lastResortNodes]) {
+				if (nodes.length === 0) {
+					continue;
 				}
-			} else {
-				// go from the last element
-				if (visited.length >= 1) {
-					fromNode = visited[visited.length - 1];
+				if (usePrims) {
+					// go from a random element
+					fromNode = getRandomElement(nodes);
 				} else {
-					fromNode = lastResortNodes[lastResortNodes.length - 1];
+					// go from the last element
+					fromNode = nodes[nodes.length - 1];
 				}
+				break;
 			}
 			if (fromNode === undefined) {
 				throw 'Error in pregeneration: fromNode is undefined';
 			}
-			const unvisitedNeighbours = [];
+			// tiers of possible moves
+			const unvisitedNeighbours = []; // these are the best options
+			const straightNeighbours = []; // this move results in a straight tile, might want to avoid
+			const obviousNeighbours = []; // these should be avoided with avoidObvious setting
+			const fullyConnectedNeighbours = []; // making a fully connected tile is a total last resort
+			const connections = tiles[fromNode];
 			for (let direction of grid.DIRECTIONS) {
-				const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
-				if (empty) {
+				if ((direction & connections) > 0) {
 					continue;
 				}
-				if (unvisited.has(neighbour)) {
-					unvisitedNeighbours.push({ neighbour, direction });
+				const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
+				if (empty || !unvisited.has(neighbour)) {
+					continue;
+				}
+				// classify this neighbour by priority
+				if (connections + direction === grid.fullyConnected(fromNode)) {
+					fullyConnectedNeighbours.push({ neighbour, direction });
+					continue;
+				}
+				if (avoidObvious) {
+					if (borders.has(fromNode)) {
+						const walls = borders.get(fromNode);
+						const nogo = forbidden.get(walls);
+						if (nogo?.has(tiles[fromNode] + direction)) {
+							obviousNeighbours.push({ neighbour, direction });
+							continue;
+						}
+					}
+				}
+				if (grid.tileTypes.get(connections + direction) === grid.T2I) {
+					if (Math.random() < avoidStraights) {
+						straightNeighbours.push({ neighbour, direction });
+						continue;
+					}
+				}
+				unvisitedNeighbours.push({ neighbour, direction });
+			}
+			let toVisit = null;
+			let source = null;
+			for (let options of [
+				unvisitedNeighbours,
+				straightNeighbours,
+				obviousNeighbours,
+				fullyConnectedNeighbours
+			]) {
+				if (options.length > 0) {
+					source = options;
+					toVisit = getRandomElement(options);
+					break;
 				}
 			}
-			if (unvisitedNeighbours.length == 0) {
-				const array = visited.length > 0 ? visited : lastResortNodes;
+
+			if (toVisit === null) {
+				// all neighbours are already visited
+				const array = [visited, avoiding, lastResortNodes].find((x) => x.length > 0) || [];
 				if (usePrims) {
 					const index = array.indexOf(fromNode);
 					array.splice(index, 1);
@@ -193,55 +242,23 @@ export function Generator(grid) {
 				}
 				continue;
 			}
-			let filteredNeighbours = [];
-			if (avoidObvious) {
-				filteredNeighbours = unvisitedNeighbours.filter((item) => {
-					const { neighbour, direction } = item;
-					if (borders.has(fromNode)) {
-						const walls = borders.get(fromNode);
-						const nogo = forbidden.get(walls);
-						if (nogo?.has(tiles[fromNode] + direction)) {
-							return false;
-						}
-					}
-					if (borders.has(neighbour)) {
-						const walls = borders.get(neighbour);
-						const nogo = forbidden.get(walls);
-						const dir = self.grid.OPPOSITE.get(direction) || 0;
-						if (nogo?.has(tiles[neighbour] + dir)) {
-							return false;
-						}
-					}
-					return true;
-				});
-			} else {
-				filteredNeighbours = [...unvisitedNeighbours];
-			}
-			if (filteredNeighbours.length === 0) {
+			if (source === fullyConnectedNeighbours) {
+				// wants to become fully connected, this is a last resort action
 				if (visited.length > 0) {
-					// any moves from this tile will result in obvious tiles along border
-					// try to avoid using it if possible
 					const index = visited.indexOf(fromNode);
 					visited.splice(index, 1);
 					lastResortNodes.push(fromNode);
 					continue;
-				} else {
-					// this is already a last resort node,
-					// let it do whatever it needs to
-					filteredNeighbours = [...unvisitedNeighbours];
 				}
 			}
-			const toVisit = getRandomElement(filteredNeighbours);
-			if (
-				tiles[fromNode] + toVisit.direction == grid.fullyConnected(fromNode) &&
-				visited.length > 1
-			) {
-				// this tile wants to become fully connected
-				// try to avoid using it if possible
-				const index = visited.indexOf(fromNode);
-				visited.splice(index, 1);
-				lastResortNodes.push(fromNode);
-				continue;
+			if (source === obviousNeighbours) {
+				// wants to become obvious, try to avoid using it
+				if (visited.length > 0) {
+					const index = visited.indexOf(fromNode);
+					visited.splice(index, 1);
+					avoiding.push(fromNode);
+					continue;
+				}
 			}
 			tiles[fromNode] += toVisit.direction;
 			tiles[toVisit.neighbour] += grid.OPPOSITE.get(toVisit.direction) || 0;
@@ -256,12 +273,14 @@ export function Generator(grid) {
 	 * @param {Number} branchingAmount - value in range [0, 1]
 	 * @param {Boolean} avoidObvious - try to avoid placing tiles if their orientation would be obvious from borders
 	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
+	 * @param {Number} avoidStraights - value in range [0, 1], higher values lead to fewer straight tiles
 	 * @returns {Number[]} - generated tiles
 	 */
 	self.generate = function (
 		branchingAmount = 0.6,
 		avoidObvious = false,
-		solutionsNumber = 'unique'
+		solutionsNumber = 'unique',
+		avoidStraights = 0.0
 	) {
 		if (solutionsNumber === 'unique') {
 			let attempt = 0;
