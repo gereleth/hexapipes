@@ -13,7 +13,7 @@
 	let height = 5;
 	let wrap = false;
 	let branchingAmount = 0.6;
-	let avoidObvious = false;
+	let avoidObvious = 0.0;
 	let avoidStraights = 0.0;
 	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
 	let solutionsNumber = 'unique';
@@ -46,7 +46,7 @@
 		id += 1;
 		const gen = new Generator(grid);
 		try {
-			tiles = gen.generate(branchingAmount, avoidObvious, solutionsNumber, avoidStraights);
+			tiles = gen.generate(branchingAmount, avoidObvious, avoidStraights, solutionsNumber);
 			errorMessage = '';
 		} catch (error) {
 			console.error(error);
@@ -197,7 +197,15 @@
 		</label>
 		<label for="avoidObvious">
 			Avoid obvious tiles along borders
-			<input type="checkbox" name="wrap" id="wrap" bind:checked={avoidObvious} />
+			<input
+				type="range"
+				min="0"
+				max="1"
+				step="0.05"
+				name="avoidObvious"
+				id="avoidObvious"
+				bind:value={avoidObvious}
+			/>
 		</label>
 		<label>
 			Number of solutions

@@ -39,17 +39,17 @@ export function Generator(grid) {
 	 * At branchingAmount = 0 it's like recursive backtracking
 	 * At branchingAmount = 1 it's like Prim's algorithm
 	 * Intermediate values give some mix of these methods
-	 * @param {Number} branchingAmount - a number in range 0..1
-	 * @param {boolean} avoidObvious - whether to try to avoid straight tiles along a border and the like
+	 * @param {Number} branchingAmount - a number in range [0, 1], higher values lead to more branching splits
+	 * @param {Number} avoidObvious - number in range [0, 1], higher values lead to fewer obvious tiles along borders
+	 * @param {Number} avoidStraights - number in range [0, 1], higher values lead to fewer straight tiles
 	 * @param {Number[]} startTiles - starting point tiles if we're fixing ambiguities
-	 * @param {Number} avoidStraights - number in range 0..1, higher values lead to fewer straight tiles
 	 * @returns {Number[]} - unrandomized tiles array
 	 */
 	this.pregenerate_growingtree = function (
 		branchingAmount,
-		avoidObvious = false,
-		startTiles = [],
-		avoidStraights = 0
+		avoidObvious = 0,
+		avoidStraights = 0,
+		startTiles = []
 	) {
 		const total = grid.width * grid.height;
 
@@ -103,7 +103,7 @@ export function Generator(grid) {
 				}
 			}
 			// components[0] now has the largest region of non-ambiguous connected tiles
-			for (let index of components[0]) {
+			for (let index of components[0] || []) {
 				for (let direction of grid.getDirections(startTiles[index])) {
 					const { neighbour } = grid.find_neighbour(index, direction);
 					if (components[0].has(neighbour)) {
@@ -119,7 +119,7 @@ export function Generator(grid) {
 		const borders = new Map();
 		/** @type {Map<Number, Set<Number>>} tile walls => set of forbidden types-orientations */
 		const forbidden = new Map();
-		if (avoidObvious) {
+		if (avoidObvious > 0) {
 			for (let tileIndex of unvisited) {
 				for (let direction of grid.DIRECTIONS) {
 					const { neighbour, empty } = grid.find_neighbour(tileIndex, direction);
@@ -198,14 +198,12 @@ export function Generator(grid) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
 				}
-				if (avoidObvious) {
-					if (borders.has(fromNode)) {
-						const walls = borders.get(fromNode);
-						const nogo = forbidden.get(walls);
-						if (nogo?.has(tiles[fromNode] + direction)) {
-							obviousNeighbours.push({ neighbour, direction });
-							continue;
-						}
+				if (borders.has(fromNode) && Math.random() < avoidObvious) {
+					const walls = borders.get(fromNode) || 0;
+					const nogo = forbidden.get(walls);
+					if (nogo?.has(tiles[fromNode] + direction)) {
+						obviousNeighbours.push({ neighbour, direction });
+						continue;
 					}
 				}
 				if (grid.tileTypes.get(connections + direction) === grid.T2I) {
@@ -271,23 +269,23 @@ export function Generator(grid) {
 	/**
 	 * Generate a puzzle according to settings
 	 * @param {Number} branchingAmount - value in range [0, 1]
-	 * @param {Boolean} avoidObvious - try to avoid placing tiles if their orientation would be obvious from borders
-	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
+	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
 	 * @param {Number} avoidStraights - value in range [0, 1], higher values lead to fewer straight tiles
+	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
 	 * @returns {Number[]} - generated tiles
 	 */
 	self.generate = function (
 		branchingAmount = 0.6,
-		avoidObvious = false,
-		solutionsNumber = 'unique',
-		avoidStraights = 0.0
+		avoidObvious = 0.0,
+		avoidStraights = 0.0,
+		solutionsNumber = 'unique'
 	) {
 		if (solutionsNumber === 'unique') {
 			let attempt = 0;
 			// I don't expect many attempts to be needed, just 1 in .9999 cases
 			while (attempt < 3) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, [], avoidStraights);
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				let uniqueIter = 0;
 				while (uniqueIter < 10) {
 					uniqueIter += 1;
@@ -299,20 +297,20 @@ export function Generator(grid) {
 					tiles = self.pregenerate_growingtree(
 						branchingAmount,
 						avoidObvious,
-						marked,
-						avoidStraights
+						avoidStraights,
+						marked
 					);
 				}
 			}
 			throw 'Could not generate a puzzle with a unique solution. Maybe try again.';
 		} else if (solutionsNumber === 'whatever') {
-			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, [], avoidStraights);
+			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 			return randomRotate(tiles, self.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
 			while (attempt < 100) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, [], avoidStraights);
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				const solver = new Solver(tiles, self.grid);
 				const { unique } = solver.markAmbiguousTiles();
 				if (!unique) {
@@ -323,7 +321,6 @@ export function Generator(grid) {
 		} else {
 			throw 'Unknown setting for solutionsNumber';
 		}
-		return [];
 	};
 
 	return this;
