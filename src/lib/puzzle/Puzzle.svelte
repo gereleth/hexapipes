@@ -189,7 +189,7 @@
 	}
 	let solver;
 	let numsol = 0;
-	async function unleashTheSolver() {
+	export async function unleashTheSolver() {
 		measureSolveTime();
 		if (!$solved) {
 			// unlock all tiles

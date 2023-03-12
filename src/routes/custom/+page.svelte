@@ -1,12 +1,11 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 	import { Generator } from '$lib/puzzle/generator';
-	import { Solver } from '$lib/puzzle/solver';
 
 	let gridKind = 'hexagonal';
 	let width = 5;
@@ -15,6 +14,7 @@
 	let branchingAmount = 0.6;
 	let avoidObvious = 0.0;
 	let avoidStraights = 0.0;
+	let autosolve = false;
 	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
 	let solutionsNumber = 'unique';
 	let errorMessage = '';
@@ -30,7 +30,7 @@
 	let id = 0;
 	let animate = false;
 
-	function generate() {
+	async function generate() {
 		// ensure valid sizes
 		// the game does not handle XS wraps well, so each size must be at least 3
 		width = Math.max(width, wrap ? 3 : 1);
@@ -51,6 +51,10 @@
 		} catch (error) {
 			console.error(error);
 			errorMessage = '' + error;
+		}
+		if (autosolve) {
+			await tick();
+			puzzle.unleashTheSolver();
 		}
 	}
 
@@ -218,6 +222,9 @@
 			<label for="whatever">
 				<input type="radio" bind:group={solutionsNumber} id="whatever" value="whatever" /> Whatever
 			</label>
+		</label>
+		<label for="autosolve">
+			<input type="checkbox" bind:checked={autosolve} id="autosolve" /> Autosolve immediately
 		</label>
 	</details>
 
