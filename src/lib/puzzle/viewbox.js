@@ -82,7 +82,6 @@ export function createViewBox(grid) {
 			visibleTilesTimeoutId = setTimeout(() => {
 				visibleTilesTimeoutId = null;
 				const visible = grid.getVisibleTiles(lastBox);
-				console.log(visible.length);
 				visibleTiles.set(visible);
 			}, 100);
 		}
