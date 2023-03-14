@@ -26,7 +26,7 @@ export function controls(node, game) {
 	 */
 	let viewBox;
 
-	const unsubscribeViewBox = grid.viewBox.subscribe((box) => {
+	const unsubscribeViewBox = game.viewBox.subscribe((box) => {
 		viewBox = box;
 	});
 
@@ -191,7 +191,7 @@ export function controls(node, game) {
 			}
 		}
 		if (state === 'panning') {
-			grid.pan(dx, dy);
+			game.viewBox.pan(dx, dy);
 		} else if (state === 'locking' || state === 'unlocking') {
 			const tile = game.grid.which_tile_at(x, y);
 			if (tile.index !== -1) {
@@ -355,16 +355,16 @@ export function controls(node, game) {
 		if (USING_A_TOUCHPAD) {
 			if (event.ctrlKey) {
 				const delta = 0.5 * viewBox.width * 0.07 * normalized.spinY;
-				grid.zoom(viewBox.width + delta, x, y);
+				game.viewBox.zoom(viewBox.width + delta, x, y);
 			} else {
 				// pan with 2-finger slides on touchpad
 				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width;
 				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height;
-				grid.pan(dx, dy);
+				game.viewBox.pan(dx, dy);
 			}
 		} else {
 			const delta = viewBox.width * 0.07 * normalized.spinY;
-			grid.zoom(viewBox.width + delta, x, y);
+			game.viewBox.zoom(viewBox.width + delta, x, y);
 		}
 	}
 
@@ -503,7 +503,7 @@ export function controls(node, game) {
 			const newx = 0.5 * (newTouches[0].x + newTouches[1].x);
 			const oldy = 0.5 * (ongoingTouches[0].y + ongoingTouches[1].y);
 			const newy = 0.5 * (newTouches[0].y + newTouches[1].y);
-			grid.pan(newx - oldx, newy - oldy);
+			game.viewBox.pan(newx - oldx, newy - oldy);
 			// zooming
 			const oldDistance = Math.sqrt(
 				(ongoingTouches[0].clientX - ongoingTouches[1].clientX) ** 2 +
@@ -513,7 +513,7 @@ export function controls(node, game) {
 				(newTouches[0].clientX - newTouches[1].clientX) ** 2 +
 					(newTouches[0].clientY - newTouches[1].clientY) ** 2
 			);
-			grid.zoom((ongoingTouches[0].width * oldDistance) / newDistance, newx, newy);
+			game.viewBox.zoom((ongoingTouches[0].width * oldDistance) / newDistance, newx, newy);
 		} else if (touchState === 'locking' || touchState === 'unlocking') {
 			event.preventDefault();
 			const [x, y] = getEventCoordinates(event.touches[0]);
@@ -543,7 +543,7 @@ export function controls(node, game) {
 			event.preventDefault();
 			const [x, y] = getEventCoordinates(event.touches[0]);
 			const t0 = ongoingTouches[0];
-			grid.pan(x - t0.x, y - t0.y);
+			game.viewBox.pan(x - t0.x, y - t0.y);
 		}
 	}
 

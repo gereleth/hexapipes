@@ -1,23 +1,3 @@
-import { writable, derived, get } from 'svelte/store';
-
-/**
- * ViewBox represents the bounds of the visible game area
- * @typedef {Object} ViewBox
- * @property {Number} xmin
- * @property {Number} ymin
- * @property {Number} width
- * @property {Number} height
- */
-
-/**
- * VisibleTile represents a tile within view
- * @typedef {Object} VisibleTile
- * @property {Number} index
- * @property {Number} x
- * @property {Number} y
- * @property {String} key
- */
-
 /**
  * A hexagonal grid
  * @constructor
@@ -129,97 +109,6 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	this.XMAX = self.width + 0.1 + (self.wrap ? 1 : 0);
 	this.YMIN = -self.YSTEP * (1 + (self.wrap ? 1 : 0));
 	this.YMAX = self.YSTEP * (self.height + (self.wrap ? 1 : 0));
-
-	this.viewBox = writable({
-		xmin: this.XMIN,
-		ymin: this.YMIN,
-		width: this.XMAX - this.XMIN,
-		height: this.YMAX - this.YMIN
-	});
-
-	/**
-	 * Makes sure non-wrap view box doesn't go over puzzle bounds
-	 * @param {ViewBox} box
-	 * @returns {ViewBox}
-	 */
-	function fixBoxBounds(box) {
-		if (self.wrap) {
-			return box;
-		}
-		let xmin = box.xmin;
-		let ymin = box.ymin;
-		let width = box.width;
-		let height = box.height;
-		const dw = box.width - (self.XMAX - self.XMIN);
-		const dh = box.height - (self.YMAX - self.YMIN);
-		if (dw > 0 && dh > 0) {
-			// zoomed too far out, bring them back
-			if (dw <= dh) {
-				width = box.width - dw;
-				height = box.height - (dw * box.height) / box.width;
-			} else {
-				height = box.height - dh;
-				width = box.width - (dh * box.width) / box.height;
-			}
-			xmin = 0.5 * (self.XMIN + self.XMAX) - width / 2;
-			ymin = 0.5 * (self.YMIN + self.YMAX) - height / 2;
-		} else {
-			if (dw < 0) {
-				// zoomed in horizontally, don't allow bounds to leave [XMIN, XMAX]
-				xmin = Math.max(self.XMIN, xmin);
-				xmin = Math.min(xmin, self.XMAX - width);
-			}
-			if (dh < 0) {
-				// zoomed in vertically, don't allow bounds to leave [YMIN, YMAX]
-				ymin = Math.max(self.YMIN, ymin);
-				ymin = Math.min(ymin, self.YMAX - height);
-			}
-		}
-		return { xmin, ymin, width, height };
-	}
-
-	/**
-	 *
-	 * @param {Number} newWidth
-	 * @param {Number} x
-	 * @param {Number} y
-	 */
-	this.zoom = function (newWidth, x, y) {
-		self.viewBox.update((box) => {
-			// const delta = -box.width * magnitude * 0.07;
-			const delta = box.width - newWidth;
-			const xyScale = box.height / box.width;
-			const relativeX = (x - box.xmin) / box.width;
-			const relativeY = (y - box.ymin) / box.height;
-			let xmin = box.xmin + relativeX * delta;
-			let ymin = box.ymin + relativeY * delta * xyScale;
-			let xmax = box.xmin + box.width - (1 - relativeX) * delta;
-			let ymax = box.ymin + box.height - (1 - relativeY) * delta * xyScale;
-			return fixBoxBounds({
-				xmin: xmin,
-				ymin: ymin,
-				width: xmax - xmin,
-				height: ymax - ymin
-			});
-		});
-	};
-
-	/**
-	 * Move viewbox around
-	 * @param {Number} dx
-	 * @param {Number} dy
-	 */
-	this.pan = function (dx, dy) {
-		self.viewBox.update((box) => {
-			const newBox = fixBoxBounds({
-				xmin: box.xmin - dx,
-				ymin: box.ymin - dy,
-				width: box.width,
-				height: box.height
-			});
-			return newBox;
-		});
-	};
 
 	/**
 	 * @param {Number} index
@@ -430,10 +319,10 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	};
 
 	/**
-	 * @param {ViewBox} box
-	 * @returns {VisibleTile[]}
+	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
+	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
-	const getVisibleTiles = function (box) {
+	this.getVisibleTiles = function (box) {
 		let rmin = Math.floor(box.ymin / self.YSTEP) - 1;
 		let rmax = Math.ceil((box.ymin + box.height) / self.YSTEP) + 1;
 		if (!self.wrap) {
@@ -506,25 +395,6 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 		}
 		return index;
 	};
-
-	// Throttled derived store to get visible tiles from viewbox
-	/** @type {NodeJS.Timer|null} */
-	let visibleTilesTimeoutId = null;
-	/** @type {ViewBox} */
-	let lastBox;
-	this.visibleTiles = derived(
-		this.viewBox,
-		(box, set) => {
-			lastBox = box;
-			if (visibleTilesTimeoutId === null) {
-				visibleTilesTimeoutId = setTimeout(() => {
-					visibleTilesTimeoutId = null;
-					set(getVisibleTiles(lastBox));
-				}, 50);
-			}
-		},
-		getVisibleTiles(get(self.viewBox))
-	);
 
 	/**
 	 * Shape the playing field by making some tiles empty

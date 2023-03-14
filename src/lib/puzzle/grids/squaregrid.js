@@ -1,23 +1,3 @@
-import { writable, derived, get } from 'svelte/store';
-
-/**
- * ViewBox represents the bounds of the visible game area
- * @typedef {Object} ViewBox
- * @property {Number} xmin
- * @property {Number} ymin
- * @property {Number} width
- * @property {Number} height
- */
-
-/**
- * VisibleTile represents a tile within view
- * @typedef {Object} VisibleTile
- * @property {Number} index
- * @property {Number} x
- * @property {Number} y
- * @property {String} key
- */
-
 const EAST = 1;
 const NORTH = 2;
 const WEST = 4;
@@ -73,14 +53,6 @@ export class SquareGrid {
 		this.YMIN = -(1 + (wrap ? 1 : 0));
 		this.YMAX = height + (wrap ? 1 : 0);
 
-		this.lastBox = {
-			xmin: this.XMIN,
-			ymin: this.YMIN,
-			width: this.XMAX - this.XMIN,
-			height: this.YMAX - this.YMIN
-		};
-		this.viewBox = writable(this.lastBox);
-
 		const d = 0.49;
 		let tilePath = `M ${d} ${d} L ${-d} ${d} L ${-d} ${-d} L ${d} ${-d} z`;
 		this.tilePath = tilePath;
@@ -100,104 +72,6 @@ export class SquareGrid {
 				rotated = this.rotate(rotated, 1);
 			}
 		}
-
-		this.visibleTiles = derived(
-			this.viewBox,
-			(box, set) => {
-				this.lastBox = box;
-				if (this.visibleTilesTimeoutId === null) {
-					this.visibleTilesTimeoutId = setTimeout(() => {
-						this.visibleTilesTimeoutId = null;
-						set(this.#getVisibleTiles(this.lastBox));
-					}, 50);
-				}
-			},
-			this.#getVisibleTiles(get(this.viewBox))
-		);
-	}
-
-	/**
-	 * Makes sure non-wrap view box doesn't go over puzzle bounds
-	 * @param {ViewBox} box
-	 * @returns {ViewBox}
-	 */
-	#fixBoxBounds(box) {
-		if (this.wrap) {
-			return box;
-		}
-		let xmin = box.xmin;
-		let ymin = box.ymin;
-		let width = box.width;
-		let height = box.height;
-		const dw = box.width - (this.XMAX - this.XMIN);
-		const dh = box.height - (this.YMAX - this.YMIN);
-		if (dw > 0 && dh > 0) {
-			// zoomed too far out, bring them back
-			if (dw <= dh) {
-				width = box.width - dw;
-				height = box.height - (dw * box.height) / box.width;
-			} else {
-				height = box.height - dh;
-				width = box.width - (dh * box.width) / box.height;
-			}
-			xmin = 0.5 * (this.XMIN + this.XMAX) - width / 2;
-			ymin = 0.5 * (this.YMIN + this.YMAX) - height / 2;
-		} else {
-			if (dw < 0) {
-				// zoomed in horizontally, don't allow bounds to leave [XMIN, XMAX]
-				xmin = Math.max(this.XMIN, xmin);
-				xmin = Math.min(xmin, this.XMAX - width);
-			}
-			if (dh < 0) {
-				// zoomed in vertically, don't allow bounds to leave [YMIN, YMAX]
-				ymin = Math.max(this.YMIN, ymin);
-				ymin = Math.min(ymin, this.YMAX - height);
-			}
-		}
-		return { xmin, ymin, width, height };
-	}
-
-	/**
-	 *
-	 * @param {Number} newWidth
-	 * @param {Number} x
-	 * @param {Number} y
-	 */
-	zoom(newWidth, x, y) {
-		this.viewBox.update((box) => {
-			// const delta = -box.width * magnitude * 0.07;
-			const delta = box.width - newWidth;
-			const xyScale = box.height / box.width;
-			const relativeX = (x - box.xmin) / box.width;
-			const relativeY = (y - box.ymin) / box.height;
-			let xmin = box.xmin + relativeX * delta;
-			let ymin = box.ymin + relativeY * delta * xyScale;
-			let xmax = box.xmin + box.width - (1 - relativeX) * delta;
-			let ymax = box.ymin + box.height - (1 - relativeY) * delta * xyScale;
-			return this.#fixBoxBounds({
-				xmin: xmin,
-				ymin: ymin,
-				width: xmax - xmin,
-				height: ymax - ymin
-			});
-		});
-	}
-
-	/**
-	 * Move viewbox around
-	 * @param {Number} dx
-	 * @param {Number} dy
-	 */
-	pan(dx, dy) {
-		this.viewBox.update((box) => {
-			const newBox = this.#fixBoxBounds({
-				xmin: box.xmin - dx,
-				ymin: box.ymin - dy,
-				width: box.width,
-				height: box.height
-			});
-			return newBox;
-		});
 	}
 
 	/**
@@ -373,10 +247,10 @@ export class SquareGrid {
 	}
 
 	/**
-	 * @param {ViewBox} box
-	 * @returns {VisibleTile[]}
+	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
+	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
-	#getVisibleTiles(box) {
+	getVisibleTiles(box) {
 		let rmin = Math.floor(box.ymin) - 1;
 		let rmax = Math.ceil(box.ymin + box.height) + 1;
 		if (!this.wrap) {
@@ -409,10 +283,4 @@ export class SquareGrid {
 		}
 		return visibleTiles;
 	}
-
-	// Throttled derived store to get visible tiles from viewbox
-	/** @type {NodeJS.Timer|null} */
-	visibleTilesTimeoutId = null;
-	/** @type {ViewBox} */
-	lastBox;
 }

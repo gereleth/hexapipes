@@ -45,10 +45,10 @@
 	let innerHeight = 500;
 	const pxPerCell = 60;
 
-	const viewBox = grid.viewBox;
+	const viewBox = game.viewBox;
 	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, innerWidth / pxPerCell);
 	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, innerHeight / pxPerCell);
-	const visibleTiles = grid.visibleTiles;
+	const visibleTiles = viewBox.visibleTiles;
 
 	export const startOver = function () {
 		game.startOver();

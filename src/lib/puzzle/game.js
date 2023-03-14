@@ -1,5 +1,6 @@
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
+import { createViewBox } from './viewbox';
 
 /**
  * An edge mark
@@ -106,6 +107,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.initialized = false;
 	self._solved = false;
 	self.solved = writable(false);
+	self.viewBox = createViewBox(grid);
 
 	/**
 	 * @type {Map<Number, Set<Number>>} - a map of
