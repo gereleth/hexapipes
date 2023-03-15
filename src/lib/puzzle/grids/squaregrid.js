@@ -22,6 +22,10 @@ export class SquareGrid {
 	ANGLE_RAD = Math.PI / 2;
 	NUM_DIRECTIONS = 4;
 	KIND = 'square';
+	PIPE_WIDTH = 0.15;
+	STROKE_WIDTH = 0.06;
+	PIPE_LENGTH = 0.5;
+	SINK_RADIUS = 0.2;
 
 	/** @type {Set<Number>} - indices of empty cells */
 	emptyCells;

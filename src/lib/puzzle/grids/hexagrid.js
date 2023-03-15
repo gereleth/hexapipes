@@ -21,6 +21,10 @@ export function HexaGrid(width, height, wrap = false, tiles = []) {
 	this.ANGLE_RAD = Math.PI / 3;
 	this.NUM_DIRECTIONS = 6;
 	this.KIND = 'hexagonal';
+	this.PIPE_WIDTH = 0.12;
+	this.STROKE_WIDTH = 0.05;
+	this.PIPE_LENGTH = 0.5;
+	this.SINK_RADIUS = 0.17;
 
 	this.DIRECTIONS = [EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST];
 	// Only use these directions for edge marks because they should be
