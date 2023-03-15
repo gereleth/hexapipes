@@ -239,7 +239,7 @@ export class HexaGrid {
 		let r = (index - c) / this.width;
 		let neighbour = -1;
 
-		const [dr, dc] = this.#RC_DELTA.get(direction)[r % 2];
+		const [dr, dc] = (this.#RC_DELTA.get(direction) || [[]])[r % 2];
 		r += dr;
 		c += dc;
 		if (this.wrap) {
@@ -367,7 +367,7 @@ export class HexaGrid {
 	 */
 	getTileAngle(tile) {
 		const tileDirections = this.getDirections(tile);
-		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction));
+		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction) || [0, 0]);
 
 		let dx = 0,
 			dy = 0;
@@ -389,8 +389,8 @@ export class HexaGrid {
 				dy = deltas[0][1];
 			} else {
 				// X - treat as "not I" - grab I direction and rotate 90deg
-				const direction = this.DIRECTIONS.find((d) => !tileDirections.includes(d));
-				const [deltaX, deltaY] = this.XY_DELTAS.get(direction);
+				const direction = this.DIRECTIONS.find((d) => !tileDirections.includes(d)) || 1;
+				const [deltaX, deltaY] = this.XY_DELTAS.get(direction) || [0, 0];
 				dx = -deltaY;
 				dy = deltaX;
 			}
