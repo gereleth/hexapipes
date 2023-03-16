@@ -1,24 +1,26 @@
 <script>
-	import { puzzleCounts } from '$lib/stores';
 	import { page } from '$app/stores';
 	import Grids from '$lib/header/Grids.svelte';
 
-	/** @type {Number[]} */
-	let sizes = [];
-	$: sizes = [...Object.entries($puzzleCounts.hexagonalWrap)]
-		.map((item) => Number(item[0].split('x')[0]))
-		.sort((a, b) => a - b);
+	let sizes = [5, 7, 10, 15, 20, 30, 40];
+	let title = '';
+
+	$: if ($page.params.grid.startsWith('hexagonal')) {
+		title = 'Hexagonal Pipes';
+	} else if ($page.params.grid.startsWith('square')) {
+		title = 'Square Pipes';
+	}
 </script>
 
 <div class="container">
-	<h1>Hexagonal wrap pipes</h1>
+	<h1>{title}</h1>
 	<Grids />
 	<div class="sizes">
 		<span> Size:</span>
 		{#each sizes as size}
 			<a
-				href="/hexagonal-wrap/{size}"
-				class:active={$page.url.pathname.includes(`/hexagonal-wrap/${size}`)}
+				href="/{$page.params.grid}/{size}"
+				class:active={$page.url.pathname.includes(`/${$page.params.grid}/${size}`)}
 			>
 				{size}x{size}
 			</a>
@@ -30,7 +32,7 @@
 <div class="container instructions">
 	<h2>The rules</h2>
 	<ul>
-		<li>The pipes must form a single contiguous network.</li>
+		<li>All pipes must form a single contiguous network.</li>
 		<li>No connections may run outside the grid.</li>
 		<li>Bulb-shaped tiles are deadends.</li>
 		<li>Closed loops are not allowed.</li>

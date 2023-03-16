@@ -10,8 +10,9 @@
 	import { onMount } from 'svelte';
 	import { Generator } from '$lib/puzzle/generator';
 	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
+	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 
-	/** @type {'hexagonal'|'hexagonal-wrap'} */
+	/** @type {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'} */
 	export let category;
 	/** @type {Number} */
 	export let size;
@@ -28,7 +29,8 @@
 
 	let previousParams = {
 		size: 0,
-		id: 0
+		id: 0,
+		category: 'hexagonal'
 	};
 	let genId = 1;
 	/** @type {import('$lib/stores').SolvesStore}*/
@@ -46,6 +48,8 @@
 	$: pathname = `/${category}/${size}/${puzzleId}`;
 	$: progressStoreName = pathname + '_progress';
 	$: instanceStoreName = `/${category}/${size}` + '_instance';
+	$: wrap = category.endsWith('-wrap');
+	$: gridKind = category.split('-')[0];
 
 	/** @type {import('$lib/stores').Solve} */
 	let solve = {
@@ -60,7 +64,7 @@
 
 	// @ts-ignore
 	function reactToNavigation(...args) {
-		if (size !== previousParams.size) {
+		if (size !== previousParams.size || category !== previousParams.category) {
 			if (previousParams.size) {
 				solves?.pause(previousParams.id);
 			}
@@ -114,6 +118,7 @@
 	function start() {
 		previousParams.size = size;
 		previousParams.id = puzzleId;
+		previousParams.category = category;
 		if (solves !== undefined) {
 			solve = solves.reportStart(puzzleId);
 		}
@@ -155,9 +160,20 @@
 		if (puzzleId !== -1) {
 			return;
 		}
-		const grid = new HexaGrid(width, height, category === 'hexagonal-wrap');
+		let grid;
+		let branchingAmount = 0.6;
+		let avoidObvious = 0;
+		let avoidStraights = 0;
+		if (category.startsWith('hexagonal-')) {
+			grid = new HexaGrid(width, height, wrap);
+		} else {
+			grid = new SquareGrid(width, height, wrap);
+			branchingAmount = Math.random() * 0.5 + 0.5; // 0.5 to 1
+			avoidObvious = Math.random() * 0.5 + 0.1; // 0.1 to 0.6
+			avoidStraights = Math.random() * 0.5 + 0.25; // 0.25 to 0.75
+		}
 		const gen = new Generator(grid);
-		tiles = gen.generate();
+		tiles = gen.generate(branchingAmount, avoidObvious, avoidStraights);
 		genId += 1;
 		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles: tiles }));
 	}
@@ -195,10 +211,11 @@
 {#if tiles.length > 0}
 	{#key `/${category}/${size}/${puzzleId === -1 ? genId : puzzleId}`}
 		<Puzzle
+			{gridKind}
 			{width}
 			{height}
 			{tiles}
-			wrap={category === 'hexagonal-wrap'}
+			{wrap}
 			{savedProgress}
 			{progressStoreName}
 			preferredPxPerCell={pxPerCell}

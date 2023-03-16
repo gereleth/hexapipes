@@ -18,6 +18,7 @@
 			</li>
 			<li
 				class:active={$page.url.pathname.startsWith('/hexagonal') ||
+					$page.url.pathname.startsWith('/square') ||
 					$page.url.pathname.startsWith('/custom')}
 			>
 				<a data-sveltekit-preload-data href="/hexagonal">Play</a>
