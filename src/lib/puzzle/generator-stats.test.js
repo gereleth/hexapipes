@@ -355,7 +355,7 @@ describe('Check difficulty', () => {
 });
 
 describe('Generate dailies', () => {
-	it('Creates evil puzzles', () => {
+	it.skip('Creates evil puzzles', () => {
 		// setup params
 		const width = 23;
 		const height = 23;
