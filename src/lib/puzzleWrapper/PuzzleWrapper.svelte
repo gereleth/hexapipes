@@ -164,7 +164,7 @@
 		let branchingAmount = 0.6;
 		let avoidObvious = 0;
 		let avoidStraights = 0;
-		if (category.startsWith('hexagonal-')) {
+		if (category.startsWith('hexagonal')) {
 			grid = new HexaGrid(width, height, wrap);
 		} else {
 			grid = new SquareGrid(width, height, wrap);
