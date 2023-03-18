@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HexaGrid } from './hexagrid';
+import { HexaGrid } from './grids/hexagrid';
 import { Cell, Solver } from './solver';
 
 describe('Test hexagrid cell constraints', () => {

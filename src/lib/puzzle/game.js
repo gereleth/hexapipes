@@ -1,5 +1,6 @@
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
+import { createViewBox } from './viewbox';
 
 /**
  * An edge mark
@@ -94,7 +95,7 @@ function StateStore(initialState) {
 /**
  * Pipes puzzle internal state
  * @constructor
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  * @param {Number[]} tiles
  * @param {Progress|undefined} savedProgress
  */
@@ -106,6 +107,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.initialized = false;
 	self._solved = false;
 	self.solved = writable(false);
+	self.viewBox = createViewBox(grid);
 
 	/**
 	 * @type {Map<Number, Set<Number>>} - a map of
@@ -366,7 +368,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				walls += direction;
 			}
 		}
-		for (let r = 0; r < 6; r++) {
+		for (let r = 0; r < grid.DIRECTIONS.length; r++) {
 			const rotations = tileState.data.rotations + r;
 			const rotated = self.grid.rotate(tileState.data.tile, rotations, tileIndex);
 			if ((rotated & connections) === connections && (rotated & walls) === 0) {

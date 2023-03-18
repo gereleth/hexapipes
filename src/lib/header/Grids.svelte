@@ -11,6 +11,10 @@
 		<a href="/hexagonal-wrap/5" class:active={$page.url.pathname.startsWith(`/hexagonal-wrap/`)}>
 			Hexagonal wrap
 		</a>
+		<a href="/square/5" class:active={$page.url.pathname.startsWith(`/square/`)}> Square </a>
+		<a href="/square-wrap/5" class:active={$page.url.pathname.startsWith(`/square-wrap/`)}>
+			Square wrap
+		</a>
 		<a href="/custom" class:active={$page.url.pathname.startsWith(`/custom`)}> Custom </a>
 	</div>
 </div>

@@ -1,7 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
 	import { createEventDispatcher } from 'svelte';
-	/** @type {import('$lib/puzzle/hexagrid').HexaGrid} */
+	/** @type {import('$lib/puzzle/grids/hexagrid').HexaGrid} */
 	export let grid;
 	export let state = 'none';
 	export let direction = 1;

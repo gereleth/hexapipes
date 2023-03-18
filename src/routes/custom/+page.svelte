@@ -1,16 +1,20 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { HexaGrid } from '$lib/puzzle/hexagrid';
+	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
+	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 	import { Generator } from '$lib/puzzle/generator';
 
+	let gridKind = 'hexagonal';
 	let width = 5;
 	let height = 5;
 	let wrap = false;
 	let branchingAmount = 0.6;
-	let avoidObvious = false;
+	let avoidObvious = 0.0;
+	let avoidStraights = 0.0;
+	let autosolve = false;
 	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
 	let solutionsNumber = 'unique';
 	let errorMessage = '';
@@ -26,7 +30,7 @@
 	let id = 0;
 	let animate = false;
 
-	function generate() {
+	async function generate() {
 		// ensure valid sizes
 		// the game does not handle XS wraps well, so each size must be at least 3
 		width = Math.max(width, wrap ? 3 : 1);
@@ -34,15 +38,23 @@
 		if (width * height === 1) {
 			width += 1;
 		}
-		grid = new HexaGrid(width, height, wrap);
+		if (gridKind === 'hexagonal') {
+			grid = new HexaGrid(width, height, wrap);
+		} else {
+			grid = new SquareGrid(width, height, wrap);
+		}
 		id += 1;
 		const gen = new Generator(grid);
 		try {
-			tiles = gen.generate(branchingAmount, avoidObvious, solutionsNumber);
+			tiles = gen.generate(branchingAmount, avoidObvious, avoidStraights, solutionsNumber);
 			errorMessage = '';
 		} catch (error) {
 			console.error(error);
 			errorMessage = '' + error;
+		}
+		if (autosolve) {
+			await tick();
+			puzzle.unleashTheSolver();
 		}
 	}
 
@@ -71,10 +83,13 @@
 					throw `NaN value found in tiles list at index ${index}`;
 				}
 			});
+			let gr;
 			if (data.grid === 'hexagonal') {
-				grid = new HexaGrid(w, h, wr, t);
+				gr = new HexaGrid(w, h, wr, t);
+			} else if (data.grid === 'square') {
+				gr = new SquareGrid(w, h, wr, t);
 			} else {
-				throw `Bad value for grid: "${data.grid}". Expected "hexagonal"`;
+				throw `Bad value for grid: "${data.grid}". Expected "hexagonal" or "square"`;
 			}
 			if (w * h !== t.length) {
 				throw `Size mismatch: width*height = ${w} * ${h} = ${w * h}, length of tiles = ${t.length}`;
@@ -89,6 +104,8 @@
 			height = h;
 			wrap = wr;
 			tiles = t;
+			grid = gr;
+			gridKind = data.grid;
 			id += 1;
 			errorMessage = '';
 		} catch (error) {
@@ -132,6 +149,17 @@
 </div>
 
 <div class="generator-params container">
+	<div style="margin-bottom: 0.5em">
+		<label>
+			Grid type
+			<label for="hexagonal">
+				<input type="radio" bind:group={gridKind} id="hexagonal" value="hexagonal" /> Hexagonal
+			</label>
+			<label for="square">
+				<input type="radio" bind:group={gridKind} id="square" value="square" /> Square
+			</label>
+		</label>
+	</div>
 	<label for="width">
 		Width
 		<input type="number" name="width" id="width" bind:value={width} min="3" />
@@ -159,11 +187,30 @@
 				bind:value={branchingAmount}
 			/>
 		</label>
+		<label for="avoidStraights">
+			Avoid straight tiles
+			<input
+				type="range"
+				min="0"
+				max="1"
+				step="0.05"
+				name="avoidStraights"
+				id="avoidStraights"
+				bind:value={avoidStraights}
+			/>
+		</label>
 		<label for="avoidObvious">
 			Avoid obvious tiles along borders
-			<input type="checkbox" name="wrap" id="wrap" bind:checked={avoidObvious} />
+			<input
+				type="range"
+				min="0"
+				max="1"
+				step="0.05"
+				name="avoidObvious"
+				id="avoidObvious"
+				bind:value={avoidObvious}
+			/>
 		</label>
-
 		<label>
 			Number of solutions
 			<label for="unique">
@@ -175,6 +222,9 @@
 			<label for="whatever">
 				<input type="radio" bind:group={solutionsNumber} id="whatever" value="whatever" /> Whatever
 			</label>
+		</label>
+		<label for="autosolve">
+			<input type="checkbox" bind:checked={autosolve} id="autosolve" /> Autosolve immediately
 		</label>
 	</details>
 
@@ -189,6 +239,7 @@
 {#if id > 0}
 	{#key id}
 		<Puzzle
+			{gridKind}
 			{width}
 			{height}
 			{tiles}

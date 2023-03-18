@@ -16,7 +16,7 @@ function getRandomElement(array) {
 /**
  * Randomize tile rotations
  * @param {Number[]} tiles
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  * @returns {Number[]}
  */
 function randomRotate(tiles, grid) {
@@ -28,7 +28,7 @@ function randomRotate(tiles, grid) {
 
 /**
  * @constructor
- * @param {import('$lib/puzzle/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
  */
 export function Generator(grid) {
 	let self = this;
@@ -39,11 +39,18 @@ export function Generator(grid) {
 	 * At branchingAmount = 0 it's like recursive backtracking
 	 * At branchingAmount = 1 it's like Prim's algorithm
 	 * Intermediate values give some mix of these methods
-	 * @param {Number} branchingAmount - a number in range 0..1
-	 * @param {boolean} avoidObvious - whether to try to avoid straight tiles along a border and the like
+	 * @param {Number} branchingAmount - a number in range [0, 1], higher values lead to more branching splits
+	 * @param {Number} avoidObvious - number in range [0, 1], higher values lead to fewer obvious tiles along borders
+	 * @param {Number} avoidStraights - number in range [0, 1], higher values lead to fewer straight tiles
+	 * @param {Number[]} startTiles - starting point tiles if we're fixing ambiguities
 	 * @returns {Number[]} - unrandomized tiles array
 	 */
-	this.pregenerate_growingtree = function (branchingAmount, avoidObvious = false) {
+	this.pregenerate_growingtree = function (
+		branchingAmount,
+		avoidObvious = 0,
+		avoidStraights = 0,
+		startTiles = []
+	) {
 		const total = grid.width * grid.height;
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
@@ -56,14 +63,63 @@ export function Generator(grid) {
 		for (let i = 0; i < total; i++) {
 			tiles.push(0);
 		}
-		/** @type {Number} */
-		const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
+		/** @type {Number[]} A list of visited nodes */
+		const visited = [];
+		/** @type {Number[]} - visited tiles that will become obvious if used again */
+		const avoiding = [];
+		/** @type {Number[]} - visited tiles that will become fully connected if used again */
+		const lastResortNodes = [];
+
+		// reuse non-ambiguous portions of startTiles
+		if (startTiles.length === total) {
+			const to_check = new Set(unvisited);
+			const components = [];
+			while (to_check.size > 0) {
+				const index = to_check.values().next().value;
+				to_check.delete(index);
+				if (startTiles[index] < 0) {
+					// ambiguous tile, ignore it
+					continue;
+				}
+				const to_visit = new Set([index]);
+				const component = new Set();
+				while (to_visit.size > 0) {
+					const i = to_visit.values().next().value;
+					to_visit.delete(i);
+					to_check.delete(i);
+					component.add(i);
+					for (let direction of grid.getDirections(startTiles[i])) {
+						const { neighbour, empty } = grid.find_neighbour(i, direction);
+						if (empty || startTiles[neighbour] < 0 || component.has(neighbour)) {
+							continue;
+						}
+						to_visit.add(neighbour);
+					}
+				}
+				components.push(component);
+				components.sort((a, b) => -(a.size - b.size));
+				if (components[0].size >= to_check.size) {
+					break;
+				}
+			}
+			// components[0] now has the largest region of non-ambiguous connected tiles
+			for (let index of components[0] || []) {
+				for (let direction of grid.getDirections(startTiles[index])) {
+					const { neighbour } = grid.find_neighbour(index, direction);
+					if (components[0].has(neighbour)) {
+						tiles[index] += direction;
+					}
+				}
+				visited.push(index);
+				unvisited.delete(index);
+			}
+		}
 
 		/** @type {Map<Number, Number>} tile index => tile walls */
 		const borders = new Map();
 		/** @type {Map<Number, Set<Number>>} tile walls => set of forbidden types-orientations */
 		const forbidden = new Map();
-		if (avoidObvious) {
+		if (avoidObvious > 0) {
 			for (let tileIndex of unvisited) {
 				for (let direction of grid.DIRECTIONS) {
 					const { neighbour, empty } = grid.find_neighbour(tileIndex, direction);
@@ -96,43 +152,86 @@ export function Generator(grid) {
 			}
 		}
 
-		const visited = [startIndex];
-		unvisited.delete(startIndex);
-		/** @type {Number[]} - visited tiles that will become fully connected if used again */
-		const lastResortNodes = [];
+		if (visited.length === 0) {
+			/** @type {Number} */
+			const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
+
+			visited.push(startIndex);
+			unvisited.delete(startIndex);
+		}
 
 		while (unvisited.size > 0) {
 			let fromNode = 0;
 			const usePrims = Math.random() < branchingAmount;
-			if (usePrims) {
-				// go from a random element
-				fromNode = getRandomElement(visited);
-				if (fromNode === undefined) {
-					fromNode = getRandomElement(lastResortNodes);
+			for (let nodes of [visited, avoiding, lastResortNodes]) {
+				if (nodes.length === 0) {
+					continue;
 				}
-			} else {
-				// go from the last element
-				if (visited.length >= 1) {
-					fromNode = visited[visited.length - 1];
+				if (usePrims) {
+					// go from a random element
+					fromNode = getRandomElement(nodes);
 				} else {
-					fromNode = lastResortNodes[lastResortNodes.length - 1];
+					// go from the last element
+					fromNode = nodes[nodes.length - 1];
 				}
+				break;
 			}
 			if (fromNode === undefined) {
 				throw 'Error in pregeneration: fromNode is undefined';
 			}
-			const unvisitedNeighbours = [];
+			// tiers of possible moves
+			const unvisitedNeighbours = []; // these are the best options
+			const straightNeighbours = []; // this move results in a straight tile, might want to avoid
+			const obviousNeighbours = []; // these should be avoided with avoidObvious setting
+			const fullyConnectedNeighbours = []; // making a fully connected tile is a total last resort
+			const connections = tiles[fromNode];
 			for (let direction of grid.DIRECTIONS) {
-				const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
-				if (empty) {
+				if ((direction & connections) > 0) {
 					continue;
 				}
-				if (unvisited.has(neighbour)) {
-					unvisitedNeighbours.push({ neighbour, direction });
+				const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
+				if (empty || !unvisited.has(neighbour)) {
+					continue;
+				}
+				// classify this neighbour by priority
+				if (connections + direction === grid.fullyConnected(fromNode)) {
+					fullyConnectedNeighbours.push({ neighbour, direction });
+					continue;
+				}
+				if (borders.has(fromNode) && Math.random() < avoidObvious) {
+					const walls = borders.get(fromNode) || 0;
+					const nogo = forbidden.get(walls);
+					if (nogo?.has(tiles[fromNode] + direction)) {
+						obviousNeighbours.push({ neighbour, direction });
+						continue;
+					}
+				}
+				if (grid.tileTypes.get(connections + direction) === grid.T2I) {
+					if (Math.random() < avoidStraights) {
+						straightNeighbours.push({ neighbour, direction });
+						continue;
+					}
+				}
+				unvisitedNeighbours.push({ neighbour, direction });
+			}
+			let toVisit = null;
+			let source = null;
+			for (let options of [
+				unvisitedNeighbours,
+				straightNeighbours,
+				obviousNeighbours,
+				fullyConnectedNeighbours
+			]) {
+				if (options.length > 0) {
+					source = options;
+					toVisit = getRandomElement(options);
+					break;
 				}
 			}
-			if (unvisitedNeighbours.length == 0) {
-				const array = visited.length > 0 ? visited : lastResortNodes;
+
+			if (toVisit === null) {
+				// all neighbours are already visited
+				const array = [visited, avoiding, lastResortNodes].find((x) => x.length > 0) || [];
 				if (usePrims) {
 					const index = array.indexOf(fromNode);
 					array.splice(index, 1);
@@ -141,55 +240,23 @@ export function Generator(grid) {
 				}
 				continue;
 			}
-			let filteredNeighbours = [];
-			if (avoidObvious) {
-				filteredNeighbours = unvisitedNeighbours.filter((item) => {
-					const { neighbour, direction } = item;
-					if (borders.has(fromNode)) {
-						const walls = borders.get(fromNode);
-						const nogo = forbidden.get(walls);
-						if (nogo?.has(tiles[fromNode] + direction)) {
-							return false;
-						}
-					}
-					if (borders.has(neighbour)) {
-						const walls = borders.get(neighbour);
-						const nogo = forbidden.get(walls);
-						const dir = self.grid.OPPOSITE.get(direction) || 0;
-						if (nogo?.has(tiles[neighbour] + dir)) {
-							return false;
-						}
-					}
-					return true;
-				});
-			} else {
-				filteredNeighbours = [...unvisitedNeighbours];
-			}
-			if (filteredNeighbours.length === 0) {
+			if (source === fullyConnectedNeighbours) {
+				// wants to become fully connected, this is a last resort action
 				if (visited.length > 0) {
-					// any moves from this tile will result in obvious tiles along border
-					// try to avoid using it if possible
 					const index = visited.indexOf(fromNode);
 					visited.splice(index, 1);
 					lastResortNodes.push(fromNode);
 					continue;
-				} else {
-					// this is already a last resort node,
-					// let it do whatever it needs to
-					filteredNeighbours = [...unvisitedNeighbours];
 				}
 			}
-			const toVisit = getRandomElement(filteredNeighbours);
-			if (
-				tiles[fromNode] + toVisit.direction == grid.fullyConnected(fromNode) &&
-				visited.length > 1
-			) {
-				// this tile wants to become fully connected
-				// try to avoid using it if possible
-				const index = visited.indexOf(fromNode);
-				visited.splice(index, 1);
-				lastResortNodes.push(fromNode);
-				continue;
+			if (source === obviousNeighbours) {
+				// wants to become obvious, try to avoid using it
+				if (visited.length > 0) {
+					const index = visited.indexOf(fromNode);
+					visited.splice(index, 1);
+					avoiding.push(fromNode);
+					continue;
+				}
 			}
 			tiles[fromNode] += toVisit.direction;
 			tiles[toVisit.neighbour] += grid.OPPOSITE.get(toVisit.direction) || 0;
@@ -202,13 +269,15 @@ export function Generator(grid) {
 	/**
 	 * Generate a puzzle according to settings
 	 * @param {Number} branchingAmount - value in range [0, 1]
-	 * @param {Boolean} avoidObvious - try to avoid placing tiles if their orientation would be obvious from borders
+	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
+	 * @param {Number} avoidStraights - value in range [0, 1], higher values lead to fewer straight tiles
 	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
 	 * @returns {Number[]} - generated tiles
 	 */
 	self.generate = function (
 		branchingAmount = 0.6,
-		avoidObvious = false,
+		avoidObvious = 0.0,
+		avoidStraights = 0.0,
 		solutionsNumber = 'unique'
 	) {
 		if (solutionsNumber === 'unique') {
@@ -216,27 +285,32 @@ export function Generator(grid) {
 			// I don't expect many attempts to be needed, just 1 in .9999 cases
 			while (attempt < 3) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				let uniqueIter = 0;
-				while (uniqueIter < 3) {
+				while (uniqueIter < 10) {
 					uniqueIter += 1;
 					const solver = new Solver(tiles, self.grid);
 					const { marked, unique } = solver.markAmbiguousTiles();
 					if (unique) {
 						return randomRotate(marked, self.grid);
 					}
-					tiles = solver.fixAmbiguousTiles(marked);
+					tiles = self.pregenerate_growingtree(
+						branchingAmount,
+						avoidObvious,
+						avoidStraights,
+						marked
+					);
 				}
 			}
 			throw 'Could not generate a puzzle with a unique solution. Maybe try again.';
 		} else if (solutionsNumber === 'whatever') {
-			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 			return randomRotate(tiles, self.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
 			while (attempt < 100) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious);
+				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				const solver = new Solver(tiles, self.grid);
 				const { unique } = solver.markAmbiguousTiles();
 				if (!unique) {
@@ -247,7 +321,6 @@ export function Generator(grid) {
 		} else {
 			throw 'Unknown setting for solutionsNumber';
 		}
-		return [];
 	};
 
 	return this;

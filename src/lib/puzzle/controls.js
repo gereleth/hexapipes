@@ -22,11 +22,11 @@ export function controls(node, game) {
 	const grid = game.grid;
 
 	/**
-	 * @type {import('./hexagrid').ViewBox}
+	 * @type {import('./grids/hexagrid').ViewBox}
 	 */
 	let viewBox;
 
-	const unsubscribeViewBox = grid.viewBox.subscribe((box) => {
+	const unsubscribeViewBox = game.viewBox.subscribe((box) => {
 		viewBox = box;
 	});
 
@@ -47,11 +47,9 @@ export function controls(node, game) {
 	const pixelsHeight = rect.height;
 
 	/**
-	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'|'edgemark'|'fingerpainting'}
+	 * @type {'idle'|'mousedown'|'panning'|'locking'|'unlocking'|'edgemark'}
 	 */
 	let state = 'idle';
-	let fingerpainting = false;
-	let fingerpaintingTileIndex = -1;
 	/** @type PointerOrigin */
 	let mouseDownOrigin = {
 		x: 0,
@@ -84,28 +82,6 @@ export function controls(node, game) {
 
 	function save() {
 		node.dispatchEvent(new CustomEvent('save'));
-	}
-
-	/**
-	 * Tells if a point is close to one of tile's edges
-	 * @param {PointerOrigin} point
-	 */
-	function whichEdge(point) {
-		const { x, y, tileX, tileY } = point;
-		const dx = x - tileX;
-		const dy = tileY - y;
-		const deltaRadius = Math.abs(Math.sqrt(dx ** 2 + dy ** 2) - 0.5);
-		let angle = Math.atan2(dy, dx);
-		angle += angle < 0 ? 2 * Math.PI : 0;
-		const directionIndex = Math.round((angle * 3) / Math.PI) % 6;
-		const direction = game.grid.DIRECTIONS[directionIndex];
-		const directionAngle = (directionIndex * Math.PI) / 3;
-		let deltaAngle = Math.abs(angle - directionAngle);
-		deltaAngle = Math.min(deltaAngle, 2 * Math.PI - deltaAngle);
-		return {
-			direction,
-			isClose: deltaRadius <= 0.15 && deltaAngle <= 0.35
-		};
 	}
 
 	/** @type {NodeJS.Timer|undefined} */
@@ -148,8 +124,7 @@ export function controls(node, game) {
 				state = 'panning';
 			}
 		} else {
-			const { direction, isClose } = whichEdge(mouseDownOrigin);
-
+			const { direction, isClose } = game.grid.whichEdge(mouseDownOrigin);
 			if (isClose) {
 				// close to the edge, may be wanting an edge mark
 				edgeMarkTimer = setTimeout(() => {
@@ -173,8 +148,6 @@ export function controls(node, game) {
 					);
 					state = locked ? 'locking' : 'unlocking';
 					save();
-				} else if (fingerpainting) {
-					state = 'fingerpainting';
 				} else {
 					state = 'mousedown';
 				}
@@ -218,7 +191,7 @@ export function controls(node, game) {
 			}
 		}
 		if (state === 'panning') {
-			grid.pan(dx, dy);
+			game.viewBox.pan(dx, dy);
 		} else if (state === 'locking' || state === 'unlocking') {
 			const tile = game.grid.which_tile_at(x, y);
 			if (tile.index !== -1) {
@@ -227,21 +200,6 @@ export function controls(node, game) {
 					game.toggleLocked(tile.index, state === 'locking', currentSettings.assistant);
 					save();
 				}
-			}
-		}
-		if (state === 'fingerpainting') {
-			const tile = game.grid.which_tile_at(x, y);
-			if (tile.index !== -1) {
-				if (fingerpaintingTileIndex >= 0 && tile.index !== fingerpaintingTileIndex) {
-					// make a connection between these tiles
-					// TODO what if we moved fast and skipped a tile?..
-					const [ox, oy] = game.grid.index_to_xy(fingerpaintingTileIndex);
-					const dir = (Math.round(Math.atan2(oy - y, x - ox) / ((2 * Math.PI) / 6)) + 6) % 6;
-					game.toggleEdgeMark('conn', fingerpaintingTileIndex, 2 ** dir, true);
-				}
-				fingerpaintingTileIndex = tile.index;
-			} else {
-				fingerpaintingTileIndex = -1;
 			}
 		}
 	}
@@ -275,7 +233,7 @@ export function controls(node, game) {
 				deltaAngle = 2 * Math.PI - deltaAngle;
 				meanAngle -= Math.PI;
 			}
-			const directionIndex = Math.round((meanAngle * 3) / Math.PI);
+			const directionIndex = Math.round(meanAngle / grid.ANGLE_RAD);
 			const startRadius = Math.sqrt(
 				(tileY - mouseDownOrigin.y) ** 2 + (mouseDownOrigin.x - tileX) ** 2
 			);
@@ -283,7 +241,7 @@ export function controls(node, game) {
 			const meanRadius = 0.5 * (startRadius + endRadius);
 			if (
 				Math.abs(meanRadius - 0.5) <= 0.2 &&
-				Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
+				Math.abs(meanAngle - directionIndex * grid.ANGLE_RAD) < 0.4
 			) {
 				// was close to tile border
 				// in a well defined direction
@@ -294,14 +252,14 @@ export function controls(node, game) {
 					game.toggleEdgeMark(
 						'wall',
 						tileIndex,
-						grid.DIRECTIONS[directionIndex % 6],
+						grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
 						currentSettings.assistant
 					);
 				} else {
 					game.toggleEdgeMark(
 						'conn',
 						tileIndex,
-						grid.DIRECTIONS[directionIndex % 6],
+						grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
 						currentSettings.assistant
 					);
 				}
@@ -339,12 +297,13 @@ export function controls(node, game) {
 					const { tileX, tileY } = mouseDownOrigin;
 					const newAngle = Math.atan2(tileY - y, x - tileX);
 					const oldAngle = grid.getTileAngle(tileState.data.tile);
-					const newRotations = Math.round(((oldAngle - newAngle) * 3) / Math.PI);
-					let timesRotate = newRotations - (tileState.data.rotations % 6);
-					if (timesRotate < -3.5) {
-						timesRotate += 6;
-					} else if (timesRotate > 3.5) {
-						timesRotate -= 6;
+					const newRotations = Math.round((oldAngle - newAngle) / grid.ANGLE_RAD);
+					let timesRotate = newRotations - (tileState.data.rotations % grid.NUM_DIRECTIONS);
+					const half = (grid.NUM_DIRECTIONS + 1) / 2;
+					if (timesRotate < -half) {
+						timesRotate += grid.NUM_DIRECTIONS;
+					} else if (timesRotate > half) {
+						timesRotate -= grid.NUM_DIRECTIONS;
 					}
 					game.rotateTile(tileIndex, timesRotate);
 				} else if (rightButton) {
@@ -352,9 +311,6 @@ export function controls(node, game) {
 				}
 			}
 			save();
-		}
-		if (state === 'fingerpainting') {
-			fingerpaintingTileIndex = -1;
 		}
 		lockingSet.clear();
 		state = 'idle';
@@ -399,16 +355,16 @@ export function controls(node, game) {
 		if (USING_A_TOUCHPAD) {
 			if (event.ctrlKey) {
 				const delta = 0.5 * viewBox.width * 0.07 * normalized.spinY;
-				grid.zoom(viewBox.width + delta, x, y);
+				game.viewBox.zoom(viewBox.width + delta, x, y);
 			} else {
 				// pan with 2-finger slides on touchpad
 				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width;
 				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height;
-				grid.pan(dx, dy);
+				game.viewBox.pan(dx, dy);
 			}
 		} else {
 			const delta = viewBox.width * 0.07 * normalized.spinY;
-			grid.zoom(viewBox.width + delta, x, y);
+			game.viewBox.zoom(viewBox.width + delta, x, y);
 		}
 	}
 
@@ -547,7 +503,7 @@ export function controls(node, game) {
 			const newx = 0.5 * (newTouches[0].x + newTouches[1].x);
 			const oldy = 0.5 * (ongoingTouches[0].y + ongoingTouches[1].y);
 			const newy = 0.5 * (newTouches[0].y + newTouches[1].y);
-			grid.pan(newx - oldx, newy - oldy);
+			game.viewBox.pan(newx - oldx, newy - oldy);
 			// zooming
 			const oldDistance = Math.sqrt(
 				(ongoingTouches[0].clientX - ongoingTouches[1].clientX) ** 2 +
@@ -557,7 +513,7 @@ export function controls(node, game) {
 				(newTouches[0].clientX - newTouches[1].clientX) ** 2 +
 					(newTouches[0].clientY - newTouches[1].clientY) ** 2
 			);
-			grid.zoom((ongoingTouches[0].width * oldDistance) / newDistance, newx, newy);
+			game.viewBox.zoom((ongoingTouches[0].width * oldDistance) / newDistance, newx, newy);
 		} else if (touchState === 'locking' || touchState === 'unlocking') {
 			event.preventDefault();
 			const [x, y] = getEventCoordinates(event.touches[0]);
@@ -587,7 +543,7 @@ export function controls(node, game) {
 			event.preventDefault();
 			const [x, y] = getEventCoordinates(event.touches[0]);
 			const t0 = ongoingTouches[0];
-			grid.pan(x - t0.x, y - t0.y);
+			game.viewBox.pan(x - t0.x, y - t0.y);
 		}
 	}
 
@@ -619,13 +575,13 @@ export function controls(node, game) {
 					deltaAngle = 2 * Math.PI - deltaAngle;
 					meanAngle -= Math.PI;
 				}
-				const directionIndex = Math.round((meanAngle * 3) / Math.PI);
+				const directionIndex = Math.round(meanAngle / grid.ANGLE_RAD);
 				const startRadius = Math.sqrt((tileY - t.y) ** 2 + (t.x - tileX) ** 2);
 				const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
 				const meanRadius = 0.5 * (startRadius + endRadius);
 				if (
 					Math.abs(meanRadius - 0.5) <= 0.2 &&
-					Math.abs(meanAngle - (directionIndex * Math.PI) / 3) < 0.4
+					Math.abs(meanAngle - directionIndex * grid.ANGLE_RAD) < 0.4
 				) {
 					// was close to tile border
 					// in a well defined direction
@@ -636,14 +592,14 @@ export function controls(node, game) {
 						game.toggleEdgeMark(
 							'wall',
 							tileIndex,
-							grid.DIRECTIONS[directionIndex % 6],
+							grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
 							currentSettings.assistant
 						);
 					} else {
 						game.toggleEdgeMark(
 							'conn',
 							tileIndex,
-							grid.DIRECTIONS[directionIndex % 6],
+							grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
 							currentSettings.assistant
 						);
 					}
@@ -669,12 +625,13 @@ export function controls(node, game) {
 						const { tileX, tileY } = t;
 						const newAngle = Math.atan2(tileY - y, x - tileX);
 						const oldAngle = grid.getTileAngle(tileState.data.tile);
-						const newRotations = Math.round(((oldAngle - newAngle) * 3) / Math.PI);
-						let timesRotate = newRotations - (tileState.data.rotations % 6);
-						if (timesRotate < -3.5) {
-							timesRotate += 6;
-						} else if (timesRotate > 3.5) {
-							timesRotate -= 6;
+						const newRotations = Math.round((oldAngle - newAngle) / grid.ANGLE_RAD);
+						let timesRotate = newRotations - (tileState.data.rotations % grid.NUM_DIRECTIONS);
+						const half = (grid.NUM_DIRECTIONS + 1) / 2;
+						if (timesRotate < -half) {
+							timesRotate += grid.NUM_DIRECTIONS;
+						} else if (timesRotate > half) {
+							timesRotate -= grid.NUM_DIRECTIONS;
 						}
 						game.rotateTile(tileIndex, timesRotate);
 						save();
@@ -694,21 +651,13 @@ export function controls(node, game) {
 	 * Handle keydown events
 	 * @param {KeyboardEvent} event
 	 */
-	function handleKeyDown(event) {
-		if (event.code === 'KeyX' && !fingerpainting) {
-			fingerpainting = true;
-		}
-	}
+	function handleKeyDown(event) {}
 
 	/**
 	 * Handle keyup events
 	 * @param {KeyboardEvent} event
 	 */
-	function handleKeyUp(event) {
-		if (event.code === 'KeyX') {
-			fingerpainting = false;
-		}
-	}
+	function handleKeyUp(event) {}
 
 	node.addEventListener('mousedown', handleMouseDown);
 	node.addEventListener('mousemove', handleMouseMove);

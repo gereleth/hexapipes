@@ -1,4 +1,5 @@
 <script>
+	import Grids from '$lib/header/Grids.svelte';
 	import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
 
 	/** @type {Number} i*/
@@ -32,13 +33,15 @@
 	const deltas = myDirections.map((direction) => game.grid.XY_DELTAS.get(direction) || [0, 0]);
 	let angle = game.grid.getTileAngle($state.tile);
 
+	const outlineWidth = game.grid.STROKE_WIDTH * 2 + game.grid.PIPE_WIDTH;
+	const pipeWidth = game.grid.PIPE_WIDTH;
+	const pipeLength = game.grid.PIPE_LENGTH;
+
 	let path = `M 0 0`;
 	for (let [dx, dy] of deltas) {
-		path += ` l ${0.5 * dx} ${-0.5 * dy} L 0 0`;
+		path += ` l ${pipeLength * dx} ${-pipeLength * dy} L 0 0`;
 	}
 	const isSink = myDirections.length === 1;
-
-	const hexagon = game.grid.tilePath;
 
 	/**
 	 * Choose tile background color
@@ -58,15 +61,15 @@
 
 <g class="tile" transform="translate({cx},{cy})">
 	<!-- Tile hexagon -->
-	<path d={hexagon} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
+	<path d={game.grid.tilePath} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
 
 	<!-- Pipe shape -->
-	<g class="pipe" style="transform:rotate({60 * $state.rotations}deg)">
+	<g class="pipe" style="transform:rotate({game.grid.ANGLE_DEG * $state.rotations}deg)">
 		<!-- Pipe outline -->
 		<path
 			d={path}
 			stroke="#888"
-			stroke-width="0.20"
+			stroke-width={outlineWidth}
 			stroke-linejoin="bevel"
 			stroke-linecap="round"
 		/>
@@ -75,10 +78,10 @@
 			<circle
 				cx="0"
 				cy="0"
-				r="0.15"
+				r={game.grid.SINK_RADIUS}
 				fill={$state.color}
 				stroke="#888"
-				stroke-width="0.05"
+				stroke-width={game.grid.STROKE_WIDTH}
 				class="inside"
 			/>
 		{/if}
@@ -87,7 +90,7 @@
 			class="inside"
 			d={path}
 			stroke={$state.color}
-			stroke-width="0.10"
+			stroke-width={pipeWidth}
 			stroke-linejoin="round"
 			stroke-linecap="round"
 		/>

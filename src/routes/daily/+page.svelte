@@ -151,6 +151,7 @@
 </div>
 
 <Puzzle
+	gridKind={data.grid || 'hexagonal'}
 	width={data.width}
 	height={data.height}
 	tiles={data.tiles}

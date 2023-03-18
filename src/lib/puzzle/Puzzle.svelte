@@ -1,5 +1,6 @@
 <script>
-	import { HexaGrid } from '$lib/puzzle/hexagrid';
+	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
+	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
@@ -7,6 +8,7 @@
 	import { PipesGame } from '$lib/puzzle/game';
 	import { Solver } from './solver';
 
+	export let gridKind = 'hexagonal';
 	export let width = 0;
 	export let height = 0;
 	/** @type {Number[]} */
@@ -27,7 +29,13 @@
 	let svgWidth = 500;
 	let svgHeight = 500;
 
-	let grid = new HexaGrid(width, height, wrap, tiles);
+	/** @type {import('$lib/puzzle/grids/hexagrid').HexaGrid}*/
+	let grid;
+	if (gridKind === 'hexagonal') {
+		grid = new HexaGrid(width, height, wrap, tiles);
+	} else {
+		grid = new SquareGrid(width, height, wrap, tiles);
+	}
 	let game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
 
@@ -37,10 +45,10 @@
 	let innerHeight = 500;
 	const pxPerCell = 60;
 
-	const viewBox = grid.viewBox;
+	const viewBox = game.viewBox;
 	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, innerWidth / pxPerCell);
 	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, innerHeight / pxPerCell);
-	const visibleTiles = grid.visibleTiles;
+	const visibleTiles = viewBox.visibleTiles;
 
 	export const startOver = function () {
 		game.startOver();
@@ -181,7 +189,7 @@
 	}
 	let solver;
 	let numsol = 0;
-	async function unleashTheSolver() {
+	export async function unleashTheSolver() {
 		measureSolveTime();
 		if (!$solved) {
 			// unlock all tiles
@@ -250,7 +258,7 @@
 
 	export const download = function () {
 		const data = {
-			grid: 'hexagonal',
+			grid: grid.KIND,
 			width,
 			height,
 			wrap,
