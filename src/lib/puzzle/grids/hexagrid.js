@@ -438,7 +438,7 @@ export class HexaGrid {
 
 	/**
 	 * Shape the playing field by making some tiles empty
-	 * @param {'hexagon'|'triangle'} shape
+	 * @param {'hexagon'|'triangle'|'hourglass'} shape
 	 */
 	useShape(shape) {
 		if (shape === 'hexagon') {
@@ -480,6 +480,33 @@ export class HexaGrid {
 			]) {
 				let cell = start_cell;
 				while (true) {
+					let new_cell = this.find_neighbour(cell, shift_direction);
+					if (new_cell.empty) {
+						break;
+					} else {
+						cell = new_cell.neighbour;
+					}
+					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					while (!empty) {
+						this.makeEmpty(neighbour);
+						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+					}
+				}
+			}
+			this.wrap = wrap;
+		} else if (shape === 'hourglass') {
+			console.log('hourglass');
+			const wrap = this.wrap;
+			this.wrap = false;
+			const middle_row = Math.floor(this.height / 2);
+			for (let [start_cell, shift_direction, erase_direction] of [
+				[0, SOUTHEAST, WEST],
+				[this.width - 1, SOUTHWEST, EAST],
+				[this.width * (this.height - 1), NORTHEAST, WEST],
+				[this.width * this.height - 1, NORTHWEST, EAST]
+			]) {
+				let cell = start_cell;
+				for (let delta_row = 1; delta_row < middle_row + 1; delta_row++) {
 					let new_cell = this.find_neighbour(cell, shift_direction);
 					if (new_cell.empty) {
 						break;

@@ -355,21 +355,21 @@ describe('Check difficulty', () => {
 });
 
 describe('Generate dailies', () => {
-	it.skip('Creates evil puzzles', () => {
+	it('Creates evil puzzles', () => {
 		// setup params
-		const width = 10;
-		const height = 10;
+		const width = 23;
+		const height = 23;
 		const wrap = true;
 		// add grid features
-		const grid = new SquareGrid(width, height, wrap);
+		const grid = new HexaGrid(width, height, wrap);
 		// [19, 20, 21, 27, 28, 36].forEach((i) => grid.makeEmpty(i));
-		// grid.useShape('hexagon');
+		grid.useShape('hourglass');
 		// target difficulty in steps per tile
-		const writeFileIfMoreThan = 2.0;
+		const writeFileIfMoreThan = 1.0;
 		let bestSteps = 0;
-		for (let i = 0; i < 10001; i++) {
+		for (let i = 0; i < 100000; i++) {
 			const gen = new Generator(grid);
-			const tiles = gen.generate(0.8, true, 'unique', 1);
+			const tiles = gen.generate(0.8, 1.0, 1);
 			const solver = new Solver(tiles, grid);
 			let steps = 0;
 			for (let _ of solver.solve(true)) {
@@ -384,8 +384,8 @@ describe('Generate dailies', () => {
 						filename,
 						JSON.stringify(
 							{
-								// comment: `Inverted triangles this week (X/7)`,
-								grid: 'square',
+								comment: `Trying larger puzzles this week and I forgot to turn off wrapping  (X/7)`,
+								grid: 'hexagonal',
 								width,
 								height,
 								wrap,
