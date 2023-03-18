@@ -122,6 +122,15 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-03-18</em> Add square grid puzzles.
+			<ul>
+				<li>
+					Play the classic variant of pipes:
+					<a href="/square/5">square</a> and <a href="/square-wrap/5">square-wrap</a>.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-03-05</em> Export/import of puzzles as json files. Plus some new generator options.
 			<ul>
 				<li>
