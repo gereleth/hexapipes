@@ -5,6 +5,7 @@
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
+	import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 	import { Generator } from '$lib/puzzle/generator';
 
 	let gridKind = 'hexagonal';
@@ -23,6 +24,7 @@
 	let puzzle;
 	let solved = false;
 
+	/** @type {HexaGrid|SquareGrid|OctaGrid}*/
 	let grid;
 	/** @type {Number[]}*/
 	let tiles = [];
@@ -40,6 +42,8 @@
 		}
 		if (gridKind === 'hexagonal') {
 			grid = new HexaGrid(width, height, wrap);
+		} else if (gridKind === 'octagonal') {
+			grid = new OctaGrid(width, height, wrap);
 		} else {
 			grid = new SquareGrid(width, height, wrap);
 		}
@@ -83,19 +87,22 @@
 					throw `NaN value found in tiles list at index ${index}`;
 				}
 			});
+			/** @type {HexaGrid|SquareGrid|OctaGrid}*/
 			let gr;
 			if (data.grid === 'hexagonal') {
 				gr = new HexaGrid(w, h, wr, t);
 			} else if (data.grid === 'square') {
 				gr = new SquareGrid(w, h, wr, t);
+			} else if (data.grid === 'octagonal') {
+				gr = new OctaGrid(w, h, wr, t);
 			} else {
-				throw `Bad value for grid: "${data.grid}". Expected "hexagonal" or "square"`;
+				throw `Bad value for grid: "${data.grid}". Expected "hexagonal", "square" or "octagonal"`;
 			}
-			if (w * h !== t.length) {
-				throw `Size mismatch: width*height = ${w} * ${h} = ${w * h}, length of tiles = ${t.length}`;
+			if (gr.total !== t.length) {
+				throw `Size mismatch: grid total = ${gr.total}, length of tiles = ${t.length}`;
 			}
 			t.forEach((tile, index) => {
-				if (tile < 0 || tile > grid.fullyConnected(index)) {
+				if (tile < 0 || tile > gr.fullyConnected(index)) {
 					throw `Bad tile value at index ${index}: ${tile}`;
 				}
 			});
@@ -157,6 +164,9 @@
 			</label>
 			<label for="square">
 				<input type="radio" bind:group={gridKind} id="square" value="square" /> Square
+			</label>
+			<label for="octagonal">
+				<input type="radio" bind:group={gridKind} id="octagonal" value="octagonal" /> Octagonal
 			</label>
 		</label>
 	</div>
