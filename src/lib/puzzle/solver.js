@@ -273,8 +273,16 @@ export function Solver(tiles, grid) {
 		// collect neighbour tile types
 		/** @type {Number[]} */
 		const neighbourTiles = [];
+		const full = grid.fullyConnected(index);
 		let walls = 0;
+		let invalidDirections = 0;
 		for (let direction of self.grid.DIRECTIONS) {
+			if ((full & direction) === 0) {
+				// invalid direction that should be disregarged
+				neighbourTiles.push(self.UNSOLVED);
+				invalidDirections += direction;
+				continue;
+			}
 			const { neighbour, empty } = self.grid.find_neighbour(index, direction);
 			if (empty) {
 				walls += direction;
@@ -287,7 +295,9 @@ export function Solver(tiles, grid) {
 			cell.addWall(walls);
 			cell.mustHaveAllWalls(walls);
 		}
-
+		if (invalidDirections > 0) {
+			cell.mustHaveAllWalls(invalidDirections);
+		}
 		// remove orientations that connect only deadends
 		// any grid
 		if (self.checkDeadendConnections) {
@@ -301,67 +311,68 @@ export function Solver(tiles, grid) {
 		}
 
 		// Hexagrid specific tricks
-
-		// can't connect middle prongs to a sharp turns tile
-		if ([self.grid.T4K, self.grid.T3w, self.grid.T5, self.grid.T4psi].some((x) => x === tile)) {
-			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (
-					[self.grid.T4K, self.grid.T2v, self.grid.T3w, self.grid.T5, self.grid.T4X].some(
-						(x) => x === neighbourTile
-					)
-				) {
-					const direction = self.grid.DIRECTIONS[i];
-					const forbidden =
-						direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
-					cell.mustHaveSomeWalls(forbidden);
-				}
-			}
-		}
-
-		// must connect psi-likes when they are adjacent
-		if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some((x) => x === tile)) {
-			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (
-					[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
-						(x) => x === neighbourTile
-					)
-				) {
-					const direction = self.grid.DIRECTIONS[i];
-					cell.mustHaveAllConnections(direction);
-				}
-			}
-		}
-
-		// never make two adjacent walls next to a psi & co
-		if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].every((x) => x !== tile)) {
-			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (
-					[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
-						(x) => x === neighbourTile
-					)
-				) {
-					const direction = self.grid.DIRECTIONS[i];
-					let forbidden = 0;
+		if (self.grid.KIND === 'hexagonal') {
+			// can't connect middle prongs to a sharp turns tile
+			if ([self.grid.T4K, self.grid.T3w, self.grid.T5, self.grid.T4psi].some((x) => x === tile)) {
+				for (let [i, neighbourTile] of neighbourTiles.entries()) {
 					if (
-						[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
-							(x) => x === neighbourTiles[(i + 1) % 6]
+						[self.grid.T4K, self.grid.T2v, self.grid.T3w, self.grid.T5, self.grid.T4X].some(
+							(x) => x === neighbourTile
 						)
 					) {
-						forbidden += self.grid.DIRECTIONS[(i + 1) % 6];
+						const direction = self.grid.DIRECTIONS[i];
+						const forbidden =
+							direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
+						cell.mustHaveSomeWalls(forbidden);
 					}
+				}
+			}
+
+			// must connect psi-likes when they are adjacent
+			if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some((x) => x === tile)) {
+				for (let [i, neighbourTile] of neighbourTiles.entries()) {
 					if (
-						[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
-							(x) => x === neighbourTiles[(i + 5) % 6]
+						[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
+							(x) => x === neighbourTile
 						)
 					) {
-						forbidden += self.grid.DIRECTIONS[(i + 5) % 6];
+						const direction = self.grid.DIRECTIONS[i];
+						cell.mustHaveAllConnections(direction);
 					}
-					if (forbidden === 0) {
-						continue;
-					}
-					for (let orientation of cell.possible) {
-						if ((orientation & forbidden) > 0 && (orientation & direction) === 0) {
-							cell.possible.delete(orientation);
+				}
+			}
+
+			// never make two adjacent walls next to a psi & co
+			if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].every((x) => x !== tile)) {
+				for (let [i, neighbourTile] of neighbourTiles.entries()) {
+					if (
+						[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
+							(x) => x === neighbourTile
+						)
+					) {
+						const direction = self.grid.DIRECTIONS[i];
+						let forbidden = 0;
+						if (
+							[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
+								(x) => x === neighbourTiles[(i + 1) % 6]
+							)
+						) {
+							forbidden += self.grid.DIRECTIONS[(i + 1) % 6];
+						}
+						if (
+							[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
+								(x) => x === neighbourTiles[(i + 5) % 6]
+							)
+						) {
+							forbidden += self.grid.DIRECTIONS[(i + 5) % 6];
+						}
+						if (forbidden === 0) {
+							continue;
+						}
+						for (let orientation of cell.possible) {
+							if ((orientation & forbidden) > 0 && (orientation & direction) === 0) {
+								cell.possible.delete(orientation);
+							}
 						}
 					}
 				}
@@ -404,8 +415,8 @@ export function Solver(tiles, grid) {
 			if (addedWalls > 0) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedWalls) > 0) {
-						const { neighbour } = self.grid.find_neighbour(index, direction);
-						if (neighbour === -1) {
+						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+						if (empty) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
@@ -419,9 +430,9 @@ export function Solver(tiles, grid) {
 			if (addedConnections > 0) {
 				for (let direction of self.grid.DIRECTIONS) {
 					if ((direction & addedConnections) > 0) {
-						const { neighbour } = self.grid.find_neighbour(index, direction);
-						if (neighbour === -1) {
-							continue;
+						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+						if (empty) {
+							throw 'Trying to connect to an empty neighbour!';
 						}
 						const neighbourCell = self.getCell(neighbour);
 						neighbourCell.addConnection(self.grid.OPPOSITE.get(direction) || 0);
@@ -515,7 +526,7 @@ export function Solver(tiles, grid) {
 		if (self.dirty.size === 0) {
 			const toInit = new Set();
 			// process empty cells first, then the rest
-			for (let index = 0; index < grid.width * grid.height; index++) {
+			for (let index = 0; index < grid.total; index++) {
 				if (grid.emptyCells.has(index)) {
 					self.dirty.add(index);
 				} else {
@@ -620,7 +631,7 @@ export function Solver(tiles, grid) {
 			if (self.dirty.size === 0) {
 				// process empty cells first, then the rest
 				const toInit = new Set();
-				for (let index = 0; index < grid.width * grid.height; index++) {
+				for (let index = 0; index < grid.total; index++) {
 					if (grid.emptyCells.has(index)) {
 						self.dirty.add(index);
 					} else {

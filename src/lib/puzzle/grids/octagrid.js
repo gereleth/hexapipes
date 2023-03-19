@@ -249,7 +249,7 @@ export class OctaGrid {
 	 */
 	fullyConnected(index) {
 		if (index >= this.width * this.height) {
-			return 149;
+			return 170;
 		}
 		return 255;
 	}
