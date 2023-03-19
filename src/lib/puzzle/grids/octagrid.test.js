@@ -165,109 +165,99 @@ describe('Test find neighbour', () => {
 	});
 });
 
-// describe('Test tile rotations', () => {
-// const grid = new OctaGrid(3, 3, false);
-// it('Rotate an end tile counter-clockwise', () => {
-// 	let rotated = 1;
-// 	rotated = grid.rotate(rotated, -1);
-// 	expect(rotated).toBe(2);
-// 	rotated = grid.rotate(rotated, -1);
-// 	expect(rotated).toBe(4);
-// 	rotated = grid.rotate(rotated, -1);
-// 	expect(rotated).toBe(8);
-// 	rotated = grid.rotate(rotated, -1);
-// 	expect(rotated).toBe(1);
-// });
-// it('Rotate an end tile clockwise', () => {
-// 	let rotated = 1;
-// 	rotated = grid.rotate(rotated, 1);
-// 	expect(rotated).toBe(8);
-// 	rotated = grid.rotate(rotated, 1);
-// 	expect(rotated).toBe(4);
-// 	rotated = grid.rotate(rotated, 1);
-// 	expect(rotated).toBe(2);
-// 	rotated = grid.rotate(rotated, 1);
-// 	expect(rotated).toBe(1);
-// });
-// it('Rotate an end tile in multiples', () => {
-// 	let rotated = 1;
-// 	expect(grid.rotate(rotated, 1)).toBe(8);
-// 	expect(grid.rotate(rotated, 2)).toBe(4);
-// 	expect(grid.rotate(rotated, 3)).toBe(2);
-// 	expect(grid.rotate(rotated, 4)).toBe(1);
-// 	expect(grid.rotate(rotated, -1)).toBe(2);
-// 	expect(grid.rotate(rotated, -2)).toBe(4);
-// 	expect(grid.rotate(rotated, -3)).toBe(8);
-// 	expect(grid.rotate(rotated, -4)).toBe(1);
-// });
-// it('Rotate a straight tile in multiples', () => {
-// 	let rotated = 5;
-// 	expect(grid.rotate(rotated, 1)).toBe(10);
-// 	expect(grid.rotate(rotated, 2)).toBe(5);
-// 	expect(grid.rotate(rotated, 3)).toBe(10);
-// 	expect(grid.rotate(rotated, 4)).toBe(5);
-// 	expect(grid.rotate(rotated, -1)).toBe(10);
-// 	expect(grid.rotate(rotated, -2)).toBe(5);
-// 	expect(grid.rotate(rotated, -3)).toBe(10);
-// 	expect(grid.rotate(rotated, -4)).toBe(5);
-// });
-// });
+describe('Test tile rotations', () => {
+	const grid = new OctaGrid(3, 3, false);
+	it('Rotate an end tile counter-clockwise', () => {
+		let rotated = 1;
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(2);
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(4);
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(8);
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(16);
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(32);
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(64);
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(128);
+		rotated = grid.rotate(rotated, -1);
+		expect(rotated).toBe(1);
+	});
+	it('Rotate an end tile clockwise', () => {
+		let rotated = 1;
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(128);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(64);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(32);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(16);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(8);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(4);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(2);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(1);
+		rotated = grid.rotate(rotated, 1);
+		expect(rotated).toBe(128);
+	});
+	it('Rotate an end tile in multiples', () => {
+		let rotated = 1;
+		expect(grid.rotate(rotated, 1)).toBe(128);
+		expect(grid.rotate(rotated, 2)).toBe(64);
+		expect(grid.rotate(rotated, 3)).toBe(32);
+		expect(grid.rotate(rotated, 4)).toBe(16);
+		expect(grid.rotate(rotated, 5)).toBe(8);
+		expect(grid.rotate(rotated, 6)).toBe(4);
+		expect(grid.rotate(rotated, 7)).toBe(2);
+		expect(grid.rotate(rotated, 8)).toBe(1);
+		expect(grid.rotate(rotated, -1)).toBe(2);
+		expect(grid.rotate(rotated, -2)).toBe(4);
+		expect(grid.rotate(rotated, -3)).toBe(8);
+		expect(grid.rotate(rotated, -4)).toBe(16);
+		expect(grid.rotate(rotated, -5)).toBe(32);
+		expect(grid.rotate(rotated, -6)).toBe(64);
+		expect(grid.rotate(rotated, -7)).toBe(128);
+		expect(grid.rotate(rotated, -8)).toBe(1);
+	});
+	it('Rotate a straight tile in multiples', () => {
+		let rotated = 17;
+		expect(grid.rotate(rotated, 1)).toBe(136);
+		expect(grid.rotate(rotated, 2)).toBe(68);
+		expect(grid.rotate(rotated, 3)).toBe(34);
+		expect(grid.rotate(rotated, 4)).toBe(17);
+		expect(grid.rotate(rotated, -1)).toBe(34);
+		expect(grid.rotate(rotated, -2)).toBe(68);
+		expect(grid.rotate(rotated, -3)).toBe(136);
+		expect(grid.rotate(rotated, -4)).toBe(17);
+	});
+});
 
-// describe('Test get directions', () => {
-// const grid = new SquareGrid(3, 3, false);
-// it('Deadend tile', () => {
-// 	let tile = 1;
-// 	expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1]));
-// 	expect(grid.getDirections(tile, 1)).toEqual(expect.arrayContaining([8]));
-// 	expect(grid.getDirections(tile, 2)).toEqual(expect.arrayContaining([4]));
-// 	expect(grid.getDirections(tile, 3)).toEqual(expect.arrayContaining([2]));
-// 	expect(grid.getDirections(tile, 4)).toEqual(expect.arrayContaining([1]));
-// });
-// it('Straight tile', () => {
-// 	let tile = 5;
-// 	expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1, 4]));
-// 	expect(grid.getDirections(tile, 1)).toEqual(expect.arrayContaining([2, 8]));
-// 	expect(grid.getDirections(tile, 2)).toEqual(expect.arrayContaining([1, 4]));
-// 	expect(grid.getDirections(tile, 3)).toEqual(expect.arrayContaining([2, 8]));
-// 	expect(grid.getDirections(tile, 4)).toEqual(expect.arrayContaining([1, 4]));
-// });
-// it('Turn tile', () => {
-// 	let tile = 3;
-// 	expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1, 2]));
-// 	expect(grid.getDirections(tile, -1)).toEqual(expect.arrayContaining([2, 4]));
-// 	expect(grid.getDirections(tile, -2)).toEqual(expect.arrayContaining([4, 8]));
-// 	expect(grid.getDirections(tile, -3)).toEqual(expect.arrayContaining([1, 8]));
-// 	expect(grid.getDirections(tile, -4)).toEqual(expect.arrayContaining([1, 2]));
-// });
-// it('T tile', () => {
-// 	let tile = 7;
-// 	expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1, 2, 4]));
-// 	expect(grid.getDirections(tile, -1)).toEqual(expect.arrayContaining([2, 4, 8]));
-// 	expect(grid.getDirections(tile, -2)).toEqual(expect.arrayContaining([4, 8, 1]));
-// 	expect(grid.getDirections(tile, -3)).toEqual(expect.arrayContaining([1, 8, 2]));
-// 	expect(grid.getDirections(tile, -4)).toEqual(expect.arrayContaining([1, 2, 4]));
-// });
-// });
-
-// describe('Test making a cell empty', () => {
-// 	const grid = new HexaGrid(3, 3, false);
-// 	grid.makeEmpty(4);
-
-// 	it('Reports an empty neighbour', () => {
-// 		const { neighbour, empty } = grid.find_neighbour(3, 1);
-// 		expect(neighbour).toBe(4);
-// 		expect(empty).toBe(true);
-// 	});
-
-// 	it('Reports an non-empty neighbour', () => {
-// 		const { neighbour, empty } = grid.find_neighbour(3, 2);
-// 		expect(neighbour).toBe(1);
-// 		expect(empty).toBe(false);
-// 	});
-
-// 	it('Reports an non-neighbour when going outside the grid', () => {
-// 		const { neighbour, empty } = grid.find_neighbour(3, 8);
-// 		expect(neighbour).toBe(-1);
-// 		expect(empty).toBe(true);
-// 	});
-// });
+describe('Test get directions', () => {
+	const grid = new OctaGrid(3, 3, false);
+	it('Deadend tile', () => {
+		let tile = 1;
+		expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1]));
+		expect(grid.getDirections(tile, 1)).toEqual(expect.arrayContaining([128]));
+		expect(grid.getDirections(tile, 2)).toEqual(expect.arrayContaining([64]));
+		expect(grid.getDirections(tile, 3)).toEqual(expect.arrayContaining([32]));
+		expect(grid.getDirections(tile, 4)).toEqual(expect.arrayContaining([16]));
+		expect(grid.getDirections(tile, 5)).toEqual(expect.arrayContaining([8]));
+		expect(grid.getDirections(tile, 6)).toEqual(expect.arrayContaining([4]));
+		expect(grid.getDirections(tile, 7)).toEqual(expect.arrayContaining([2]));
+	});
+	it('Straight tile', () => {
+		let tile = 17;
+		expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1, 16]));
+		expect(grid.getDirections(tile, -1)).toEqual(expect.arrayContaining([2, 32]));
+		expect(grid.getDirections(tile, -2)).toEqual(expect.arrayContaining([4, 64]));
+		expect(grid.getDirections(tile, -3)).toEqual(expect.arrayContaining([8, 128]));
+		expect(grid.getDirections(tile, -4)).toEqual(expect.arrayContaining([1, 16]));
+	});
+});
