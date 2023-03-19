@@ -1,6 +1,7 @@
 <script>
 	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
+	import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
@@ -33,6 +34,8 @@
 	let grid;
 	if (gridKind === 'hexagonal') {
 		grid = new HexaGrid(width, height, wrap, tiles);
+	} else if (gridKind === 'octagonal') {
+		grid = new OctaGrid(width, height, wrap, tiles);
 	} else {
 		grid = new SquareGrid(width, height, wrap, tiles);
 	}

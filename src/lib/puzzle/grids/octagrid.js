@@ -328,19 +328,32 @@ export class OctaGrid {
 		const visibleTiles = [];
 		for (let r = rmin; r <= rmax; r++) {
 			for (let c = cmin; c <= cmax; c++) {
-				const index = this.rc_to_index(r, c);
-				if (index === -1) {
-					continue;
+				const indexOct = this.rc_to_index(r, c);
+				if (indexOct !== -1) {
+					const x = c;
+					const y = r;
+					const key = `${Math.round(2 * x)}_${Math.round(2 * y)}`;
+					visibleTiles.push({
+						index: indexOct,
+						x,
+						y,
+						key
+					});
 				}
-				const x = c;
-				const y = r;
-				const key = `${Math.round(x)}_${Math.round(y)}`;
-				visibleTiles.push({
-					index,
-					x,
-					y,
-					key
-				});
+				const rs = r + 0.5;
+				const cs = c + 0.5;
+				const indexSquare = this.rc_to_index(rs, cs);
+				if (indexSquare !== -1) {
+					const x = cs;
+					const y = rs;
+					const key = `${Math.round(2 * x)}_${Math.round(2 * y)}`;
+					visibleTiles.push({
+						index: indexSquare,
+						x,
+						y,
+						key
+					});
+				}
 			}
 		}
 		return visibleTiles;
