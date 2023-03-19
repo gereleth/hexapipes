@@ -37,7 +37,7 @@ export class HexaGrid {
 
 	/** @type {Set<Number>} - indices of empty cells */
 	emptyCells;
-	/** @type {Number} - total number of cells excluding empties */
+	/** @type {Number} - total number of cells including empties */
 	total;
 
 	#RC_DELTA = new Map([
@@ -103,7 +103,7 @@ export class HexaGrid {
 				this.emptyCells.add(index);
 			}
 		});
-		this.total = width * height - this.emptyCells.size;
+		this.total = width * height;
 
 		this.XMIN = -0.6 - (wrap ? 1 : 0);
 		this.XMAX = width + 0.1 + (wrap ? 1 : 0);

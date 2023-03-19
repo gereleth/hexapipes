@@ -51,7 +51,7 @@ export function Generator(grid) {
 		avoidStraights = 0,
 		startTiles = []
 	) {
-		const total = grid.width * grid.height;
+		const total = grid.total;
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
 		const unvisited = new Set([...Array(total).keys()]);

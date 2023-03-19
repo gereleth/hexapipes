@@ -71,7 +71,7 @@ export class OctaGrid {
 				this.emptyCells.add(N - 1 - width * h);
 			}
 		}
-		this.total = width * height - this.emptyCells.size;
+		this.total = 2 * width * height;
 
 		this.XMIN = -0.6 - (wrap ? 1 : 0);
 		this.XMAX = width + 0.1 + (wrap ? 1 : 0);
