@@ -61,7 +61,7 @@
 
 <g class="tile" transform="translate({cx},{cy})">
 	<!-- Tile hexagon -->
-	<path d={game.grid.tilePath} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
+	<path d={game.grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
 
 	<!-- Pipe shape -->
 	<g class="pipe" style="transform:rotate({game.grid.ANGLE_DEG * $state.rotations}deg)">

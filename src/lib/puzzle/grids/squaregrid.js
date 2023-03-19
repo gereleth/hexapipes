@@ -287,4 +287,13 @@ export class SquareGrid {
 		}
 		return visibleTiles;
 	}
+
+	/**
+	 * Tile contour path for svg drawing
+	 * @param {Number} index
+	 * @returns
+	 */
+	getTilePath(index) {
+		return this.tilePath;
+	}
 }

@@ -7,6 +7,11 @@ const SOUTHWEST = 32;
 const SOUTH = 64;
 const SOUTHEAST = 128;
 
+const Roct = 0.5;
+const R0 = 0.49;
+const d = Roct * Math.sin(Math.PI / 8);
+const d0 = R0 * Math.sin(Math.PI / 8);
+
 export class OctaGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTH, NORTHWEST, WEST, SOUTHWEST, SOUTH, SOUTHEAST];
 	EDGEMARK_DIRECTIONS = [NORTHEAST, NORTH, NORTHWEST, WEST];
@@ -34,16 +39,18 @@ export class OctaGrid {
 	ANGLE_RAD = Math.PI / 4;
 	NUM_DIRECTIONS = 8;
 	KIND = 'octagonal';
-	PIPE_WIDTH = 0.15;
-	STROKE_WIDTH = 0.06;
+	PIPE_WIDTH = 0.1;
+	STROKE_WIDTH = 0.04;
 	PIPE_LENGTH = 0.5;
-	SINK_RADIUS = 0.2;
+	SINK_RADIUS = 0.1;
 
 	/** @type {Set<Number>} - indices of empty cells */
 	emptyCells;
 	/** @type {Number} - total number of cells excluding empties */
 	total;
 
+	tilePathOctagon = `m ${R0} ${d0} L ${d0} ${R0} L ${-d0} ${R0} L ${-R0} ${d0} L ${-R0} ${-d0} L ${-d0} ${-R0} L ${d0} ${-R0} L ${R0} ${-d0} z`;
+	tilePathSquare = `m ${R0 - d0} 0 L 0 ${R0 - d0} L ${-R0 + d0} 0 L 0 ${-R0 + d0} z`;
 	/**
 	 *
 	 * @param {Number} width
@@ -357,5 +364,18 @@ export class OctaGrid {
 			}
 		}
 		return visibleTiles;
+	}
+
+	/**
+	 * Tile contour path for svg drawing
+	 * @param {Number} index
+	 * @returns
+	 */
+	getTilePath(index) {
+		if (index >= this.width * this.height) {
+			return this.tilePathSquare;
+		} else {
+			return this.tilePathOctagon;
+		}
 	}
 }

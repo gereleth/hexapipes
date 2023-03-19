@@ -525,4 +525,13 @@ export class HexaGrid {
 			throw 'unknown shape ' + shape;
 		}
 	}
+
+	/**
+	 * Tile contour path for svg drawing
+	 * @param {Number} index
+	 * @returns
+	 */
+	getTilePath(index) {
+		return this.tilePath;
+	}
 }
