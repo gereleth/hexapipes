@@ -88,9 +88,11 @@ export class OctaGrid {
 		/* Tile types for use in solver */
 		this.T0 = 0;
 		this.T1 = 1;
-		this.T2L = 3;
-		this.T2I = 5;
-		this.T3 = 7;
+		this.T2v = 3;
+		this.T2L = 5;
+		this.T2C = 9;
+		this.T2I = 17;
+		this.T3w = 7;
 		/** @type {Map<Number,Number>} */
 		this.tileTypes = new Map();
 		for (let t = 0; t < 256; t++) {
