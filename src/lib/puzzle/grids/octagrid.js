@@ -85,10 +85,6 @@ export class OctaGrid {
 		this.YMIN = -(1 + (wrap ? 1 : 0));
 		this.YMAX = height + (wrap ? 1 : 0);
 
-		const d = 0.49;
-		let tilePath = `M ${d} ${d} L ${-d} ${d} L ${-d} ${-d} L ${d} ${-d} z`;
-		this.tilePath = tilePath;
-
 		/* Tile types for use in solver */
 		this.T0 = 0;
 		this.T1 = 1;
@@ -250,7 +246,10 @@ export class OctaGrid {
 	 * @returns {Number}
 	 */
 	fullyConnected(index) {
-		return 15;
+		if (index >= this.width * this.height) {
+			return 149;
+		}
+		return 255;
 	}
 
 	/**
@@ -262,18 +261,18 @@ export class OctaGrid {
 	 */
 	rotate(tile, rotations, index = 0) {
 		let rotated = tile;
-		rotations = rotations % 4;
-		if (rotations > 2) {
-			rotations -= 4;
-		} else if (rotations < -2) {
-			rotations += 4;
+		rotations = rotations % 8;
+		if (rotations > 4) {
+			rotations -= 8;
+		} else if (rotations < -4) {
+			rotations += 8;
 		}
 		while (rotations < 0) {
-			rotated = ((rotated * 2) % 16) + Math.floor(rotated / 8);
+			rotated = ((rotated * 2) % 256) + Math.floor(rotated / 128);
 			rotations += 1;
 		}
 		while (rotations > 0) {
-			rotated = Math.floor(rotated / 2) + 8 * (rotated % 2);
+			rotated = Math.floor(rotated / 2) + 128 * (rotated % 2);
 			rotations -= 1;
 		}
 		return rotated;
@@ -336,7 +335,7 @@ export class OctaGrid {
 		for (let r = rmin; r <= rmax; r++) {
 			for (let c = cmin; c <= cmax; c++) {
 				const indexOct = this.rc_to_index(r, c);
-				if (indexOct !== -1) {
+				if (indexOct !== -1 && !this.emptyCells.has(indexOct)) {
 					const x = c;
 					const y = r;
 					const key = `${Math.round(2 * x)}_${Math.round(2 * y)}`;
@@ -350,7 +349,7 @@ export class OctaGrid {
 				const rs = r + 0.5;
 				const cs = c + 0.5;
 				const indexSquare = this.rc_to_index(rs, cs);
-				if (indexSquare !== -1) {
+				if (indexSquare !== -1 && !this.emptyCells.has(indexSquare)) {
 					const x = cs;
 					const y = rs;
 					const key = `${Math.round(2 * x)}_${Math.round(2 * y)}`;
