@@ -361,44 +361,6 @@ export class HexaGrid {
 	}
 
 	/**
-	 * Computes angle for drawing the tile guiding dot
-	 * @param {Number} tile
-	 * @returns {Number}
-	 */
-	getTileAngle(tile) {
-		const tileDirections = this.getDirections(tile);
-		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction) || [0, 0]);
-
-		let dx = 0,
-			dy = 0;
-		for (let [deltax, deltay] of deltas) {
-			dx += deltax;
-			dy += deltay;
-		}
-		dx /= tileDirections.length;
-		dy /= tileDirections.length;
-		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-			// a symmetric tile - I, X, Y or fully connected
-			if (
-				tileDirections.length <= this.DIRECTIONS.length / 2 ||
-				tileDirections.length === this.DIRECTIONS.length
-			) {
-				// I or Y or fully connected tile
-				// grab any leg
-				dx = deltas[0][0];
-				dy = deltas[0][1];
-			} else {
-				// X - treat as "not I" - grab I direction and rotate 90deg
-				const direction = this.DIRECTIONS.find((d) => !tileDirections.includes(d)) || 1;
-				const [deltaX, deltaY] = this.XY_DELTAS.get(direction) || [0, 0];
-				dx = -deltaY;
-				dy = deltaX;
-			}
-		}
-		return Math.atan2(dy, dx);
-	}
-
-	/**
 	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
 	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
@@ -548,5 +510,45 @@ export class HexaGrid {
 			path += ` l ${0.5 * dx} ${-0.5 * dy} L 0 0`;
 		});
 		return path;
+	}
+
+	/**
+	 * Computes position for drawing the tile guiding dot
+	 * @param {Number} tile
+	 * @param {Number} index
+	 * @returns {Number[]}
+	 */
+	getGuideDotPosition(tile, index = 0) {
+		const tileDirections = this.getDirections(tile);
+		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction) || [0, 0]);
+
+		let dx = 0,
+			dy = 0;
+		for (let [deltax, deltay] of deltas) {
+			dx += deltax;
+			dy += deltay;
+		}
+		dx /= tileDirections.length;
+		dy /= tileDirections.length;
+		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+			// a symmetric tile - I, X, Y or fully connected
+			if (
+				tileDirections.length <= this.DIRECTIONS.length / 2 ||
+				tileDirections.length === this.DIRECTIONS.length
+			) {
+				// I or Y or fully connected tile
+				// grab any leg
+				dx = deltas[0][0];
+				dy = deltas[0][1];
+			} else {
+				// X - treat as "not I" - grab I direction and rotate 90deg
+				const direction = this.DIRECTIONS.find((d) => !tileDirections.includes(d)) || 1;
+				const [deltaX, deltaY] = this.XY_DELTAS.get(direction) || [0, 0];
+				dx = -deltaY;
+				dy = deltaX;
+			}
+		}
+		const l = Math.sqrt(dx * dx + dy * dy);
+		return [(0.4 * dx) / l, (0.4 * dy) / l];
 	}
 }

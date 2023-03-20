@@ -30,7 +30,7 @@
 
 	const myDirections = game.grid.getDirections($state.tile);
 
-	let angle = game.grid.getTileAngle($state.tile);
+	const [guideX, guideY] = game.grid.getGuideDotPosition($state.tile, i);
 
 	const outlineWidth = game.grid.STROKE_WIDTH * 2 + game.grid.PIPE_WIDTH;
 	const pipeWidth = game.grid.PIPE_WIDTH;
@@ -91,14 +91,7 @@
 		/>
 		{#if controlMode === 'orient_lock' && !$state.locked && !solved}
 			<!-- Guide dot -->
-			<circle
-				cx={0.4 * Math.cos(angle)}
-				cy={-0.4 * Math.sin(angle)}
-				fill="orange"
-				stroke="white"
-				r="0.03"
-				stroke-width="0.01"
-			/>
+			<circle cx={guideX} cy={-guideY} fill="orange" stroke="white" r="0.03" stroke-width="0.01" />
 		{/if}
 	</g>
 	<!-- <text x="0" y="0" text-anchor="middle" font-size="0.2">{i}</text> -->

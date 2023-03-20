@@ -296,7 +296,8 @@ export function controls(node, game) {
 				if (leftButton) {
 					const { tileX, tileY } = mouseDownOrigin;
 					const newAngle = Math.atan2(tileY - y, x - tileX);
-					const oldAngle = grid.getTileAngle(tileState.data.tile);
+					const [guideX, guideY] = grid.getGuideDotPosition(tileState.data.tile, tileIndex);
+					const oldAngle = Math.atan2(guideY, guideX);
 					const newRotations = Math.round((oldAngle - newAngle) / grid.ANGLE_RAD);
 					let timesRotate = newRotations - (tileState.data.rotations % grid.NUM_DIRECTIONS);
 					const half = (grid.NUM_DIRECTIONS + 1) / 2;
@@ -624,7 +625,8 @@ export function controls(node, game) {
 					} else if (currentSettings.controlMode === 'orient_lock') {
 						const { tileX, tileY } = t;
 						const newAngle = Math.atan2(tileY - y, x - tileX);
-						const oldAngle = grid.getTileAngle(tileState.data.tile);
+						const [guideX, guideY] = grid.getGuideDotPosition(tileState.data.tile, tileIndex);
+						const oldAngle = Math.atan2(guideY, guideX);
 						const newRotations = Math.round((oldAngle - newAngle) / grid.ANGLE_RAD);
 						let timesRotate = newRotations - (tileState.data.rotations % grid.NUM_DIRECTIONS);
 						const half = (grid.NUM_DIRECTIONS + 1) / 2;
