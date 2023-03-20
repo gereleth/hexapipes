@@ -534,4 +534,19 @@ export class HexaGrid {
 	getTilePath(index) {
 		return this.tilePath;
 	}
+
+	/**
+	 * Pipes lines path
+	 * @param {Number} tile
+	 * @param {Number} index
+	 */
+	getPipesPath(tile, index) {
+		const myDirections = this.getDirections(tile);
+		let path = `M 0 0`;
+		myDirections.forEach((direction) => {
+			const [dx, dy] = this.XY_DELTAS.get(direction) || [0, 0];
+			path += ` l ${0.5 * dx} ${-0.5 * dy} L 0 0`;
+		});
+		return path;
+	}
 }

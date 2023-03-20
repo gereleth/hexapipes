@@ -11,6 +11,7 @@ const Roct = 0.5;
 const R0 = 0.49;
 const d = Roct * Math.sin(Math.PI / 8);
 const d0 = R0 * Math.sin(Math.PI / 8);
+const Rsq = ((Roct - d) * Math.SQRT2) / 2;
 
 export class OctaGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTH, NORTHWEST, WEST, SOUTHWEST, SOUTH, SOUTHEAST];
@@ -42,7 +43,7 @@ export class OctaGrid {
 	PIPE_WIDTH = 0.1;
 	STROKE_WIDTH = 0.04;
 	PIPE_LENGTH = 0.5;
-	SINK_RADIUS = 0.1;
+	SINK_RADIUS = 0.13;
 
 	/** @type {Set<Number>} - indices of empty cells */
 	emptyCells;
@@ -378,5 +379,24 @@ export class OctaGrid {
 		} else {
 			return this.tilePathOctagon;
 		}
+	}
+
+	/**
+	 * Pipes lines path
+	 * @param {Number} tile
+	 * @param {Number} index
+	 */
+	getPipesPath(tile, index) {
+		const radius = index >= this.width * this.height ? Rsq : Roct;
+		let path = `M 0 0`;
+		this.DIRECTIONS.forEach((direction, index) => {
+			if ((direction & tile) > 0) {
+				const angle = this.ANGLE_RAD * index;
+				const dx = radius * Math.cos(angle);
+				const dy = radius * Math.sin(angle);
+				path += ` l ${dx} ${-dy} L 0 0`;
+			}
+		});
+		return path;
 	}
 }

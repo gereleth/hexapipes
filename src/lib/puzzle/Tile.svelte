@@ -30,17 +30,12 @@
 
 	const myDirections = game.grid.getDirections($state.tile);
 
-	const deltas = myDirections.map((direction) => game.grid.XY_DELTAS.get(direction) || [0, 0]);
 	let angle = game.grid.getTileAngle($state.tile);
 
 	const outlineWidth = game.grid.STROKE_WIDTH * 2 + game.grid.PIPE_WIDTH;
 	const pipeWidth = game.grid.PIPE_WIDTH;
-	const pipeLength = game.grid.PIPE_LENGTH;
 
-	let path = `M 0 0`;
-	for (let [dx, dy] of deltas) {
-		path += ` l ${pipeLength * dx} ${-pipeLength * dy} L 0 0`;
-	}
+	let path = game.grid.getPipesPath($state.tile, i);
 	const isSink = myDirections.length === 1;
 
 	/**
