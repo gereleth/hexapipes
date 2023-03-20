@@ -26,7 +26,7 @@ export class OctaGrid {
 		[NORTHWEST, SOUTHEAST],
 		[SOUTHEAST, NORTHWEST]
 	]);
-	XY_DELTAS = new Map([
+	RC_DELTAS = new Map([
 		[EAST, [1, 0]],
 		[NORTHEAST, [0.5, 0.5]],
 		[NORTH, [0, 1]],
@@ -35,6 +35,16 @@ export class OctaGrid {
 		[SOUTHWEST, [-0.5, -0.5]],
 		[SOUTH, [0, -1]],
 		[SOUTHEAST, [0.5, -0.5]]
+	]);
+	XY_DELTAS = new Map([
+		[EAST, [1, 0]],
+		[NORTHEAST, [Math.SQRT1_2, Math.SQRT1_2]],
+		[NORTH, [0, 1]],
+		[NORTHWEST, [-Math.SQRT1_2, Math.SQRT1_2]],
+		[WEST, [-1, 0]],
+		[SOUTHWEST, [-Math.SQRT1_2, -Math.SQRT1_2]],
+		[SOUTH, [0, -1]],
+		[SOUTHEAST, [Math.SQRT1_2, -Math.SQRT1_2]]
 	]);
 	ANGLE_DEG = 45;
 	ANGLE_RAD = Math.PI / 4;
@@ -195,7 +205,7 @@ export class OctaGrid {
 		r += (index - (index % this.width)) / this.width;
 		let neighbour = -1;
 
-		const [dc, dr] = this.XY_DELTAS.get(direction) || [0, 0];
+		const [dc, dr] = this.RC_DELTAS.get(direction) || [0, 0];
 		r -= dr;
 		c += dc;
 		neighbour = this.rc_to_index(r, c);
@@ -311,6 +321,7 @@ export class OctaGrid {
 		}
 		const visibleTiles = [];
 		for (let r = rmin; r <= rmax; r++) {
+			// add octagons row
 			for (let c = cmin; c <= cmax; c++) {
 				const indexOct = this.rc_to_index(r, c);
 				if (indexOct !== -1 && !this.emptyCells.has(indexOct)) {
@@ -324,7 +335,11 @@ export class OctaGrid {
 						key
 					});
 				}
-				const rs = r + 0.5;
+			}
+			// add squares row
+			// this ordering ensures edgemarks are visible and not overlapped by other tiles
+			const rs = r + 0.5;
+			for (let c = cmin; c <= cmax; c++) {
 				const cs = c + 0.5;
 				const indexSquare = this.rc_to_index(rs, cs);
 				if (indexSquare !== -1 && !this.emptyCells.has(indexSquare)) {
@@ -406,14 +421,41 @@ export class OctaGrid {
 			} else {
 				// X - treat as "not I" - grab I direction and rotate 90deg
 				const direction = this.DIRECTIONS.find((d) => !tileDirections.includes(d)) || 1;
-				const [deltaX, deltaY] = this.XY_DELTAS.get(direction) || [0, 0];
+				const [deltaX, deltaY] = this.RC_DELTAS.get(direction) || [0, 0];
 				dx = -deltaY;
 				dy = deltaX;
 			}
 		}
 		const l = Math.sqrt(dx * dx + dy * dy);
 		const r = index >= this.width * this.height ? Rsq : Roct;
-		// console.log({ r, l, dx: (0.8 * r * dx) / l, dy: (0.8 * r * dy) / l });
-		return [(0.8 * r * dx) / l, (0.8 * r * dy) / l];
+		return [(0.7 * r * dx) / l, (0.7 * r * dy) / l];
+	}
+
+	/**
+	 * Returns coordinates of endpoints of edgemark line
+	 * @param {Number} direction
+	 * @param {Number} index
+	 * @returns
+	 */
+	getEdgemarkLine(direction, index = 0) {
+		// offset from center of tile
+		let [offsetX, offsetY] = this.RC_DELTAS.get(direction) || [0, 0];
+		let l = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+		offsetX /= l;
+		offsetY /= l;
+		// drawn line deltas
+		let [dx, dy] = this.RC_DELTAS.get(this.OPPOSITE.get(direction) || 1) || [0, 0];
+		l = Math.sqrt(dx * dx + dy * dy);
+		dx /= l;
+		dy /= l;
+		const radius = index >= this.width * this.height ? Rsq : Roct;
+		const lineLength = 0.12;
+		const line = {
+			x1: +radius * offsetX - dx * lineLength,
+			y1: -radius * offsetY + dy * lineLength,
+			x2: +radius * offsetX + dx * lineLength,
+			y2: -radius * offsetY - dy * lineLength
+		};
+		return line;
 	}
 }

@@ -99,6 +99,7 @@
 		{#each $state.edgeMarks as _, index (index)}
 			<EdgeMark
 				grid={game.grid}
+				index={i}
 				state={$state.edgeMarks[index]}
 				direction={game.grid.EDGEMARK_DIRECTIONS[index]}
 			/>

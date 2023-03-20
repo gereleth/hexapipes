@@ -551,4 +551,26 @@ export class HexaGrid {
 		const l = Math.sqrt(dx * dx + dy * dy);
 		return [(0.4 * dx) / l, (0.4 * dy) / l];
 	}
+
+	/**
+	 * Returns coordinates of endpoints of edgemark line
+	 * @param {Number} direction
+	 * @param {Number} index
+	 * @returns
+	 */
+	getEdgemarkLine(direction, index = 0) {
+		// offset from center of tile
+		const [offsetX, offsetY] = this.XY_DELTAS.get(direction) || [0, 0];
+
+		// drawn line deltas
+		const [dx, dy] = this.XY_DELTAS.get(this.OPPOSITE.get(direction) || 1) || [0, 0];
+		const lineLength = 0.15;
+		const line = {
+			x1: +0.5 * offsetX - dx * lineLength,
+			y1: -0.5 * offsetY + dy * lineLength,
+			x2: +0.5 * offsetX + dx * lineLength,
+			y2: -0.5 * offsetY - dy * lineLength
+		};
+		return line;
+	}
 }
