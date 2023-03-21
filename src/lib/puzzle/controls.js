@@ -22,7 +22,7 @@ export function controls(node, game) {
 	const grid = game.grid;
 
 	/**
-	 * @type {import('./grids/hexagrid').ViewBox}
+	 * @type {import('./viewbox').ViewBox}
 	 */
 	let viewBox;
 
@@ -220,51 +220,21 @@ export function controls(node, game) {
 		const distance = Math.sqrt(dx * dx + dy * dy);
 
 		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.2) {
-			// this might be drawing an edge mark
 			const tileIndex = mouseDownOrigin.tileIndex;
-			const { tileX, tileY } = mouseDownOrigin;
-			let startAngle = Math.atan2(tileY - mouseDownOrigin.y, mouseDownOrigin.x - tileX);
-			let endAngle = Math.atan2(tileY - y, x - tileX);
-			startAngle += startAngle < 0 ? 2 * Math.PI : 0;
-			endAngle += endAngle < 0 ? 2 * Math.PI : 0;
-			let deltaAngle = Math.abs(startAngle - endAngle);
-			let meanAngle = 0.5 * (startAngle + endAngle);
-			if (deltaAngle > Math.PI) {
-				deltaAngle = 2 * Math.PI - deltaAngle;
-				meanAngle -= Math.PI;
-			}
-			const directionIndex = Math.round(meanAngle / grid.ANGLE_RAD);
-			const startRadius = Math.sqrt(
-				(tileY - mouseDownOrigin.y) ** 2 + (mouseDownOrigin.x - tileX) ** 2
+			// this might be drawing an edge mark
+			const { mark, direction } = grid.detectEdgemarkGesture(
+				tileIndex,
+				mouseDownOrigin.tileX,
+				mouseDownOrigin.tileY,
+				mouseDownOrigin.x,
+				x,
+				mouseDownOrigin.y,
+				y
 			);
-			const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
-			const meanRadius = 0.5 * (startRadius + endRadius);
-			if (
-				Math.abs(meanRadius - 0.5) <= 0.2 &&
-				Math.abs(meanAngle - directionIndex * grid.ANGLE_RAD) < 0.4
-			) {
-				// was close to tile border
-				// in a well defined direction
-				// toggle an edgemark here
-				const distanceAlongBorder = 0.5 * deltaAngle;
-				const distanceAcrossBorder = Math.abs(startRadius - endRadius);
-				if (distanceAlongBorder > distanceAcrossBorder) {
-					game.toggleEdgeMark(
-						'wall',
-						tileIndex,
-						grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
-						currentSettings.assistant
-					);
-				} else {
-					game.toggleEdgeMark(
-						'conn',
-						tileIndex,
-						grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
-						currentSettings.assistant
-					);
-				}
+			if (mark !== 'none') {
+				game.toggleEdgeMark(mark, tileIndex, direction, currentSettings.assistant);
 				save();
-				state = 'idle';
+				touchState = 'idle';
 			}
 		}
 		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance <= 0.2) {
@@ -563,47 +533,17 @@ export function controls(node, game) {
 			const distance = Math.sqrt((x - t.x) ** 2 + (y - t.y) ** 2);
 
 			if (t.tileIndex !== -1 && distance >= 0.2) {
-				// this might be drawing an edge mark
-				const tileIndex = t.tileIndex;
-				const { tileX, tileY } = t;
-				let startAngle = Math.atan2(tileY - t.y, t.x - tileX);
-				let endAngle = Math.atan2(tileY - y, x - tileX);
-				startAngle += startAngle < 0 ? 2 * Math.PI : 0;
-				endAngle += endAngle < 0 ? 2 * Math.PI : 0;
-				let deltaAngle = Math.abs(startAngle - endAngle);
-				let meanAngle = 0.5 * (startAngle + endAngle);
-				if (deltaAngle > Math.PI) {
-					deltaAngle = 2 * Math.PI - deltaAngle;
-					meanAngle -= Math.PI;
-				}
-				const directionIndex = Math.round(meanAngle / grid.ANGLE_RAD);
-				const startRadius = Math.sqrt((tileY - t.y) ** 2 + (t.x - tileX) ** 2);
-				const endRadius = Math.sqrt((tileY - y) ** 2 + (x - tileX) ** 2);
-				const meanRadius = 0.5 * (startRadius + endRadius);
-				if (
-					Math.abs(meanRadius - 0.5) <= 0.2 &&
-					Math.abs(meanAngle - directionIndex * grid.ANGLE_RAD) < 0.4
-				) {
-					// was close to tile border
-					// in a well defined direction
-					// toggle an edgemark here
-					const distanceAlongBorder = 0.5 * deltaAngle;
-					const distanceAcrossBorder = Math.abs(startRadius - endRadius);
-					if (distanceAlongBorder > distanceAcrossBorder) {
-						game.toggleEdgeMark(
-							'wall',
-							tileIndex,
-							grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
-							currentSettings.assistant
-						);
-					} else {
-						game.toggleEdgeMark(
-							'conn',
-							tileIndex,
-							grid.DIRECTIONS[directionIndex % grid.NUM_DIRECTIONS],
-							currentSettings.assistant
-						);
-					}
+				const { mark, direction } = grid.detectEdgemarkGesture(
+					t.tileIndex,
+					t.tileX,
+					t.tileY,
+					t.x,
+					x,
+					t.y,
+					y
+				);
+				if (mark !== 'none') {
+					game.toggleEdgeMark(mark, t.tileIndex, direction, currentSettings.assistant);
 					save();
 					touchState = 'idle';
 				}

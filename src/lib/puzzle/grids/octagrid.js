@@ -1,3 +1,5 @@
+import { detectEdgemarkGesture } from './polygonutils';
+
 const EAST = 1;
 const NORTHEAST = 2;
 const NORTH = 4;
@@ -457,5 +459,32 @@ export class OctaGrid {
 			y2: -radius * offsetY - dy * lineLength
 		};
 		return line;
+	}
+
+	/**
+	 * Check if a drag gesture resembles drawing an edge mark
+	 * @param {Number} tile_index
+	 * @param {Number} tile_x
+	 * @param {Number} tile_y
+	 * @param {Number} x1
+	 * @param {Number} x2
+	 * @param {Number} y1
+	 * @param {Number} y2
+	 */
+	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
+		const isSquare = tile_index >= this.width * this.height;
+		const { mark, direction_index } = detectEdgemarkGesture(
+			isSquare ? Rsq : Roct,
+			isSquare ? this.ANGLE_RAD * 2 : this.ANGLE_RAD,
+			isSquare ? this.ANGLE_RAD : 0,
+			tile_x,
+			tile_y,
+			x1,
+			x2,
+			y1,
+			y2
+		);
+		const index = isSquare ? 1 + 2 * direction_index : direction_index;
+		return { mark, direction: this.DIRECTIONS[index % this.NUM_DIRECTIONS] };
 	}
 }

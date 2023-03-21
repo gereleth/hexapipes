@@ -1,3 +1,5 @@
+import { detectEdgemarkGesture } from './polygonutils';
+
 const EAST = 1;
 const NORTH = 2;
 const WEST = 4;
@@ -334,5 +336,30 @@ export class SquareGrid {
 			y2: -0.5 * offsetY - dy * lineLength
 		};
 		return line;
+	}
+
+	/**
+	 * Check if a drag gesture resembles drawing an edge mark
+	 * @param {Number} tile_index
+	 * @param {Number} tile_x
+	 * @param {Number} tile_y
+	 * @param {Number} x1
+	 * @param {Number} x2
+	 * @param {Number} y1
+	 * @param {Number} y2
+	 */
+	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
+		const { mark, direction_index } = detectEdgemarkGesture(
+			0.5,
+			this.ANGLE_RAD,
+			0,
+			tile_x,
+			tile_y,
+			x1,
+			x2,
+			y1,
+			y2
+		);
+		return { mark, direction: this.DIRECTIONS[direction_index % this.NUM_DIRECTIONS] };
 	}
 }
