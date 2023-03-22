@@ -288,6 +288,7 @@
 		on:download={puzzle.download}
 		on:zoomOut={puzzle.zoomOut}
 		on:zoomIn={puzzle.zoomIn}
+		on:resetView={puzzle.resetView}
 	/>
 </div>
 

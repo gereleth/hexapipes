@@ -28,6 +28,10 @@
 		dispatch('zoomIn');
 	}
 	
+	function resetView() {
+		dispatch('resetView');
+	}
+	
 	let showSettings = false;
 </script>
 
@@ -43,6 +47,7 @@
 	{#if !$settings.disableZoomPan}
 		<button on:click={zoomOut}> ➖️ Zoom out </button>
 		<button on:click={zoomIn}> ➕️ Zoom in </button>
+		<button on:click={resetView}> ◾️ Reset view </button>
 	{/if}
 </div>
 <div class="buttons secondary">

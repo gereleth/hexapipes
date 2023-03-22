@@ -58,6 +58,10 @@
 		const y = $viewBox.ymin + $viewBox.height/2;
 		viewBox.zoom($viewBox.width - delta, x, y)
 	}
+	
+	export const resetView = function () {
+		viewBox.resetView();
+	}
 
 	export const reportPxPerCell = function () {
 		return svgWidth / $viewBox.width;

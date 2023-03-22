@@ -128,12 +128,22 @@ export function createViewBox(grid) {
 			});
 		});
 	}
+	
+	/**
+	 * Reset to initial view
+	 */
+	function resetView() {
+		update((box) => {
+			return fixBoxBounds(initial);
+		});
+	}
 
 	return {
 		subscribe,
 		set,
 		pan,
 		zoom,
+		resetView,
 		visibleTiles: { subscribe: visibleTiles.subscribe }
 	};
 }
