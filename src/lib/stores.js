@@ -44,6 +44,7 @@ function createSettings() {
 		controlMode: 'rotate_lock',
 		invertRotationDirection: false,
 		showTimer: true,
+		touchpadPanSensitivity: 100,
 		disableZoomPan: false,
 		disableScrollZoomPan: false,
 		assistant: false,

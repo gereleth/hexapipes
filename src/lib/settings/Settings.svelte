@@ -87,6 +87,10 @@
 	</div>
 	<div class="controlMode">
 		<h3>Zoom and pan</h3>
+		<label>
+			Sensitivity when panning with a touchpad
+			<input type="range" min="1" max="200" bind:value={$settings.touchpadPanSensitivity} name="touchpadPanSensitivity" />
+		</label>
 		<p>
 			If you find current zoom and pan functions uncomfortable you can disable them. Puzzles will be
 			shown fully zoomed out. You can rely on browser zoom to deal with small tiles.

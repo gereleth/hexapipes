@@ -327,7 +327,7 @@ export function controls(node, game) {
 				// pan with 2-finger slides on touchpad
 				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width;
 				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height;
-				const sensitivity = 0.5;
+				const sensitivity = 0.5 * currentSettings.touchpadPanSensitivity / 100;
 				game.viewBox.pan(-dx * sensitivity, -dy * sensitivity);
 			}
 		} else {
