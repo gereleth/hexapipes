@@ -95,6 +95,11 @@
 			<input type="checkbox" bind:checked={$settings.disableZoomPan} name="disableZoomPan" />
 			Disable zooming and panning
 		</label>
+		<br />
+		<label>
+			<input type="checkbox" bind:checked={$settings.disableScrollZoomPan} name="disableScrollZoomPan" />
+			Disable zooming and panning using the mouse wheel or touchpad
+		</label>
 		<p>Please <strong>refresh the page</strong> for the changes to take effect.</p>
 	</div>
 	<div class="animationSpeed">

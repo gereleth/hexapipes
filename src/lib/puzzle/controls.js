@@ -41,6 +41,7 @@ export function controls(node, game) {
 	// set this once to not deal with changes
 	// changes will take effect on page refresh
 	const useZoomPan = !currentSettings.disableZoomPan;
+	const useScrollZoomPan = !currentSettings.disableScrollZoomPan;
 
 	const rect = node.getBoundingClientRect();
 	const pixelsWidth = rect.width;
@@ -598,7 +599,7 @@ export function controls(node, game) {
 	document.addEventListener('mouseup', handleMouseUp);
 	document.addEventListener('keydown', handleKeyDown);
 	document.addEventListener('keyup', handleKeyUp);
-	if (useZoomPan) {
+	if (useScrollZoomPan) {
 		node.addEventListener('wheel', handleWheel, { passive: false });
 	}
 

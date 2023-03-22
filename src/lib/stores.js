@@ -45,6 +45,7 @@ function createSettings() {
 		invertRotationDirection: false,
 		showTimer: true,
 		disableZoomPan: false,
+		disableScrollZoomPan: false,
 		assistant: false,
 		/** @type {AnimationSpeed} */
 		animationSpeed: 'normal'
