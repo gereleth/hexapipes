@@ -1,6 +1,7 @@
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
 import { createViewBox } from './viewbox';
+import { settings } from "$lib/stores";
 
 /**
  * An edge mark
@@ -100,6 +101,15 @@ function StateStore(initialState) {
  * @param {Progress|undefined} savedProgress
  */
 export function PipesGame(grid, tiles, savedProgress) {
+	/**
+	 * @type {import('$lib/stores').Settings}
+	 */
+	let currentSettings;
+	settings.loadFromLocalStorage();
+	const unsubscribeSettings = settings.subscribe((s) => {
+		currentSettings = s;
+	});
+	
 	let self = this;
 
 	self.grid = grid;
@@ -468,6 +478,9 @@ export function PipesGame(grid, tiles, savedProgress) {
 			const newChecks = new Set([]);
 			for (let { fromIndex, tileIndex } of toCheck) {
 				// console.log('checking tile', tileIndex, 'coming from', fromIndex)
+				if (currentSettings.requireLocked && !self.tileStates[tileIndex].data.locked) {
+					return false;
+				}
 				const neighbours = self.connections.get(tileIndex);
 				if (neighbours === undefined) {
 					throw `Could not find connections data for tile ${tileIndex}`;
@@ -587,6 +600,12 @@ export function PipesGame(grid, tiles, savedProgress) {
 					continue;
 				}
 				self.rotateToMatchMarks(neighbour);
+			}
+		}
+		if (self.initialized) {
+			self._solved = self.isSolved();
+			if (self._solved) {
+				self.solved.set(self._solved);
 			}
 		}
 		return targetState;

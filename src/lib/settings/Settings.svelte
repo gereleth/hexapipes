@@ -77,6 +77,11 @@
 			Use smart assistant. When you lock a tile or create an edgemark surrounding tiles will rotate to
 			match.
 		</label>
+		<br />
+		<label>
+			<input type="checkbox" bind:checked={$settings.requireLocked} name="requireLocked" />
+			Require all tiles to be locked for a level to be considered solved
+		</label>
 	</div>
 	<div class="controlMode">
 		<h3>Timer</h3>
