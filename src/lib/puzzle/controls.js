@@ -119,7 +119,10 @@ export function controls(node, game) {
 		if (mouseDownOrigin.tileIndex === -1) {
 			if (!useZoomPan) {
 				state = 'idle';
-			} else if (!grid.wrap && (x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)) {
+			} else if (
+				!grid.wrap && !currentSettings.allowEmptySpacePan &&
+				(x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)
+			) {
 				state = 'idle';
 			} else {
 				state = 'panning';
@@ -313,7 +316,10 @@ export function controls(node, game) {
 	 */
 	function handleWheel(event) {
 		const [x, y] = getEventCoordinates(event);
-		if (!grid.wrap && (x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)) {
+		if (
+			!grid.wrap && !currentSettings.allowEmptySpacePan &&
+			(x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)
+		) {
 			// allow scrolling when the mouse is over empty space
 			return;
 		}
@@ -419,7 +425,7 @@ export function controls(node, game) {
 				if (!useZoomPan) {
 					touchState = 'idle';
 				} else if (
-					!grid.wrap &&
+					!grid.wrap && !currentSettings.allowEmptySpacePan &&
 					(x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)
 				) {
 					touchState = 'idle';

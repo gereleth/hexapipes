@@ -91,6 +91,11 @@
 			Sensitivity when panning with a touchpad
 			<input type="range" min="1" max="200" bind:value={$settings.touchpadPanSensitivity} name="touchpadPanSensitivity" />
 		</label>
+		<br />
+		<label>
+			<input type="checkbox" bind:checked={$settings.allowEmptySpacePan} name="allowEmptySpacePan" />
+			Allow panning while mouse is over empty space
+		</label>
 		<p>
 			If you find current zoom and pan functions uncomfortable you can disable them. Puzzles will be
 			shown fully zoomed out. You can rely on browser zoom to deal with small tiles.
