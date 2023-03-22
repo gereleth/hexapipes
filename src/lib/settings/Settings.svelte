@@ -77,6 +77,11 @@
 			Use smart assistant. When you lock a tile or create an edgemark surrounding tiles will rotate to
 			match.
 		</label>
+		<br />
+		<label>
+			Time required to hold mouse button to set an edge mark
+			<input type="range" min="100" max="1000" bind:value={$settings.edgeMarkMouseTime} name="edgeMarkMouseTime" />
+		</label>
 	</div>
 	<div class="controlMode">
 		<h3>Timer</h3>

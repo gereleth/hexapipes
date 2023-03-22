@@ -136,7 +136,7 @@ export function controls(node, game) {
 						currentSettings.assistant
 					);
 					state = 'edgemark';
-				}, 500);
+				}, currentSettings.edgeMarkMouseTime);
 				state = 'mousedown';
 			} else {
 				if (mouseDownOrigin.locking) {

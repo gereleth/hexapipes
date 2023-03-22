@@ -41,7 +41,8 @@ function createSettings() {
 		invertRotationDirection: false,
 		showTimer: true,
 		disableZoomPan: false,
-		assistant: false
+		assistant: false,
+		edgeMarkMouseTime: 500
 	};
 
 	const { subscribe, set, update } = writable(defaultSettings);
