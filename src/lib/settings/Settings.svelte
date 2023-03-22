@@ -82,6 +82,11 @@
 			<input type="checkbox" bind:checked={$settings.requireLocked} name="requireLocked" />
 			Require all tiles to be locked for a level to be considered solved
 		</label>
+		<br />
+		<label>
+			<input type="checkbox" bind:checked={$settings.removeEdgeMarksOnLock} name="removeEdgeMarksOnLock" />
+			Remove a tile's edge marks when it is locked
+		</label>
 	</div>
 	<div class="controlMode">
 		<h3>Timer</h3>

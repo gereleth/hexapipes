@@ -42,7 +42,8 @@ function createSettings() {
 		showTimer: true,
 		disableZoomPan: false,
 		assistant: false,
-		requireLocked: false
+		requireLocked: false,
+		removeEdgeMarksOnLock: false
 	};
 
 	const { subscribe, set, update } = writable(defaultSettings);
