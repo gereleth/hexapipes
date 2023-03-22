@@ -1,6 +1,7 @@
 <script>
 	import Settings from '$lib/settings/Settings.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { settings } from "$lib/stores";
 
 	export let solved = false;
 	export let includeNewPuzzleButton = true;
@@ -18,6 +19,15 @@
 			dispatch('newPuzzle');
 		}
 	}
+	
+	function zoomOut() {
+		dispatch('zoomOut');
+	}
+	
+	function zoomIn() {
+		dispatch('zoomIn');
+	}
+	
 	let showSettings = false;
 </script>
 
@@ -29,6 +39,10 @@
 	<!-- New puzzle button -->
 	{#if includeNewPuzzleButton}
 		<button on:click={newPuzzle}> ➡️ New puzzle </button>
+	{/if}
+	{#if !$settings.disableZoomPan}
+		<button on:click={zoomOut}> ➖️ Zoom out </button>
+		<button on:click={zoomIn}> ➕️ Zoom in </button>
 	{/if}
 </div>
 <div class="buttons secondary">

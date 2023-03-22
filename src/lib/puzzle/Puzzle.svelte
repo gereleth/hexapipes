@@ -44,6 +44,16 @@
 	export const startOver = function () {
 		game.startOver();
 	};
+	
+	export const zoomOut = function () {
+		const delta = 0.5 * $viewBox.width * 0.07;
+		viewBox.zoom($viewBox.width + delta, 0, 0)
+	}
+	
+	export const zoomIn = function () {
+		const delta = 0.5 * $viewBox.width * 0.07;
+		viewBox.zoom($viewBox.width - delta, 0, 0)
+	}
 
 	export const reportPxPerCell = function () {
 		return svgWidth / $viewBox.width;
