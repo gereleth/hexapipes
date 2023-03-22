@@ -157,6 +157,7 @@
 <Puzzle
 	{grid}
 	tiles={data.tiles}
+	saveSolved={true}
 	{savedProgress}
 	{progressStoreName}
 	bind:this={puzzle}

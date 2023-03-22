@@ -17,6 +17,7 @@
 	/** @type {Number|undefined} */
 	export let preferredPxPerCell = undefined;
 	export let showSolveButton = false;
+	export let saveSolved = false;
 	export let animate = false;
 
 	// Remember the name that the puzzle was created with
@@ -155,7 +156,7 @@
 	}
 
 	function saveProgress() {
-		if ($solved) {
+		if ($solved && !saveSolved) {
 			return;
 		}
 		const tileStates = game.tileStates.map((tile) => {
