@@ -62,15 +62,16 @@
 					<li>Right click / long press - lock tile</li>
 				</ul>
 			{/if}
-			<label>
-				<input
-					type="checkbox"
-					bind:checked={$settings.invertRotationDirection}
-					name="invertRotationDirection"
-				/>
-				Invert rotation direction
-			</label>
 		</div>
+		<label>
+			<input
+				type="checkbox"
+				bind:checked={$settings.invertRotationDirection}
+				name="invertRotationDirection"
+			/>
+			Invert rotation direction
+		</label>
+		<br />
 		<label>
 			<input type="checkbox" bind:checked={$settings.assistant} name="assistant" />
 			Use smart assistant. When you lock a tile or create an edgemark surrounding tiles will rotate to
