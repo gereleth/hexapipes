@@ -60,3 +60,26 @@ export function detectEdgemarkGesture(
 	}
 	return result;
 }
+
+/**
+ * Tells if a point is close to the middle of a polygon's edge
+ * @param {Number} dx
+ * @param {Number} dy
+ * @param {Number} tile_radius
+ * @param {Number} angle_unit
+ * @param {Number} angle_offset
+ * @returns
+ */
+export function isCloseToEdge(dx, dy, tile_radius, angle_unit, angle_offset) {
+	const delta_radius = Math.abs(Math.sqrt(dx ** 2 + dy ** 2) - tile_radius);
+	let angle = Math.atan2(dy, dx);
+	angle += angle < 0 ? 2 * Math.PI : 0;
+	const direction_index = Math.round((angle - angle_offset) / angle_unit);
+	const direction_angle = angle_offset + angle_unit * direction_index;
+	let delta_angle = Math.abs(angle - direction_angle);
+	delta_angle = Math.min(delta_angle, 2 * Math.PI - delta_angle);
+	return {
+		direction_index,
+		isClose: delta_radius <= 0.3 * tile_radius && delta_angle <= 0.3 * angle_unit
+	};
+}

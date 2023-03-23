@@ -1,4 +1,4 @@
-import { detectEdgemarkGesture } from './polygonutils';
+import { detectEdgemarkGesture, isCloseToEdge } from './polygonutils';
 
 const EAST = 1;
 const NORTHEAST = 2;
@@ -207,28 +207,6 @@ export class HexaGrid {
 				};
 			}
 		}
-	}
-
-	/**
-	 * Tells if a point is close to one of tile's edges
-	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
-	 */
-	whichEdge(point) {
-		const { x, y, tileX, tileY } = point;
-		const dx = x - tileX;
-		const dy = tileY - y;
-		const deltaRadius = Math.abs(Math.sqrt(dx ** 2 + dy ** 2) - 0.5);
-		let angle = Math.atan2(dy, dx);
-		angle += angle < 0 ? 2 * Math.PI : 0;
-		const directionIndex = Math.round((angle * 3) / Math.PI) % 6;
-		const direction = this.DIRECTIONS[directionIndex];
-		const directionAngle = (directionIndex * Math.PI) / 3;
-		let deltaAngle = Math.abs(angle - directionAngle);
-		deltaAngle = Math.min(deltaAngle, 2 * Math.PI - deltaAngle);
-		return {
-			direction,
-			isClose: deltaRadius <= 0.15 && deltaAngle <= 0.35
-		};
 	}
 
 	/**
@@ -599,5 +577,21 @@ export class HexaGrid {
 			y2
 		);
 		return { mark, direction: this.DIRECTIONS[direction_index % this.NUM_DIRECTIONS] };
+	}
+
+	/**
+	 * Tells if a point is close to one of tile's edges
+	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
+	 */
+	whichEdge(point) {
+		const { x, y, tileX, tileY } = point;
+		const dx = x - tileX;
+		const dy = tileY - y;
+		const { direction_index, isClose } = isCloseToEdge(dx, dy, 0.5, this.ANGLE_RAD, 0);
+		const direction = this.DIRECTIONS[direction_index % this.NUM_DIRECTIONS];
+		return {
+			direction,
+			isClose
+		};
 	}
 }
