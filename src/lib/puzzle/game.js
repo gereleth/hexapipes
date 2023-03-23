@@ -258,6 +258,12 @@ export function PipesGame(grid, tiles, savedProgress) {
 		}
 		const oldDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations);
 		tileState.rotate(times);
+		const full = self.grid.fullyConnected(tileIndex);
+		// in case a rotation is invalid - skip it
+		// for examples, squares in an octagonal grid should only rotate in multiples of 2
+		while ((full & self.grid.rotate(tileState.data.tile, tileState.data.rotations)) === 0) {
+			tileState.rotate(Math.sign(times));
+		}
 		const newDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations);
 
 		const dirOut = oldDirections.filter((direction) => !newDirections.some((d) => d === direction));
