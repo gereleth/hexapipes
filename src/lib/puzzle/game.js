@@ -249,7 +249,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * @param {Number} times
 	 */
 	self.rotateTile = function (tileIndex, times) {
-		if (self._solved) {
+		if (self._solved || times === 0) {
 			return;
 		}
 		const tileState = self.tileStates[tileIndex];
