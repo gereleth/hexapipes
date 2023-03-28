@@ -26,6 +26,7 @@ export class RegularPolygonTile {
 		);
 		this.fully_connected = this.directions.reduce((a, b) => a + b, 0);
 
+		// draw tile contour
 		let angle = angle_offset - this.angle_unit / 2;
 		const r = this.radius_out - border_width;
 		this.contour_path = `m ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
@@ -34,6 +35,14 @@ export class RegularPolygonTile {
 			this.contour_path += ` L ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
 		}
 		this.contour_path += ' z';
+
+		// caches for frequently recomputed values
+		this.cache = {
+			rotate: new Map(),
+			pipes_path: new Map(),
+			guide_dot_position: new Map(),
+			edgemark_line: new Map()
+		};
 	}
 
 	/**
@@ -61,6 +70,11 @@ export class RegularPolygonTile {
 	 */
 	rotate(tile, times) {
 		times = this.normalize_rotations(times);
+		const key = [tile, times].join('_');
+		const cached = this.cache.rotate.get(key);
+		if (cached !== undefined) {
+			return cached;
+		}
 		let result = 0;
 		for (let [index, direction] of this.directions.entries()) {
 			if ((direction & tile) === 0) {
@@ -69,6 +83,7 @@ export class RegularPolygonTile {
 			const rotated_index = (index + this.num_directions - times) % this.num_directions;
 			result += this.directions[rotated_index];
 		}
+		this.cache.rotate.set(key, result);
 		return result;
 	}
 
@@ -88,7 +103,10 @@ export class RegularPolygonTile {
 	 * @returns
 	 */
 	get_directions(tile, rotations) {
-		const rotated = this.rotate(tile, rotations);
+		let rotated = tile;
+		if (rotations !== 0) {
+			rotated = this.rotate(tile, rotations);
+		}
 		return this.directions.filter((x) => (x & rotated) > 0);
 	}
 
@@ -97,6 +115,10 @@ export class RegularPolygonTile {
 	 * @param {Number} tile
 	 */
 	get_pipes_path(tile) {
+		const cached = this.cache.pipes_path.get(tile);
+		if (cached !== undefined) {
+			return cached;
+		}
 		let path = `M 0 0`;
 		this.directions.forEach((direction, index) => {
 			if ((direction & tile) > 0) {
@@ -106,6 +128,7 @@ export class RegularPolygonTile {
 				path += ` l ${dx} ${-dy} L 0 0`;
 			}
 		});
+		this.cache.pipes_path.set(tile, path);
 		return path;
 	}
 
@@ -114,6 +137,10 @@ export class RegularPolygonTile {
 	 * @param {Number} tile
 	 */
 	get_guide_dot_position(tile) {
+		const cached = this.cache.guide_dot_position.get(tile);
+		if (cached !== undefined) {
+			return cached;
+		}
 		let dx = 0,
 			dy = 0,
 			n = 0;
@@ -167,16 +194,6 @@ export class RegularPolygonTile {
 					}
 					const min_sum = Math.min(...distance_sums);
 					const base_leg_index = distance_sums.indexOf(min_sum);
-					if (tile === 45 || tile === 27) {
-						console.log({
-							tile,
-							distances,
-							distance_sums,
-							min_sum,
-							base_leg_index,
-							sl: legs.slice(base_leg_index, base_leg_index + half)
-						});
-					}
 					for (let leg of legs.slice(base_leg_index, base_leg_index + half)) {
 						dx += leg.dx;
 						dy += leg.dy;
@@ -187,7 +204,9 @@ export class RegularPolygonTile {
 			}
 		}
 		const l = Math.sqrt(dx * dx + dy * dy);
-		return [(this.radius_in * dx) / l, (this.radius_in * dy) / l];
+		const result = [(this.radius_in * dx) / l, (this.radius_in * dy) / l];
+		this.cache.guide_dot_position.set(tile, result);
+		return result;
 	}
 
 	/**
@@ -287,6 +306,10 @@ export class RegularPolygonTile {
 	 * @param {Number} direction
 	 */
 	get_edgemark_line(direction) {
+		const cached = this.cache.edgemark_line.get(direction);
+		if (cached !== undefined) {
+			return cached;
+		}
 		const index = this.direction_to_index.get(direction) || 0;
 		const angle = this.angle_offset + index * this.angle_unit;
 		const ax = Math.cos(angle);
@@ -301,6 +324,7 @@ export class RegularPolygonTile {
 			x2: offset_x + dx,
 			y2: -offset_y - dy
 		};
+		this.cache.edgemark_line.set(direction, line);
 		return line;
 	}
 }
