@@ -1,5 +1,4 @@
 <script>
-	import Grids from '$lib/header/Grids.svelte';
 	import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
 
 	/** @type {Number} i*/
@@ -59,7 +58,7 @@
 	<path d={game.grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
 
 	<!-- Pipe shape -->
-	<g class="pipe" style="transform:rotate({game.grid.ANGLE_DEG * $state.rotations}deg)">
+	<g class="pipe" style="transform:rotate({game.grid.getAngle($state.rotations, i)}rad)">
 		<!-- Pipe outline -->
 		<path
 			d={path}

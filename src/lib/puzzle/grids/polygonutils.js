@@ -1,85 +1,306 @@
-/**
- *
- * @param {Number} tile_radius
- * @param {Number} angle_unit
- * @param {Number} angle_offset
- * @param {Number} tile_x
- * @param {Number} tile_y
- * @param {Number} x1
- * @param {Number} x2
- * @param {Number} y1
- * @param {Number} y2
- */
-export function detectEdgemarkGesture(
-	tile_radius,
-	angle_unit,
-	angle_offset,
-	tile_x,
-	tile_y,
-	x1,
-	x2,
-	y1,
-	y2
-) {
-	let start_angle = Math.atan2(tile_y - y1, x1 - tile_x);
-	let end_angle = Math.atan2(tile_y - y2, x2 - tile_x);
-	start_angle += start_angle < 0 ? 2 * Math.PI : 0;
-	end_angle += end_angle < 0 ? 2 * Math.PI : 0;
-	let delta_angle = Math.abs(start_angle - end_angle);
-	let mean_angle = 0.5 * (start_angle + end_angle);
-	if (delta_angle > Math.PI) {
-		delta_angle = 2 * Math.PI - delta_angle;
-		mean_angle -= Math.PI;
-	}
-	const direction_index = Math.round((mean_angle - angle_offset) / angle_unit);
-	const start_radius = Math.sqrt((tile_y - y1) ** 2 + (x1 - tile_x) ** 2);
-	const end_radius = Math.sqrt((tile_y - y2) ** 2 + (x2 - tile_x) ** 2);
-	const mean_radius = 0.5 * (start_radius + end_radius);
-
-	const radius_is_close = Math.abs(mean_radius - tile_radius) <= 0.4 * tile_radius;
-	const angle_is_close =
-		Math.abs(mean_angle - (angle_offset + direction_index * angle_unit)) <= 0.5 * angle_unit;
-
-	/** @type {{mark:import('$lib/puzzle/game').EdgeMark, direction_index: Number}} */
-	const result = {
-		mark: 'none',
-		direction_index
-	};
-
-	if (radius_is_close && angle_is_close) {
-		// was close to tile border
-		// in a well defined direction
-		// toggle an edgemark here
-		const distanceAlongBorder = tile_radius * delta_angle;
-		const distanceAcrossBorder = Math.abs(start_radius - end_radius);
-		if (distanceAlongBorder > distanceAcrossBorder) {
-			result.mark = 'wall';
+export class RegularPolygonTile {
+	/**
+	 *
+	 * @param {Number} num_directions
+	 * @param {Number} angle_offset
+	 * @param {Number} radius_in
+	 * @param {Number[]} directions
+	 */
+	constructor(num_directions, angle_offset, radius_in, directions = [], border_width = 0.01) {
+		this.num_directions = num_directions;
+		this.angle_offset = angle_offset;
+		this.angle_unit = (Math.PI * 2) / num_directions;
+		this.radius_in = radius_in;
+		this.radius_out = radius_in / Math.cos(this.angle_unit / 2);
+		this.side_length = 2 * this.radius_out * Math.sin(this.angle_unit / 2);
+		if (directions.length === num_directions) {
+			this.directions = [...directions];
+		} else if (directions.length === 0) {
+			this.directions = [...Array(num_directions).keys()].map((x) => 2 ** x);
 		} else {
-			result.mark = 'conn';
+			throw `Length of directions ${directions} does not match directions number ${num_directions}`;
 		}
-	}
-	return result;
-}
+		/** @type {Map<Number, Number>} */
+		this.direction_to_index = new Map(
+			this.directions.map((direction, index) => [direction, index])
+		);
+		this.fully_connected = this.directions.reduce((a, b) => a + b, 0);
 
-/**
- * Tells if a point is close to the middle of a polygon's edge
- * @param {Number} dx
- * @param {Number} dy
- * @param {Number} tile_radius
- * @param {Number} angle_unit
- * @param {Number} angle_offset
- * @returns
- */
-export function isCloseToEdge(dx, dy, tile_radius, angle_unit, angle_offset) {
-	const delta_radius = Math.abs(Math.sqrt(dx ** 2 + dy ** 2) - tile_radius);
-	let angle = Math.atan2(dy, dx);
-	angle += angle < 0 ? 2 * Math.PI : 0;
-	const direction_index = Math.round((angle - angle_offset) / angle_unit);
-	const direction_angle = angle_offset + angle_unit * direction_index;
-	let delta_angle = Math.abs(angle - direction_angle);
-	delta_angle = Math.min(delta_angle, 2 * Math.PI - delta_angle);
-	return {
-		direction_index,
-		isClose: delta_radius <= 0.3 * tile_radius && delta_angle <= 0.3 * angle_unit
-	};
+		let angle = angle_offset - this.angle_unit / 2;
+		const r = this.radius_out - border_width;
+		this.contour_path = `m ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
+		for (let i = 1; i <= this.num_directions; i++) {
+			angle += this.angle_unit;
+			this.contour_path += ` L ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
+		}
+		this.contour_path += ' z';
+	}
+
+	/**
+	 * Return mininum equivalent number of rotations
+	 * In case of 4 directions rotating +3 is the same as rotating -1
+	 * So the only unique rotations are -1, 0, 1, 2
+	 * @param {Number} times
+	 */
+	normalize_rotations(times) {
+		times = times % this.num_directions;
+		const half = this.num_directions / 2;
+		if (times <= -half) {
+			times += this.num_directions;
+		} else if (times > half) {
+			times -= this.num_directions;
+		}
+		return times;
+	}
+
+	/**
+	 * Return the result of rotating a tile a number of times
+	 * @param {Number} tile
+	 * @param {Number} times
+	 * @returns {Number}
+	 */
+	rotate(tile, times) {
+		times = this.normalize_rotations(times);
+		let result = 0;
+		for (let [index, direction] of this.directions.entries()) {
+			if ((direction & tile) === 0) {
+				continue;
+			}
+			const rotated_index = (index + this.num_directions - times) % this.num_directions;
+			result += this.directions[rotated_index];
+		}
+		return result;
+	}
+
+	/**
+	 * Get angle in radians corresponding to a certain number of rotations
+	 * @param {Number} rotations
+	 * @returns {Number}
+	 */
+	get_angle(rotations) {
+		return this.angle_unit * rotations;
+	}
+
+	/**
+	 * Which directions a tile is pointing to after some rotations
+	 * @param {Number} tile
+	 * @param {Number} rotations
+	 * @returns
+	 */
+	get_directions(tile, rotations) {
+		const rotated = this.rotate(tile, rotations);
+		return this.directions.filter((x) => (x & rotated) > 0);
+	}
+
+	/**
+	 * A path to draw the pipes
+	 * @param {Number} tile
+	 */
+	get_pipes_path(tile) {
+		let path = `M 0 0`;
+		this.directions.forEach((direction, index) => {
+			if ((direction & tile) > 0) {
+				const angle = this.angle_offset + this.angle_unit * index;
+				const dx = this.radius_in * Math.cos(angle);
+				const dy = this.radius_in * Math.sin(angle);
+				path += ` l ${dx} ${-dy} L 0 0`;
+			}
+		});
+		return path;
+	}
+
+	/**
+	 * Where to draw a guiding dot for a tile
+	 * @param {Number} tile
+	 */
+	get_guide_dot_position(tile) {
+		let dx = 0,
+			dy = 0,
+			n = 0;
+		const legs = [];
+		for (let [index, direction] of this.directions.entries()) {
+			if ((tile & direction) === 0) {
+				continue;
+			}
+			n += 1;
+			const angle = this.angle_offset + this.angle_unit * index;
+			const leg = {
+				dx: this.radius_in * Math.cos(angle),
+				dy: this.radius_in * Math.sin(angle),
+				index,
+				direction,
+				angle
+			};
+			dx += leg.dx;
+			dy += leg.dy;
+			legs.push(leg);
+		}
+		dx /= n;
+		dy /= n;
+		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+			// a symmetric tile - I, X, Y or fully connected
+			if (legs.length <= 3 || legs.length === this.num_directions) {
+				// I or Y or fully connected tile
+				// grab any leg
+				dx = legs[0].dx;
+				dy = legs[0].dy;
+			} else {
+				const distances = legs.map((leg, i, legs) => {
+					const next_leg = legs[(i + 1) % legs.length];
+					return Math.abs(this.normalize_rotations(leg.index - next_leg.index));
+				});
+				if (distances.slice(1).every((x) => x === distances[0])) {
+					// octagonal + tile, no direction is better than the others
+					// grab any leg
+					dx = legs[0].dx;
+					dy = legs[0].dy;
+				} else {
+					// X, Ж and the like
+					// cut off "top" half of X and get the guide dot for that
+					const half = legs.length / 2;
+					const distance_sums = distances.map((d) => 0);
+					for (let i = 0; i < half; i++) {
+						const multiple = this.num_directions ** (half - i - 1);
+						for (let sum_index of distance_sums.keys()) {
+							distance_sums[sum_index] += multiple * distances[(sum_index + i) % legs.length];
+						}
+					}
+					const min_sum = Math.min(...distance_sums);
+					const base_leg_index = distance_sums.indexOf(min_sum);
+					if (tile === 45 || tile === 27) {
+						console.log({
+							tile,
+							distances,
+							distance_sums,
+							min_sum,
+							base_leg_index,
+							sl: legs.slice(base_leg_index, base_leg_index + half)
+						});
+					}
+					for (let leg of legs.slice(base_leg_index, base_leg_index + half)) {
+						dx += leg.dx;
+						dy += leg.dy;
+					}
+					dx /= half;
+					dy /= half;
+				}
+			}
+		}
+		const l = Math.sqrt(dx * dx + dy * dy);
+		return [(this.radius_in * dx) / l, (this.radius_in * dy) / l];
+	}
+
+	/**
+	 * Compute number of rotations for orienting a tile with "click to orient" control mode
+	 * @param {Number} tile
+	 * @param {Number} old_rotations
+	 * @param {Number} new_angle
+	 * @returns {Number}
+	 */
+	click_orient_tile(tile, old_rotations, new_angle) {
+		const [guideX, guideY] = this.get_guide_dot_position(tile);
+		const old_angle = Math.atan2(guideY, guideX);
+		let times_rotate =
+			(Math.round((old_angle - new_angle) / this.angle_unit) - old_rotations) % this.num_directions;
+		const half = this.num_directions / 2;
+		if (times_rotate > half) {
+			times_rotate -= this.num_directions;
+		} else if (times_rotate < -half) {
+			times_rotate += this.num_directions;
+		}
+		return times_rotate;
+	}
+
+	/**
+	 * Detects gesture for drawing wall or connection marks
+	 * Coordinates should be relative to tile center
+	 * @param {Number} x1
+	 * @param {Number} x2
+	 * @param {Number} y1
+	 * @param {Number} y2
+	 */
+	detect_edgemark_gesture(x1, x2, y1, y2) {
+		let start_angle = Math.atan2(y1, x1);
+		let end_angle = Math.atan2(y2, x2);
+		start_angle += start_angle < 0 ? 2 * Math.PI : 0;
+		end_angle += end_angle < 0 ? 2 * Math.PI : 0;
+		let delta_angle = Math.abs(start_angle - end_angle);
+		let mean_angle = 0.5 * (start_angle + end_angle);
+		if (delta_angle > Math.PI) {
+			delta_angle = 2 * Math.PI - delta_angle;
+			mean_angle -= Math.PI;
+		}
+		const direction_index = Math.round((mean_angle - this.angle_offset) / this.angle_unit);
+		const start_radius = Math.sqrt(y1 ** 2 + x1 ** 2);
+		const end_radius = Math.sqrt(y2 ** 2 + x2 ** 2);
+		const mean_radius = 0.5 * (start_radius + end_radius);
+
+		const radius_is_close = Math.abs(mean_radius - this.radius_in) <= 0.4 * this.radius_in;
+		const angle_is_close =
+			Math.abs(mean_angle - (this.angle_offset + direction_index * this.angle_unit)) <=
+			0.5 * this.angle_unit;
+		/** @type {{mark:import('$lib/puzzle/game').EdgeMark, direction: Number}} */
+		const result = {
+			mark: 'none',
+			direction: this.directions[(direction_index + this.num_directions) % this.num_directions]
+		};
+
+		if (radius_is_close && angle_is_close) {
+			// was close to tile border
+			// in a well defined direction
+			// toggle an edgemark here
+			const distance_along_border = this.radius_in * delta_angle;
+			const distance_across_border = Math.abs(start_radius - end_radius);
+			if (distance_along_border > distance_across_border) {
+				result.mark = 'wall';
+			} else if (distance_along_border < distance_across_border) {
+				result.mark = 'conn';
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Tells if a point is close to the middle of a polygon's edge
+	 * Input coordinates are relative to tile's center
+	 * @param {Number} x
+	 * @param {Number} y
+	 */
+	is_close_to_edge(x, y) {
+		const delta_radius = Math.abs(Math.sqrt(x ** 2 + y ** 2) - this.radius_in);
+		let angle = Math.atan2(y, x);
+		angle += angle < 0 ? 2 * Math.PI : 0;
+		const direction_index = Math.round((angle - this.angle_offset) / this.angle_unit);
+		const direction_angle = this.angle_offset + this.angle_unit * direction_index;
+		let delta_angle = Math.abs(angle - direction_angle);
+		delta_angle = Math.min(delta_angle, 2 * Math.PI - delta_angle);
+		const direction =
+			this.directions[(direction_index + this.num_directions) % this.num_directions];
+		return {
+			direction,
+			isClose: delta_radius <= 0.3 * this.radius_in && delta_angle <= 0.3 * this.angle_unit
+		};
+	}
+
+	/**
+	 * Returns coordinates for drawing edgemark line relative to tile center
+	 * @param {Number} direction
+	 */
+	get_edgemark_line(direction) {
+		const index = this.direction_to_index.get(direction) || 0;
+		const angle = this.angle_offset + index * this.angle_unit;
+		const ax = Math.cos(angle);
+		const ay = Math.sin(angle);
+		const offset_x = ax * this.radius_in;
+		const offset_y = ay * this.radius_in;
+		const dx = 0.25 * this.side_length * ax;
+		const dy = 0.25 * this.side_length * ay;
+		const line = {
+			x1: offset_x - dx,
+			y1: -offset_y + dy,
+			x2: offset_x + dx,
+			y2: -offset_y - dy
+		};
+		return line;
+	}
 }

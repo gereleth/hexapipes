@@ -1,9 +1,11 @@
-import { detectEdgemarkGesture, isCloseToEdge } from './polygonutils';
+import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
 
 const EAST = 1;
 const NORTH = 2;
 const WEST = 4;
 const SOUTH = 8;
+
+const SQUARE = new RegularPolygonTile(4, 0, 0.5);
 
 export class SquareGrid {
 	DIRECTIONS = [EAST, NORTH, WEST, SOUTH];
@@ -58,10 +60,6 @@ export class SquareGrid {
 		this.XMAX = width + 0.1 + (wrap ? 1 : 0);
 		this.YMIN = -(1 + (wrap ? 1 : 0));
 		this.YMAX = height + (wrap ? 1 : 0);
-
-		const d = 0.49;
-		let tilePath = `M ${d} ${d} L ${-d} ${d} L ${-d} ${-d} L ${d} ${-d} z`;
-		this.tilePath = tilePath;
 
 		/* Tile types for use in solver */
 		this.T0 = 0;
@@ -176,22 +174,17 @@ export class SquareGrid {
 	 * @returns
 	 */
 	rotate(tile, rotations, index = 0) {
-		let rotated = tile;
-		rotations = rotations % 4;
-		if (rotations > 2) {
-			rotations -= 4;
-		} else if (rotations < -2) {
-			rotations += 4;
-		}
-		while (rotations < 0) {
-			rotated = ((rotated * 2) % 16) + Math.floor(rotated / 8);
-			rotations += 1;
-		}
-		while (rotations > 0) {
-			rotated = Math.floor(rotated / 2) + 8 * (rotated % 2);
-			rotations -= 1;
-		}
-		return rotated;
+		return SQUARE.rotate(tile, rotations);
+	}
+
+	/**
+	 * Get angle for displaying rotated pipes state
+	 * @param {Number} rotations
+	 * @param {Number} index
+	 * @returns
+	 */
+	getAngle(rotations, index) {
+		return SQUARE.get_angle(rotations);
 	}
 
 	/**
@@ -201,8 +194,7 @@ export class SquareGrid {
 	 * @returns {Number[]}
 	 */
 	getDirections(tile, rotations = 0) {
-		const rotated = this.rotate(tile, rotations);
-		return this.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
+		return SQUARE.get_directions(tile, rotations);
 	}
 
 	/**
@@ -249,7 +241,7 @@ export class SquareGrid {
 	 * @returns
 	 */
 	getTilePath(index) {
-		return this.tilePath;
+		return SQUARE.contour_path;
 	}
 
 	/**
@@ -258,13 +250,7 @@ export class SquareGrid {
 	 * @param {Number} index
 	 */
 	getPipesPath(tile, index) {
-		const myDirections = this.getDirections(tile);
-		let path = `M 0 0`;
-		myDirections.forEach((direction) => {
-			const [dx, dy] = this.XY_DELTAS.get(direction) || [0, 0];
-			path += ` l ${0.5 * dx} ${-0.5 * dy} L 0 0`;
-		});
-		return path;
+		return SQUARE.get_pipes_path(tile);
 	}
 
 	/**
@@ -274,26 +260,19 @@ export class SquareGrid {
 	 * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index) {
-		const tileDirections = this.getDirections(tile);
-		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction) || [0, 0]);
-
-		let dx = 0,
-			dy = 0;
-		for (let [deltax, deltay] of deltas) {
-			dx += deltax;
-			dy += deltay;
-		}
-		dx /= tileDirections.length;
-		dy /= tileDirections.length;
-		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-			// a symmetric tile - I or X - grab any leg
-			dx = deltas[0][0];
-			dy = deltas[0][1];
-		}
-		const l = Math.sqrt(dx * dx + dy * dy);
-		return [(0.4 * dx) / l, (0.4 * dy) / l];
+		const [dx, dy] = SQUARE.get_guide_dot_position(tile);
+		return [0.8 * dx, 0.8 * dy];
 	}
-
+	/**
+	 * Compute number of rotations for orienting a tile with "click to orient" control mode
+	 * @param {Number} tile
+	 * @param {Number} old_rotations
+	 * @param {Number} new_angle
+	 * @param {Number} index
+	 */
+	clickOrientTile(tile, old_rotations, new_angle, index = 0) {
+		return SQUARE.click_orient_tile(tile, old_rotations, new_angle);
+	}
 	/**
 	 * Returns coordinates of endpoints of edgemark line
 	 * @param {Number} direction
@@ -301,19 +280,7 @@ export class SquareGrid {
 	 * @returns
 	 */
 	getEdgemarkLine(direction, index = 0) {
-		// offset from center of tile
-		const [offsetX, offsetY] = this.XY_DELTAS.get(direction) || [0, 0];
-
-		// drawn line deltas
-		const [dx, dy] = this.XY_DELTAS.get(this.OPPOSITE.get(direction) || 1) || [0, 0];
-		const lineLength = 0.15;
-		const line = {
-			x1: +0.5 * offsetX - dx * lineLength,
-			y1: -0.5 * offsetY + dy * lineLength,
-			x2: +0.5 * offsetX + dx * lineLength,
-			y2: -0.5 * offsetY - dy * lineLength
-		};
-		return line;
+		return SQUARE.get_edgemark_line(direction);
 	}
 
 	/**
@@ -327,18 +294,7 @@ export class SquareGrid {
 	 * @param {Number} y2
 	 */
 	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		const { mark, direction_index } = detectEdgemarkGesture(
-			0.5,
-			this.ANGLE_RAD,
-			0,
-			tile_x,
-			tile_y,
-			x1,
-			x2,
-			y1,
-			y2
-		);
-		return { mark, direction: this.DIRECTIONS[direction_index % this.NUM_DIRECTIONS] };
+		return SQUARE.detect_edgemark_gesture(x1 - tile_x, x2 - tile_x, tile_y - y1, tile_y - y2);
 	}
 
 	/**
@@ -349,11 +305,6 @@ export class SquareGrid {
 		const { x, y, tileX, tileY } = point;
 		const dx = x - tileX;
 		const dy = tileY - y;
-		const { direction_index, isClose } = isCloseToEdge(dx, dy, 0.5, this.ANGLE_RAD, 0);
-		const direction = this.DIRECTIONS[direction_index % this.NUM_DIRECTIONS];
-		return {
-			direction,
-			isClose
-		};
+		return SQUARE.is_close_to_edge(dx, dy);
 	}
 }

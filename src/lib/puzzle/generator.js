@@ -25,11 +25,7 @@ function randomRotate(tiles, grid) {
 		if (tile === 0) {
 			return 0;
 		}
-		let rotated = grid.rotate(tile, Math.floor(Math.random() * numDirections));
-		const full = grid.fullyConnected(index);
-		while ((full & rotated) === 0) {
-			rotated = grid.rotate(rotated, 1);
-		}
+		let rotated = grid.rotate(tile, Math.floor(Math.random() * numDirections), index);
 		return rotated;
 	});
 }

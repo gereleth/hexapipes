@@ -1,4 +1,4 @@
-import { detectEdgemarkGesture, isCloseToEdge } from './polygonutils';
+import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
 
 const EAST = 1;
 const NORTHEAST = 2;
@@ -14,6 +14,8 @@ const R0 = 0.49;
 const d = Roct * Math.sin(Math.PI / 8);
 const d0 = R0 * Math.sin(Math.PI / 8);
 const Rsq = ((Roct - d) * Math.SQRT2) / 2;
+const OCTAGON = new RegularPolygonTile(8, 0, 0.5);
+const SQUARE = new RegularPolygonTile(4, Math.PI / 4, Rsq, [2, 8, 32, 128]);
 
 export class OctaGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTH, NORTHWEST, WEST, SOUTHWEST, SOUTH, SOUTHEAST];
@@ -62,8 +64,6 @@ export class OctaGrid {
 	/** @type {Number} - total number of cells excluding empties */
 	total;
 
-	tilePathOctagon = `m ${R0} ${d0} L ${d0} ${R0} L ${-d0} ${R0} L ${-R0} ${d0} L ${-R0} ${-d0} L ${-d0} ${-R0} L ${d0} ${-R0} L ${R0} ${-d0} z`;
-	tilePathSquare = `m ${R0 - d0} 0 L 0 ${R0 - d0} L ${-R0 + d0} 0 L 0 ${-R0 + d0} z`;
 	/**
 	 *
 	 * @param {Number} width
@@ -234,55 +234,6 @@ export class OctaGrid {
 	}
 
 	/**
-	 * A number corresponding to fully connected tile
-	 * @param {Number} index
-	 * @returns {Number}
-	 */
-	fullyConnected(index) {
-		if (index >= this.width * this.height) {
-			return 170;
-		}
-		return 255;
-	}
-
-	/**
-	 * Compute tile orientation after a number of rotations
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @param {Number} index - index of tile, not used here
-	 * @returns
-	 */
-	rotate(tile, rotations, index = 0) {
-		let rotated = tile;
-		rotations = rotations % 8;
-		if (rotations > 4) {
-			rotations -= 8;
-		} else if (rotations < -4) {
-			rotations += 8;
-		}
-		while (rotations < 0) {
-			rotated = ((rotated * 2) % 256) + Math.floor(rotated / 128);
-			rotations += 1;
-		}
-		while (rotations > 0) {
-			rotated = Math.floor(rotated / 2) + 128 * (rotated % 2);
-			rotations -= 1;
-		}
-		return rotated;
-	}
-
-	/**
-	 *
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @returns {Number[]}
-	 */
-	getDirections(tile, rotations = 0) {
-		const rotated = this.rotate(tile, rotations);
-		return this.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
-	}
-
-	/**
 	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
 	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
@@ -339,16 +290,64 @@ export class OctaGrid {
 	}
 
 	/**
+	 * @param {Number} index
+	 * @returns {RegularPolygonTile}
+	 */
+	#tile_at(index) {
+		if (index >= this.width * this.height) {
+			return SQUARE;
+		}
+		return OCTAGON;
+	}
+
+	/**
+	 * A number corresponding to fully connected tile
+	 * @param {Number} index
+	 * @returns {Number}
+	 */
+	fullyConnected(index) {
+		return this.#tile_at(index).fully_connected;
+	}
+
+	/**
+	 * Compute tile orientation after a number of rotations
+	 * @param {Number} tile
+	 * @param {Number} rotations
+	 * @param {Number} index - index of tile, not used here
+	 * @returns
+	 */
+	rotate(tile, rotations, index = 0) {
+		return this.#tile_at(index).rotate(tile, rotations);
+	}
+
+	/**
+	 * Get angle for displaying rotated pipes state
+	 * @param {Number} rotations
+	 * @param {Number} index
+	 * @returns
+	 */
+	getAngle(rotations, index) {
+		return this.#tile_at(index).get_angle(rotations);
+	}
+
+	/**
+	 *
+	 * @param {Number} tile
+	 * @param {Number} rotations
+	 * @param {Number} index
+	 * @returns {Number[]}
+	 */
+	getDirections(tile, rotations = 0, index) {
+		return this.#tile_at(index).get_directions(tile, rotations);
+	}
+
+	/**
 	 * Tile contour path for svg drawing
 	 * @param {Number} index
 	 * @returns
 	 */
 	getTilePath(index) {
-		if (index >= this.width * this.height) {
-			return this.tilePathSquare;
-		} else {
-			return this.tilePathOctagon;
-		}
+		return this.#tile_at(index).contour_path;
 	}
 
 	/**
@@ -357,17 +356,7 @@ export class OctaGrid {
 	 * @param {Number} index
 	 */
 	getPipesPath(tile, index) {
-		const radius = index >= this.width * this.height ? Rsq : Roct;
-		let path = `M 0 0`;
-		this.DIRECTIONS.forEach((direction, index) => {
-			if ((direction & tile) > 0) {
-				const angle = this.ANGLE_RAD * index;
-				const dx = radius * Math.cos(angle);
-				const dy = radius * Math.sin(angle);
-				path += ` l ${dx} ${-dy} L 0 0`;
-			}
-		});
-		return path;
+		return this.#tile_at(index).get_pipes_path(tile);
 	}
 
 	/**
@@ -377,38 +366,19 @@ export class OctaGrid {
 	 * * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index = 0) {
-		const tileDirections = this.getDirections(tile);
-		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction) || [0, 0]);
+		const [dx, dy] = this.#tile_at(index).get_guide_dot_position(tile);
+		return [0.7 * dx, 0.7 * dy];
+	}
 
-		let dx = 0,
-			dy = 0;
-		for (let [deltax, deltay] of deltas) {
-			dx += deltax;
-			dy += deltay;
-		}
-		dx /= tileDirections.length;
-		dy /= tileDirections.length;
-		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-			// a symmetric tile - I, X, Y or fully connected
-			if (
-				tileDirections.length <= this.DIRECTIONS.length / 2 ||
-				tileDirections.length === this.DIRECTIONS.length
-			) {
-				// I or Y or fully connected tile
-				// grab any leg
-				dx = deltas[0][0];
-				dy = deltas[0][1];
-			} else {
-				// X - treat as "not I" - grab I direction and rotate 90deg
-				const direction = this.DIRECTIONS.find((d) => !tileDirections.includes(d)) || 1;
-				const [deltaX, deltaY] = this.RC_DELTAS.get(direction) || [0, 0];
-				dx = -deltaY;
-				dy = deltaX;
-			}
-		}
-		const l = Math.sqrt(dx * dx + dy * dy);
-		const r = index >= this.width * this.height ? Rsq : Roct;
-		return [(0.7 * r * dx) / l, (0.7 * r * dy) / l];
+	/**
+	 * Compute number of rotations for orienting a tile with "click to orient" control mode
+	 * @param {Number} tile
+	 * @param {Number} old_rotations
+	 * @param {Number} new_angle
+	 * @param {Number} index
+	 */
+	clickOrientTile(tile, old_rotations, new_angle, index = 0) {
+		return this.#tile_at(index).click_orient_tile(tile, old_rotations, new_angle);
 	}
 
 	/**
@@ -418,25 +388,7 @@ export class OctaGrid {
 	 * @returns
 	 */
 	getEdgemarkLine(direction, index = 0) {
-		// offset from center of tile
-		let [offsetX, offsetY] = this.RC_DELTAS.get(direction) || [0, 0];
-		let l = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-		offsetX /= l;
-		offsetY /= l;
-		// drawn line deltas
-		let [dx, dy] = this.RC_DELTAS.get(this.OPPOSITE.get(direction) || 1) || [0, 0];
-		l = Math.sqrt(dx * dx + dy * dy);
-		dx /= l;
-		dy /= l;
-		const radius = index >= this.width * this.height ? Rsq : Roct;
-		const lineLength = 0.12;
-		const line = {
-			x1: +radius * offsetX - dx * lineLength,
-			y1: -radius * offsetY + dy * lineLength,
-			x2: +radius * offsetX + dx * lineLength,
-			y2: -radius * offsetY - dy * lineLength
-		};
-		return line;
+		return this.#tile_at(index).get_edgemark_line(direction);
 	}
 
 	/**
@@ -450,20 +402,12 @@ export class OctaGrid {
 	 * @param {Number} y2
 	 */
 	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		const isSquare = tile_index >= this.width * this.height;
-		const { mark, direction_index } = detectEdgemarkGesture(
-			isSquare ? Rsq : Roct,
-			isSquare ? this.ANGLE_RAD * 2 : this.ANGLE_RAD,
-			isSquare ? this.ANGLE_RAD : 0,
-			tile_x,
-			tile_y,
-			x1,
-			x2,
-			y1,
-			y2
+		return this.#tile_at(tile_index).detect_edgemark_gesture(
+			x1 - tile_x,
+			x2 - tile_x,
+			tile_y - y1,
+			tile_y - y2
 		);
-		const index = isSquare ? 1 + 2 * direction_index : direction_index;
-		return { mark, direction: this.DIRECTIONS[index % this.NUM_DIRECTIONS] };
 	}
 
 	/**
@@ -474,19 +418,6 @@ export class OctaGrid {
 		const { x, y, tileX, tileY, tileIndex } = point;
 		const dx = x - tileX;
 		const dy = tileY - y;
-		const isSquare = tileIndex >= this.width * this.height;
-		const { direction_index, isClose } = isCloseToEdge(
-			dx,
-			dy,
-			isSquare ? Rsq : Roct,
-			isSquare ? this.ANGLE_RAD * 2 : this.ANGLE_RAD,
-			isSquare ? this.ANGLE_RAD : 0
-		);
-		const index = isSquare ? 1 + 2 * direction_index : direction_index;
-		const direction = this.DIRECTIONS[index % this.NUM_DIRECTIONS];
-		return {
-			direction,
-			isClose
-		};
+		return this.#tile_at(tileIndex).is_close_to_edge(dx, dy);
 	}
 }

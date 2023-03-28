@@ -243,21 +243,21 @@ describe('Test get directions', () => {
 	const grid = new OctaGrid(3, 3, false);
 	it('Deadend tile', () => {
 		let tile = 1;
-		expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1]));
-		expect(grid.getDirections(tile, 1)).toEqual(expect.arrayContaining([128]));
-		expect(grid.getDirections(tile, 2)).toEqual(expect.arrayContaining([64]));
-		expect(grid.getDirections(tile, 3)).toEqual(expect.arrayContaining([32]));
-		expect(grid.getDirections(tile, 4)).toEqual(expect.arrayContaining([16]));
-		expect(grid.getDirections(tile, 5)).toEqual(expect.arrayContaining([8]));
-		expect(grid.getDirections(tile, 6)).toEqual(expect.arrayContaining([4]));
-		expect(grid.getDirections(tile, 7)).toEqual(expect.arrayContaining([2]));
+		expect(grid.getDirections(tile, 0, 0)).toEqual(expect.arrayContaining([1]));
+		expect(grid.getDirections(tile, 1, 0)).toEqual(expect.arrayContaining([128]));
+		expect(grid.getDirections(tile, 2, 0)).toEqual(expect.arrayContaining([64]));
+		expect(grid.getDirections(tile, 3, 0)).toEqual(expect.arrayContaining([32]));
+		expect(grid.getDirections(tile, 4, 0)).toEqual(expect.arrayContaining([16]));
+		expect(grid.getDirections(tile, 5, 0)).toEqual(expect.arrayContaining([8]));
+		expect(grid.getDirections(tile, 6, 0)).toEqual(expect.arrayContaining([4]));
+		expect(grid.getDirections(tile, 7, 0)).toEqual(expect.arrayContaining([2]));
 	});
 	it('Straight tile', () => {
 		let tile = 17;
-		expect(grid.getDirections(tile, 0)).toEqual(expect.arrayContaining([1, 16]));
-		expect(grid.getDirections(tile, -1)).toEqual(expect.arrayContaining([2, 32]));
-		expect(grid.getDirections(tile, -2)).toEqual(expect.arrayContaining([4, 64]));
-		expect(grid.getDirections(tile, -3)).toEqual(expect.arrayContaining([8, 128]));
-		expect(grid.getDirections(tile, -4)).toEqual(expect.arrayContaining([1, 16]));
+		expect(grid.getDirections(tile, 0, 0)).toEqual(expect.arrayContaining([1, 16]));
+		expect(grid.getDirections(tile, -1, 0)).toEqual(expect.arrayContaining([2, 32]));
+		expect(grid.getDirections(tile, -2, 0)).toEqual(expect.arrayContaining([4, 64]));
+		expect(grid.getDirections(tile, -3, 0)).toEqual(expect.arrayContaining([8, 128]));
+		expect(grid.getDirections(tile, -4, 0)).toEqual(expect.arrayContaining([1, 16]));
 	});
 });

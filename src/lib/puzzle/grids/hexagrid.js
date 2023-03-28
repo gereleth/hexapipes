@@ -1,4 +1,4 @@
-import { detectEdgemarkGesture, isCloseToEdge } from './polygonutils';
+import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
 
 const EAST = 1;
 const NORTHEAST = 2;
@@ -8,6 +8,8 @@ const SOUTHWEST = 16;
 const SOUTHEAST = 32;
 
 const YSTEP = Math.sqrt(3) / 2;
+
+const HEXAGON = new RegularPolygonTile(6, 0, 0.5);
 
 export class HexaGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST];
@@ -111,20 +113,6 @@ export class HexaGrid {
 		this.XMAX = width + 0.1 + (wrap ? 1 : 0);
 		this.YMIN = -YSTEP * (1 + (wrap ? 1 : 0));
 		this.YMAX = YSTEP * (height + (wrap ? 1 : 0));
-
-		const d = 0.49;
-		let tilePath = '';
-		for (let p = 0; p < 6; p++) {
-			const angle = (Math.PI * (2 * p + 1)) / 6;
-			const dx = (d * Math.cos(angle)) / YSTEP;
-			const dy = (-d * Math.sin(angle)) / YSTEP;
-			if (tilePath === '') {
-				tilePath += ` m ${dx - d} ${dy + 2 * d * YSTEP}`;
-			}
-			tilePath += ` l ${dx} ${dy}`;
-		}
-		tilePath += ' z';
-		this.tilePath = tilePath;
 
 		/* Tile types for use in solver */
 		this.T0 = 0;
@@ -311,33 +299,28 @@ export class HexaGrid {
 	 * @returns
 	 */
 	rotate(tile, rotations, index = 0) {
-		let rotated = tile;
-		rotations = rotations % 6;
-		if (rotations > 3) {
-			rotations -= 6;
-		} else if (rotations < -3) {
-			rotations += 6;
-		}
-		while (rotations < 0) {
-			rotated = ((rotated * 2) % 64) + Math.floor(rotated / 32);
-			rotations += 1;
-		}
-		while (rotations > 0) {
-			rotated = Math.floor(rotated / 2) + 32 * (rotated % 2);
-			rotations -= 1;
-		}
-		return rotated;
+		return HEXAGON.rotate(tile, rotations);
+	}
+
+	/**
+	 * Get angle for displaying rotated pipes state
+	 * @param {Number} rotations
+	 * @param {Number} index
+	 * @returns
+	 */
+	getAngle(rotations, index) {
+		return HEXAGON.get_angle(rotations);
 	}
 
 	/**
 	 *
 	 * @param {Number} tile
 	 * @param {Number} rotations
+	 * @param {Number} index
 	 * @returns {Number[]}
 	 */
-	getDirections(tile, rotations = 0) {
-		const rotated = this.rotate(tile, rotations);
-		return this.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
+	getDirections(tile, rotations = 0, index = 0) {
+		return HEXAGON.get_directions(tile, rotations);
 	}
 
 	/**
@@ -474,7 +457,7 @@ export class HexaGrid {
 	 * @returns
 	 */
 	getTilePath(index) {
-		return this.tilePath;
+		return HEXAGON.contour_path;
 	}
 
 	/**
@@ -483,13 +466,7 @@ export class HexaGrid {
 	 * @param {Number} index
 	 */
 	getPipesPath(tile, index) {
-		const myDirections = this.getDirections(tile);
-		let path = `M 0 0`;
-		myDirections.forEach((direction) => {
-			const [dx, dy] = this.XY_DELTAS.get(direction) || [0, 0];
-			path += ` l ${0.5 * dx} ${-0.5 * dy} L 0 0`;
-		});
-		return path;
+		return HEXAGON.get_pipes_path(tile);
 	}
 
 	/**
@@ -499,37 +476,18 @@ export class HexaGrid {
 	 * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index = 0) {
-		const tileDirections = this.getDirections(tile);
-		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction) || [0, 0]);
-
-		let dx = 0,
-			dy = 0;
-		for (let [deltax, deltay] of deltas) {
-			dx += deltax;
-			dy += deltay;
-		}
-		dx /= tileDirections.length;
-		dy /= tileDirections.length;
-		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-			// a symmetric tile - I, X, Y or fully connected
-			if (
-				tileDirections.length <= this.DIRECTIONS.length / 2 ||
-				tileDirections.length === this.DIRECTIONS.length
-			) {
-				// I or Y or fully connected tile
-				// grab any leg
-				dx = deltas[0][0];
-				dy = deltas[0][1];
-			} else {
-				// X - treat as "not I" - grab I direction and rotate 90deg
-				const direction = this.DIRECTIONS.find((d) => !tileDirections.includes(d)) || 1;
-				const [deltaX, deltaY] = this.XY_DELTAS.get(direction) || [0, 0];
-				dx = -deltaY;
-				dy = deltaX;
-			}
-		}
-		const l = Math.sqrt(dx * dx + dy * dy);
-		return [(0.4 * dx) / l, (0.4 * dy) / l];
+		const [dx, dy] = HEXAGON.get_guide_dot_position(tile);
+		return [0.8 * dx, 0.8 * dy];
+	}
+	/**
+	 * Compute number of rotations for orienting a tile with "click to orient" control mode
+	 * @param {Number} tile
+	 * @param {Number} old_rotations
+	 * @param {Number} new_angle
+	 * @param {Number} index
+	 */
+	clickOrientTile(tile, old_rotations, new_angle, index = 0) {
+		return HEXAGON.click_orient_tile(tile, old_rotations, new_angle);
 	}
 
 	/**
@@ -539,19 +497,7 @@ export class HexaGrid {
 	 * @returns
 	 */
 	getEdgemarkLine(direction, index = 0) {
-		// offset from center of tile
-		const [offsetX, offsetY] = this.XY_DELTAS.get(direction) || [0, 0];
-
-		// drawn line deltas
-		const [dx, dy] = this.XY_DELTAS.get(this.OPPOSITE.get(direction) || 1) || [0, 0];
-		const lineLength = 0.15;
-		const line = {
-			x1: +0.5 * offsetX - dx * lineLength,
-			y1: -0.5 * offsetY + dy * lineLength,
-			x2: +0.5 * offsetX + dx * lineLength,
-			y2: -0.5 * offsetY - dy * lineLength
-		};
-		return line;
+		return HEXAGON.get_edgemark_line(direction);
 	}
 
 	/**
@@ -565,18 +511,7 @@ export class HexaGrid {
 	 * @param {Number} y2
 	 */
 	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		const { mark, direction_index } = detectEdgemarkGesture(
-			0.5,
-			this.ANGLE_RAD,
-			0,
-			tile_x,
-			tile_y,
-			x1,
-			x2,
-			y1,
-			y2
-		);
-		return { mark, direction: this.DIRECTIONS[direction_index % this.NUM_DIRECTIONS] };
+		return HEXAGON.detect_edgemark_gesture(x1 - tile_x, x2 - tile_x, tile_y - y1, tile_y - y2);
 	}
 
 	/**
@@ -587,11 +522,6 @@ export class HexaGrid {
 		const { x, y, tileX, tileY } = point;
 		const dx = x - tileX;
 		const dy = tileY - y;
-		const { direction_index, isClose } = isCloseToEdge(dx, dy, 0.5, this.ANGLE_RAD, 0);
-		const direction = this.DIRECTIONS[direction_index % this.NUM_DIRECTIONS];
-		return {
-			direction,
-			isClose
-		};
+		return HEXAGON.is_close_to_edge(dx, dy);
 	}
 }
