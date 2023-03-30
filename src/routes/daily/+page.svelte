@@ -7,9 +7,12 @@
 	import Timer, { formatTime } from '$lib/Timer.svelte';
 	import Stats from '$lib/Stats.svelte';
 	import { getSolves, getStats, settings } from '$lib/stores';
+	import { createGrid } from '$lib/puzzle/grids/grids';
 
 	/** @type {import('./$types').PageData} */
 	export let data;
+
+	let grid = createGrid(data.grid || 'hexagonal', data.width, data.height, data.wrap, data.tiles);
 
 	let solve = {
 		puzzleId: -1,
@@ -151,11 +154,8 @@
 </div>
 
 <Puzzle
-	gridKind={data.grid || 'hexagonal'}
-	width={data.width}
-	height={data.height}
+	{grid}
 	tiles={data.tiles}
-	wrap={data.wrap}
 	{savedProgress}
 	{progressStoreName}
 	bind:this={puzzle}
@@ -196,7 +196,7 @@
 			<p>
 				Share your result: <button on:click={copyShareText}>{shareButtonIcon} Copy text</button>
 			</p>
-			<textarea type="text" cols="60" rows="3" bind:value={shareText} />
+			<textarea cols="60" rows="3" bind:value={shareText} />
 		</div>
 	</div>
 {/if}

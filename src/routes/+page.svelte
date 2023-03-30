@@ -2,6 +2,10 @@
 	import { settings } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
+	import { createGrid } from '$lib/puzzle/grids/grids';
+
+	const hexGrid = createGrid('hexagonal', 4, 4, false);
+	const hexWrapGrid = createGrid('hexagonal', 4, 4, true);
 	let hexSolved = false;
 	let hexWrapSolved = false;
 
@@ -73,10 +77,8 @@
 	</p>
 </div>
 <Puzzle
-	height={4}
-	width={4}
+	grid={hexGrid}
 	tiles={[1, 57, 2, 24, 40, 25, 10, 2, 4, 49, 22, 8, 48, 32, 5, 4]}
-	wrap={false}
 	on:solved={() => (hexSolved = true)}
 />
 <div class="container">
@@ -107,10 +109,8 @@
 	</p>
 </div>
 <Puzzle
-	height={4}
-	width={4}
+	grid={hexWrapGrid}
 	tiles={[2, 27, 18, 2, 34, 2, 8, 1, 8, 16, 45, 1, 6, 48, 53, 9]}
-	wrap={true}
 	on:solved={() => (hexWrapSolved = true)}
 />
 

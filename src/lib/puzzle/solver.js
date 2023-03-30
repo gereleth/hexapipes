@@ -1,3 +1,5 @@
+import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
+
 /* Constraint Violation Exceptions */
 
 /**
@@ -37,7 +39,7 @@ function IslandDetectedException() {
 
 /**
  * @constructor
- * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/grids').Grid} grid
  * @param {Number} index - tile index in grid
  * @param {Number} initial - initial orientation
  */
@@ -168,7 +170,7 @@ export function Cell(grid, index, initial) {
 /**
  * @constructor
  * @param {Number[]} tiles - tile index in grid
- * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/grids').Grid} grid
  */
 export function Solver(tiles, grid) {
 	let self = this;
@@ -311,7 +313,7 @@ export function Solver(tiles, grid) {
 		}
 
 		// Hexagrid specific tricks
-		if (self.grid.KIND === 'hexagonal') {
+		if (self.grid instanceof HexaGrid) {
 			// can't connect middle prongs to a sharp turns tile
 			if ([self.grid.T4K, self.grid.T3w, self.grid.T5, self.grid.T4psi].some((x) => x === tile)) {
 				for (let [i, neighbourTile] of neighbourTiles.entries()) {

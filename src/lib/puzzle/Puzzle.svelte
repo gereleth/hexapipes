@@ -1,7 +1,4 @@
 <script>
-	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
-	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
-	import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
@@ -9,12 +6,10 @@
 	import { PipesGame } from '$lib/puzzle/game';
 	import { Solver } from './solver';
 
-	export let gridKind = 'hexagonal';
-	export let width = 0;
-	export let height = 0;
+	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
+	export let grid;
 	/** @type {Number[]} */
 	export let tiles = [];
-	export let wrap = false;
 	export let savedProgress = undefined;
 	export let progressStoreName = '';
 	/** @type {Number|undefined} */
@@ -30,15 +25,6 @@
 	let svgWidth = 500;
 	let svgHeight = 500;
 
-	/** @type {import('$lib/puzzle/grids/hexagrid').HexaGrid}*/
-	let grid;
-	if (gridKind === 'hexagonal') {
-		grid = new HexaGrid(width, height, wrap, tiles);
-	} else if (gridKind === 'octagonal') {
-		grid = new OctaGrid(width, height, wrap, tiles);
-	} else {
-		grid = new SquareGrid(width, height, wrap, tiles);
-	}
 	let game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
 
@@ -81,7 +67,7 @@
 		if (!$settings.disableZoomPan) {
 			pxPerCell = Math.max(60, pxPerCell);
 		}
-		if (wrap || $settings.disableZoomPan) {
+		if (grid.wrap || $settings.disableZoomPan) {
 			svgWidth = Math.min(maxPixelWidth, pxPerCell * maxGridWidth);
 		} else {
 			svgWidth = maxPixelWidth;
@@ -111,7 +97,7 @@
 		const maxPixelWidth = innerWidth - 18;
 		// take most height, leave some for scrolling the page on mobile
 		const maxPixelHeight = Math.round(0.8 * innerHeight);
-		if (wrap) {
+		if (grid.wrap) {
 			svgWidth = Math.min(maxPixelWidth, pxPerCell * $viewBox.width);
 		} else {
 			svgWidth = maxPixelWidth;
@@ -262,9 +248,9 @@
 	export const download = function () {
 		const data = {
 			grid: grid.KIND,
-			width,
-			height,
-			wrap,
+			width: grid.width,
+			height: grid.height,
+			wrap: grid.wrap,
 			tiles
 		};
 		const dataString = JSON.stringify(data, null, '\t');

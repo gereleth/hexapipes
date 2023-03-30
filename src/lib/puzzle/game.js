@@ -95,7 +95,7 @@ function StateStore(initialState) {
 /**
  * Pipes puzzle internal state
  * @constructor
- * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/grids').Grid} grid
  * @param {Number[]} tiles
  * @param {Progress|undefined} savedProgress
  */
@@ -157,7 +157,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		// create components and fill in connections data
 		self.tileStates.forEach((tileState, index) => {
 			const state = tileState.data;
-			let directions = self.grid.getDirections(state.tile, state.rotations);
+			let directions = self.grid.getDirections(state.tile, state.rotations, index);
 			const connections = new Set();
 			for (let direction of directions) {
 				const { neighbour, empty } = grid.find_neighbour(index, direction);

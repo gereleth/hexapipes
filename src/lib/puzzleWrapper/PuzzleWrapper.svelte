@@ -9,10 +9,9 @@
 	import { getSolves, getStats } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { Generator } from '$lib/puzzle/generator';
-	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
-	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
+	import { createGrid } from '$lib/puzzle/grids/grids';
 
-	/** @type {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'} */
+	/** @type {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'} */
 	export let category;
 	/** @type {Number} */
 	export let size;
@@ -25,6 +24,8 @@
 	/** @type {Number[]} */
 	export let tiles;
 
+	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
+	let grid;
 	let solved = false;
 
 	let previousParams = {
@@ -151,6 +152,7 @@
 		const instance = window.localStorage.getItem(instanceStoreName);
 		if (instance !== null) {
 			tiles = JSON.parse(instance).tiles;
+			grid = createGrid(gridKind, width, height, wrap, tiles);
 		} else {
 			generatePuzzle();
 		}
@@ -160,14 +162,11 @@
 		if (puzzleId !== -1) {
 			return;
 		}
-		let grid;
 		let branchingAmount = 0.6;
 		let avoidObvious = 0;
 		let avoidStraights = 0;
-		if (category.startsWith('hexagonal')) {
-			grid = new HexaGrid(width, height, wrap);
-		} else {
-			grid = new SquareGrid(width, height, wrap);
+		grid = createGrid(gridKind, width, height, wrap, tiles);
+		if (category.startsWith('square')) {
 			branchingAmount = Math.random() * 0.5 + 0.5; // 0.5 to 1
 			avoidObvious = Math.random() * 0.5 + 0.1; // 0.1 to 0.6
 			avoidStraights = Math.random() * 0.5 + 0.25; // 0.25 to 0.75
@@ -211,11 +210,8 @@
 {#if tiles.length > 0}
 	{#key `/${category}/${size}/${puzzleId === -1 ? genId : puzzleId}`}
 		<Puzzle
-			{gridKind}
-			{width}
-			{height}
+			{grid}
 			{tiles}
-			{wrap}
 			{savedProgress}
 			{progressStoreName}
 			preferredPxPerCell={pxPerCell}

@@ -27,7 +27,7 @@
 		});
 	}
 
-	const myDirections = game.grid.getDirections($state.tile);
+	const myDirections = game.grid.getDirections($state.tile, 0, i);
 
 	const [guideX, guideY] = game.grid.getGuideDotPosition($state.tile, i);
 

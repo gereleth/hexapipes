@@ -3,15 +3,13 @@
 	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
-	import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
-	import { OctaGrid } from '$lib/puzzle/grids/octagrid';
+	import { createGrid } from '$lib/puzzle/grids/grids';
 	import { Generator } from '$lib/puzzle/generator';
 
-	let gridKind = 'hexagonal';
-	let width = 5;
-	let height = 5;
-	let wrap = false;
+	let gridKind = 'octagonal';
+	let width = 7;
+	let height = 7;
+	let wrap = true;
 	let branchingAmount = 0.6;
 	let avoidObvious = 0.0;
 	let avoidStraights = 0.0;
@@ -24,7 +22,7 @@
 	let puzzle;
 	let solved = false;
 
-	/** @type {HexaGrid|SquareGrid|OctaGrid}*/
+	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
 	let grid;
 	/** @type {Number[]}*/
 	let tiles = [];
@@ -40,13 +38,7 @@
 		if (width * height === 1) {
 			width += 1;
 		}
-		if (gridKind === 'hexagonal') {
-			grid = new HexaGrid(width, height, wrap);
-		} else if (gridKind === 'octagonal') {
-			grid = new OctaGrid(width, height, wrap);
-		} else {
-			grid = new SquareGrid(width, height, wrap);
-		}
+		grid = createGrid(gridKind, width, height, wrap);
 		id += 1;
 		const gen = new Generator(grid);
 		try {
@@ -87,17 +79,7 @@
 					throw `NaN value found in tiles list at index ${index}`;
 				}
 			});
-			/** @type {HexaGrid|SquareGrid|OctaGrid}*/
-			let gr;
-			if (data.grid === 'hexagonal') {
-				gr = new HexaGrid(w, h, wr, t);
-			} else if (data.grid === 'square') {
-				gr = new SquareGrid(w, h, wr, t);
-			} else if (data.grid === 'octagonal') {
-				gr = new OctaGrid(w, h, wr, t);
-			} else {
-				throw `Bad value for grid: "${data.grid}". Expected "hexagonal", "square" or "octagonal"`;
-			}
+			let gr = createGrid(data.grid, w, h, wr, t);
 			if (gr.total !== t.length) {
 				throw `Size mismatch: grid total = ${gr.total}, length of tiles = ${t.length}`;
 			}
@@ -249,11 +231,8 @@
 {#if id > 0}
 	{#key id}
 		<Puzzle
-			{gridKind}
-			{width}
-			{height}
+			{grid}
 			{tiles}
-			{wrap}
 			bind:this={puzzle}
 			on:solved={() => (solved = true)}
 			showSolveButton={true}
