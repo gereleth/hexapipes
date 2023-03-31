@@ -11,6 +11,7 @@
 	export let grid;
 	/** @type {Number[]} */
 	export let tiles = [];
+	/** @type {import('$lib/puzzle/game').Progress|undefined}*/
 	export let savedProgress = undefined;
 	export let progressStoreName = '';
 	/** @type {Number|undefined} */
@@ -174,9 +175,15 @@
 		});
 	}
 
+	/**
+	 * @param {Number} ms
+	 */
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
+	/**
+	 * @type {import('$lib/puzzle/solver').Solver}
+	 */
 	let solver;
 	let numsol = 0;
 	export async function unleashTheSolver() {
