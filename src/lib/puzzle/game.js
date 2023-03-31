@@ -141,14 +141,24 @@ export function PipesGame(grid, tiles, savedProgress) {
 			});
 		});
 	} else {
-		self.tileStates = tiles.map((tile) => {
+		self.tileStates = tiles.map((tile, index) => {
+			// disable edge marks on outer edges of non-wrap puzzles
+			const edgeMarks = [...defaultEdgeMarks];
+			if (!self.grid.wrap) {
+				self.grid.EDGEMARK_DIRECTIONS.forEach((direction, direction_index) => {
+					const { empty } = self.grid.find_neighbour(index, direction);
+					if (empty) {
+						edgeMarks[direction_index] = 'none';
+					}
+				});
+			}
 			return new StateStore({
 				tile: tile,
 				rotations: 0,
 				color: 'white',
 				isPartOfLoop: false,
 				locked: false,
-				edgeMarks: [...defaultEdgeMarks]
+				edgeMarks
 			});
 		});
 	}
