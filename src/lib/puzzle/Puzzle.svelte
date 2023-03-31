@@ -5,6 +5,7 @@
 	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
 	import { PipesGame } from '$lib/puzzle/game';
 	import { Solver } from './solver';
+	import EdgeMarks from './EdgeMarks.svelte';
 
 	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
 	export let grid;
@@ -329,6 +330,11 @@
 				controlMode={$settings.controlMode}
 			/>
 		{/each}
+		{#if !$solved}
+			{#each $visibleTiles as visibleTile, i (visibleTile.key)}
+				<EdgeMarks i={visibleTile.index} {game} cx={visibleTile.x} cy={visibleTile.y} />
+			{/each}
+		{/if}
 	</svg>
 </div>
 

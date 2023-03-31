@@ -1,6 +1,4 @@
 <script>
-	import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
-
 	/** @type {Number} i*/
 	export let i;
 
@@ -84,16 +82,6 @@
 		{/if}
 	</g>
 	<!-- <text x="0" y="0" text-anchor="middle" font-size="0.2">{i}</text> -->
-	{#if !solved}
-		{#each $state.edgeMarks as _, index (index)}
-			<EdgeMark
-				grid={game.grid}
-				index={i}
-				state={$state.edgeMarks[index]}
-				direction={game.grid.EDGEMARK_DIRECTIONS[index]}
-			/>
-		{/each}
-	{/if}
 </g>
 
 <style>
