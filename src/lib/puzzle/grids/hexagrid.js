@@ -22,16 +22,6 @@ export class HexaGrid {
 		[NORTHWEST, SOUTHEAST],
 		[SOUTHEAST, NORTHWEST]
 	]);
-	XY_DELTAS = new Map([
-		[EAST, [1, 0]],
-		[WEST, [-1, 0]],
-		[NORTHEAST, [0.5, YSTEP]],
-		[NORTHWEST, [-0.5, YSTEP]],
-		[SOUTHEAST, [0.5, -YSTEP]],
-		[SOUTHWEST, [-0.5, -YSTEP]]
-	]);
-	ANGLE_DEG = 60;
-	ANGLE_RAD = Math.PI / 3;
 	NUM_DIRECTIONS = 6;
 	KIND = 'hexagonal';
 	PIPE_WIDTH = 0.12;

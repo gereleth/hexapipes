@@ -22,8 +22,6 @@ export class SquareGrid {
 		[EAST, [1, 0]],
 		[WEST, [-1, 0]]
 	]);
-	ANGLE_DEG = 90;
-	ANGLE_RAD = Math.PI / 2;
 	NUM_DIRECTIONS = 4;
 	KIND = 'square';
 	PIPE_WIDTH = 0.15;
