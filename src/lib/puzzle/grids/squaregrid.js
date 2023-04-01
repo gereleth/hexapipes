@@ -55,7 +55,7 @@ export class SquareGrid {
 		this.total = width * height;
 
 		this.XMIN = -0.6 - (wrap ? 1 : 0);
-		this.XMAX = width + 0.1 + (wrap ? 1 : 0);
+		this.XMAX = width - 0.4 + (wrap ? 1 : 0);
 		this.YMIN = -(1 + (wrap ? 1 : 0));
 		this.YMAX = height + (wrap ? 1 : 0);
 
