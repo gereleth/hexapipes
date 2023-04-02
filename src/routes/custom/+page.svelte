@@ -10,7 +10,7 @@
 	let gridKind = 'hexagonal';
 	let width = 5;
 	let height = 5;
-	let wrap = true;
+	let wrap = false;
 	let branchingAmount = 0.6;
 	let avoidObvious = 0.0;
 	let avoidStraights = 0.0;
