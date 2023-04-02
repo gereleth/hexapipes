@@ -12,23 +12,11 @@
 	</title>
 </svelte:head>
 
-<div class="info container">
-	<h2>{$page.params.size}x{$page.params.size} Hexagonal Pipes Puzzle #{$page.params.id}</h2>
-
-	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
-</div>
-
 <PuzzleWrapper
 	width={data.width}
 	height={data.height}
 	tiles={data.tiles}
-	category={'hexagonal'}
+	category={$page.params.grid}
 	size={Number($page.params.size)}
 	puzzleId={Number($page.params.id)}
 />
-
-<style>
-	.info {
-		text-align: center;
-	}
-</style>

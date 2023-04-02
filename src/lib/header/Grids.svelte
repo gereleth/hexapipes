@@ -1,21 +1,24 @@
 <script>
 	import { page } from '$app/stores';
+	import { gridInfo } from '$lib/puzzle/grids/grids';
+	$: category = $page.params.grid;
+	$: gridKind = category.split('-')[0];
+	$: wrap = category.split('-')[1] === 'wrap';
+	$: info = gridInfo[gridKind];
 </script>
 
 <div class="container">
 	<div class="grids">
 		<span>Grid:</span>
-		<a href="/hexagonal/5" class:active={$page.url.pathname.startsWith(`/hexagonal/`)}>
-			Hexagonal
+		<a href="/{gridKind}/5" class:active={!wrap}>
+			{info.title}
 		</a>
-		<a href="/hexagonal-wrap/5" class:active={$page.url.pathname.startsWith(`/hexagonal-wrap/`)}>
-			Hexagonal wrap
-		</a>
-		<a href="/square/5" class:active={$page.url.pathname.startsWith(`/square/`)}> Square </a>
-		<a href="/square-wrap/5" class:active={$page.url.pathname.startsWith(`/square-wrap/`)}>
-			Square wrap
-		</a>
-		<a href="/custom" class:active={$page.url.pathname.startsWith(`/custom`)}> Custom </a>
+		{#if info.wrap}
+			<a href="/{gridKind}-wrap/5" class:active={wrap}>
+				{info.title} wrap
+			</a>
+		{/if}
+		<a href="/play"> Other grids </a>
 	</div>
 </div>
 

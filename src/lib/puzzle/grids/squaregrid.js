@@ -1,7 +1,11 @@
+import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
+
 const EAST = 1;
 const NORTH = 2;
 const WEST = 4;
 const SOUTH = 8;
+
+const SQUARE = new RegularPolygonTile(4, 0, 0.5);
 
 export class SquareGrid {
 	DIRECTIONS = [EAST, NORTH, WEST, SOUTH];
@@ -18,8 +22,6 @@ export class SquareGrid {
 		[EAST, [1, 0]],
 		[WEST, [-1, 0]]
 	]);
-	ANGLE_DEG = 90;
-	ANGLE_RAD = Math.PI / 2;
 	NUM_DIRECTIONS = 4;
 	KIND = 'square';
 	PIPE_WIDTH = 0.15;
@@ -53,13 +55,9 @@ export class SquareGrid {
 		this.total = width * height;
 
 		this.XMIN = -0.6 - (wrap ? 1 : 0);
-		this.XMAX = width + 0.1 + (wrap ? 1 : 0);
+		this.XMAX = width - 0.4 + (wrap ? 1 : 0);
 		this.YMIN = -(1 + (wrap ? 1 : 0));
 		this.YMAX = height + (wrap ? 1 : 0);
-
-		const d = 0.49;
-		let tilePath = `M ${d} ${d} L ${-d} ${d} L ${-d} ${-d} L ${d} ${-d} z`;
-		this.tilePath = tilePath;
 
 		/* Tile types for use in solver */
 		this.T0 = 0;
@@ -103,28 +101,6 @@ export class SquareGrid {
 			index = -1;
 		}
 		return { index, x: x0, y: y0 };
-	}
-
-	/**
-	 * Tells if a point is close to one of tile's edges
-	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
-	 */
-	whichEdge(point) {
-		const { x, y, tileX, tileY } = point;
-		const dx = x - tileX;
-		const dy = tileY - y;
-		const deltaRadius = Math.abs(Math.sqrt(dx ** 2 + dy ** 2) - 0.5);
-		let angle = Math.atan2(dy, dx);
-		angle += angle < 0 ? 2 * Math.PI : 0;
-		const directionIndex = Math.round((angle * 2) / Math.PI) % 4;
-		const direction = this.DIRECTIONS[directionIndex];
-		const directionAngle = (directionIndex * Math.PI) / 2;
-		let deltaAngle = Math.abs(angle - directionAngle);
-		deltaAngle = Math.min(deltaAngle, 2 * Math.PI - deltaAngle);
-		return {
-			direction,
-			isClose: deltaRadius <= 0.15 && deltaAngle <= 0.35
-		};
 	}
 
 	/**
@@ -196,22 +172,17 @@ export class SquareGrid {
 	 * @returns
 	 */
 	rotate(tile, rotations, index = 0) {
-		let rotated = tile;
-		rotations = rotations % 4;
-		if (rotations > 2) {
-			rotations -= 4;
-		} else if (rotations < -2) {
-			rotations += 4;
-		}
-		while (rotations < 0) {
-			rotated = ((rotated * 2) % 16) + Math.floor(rotated / 8);
-			rotations += 1;
-		}
-		while (rotations > 0) {
-			rotated = Math.floor(rotated / 2) + 8 * (rotated % 2);
-			rotations -= 1;
-		}
-		return rotated;
+		return SQUARE.rotate(tile, rotations);
+	}
+
+	/**
+	 * Get angle for displaying rotated pipes state
+	 * @param {Number} rotations
+	 * @param {Number} index
+	 * @returns
+	 */
+	getAngle(rotations, index) {
+		return SQUARE.get_angle(rotations);
 	}
 
 	/**
@@ -221,33 +192,7 @@ export class SquareGrid {
 	 * @returns {Number[]}
 	 */
 	getDirections(tile, rotations = 0) {
-		const rotated = this.rotate(tile, rotations);
-		return this.DIRECTIONS.filter((direction) => (direction & rotated) > 0);
-	}
-
-	/**
-	 * Computes angle for drawing the tile guiding dot
-	 * @param {Number} tile
-	 * @returns {Number}
-	 */
-	getTileAngle(tile) {
-		const tileDirections = this.getDirections(tile);
-		const deltas = tileDirections.map((direction) => this.XY_DELTAS.get(direction) || [0, 0]);
-
-		let dx = 0,
-			dy = 0;
-		for (let [deltax, deltay] of deltas) {
-			dx += deltax;
-			dy += deltay;
-		}
-		dx /= tileDirections.length;
-		dy /= tileDirections.length;
-		if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
-			// a symmetric tile - I or X - grab any leg
-			dx = deltas[0][0];
-			dy = deltas[0][1];
-		}
-		return Math.atan2(dy, dx);
+		return SQUARE.get_directions(tile, rotations);
 	}
 
 	/**
@@ -286,5 +231,78 @@ export class SquareGrid {
 			}
 		}
 		return visibleTiles;
+	}
+
+	/**
+	 * Tile contour path for svg drawing
+	 * @param {Number} index
+	 * @returns
+	 */
+	getTilePath(index) {
+		return SQUARE.contour_path;
+	}
+
+	/**
+	 * Pipes lines path
+	 * @param {Number} tile
+	 * @param {Number} index
+	 */
+	getPipesPath(tile, index) {
+		return SQUARE.get_pipes_path(tile);
+	}
+
+	/**
+	 * Computes position for drawing the tile guiding dot
+	 * @param {Number} tile
+	 * * @param {Number} index
+	 * @returns {Number[]}
+	 */
+	getGuideDotPosition(tile, index) {
+		const [dx, dy] = SQUARE.get_guide_dot_position(tile);
+		return [0.8 * dx, 0.8 * dy];
+	}
+	/**
+	 * Compute number of rotations for orienting a tile with "click to orient" control mode
+	 * @param {Number} tile
+	 * @param {Number} old_rotations
+	 * @param {Number} new_angle
+	 * @param {Number} index
+	 */
+	clickOrientTile(tile, old_rotations, new_angle, index = 0) {
+		return SQUARE.click_orient_tile(tile, old_rotations, new_angle);
+	}
+	/**
+	 * Returns coordinates of endpoints of edgemark line
+	 * @param {Number} direction
+	 * @param {Number} index
+	 * @returns
+	 */
+	getEdgemarkLine(direction, index = 0) {
+		return SQUARE.get_edgemark_line(direction);
+	}
+
+	/**
+	 * Check if a drag gesture resembles drawing an edge mark
+	 * @param {Number} tile_index
+	 * @param {Number} tile_x
+	 * @param {Number} tile_y
+	 * @param {Number} x1
+	 * @param {Number} x2
+	 * @param {Number} y1
+	 * @param {Number} y2
+	 */
+	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
+		return SQUARE.detect_edgemark_gesture(x1 - tile_x, x2 - tile_x, tile_y - y1, tile_y - y2);
+	}
+
+	/**
+	 * Tells if a point is close to one of tile's edges
+	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
+	 */
+	whichEdge(point) {
+		const { x, y, tileX, tileY } = point;
+		const dx = x - tileX;
+		const dy = tileY - y;
+		return SQUARE.is_close_to_edge(dx, dy);
 	}
 }

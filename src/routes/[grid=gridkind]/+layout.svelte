@@ -1,20 +1,33 @@
 <script>
 	import { page } from '$app/stores';
-	import Grids from '$lib/header/Grids.svelte';
+	import Instructions from '$lib/Instructions.svelte';
+	import { gridInfo } from '$lib/puzzle/grids/grids';
 
 	let sizes = [5, 7, 10, 15, 20, 30, 40];
-	let title = '';
 
-	$: if ($page.params.grid.startsWith('hexagonal')) {
-		title = 'Hexagonal Pipes';
-	} else if ($page.params.grid.startsWith('square')) {
-		title = 'Square Pipes';
-	}
+	$: category = $page.params.grid;
+	$: gridKind = category.split('-')[0];
+	$: wrap = category.split('-')[1] === 'wrap';
+	$: info = gridInfo[gridKind];
+	$: title = `${info.title} ` + (wrap ? ' Wrap' : '') + ' Pipes';
 </script>
 
 <div class="container">
 	<h1>{title}</h1>
-	<Grids />
+
+	<div class="grids">
+		<span>Grid:</span>
+		<a href="/{gridKind}/5" class:active={!wrap}>
+			{info.title}
+		</a>
+		{#if info.wrap}
+			<a href="/{gridKind}-wrap/5" class:active={wrap}>
+				{info.title} wrap
+			</a>
+		{/if}
+		<a href="/play"> Other grids </a>
+	</div>
+
 	<div class="sizes">
 		<span> Size:</span>
 		{#each sizes as size}
@@ -27,43 +40,20 @@
 		{/each}
 	</div>
 </div>
-<slot />
 
-<div class="container instructions">
-	<h2>The rules</h2>
-	<ul>
-		<li>All pipes must form a single contiguous network.</li>
-		<li>No connections may run outside the grid.</li>
-		<li>Bulb-shaped tiles are deadends.</li>
-		<li>Closed loops are not allowed.</li>
-		<li>Each puzzle has a unique solution.</li>
-	</ul>
+<div class="info container">
+	<h2>{$page.params.size}x{$page.params.size} {title} Puzzle</h2>
 
-	<h2>Tips for controls</h2>
-	<ul>
-		<li>Click or tap a tile to rotate it.</li>
-		<li>
-			Lock tiles when you're sure of their orientation. Right click or long press to start locking.
-			You can lock multiple tiles by moving the cursor around after that.
-		</li>
-		<li>
-			Make edge marks to mark certain edges as "definitely a wall" or "definitely a connection". <br
-			/>
-			To make a wall mark draw a line along tile edge with a mouse or your finger. Draw a line across
-			the edge for a connection mark. Do the same again to erase.<br />
-			With a mouse or touch pad you can also click and hold near the edge middle to make a mark. In this
-			case left mouse button makes a wall mark, right button makes a connection mark.
-		</li>
-		<li>
-			Zoom in and out using mouse wheel or pinch-to-zoom on mobile. Click and drag to move around
-			the board.
-		</li>
-		<li>Check out alternative control modes in the settings (top left of the puzzle).</li>
-	</ul>
+	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
 
+<slot />
+
+<Instructions />
+
 <style>
-	.sizes {
+	.sizes,
+	.grids {
 		display: flex;
 		flex-wrap: wrap;
 		column-gap: 20px;
@@ -71,6 +61,8 @@
 		justify-content: center;
 		color: var(--text-color);
 	}
+	.grids a,
+	.grids span,
 	.sizes a,
 	.sizes span {
 		display: block;
@@ -79,7 +71,11 @@
 	.active {
 		outline: 1px solid var(--accent-color);
 	}
-	.instructions {
-		color: var(--text-color);
+
+	p {
+		text-align: center;
+	}
+	.info {
+		text-align: center;
 	}
 </style>

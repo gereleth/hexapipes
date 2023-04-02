@@ -1,4 +1,4 @@
-import { Cell, Solver } from './solver';
+import { Cell, Solver } from '$lib/puzzle/solver';
 
 /**
  * @typedef {'unique'|'multiple'|'whatever'} SolutionsNumber
@@ -16,23 +16,28 @@ function getRandomElement(array) {
 /**
  * Randomize tile rotations
  * @param {Number[]} tiles
- * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/grids').Grid} grid
  * @returns {Number[]}
  */
 function randomRotate(tiles, grid) {
 	const numDirections = grid.DIRECTIONS.length;
-	return tiles.map((tile) => {
-		return grid.rotate(tile, Math.floor(Math.random() * numDirections));
+	return tiles.map((tile, index) => {
+		if (tile === 0) {
+			return 0;
+		}
+		let rotated = grid.rotate(tile, Math.floor(Math.random() * numDirections), index);
+		return rotated;
 	});
 }
 
-/**
- * @constructor
- * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
- */
-export function Generator(grid) {
-	let self = this;
-	self.grid = grid;
+export class Generator {
+	/**
+	 * @constructor
+	 * @param {import('$lib/puzzle/grids/grids').Grid} grid
+	 */
+	constructor(grid) {
+		this.grid = grid;
+	}
 
 	/**
 	 * Fills a grid with tiles using GrowingTree algorithm
@@ -45,17 +50,12 @@ export function Generator(grid) {
 	 * @param {Number[]} startTiles - starting point tiles if we're fixing ambiguities
 	 * @returns {Number[]} - unrandomized tiles array
 	 */
-	this.pregenerate_growingtree = function (
-		branchingAmount,
-		avoidObvious = 0,
-		avoidStraights = 0,
-		startTiles = []
-	) {
-		const total = grid.width * grid.height;
+	pregenerate_growingtree(branchingAmount, avoidObvious = 0, avoidStraights = 0, startTiles = []) {
+		const total = this.grid.total;
 
 		/** @type {Set<Number>} A set of unvisited nodes*/
 		const unvisited = new Set([...Array(total).keys()]);
-		for (let index of grid.emptyCells) {
+		for (let index of this.grid.emptyCells) {
 			unvisited.delete(index);
 		}
 		/** @type {Number[]} A list of tile shapes */
@@ -88,8 +88,8 @@ export function Generator(grid) {
 					to_visit.delete(i);
 					to_check.delete(i);
 					component.add(i);
-					for (let direction of grid.getDirections(startTiles[i])) {
-						const { neighbour, empty } = grid.find_neighbour(i, direction);
+					for (let direction of this.grid.getDirections(startTiles[i], 0, i)) {
+						const { neighbour, empty } = this.grid.find_neighbour(i, direction);
 						if (empty || startTiles[neighbour] < 0 || component.has(neighbour)) {
 							continue;
 						}
@@ -104,8 +104,8 @@ export function Generator(grid) {
 			}
 			// components[0] now has the largest region of non-ambiguous connected tiles
 			for (let index of components[0] || []) {
-				for (let direction of grid.getDirections(startTiles[index])) {
-					const { neighbour } = grid.find_neighbour(index, direction);
+				for (let direction of this.grid.getDirections(startTiles[index], 0, index)) {
+					const { neighbour } = this.grid.find_neighbour(index, direction);
 					if (components[0].has(neighbour)) {
 						tiles[index] += direction;
 					}
@@ -121,21 +121,21 @@ export function Generator(grid) {
 		const forbidden = new Map();
 		if (avoidObvious > 0) {
 			for (let tileIndex of unvisited) {
-				for (let direction of grid.DIRECTIONS) {
-					const { neighbour, empty } = grid.find_neighbour(tileIndex, direction);
+				for (let direction of this.grid.DIRECTIONS) {
+					const { neighbour, empty } = this.grid.find_neighbour(tileIndex, direction);
 					if (empty) {
 						borders.set(tileIndex, (borders.get(tileIndex) || 0) + direction);
 					}
 				}
 			}
 			for (let walls of new Set(borders.values())) {
-				let cell = new Cell(self.grid, 0, -1);
+				let cell = new Cell(this.grid, 0, -1);
 				cell.addWall(walls);
 				cell.applyConstraints();
 				/** @type {Map<Number, Set<Number>>} */
 				const tileTypes = new Map();
 				for (let orientation of cell.possible) {
-					const tileType = self.grid.tileTypes.get(orientation) || 0;
+					const tileType = this.grid.tileTypes.get(orientation) || 0;
 					if (!tileTypes.has(tileType)) {
 						tileTypes.set(tileType, new Set());
 					}
@@ -185,16 +185,16 @@ export function Generator(grid) {
 			const obviousNeighbours = []; // these should be avoided with avoidObvious setting
 			const fullyConnectedNeighbours = []; // making a fully connected tile is a total last resort
 			const connections = tiles[fromNode];
-			for (let direction of grid.DIRECTIONS) {
+			for (let direction of this.grid.DIRECTIONS) {
 				if ((direction & connections) > 0) {
 					continue;
 				}
-				const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
+				const { neighbour, empty } = this.grid.find_neighbour(fromNode, direction);
 				if (empty || !unvisited.has(neighbour)) {
 					continue;
 				}
 				// classify this neighbour by priority
-				if (connections + direction === grid.fullyConnected(fromNode)) {
+				if (connections + direction === this.grid.fullyConnected(fromNode)) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
 				}
@@ -206,7 +206,7 @@ export function Generator(grid) {
 						continue;
 					}
 				}
-				if (grid.tileTypes.get(connections + direction) === grid.T2I) {
+				if (this.grid.tileTypes.get(connections + direction) === this.grid.T2I) {
 					if (Math.random() < avoidStraights) {
 						straightNeighbours.push({ neighbour, direction });
 						continue;
@@ -259,12 +259,12 @@ export function Generator(grid) {
 				}
 			}
 			tiles[fromNode] += toVisit.direction;
-			tiles[toVisit.neighbour] += grid.OPPOSITE.get(toVisit.direction) || 0;
+			tiles[toVisit.neighbour] += this.grid.OPPOSITE.get(toVisit.direction) || 0;
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
 		}
 		return tiles;
-	};
+	}
 
 	/**
 	 * Generate a puzzle according to settings
@@ -274,7 +274,7 @@ export function Generator(grid) {
 	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
 	 * @returns {Number[]} - generated tiles
 	 */
-	self.generate = function (
+	generate(
 		branchingAmount = 0.6,
 		avoidObvious = 0.0,
 		avoidStraights = 0.0,
@@ -285,16 +285,16 @@ export function Generator(grid) {
 			// I don't expect many attempts to be needed, just 1 in .9999 cases
 			while (attempt < 3) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
+				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				let uniqueIter = 0;
 				while (uniqueIter < 10) {
 					uniqueIter += 1;
-					const solver = new Solver(tiles, self.grid);
+					const solver = new Solver(tiles, this.grid);
 					const { marked, unique } = solver.markAmbiguousTiles();
 					if (unique) {
-						return randomRotate(marked, self.grid);
+						return randomRotate(marked, this.grid);
 					}
-					tiles = self.pregenerate_growingtree(
+					tiles = this.pregenerate_growingtree(
 						branchingAmount,
 						avoidObvious,
 						avoidStraights,
@@ -304,24 +304,22 @@ export function Generator(grid) {
 			}
 			throw 'Could not generate a puzzle with a unique solution. Maybe try again.';
 		} else if (solutionsNumber === 'whatever') {
-			const tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
-			return randomRotate(tiles, self.grid);
+			const tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
+			return randomRotate(tiles, this.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
 			while (attempt < 100) {
 				attempt += 1;
-				let tiles = self.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
-				const solver = new Solver(tiles, self.grid);
+				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
+				const solver = new Solver(tiles, this.grid);
 				const { unique } = solver.markAmbiguousTiles();
 				if (!unique) {
-					return randomRotate(tiles, self.grid);
+					return randomRotate(tiles, this.grid);
 				}
 			}
 			throw 'Could not generate a puzzle with multiple solutions in 100 attempts. Maybe try again.';
 		} else {
 			throw 'Unknown setting for solutionsNumber';
 		}
-	};
-
-	return this;
+	}
 }

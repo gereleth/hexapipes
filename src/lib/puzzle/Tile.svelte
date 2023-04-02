@@ -1,7 +1,4 @@
 <script>
-	import Grids from '$lib/header/Grids.svelte';
-	import EdgeMark from '$lib/puzzle/EdgeMark.svelte';
-
 	/** @type {Number} i*/
 	export let i;
 
@@ -18,29 +15,14 @@
 
 	let bgColor = '#aaa';
 
-	// disable edge marks on outer edges of non-wrap puzzles
-	if (!game.grid.wrap) {
-		game.grid.EDGEMARK_DIRECTIONS.forEach((direction, index) => {
-			const { neighbour, empty } = game.grid.find_neighbour(i, direction);
-			if (empty) {
-				$state.edgeMarks[index] = 'none';
-			}
-		});
-	}
+	const myDirections = game.grid.getDirections($state.tile, 0, i);
 
-	const myDirections = game.grid.getDirections($state.tile);
-
-	const deltas = myDirections.map((direction) => game.grid.XY_DELTAS.get(direction) || [0, 0]);
-	let angle = game.grid.getTileAngle($state.tile);
+	const [guideX, guideY] = game.grid.getGuideDotPosition($state.tile, i);
 
 	const outlineWidth = game.grid.STROKE_WIDTH * 2 + game.grid.PIPE_WIDTH;
 	const pipeWidth = game.grid.PIPE_WIDTH;
-	const pipeLength = game.grid.PIPE_LENGTH;
 
-	let path = `M 0 0`;
-	for (let [dx, dy] of deltas) {
-		path += ` l ${pipeLength * dx} ${-pipeLength * dy} L 0 0`;
-	}
+	let path = game.grid.getPipesPath($state.tile, i);
 	const isSink = myDirections.length === 1;
 
 	/**
@@ -61,10 +43,10 @@
 
 <g class="tile" transform="translate({cx},{cy})">
 	<!-- Tile hexagon -->
-	<path d={game.grid.tilePath} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
+	<path d={game.grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
 
 	<!-- Pipe shape -->
-	<g class="pipe" style="transform:rotate({game.grid.ANGLE_DEG * $state.rotations}deg)">
+	<g class="pipe" style="transform:rotate({game.grid.getAngle($state.rotations, i)}rad)">
 		<!-- Pipe outline -->
 		<path
 			d={path}
@@ -96,26 +78,10 @@
 		/>
 		{#if controlMode === 'orient_lock' && !$state.locked && !solved}
 			<!-- Guide dot -->
-			<circle
-				cx={0.4 * Math.cos(angle)}
-				cy={-0.4 * Math.sin(angle)}
-				fill="orange"
-				stroke="white"
-				r="0.03"
-				stroke-width="0.01"
-			/>
+			<circle cx={guideX} cy={-guideY} fill="orange" stroke="white" r="0.03" stroke-width="0.01" />
 		{/if}
 	</g>
 	<!-- <text x="0" y="0" text-anchor="middle" font-size="0.2">{i}</text> -->
-	{#if !solved}
-		{#each $state.edgeMarks as _, index (index)}
-			<EdgeMark
-				grid={game.grid}
-				state={$state.edgeMarks[index]}
-				direction={game.grid.EDGEMARK_DIRECTIONS[index]}
-			/>
-		{/each}
-	{/if}
 </g>
 
 <style>

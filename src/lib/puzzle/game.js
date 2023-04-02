@@ -95,7 +95,7 @@ function StateStore(initialState) {
 /**
  * Pipes puzzle internal state
  * @constructor
- * @param {import('$lib/puzzle/grids/hexagrid').HexaGrid} grid
+ * @param {import('$lib/puzzle/grids/grids').Grid} grid
  * @param {Number[]} tiles
  * @param {Progress|undefined} savedProgress
  */
@@ -141,14 +141,24 @@ export function PipesGame(grid, tiles, savedProgress) {
 			});
 		});
 	} else {
-		self.tileStates = tiles.map((tile) => {
+		self.tileStates = tiles.map((tile, index) => {
+			// disable edge marks on outer edges of non-wrap puzzles
+			const edgeMarks = [...defaultEdgeMarks];
+			if (!self.grid.wrap) {
+				self.grid.EDGEMARK_DIRECTIONS.forEach((direction, direction_index) => {
+					const { empty } = self.grid.find_neighbour(index, direction);
+					if (empty) {
+						edgeMarks[direction_index] = 'none';
+					}
+				});
+			}
 			return new StateStore({
 				tile: tile,
 				rotations: 0,
 				color: 'white',
 				isPartOfLoop: false,
 				locked: false,
-				edgeMarks: [...defaultEdgeMarks]
+				edgeMarks
 			});
 		});
 	}
@@ -157,7 +167,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		// create components and fill in connections data
 		self.tileStates.forEach((tileState, index) => {
 			const state = tileState.data;
-			let directions = self.grid.getDirections(state.tile, state.rotations);
+			let directions = self.grid.getDirections(state.tile, state.rotations, index);
 			const connections = new Set();
 			for (let direction of directions) {
 				const { neighbour, empty } = grid.find_neighbour(index, direction);
@@ -249,16 +259,24 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * @param {Number} times
 	 */
 	self.rotateTile = function (tileIndex, times) {
-		if (self._solved) {
+		if (self._solved || times === 0) {
 			return;
 		}
 		const tileState = self.tileStates[tileIndex];
 		if (tileState === undefined || tileState.data.locked) {
 			return;
 		}
-		const oldDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations);
+		const oldDirections = self.grid.getDirections(
+			tileState.data.tile,
+			tileState.data.rotations,
+			tileIndex
+		);
 		tileState.rotate(times);
-		const newDirections = self.grid.getDirections(tileState.data.tile, tileState.data.rotations);
+		const newDirections = self.grid.getDirections(
+			tileState.data.tile,
+			tileState.data.rotations,
+			tileIndex
+		);
 
 		const dirOut = oldDirections.filter((direction) => !newDirections.some((d) => d === direction));
 		const dirIn = newDirections.filter((direction) => !oldDirections.some((d) => d === direction));
