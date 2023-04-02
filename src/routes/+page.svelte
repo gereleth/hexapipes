@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import { createGrid } from '$lib/puzzle/grids/grids';
+	import GridsExamples from '$lib/header/GridsExamples.svelte';
 
 	const hexGrid = createGrid('hexagonal', 4, 4, false);
 	const hexWrapGrid = createGrid('hexagonal', 4, 4, true);
@@ -41,7 +42,9 @@
 		>.
 	</p>
 
-	<p>This site however contains the same puzzle set on a hexagonal grid.</p>
+	<p>This site however contains the same puzzle set on various grids:</p>
+
+	<GridsExamples />
 
 	<h2><a href="/hexagonal/5">Hexagonal pipes</a></h2>
 
@@ -121,6 +124,20 @@
 <div class="container">
 	<h2>Changelog</h2>
 	<ul>
+		<li>
+			<em>2023-04-02</em> Add octagonal grid puzzles.
+			<ul>
+				<li>
+					After a decent amount of work we support non-uniform grids! Try out the
+					<a href="/octagonal/5">octagonal</a> or <a href="/octagonal-wrap/5">octagonal wrap</a> pipes.
+					They're quite a challenge!
+				</li>
+				<li>
+					I reworked the navigation a little because the list of grid types was getting unwieldy. I
+					hope to add more fun tilings soon.
+				</li>
+			</ul>
+		</li>
 		<li>
 			<em>2023-03-18</em> Add square grid puzzles.
 			<ul>
