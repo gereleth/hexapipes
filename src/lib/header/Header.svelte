@@ -19,9 +19,11 @@
 			<li
 				class:active={$page.url.pathname.startsWith('/hexagonal') ||
 					$page.url.pathname.startsWith('/square') ||
-					$page.url.pathname.startsWith('/custom')}
+					$page.url.pathname.startsWith('/octagonal') ||
+					$page.url.pathname.startsWith('/custom') ||
+					$page.url.pathname.startsWith('/play')}
 			>
-				<a data-sveltekit-preload-data href="/hexagonal">Play</a>
+				<a data-sveltekit-preload-data href="/play">Play</a>
 			</li>
 		</ul>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
