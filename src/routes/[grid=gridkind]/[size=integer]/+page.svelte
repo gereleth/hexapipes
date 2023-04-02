@@ -7,6 +7,8 @@
 		title = 'Hexagonal Pipes';
 	} else if ($page.params.grid.startsWith('square')) {
 		title = 'Square Pipes';
+	} else if ($page.params.grid.startsWith('octagonal')) {
+		title = 'Octagonal Pipes';
 	}
 </script>
 
