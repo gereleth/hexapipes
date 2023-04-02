@@ -52,6 +52,12 @@
 	$: wrap = category.endsWith('-wrap');
 	$: gridKind = category.split('-')[0];
 
+	if (puzzleId !== -1) {
+		// This is so that static puzzle pages continue to work
+		// Puzzle needs a grid now
+		grid = createGrid('hexagonal', size, size, category.endsWith('-wrap'), tiles);
+	}
+
 	/** @type {import('$lib/stores').Solve} */
 	let solve = {
 		puzzleId: -1,
