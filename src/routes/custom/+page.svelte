@@ -7,9 +7,9 @@
 	import { Generator } from '$lib/puzzle/generator';
 	import Instructions from '$lib/Instructions.svelte';
 
-	let gridKind = 'octagonal';
-	let width = 7;
-	let height = 7;
+	let gridKind = 'hexagonal';
+	let width = 5;
+	let height = 5;
 	let wrap = true;
 	let branchingAmount = 0.6;
 	let avoidObvious = 0.0;
@@ -126,11 +126,6 @@
 <svelte:head>
 	<title>Custom Pipes Puzzle</title>
 </svelte:head>
-
-<div class="container">
-	<h1>Hexagonal pipes</h1>
-	<Grids />
-</div>
 
 <div class="info container">
 	<h1>Custom Pipes Puzzle</h1>
