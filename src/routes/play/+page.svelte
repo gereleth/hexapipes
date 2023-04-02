@@ -6,7 +6,7 @@
 	<title>Pipes Puzzles</title>
 </svelte:head>
 
-<div class="container">
+<div class="container play">
 	<h1>Choose your grid</h1>
 	<GridsExamples />
 	<h2>Make a <a href="custom">custom puzzle</a></h2>
@@ -25,5 +25,8 @@
 		color: var(--text-color);
 		margin: auto;
 		width: fit-content;
+	}
+	.play {
+		min-height: 70vh;
 	}
 </style>
