@@ -12,6 +12,13 @@
 	$: title = `${info.title} ` + (wrap ? ' Wrap' : '') + ' Pipes';
 </script>
 
+<svelte:head>
+	<title>
+		{$page.params.size}x{$page.params.size}
+		{title} Puzzle
+	</title>
+</svelte:head>
+
 <div class="container">
 	<h1>{title}</h1>
 
