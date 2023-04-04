@@ -96,6 +96,37 @@
 		</label>
 		<p>Please <strong>refresh the page</strong> for the changes to take effect.</p>
 	</div>
+	<div class="animationSpeed">
+		<h3>Animation speed</h3>
+		<p>How fast should pipe rotations look.</p>
+		<label>
+			<input
+				type="radio"
+				bind:group={$settings.animationSpeed}
+				name="animationSpeed"
+				value={'normal'}
+			/>
+			Normal (100 ms)
+		</label>
+		<label>
+			<input
+				type="radio"
+				bind:group={$settings.animationSpeed}
+				name="animationSpeed"
+				value={'fast'}
+			/>
+			Fast (30 ms)
+		</label>
+		<label>
+			<input
+				type="radio"
+				bind:group={$settings.animationSpeed}
+				name="animationSpeed"
+				value={'instant'}
+			/>
+			Instant
+		</label>
+	</div>
 </div>
 
 <style>

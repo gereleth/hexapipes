@@ -26,6 +26,10 @@ export const puzzleCounts = writable({
  */
 
 /**
+ * @typedef {'normal'|'fast'|'instant'} AnimationSpeed
+ */
+
+/**
  * @typedef Settings
  * @property {ControlMode} controlMode
  * @property {Boolean} invertRotationDirection
@@ -41,7 +45,9 @@ function createSettings() {
 		invertRotationDirection: false,
 		showTimer: true,
 		disableZoomPan: false,
-		assistant: false
+		assistant: false,
+		/** @type {AnimationSpeed} */
+		animationSpeed: 'normal'
 	};
 
 	const { subscribe, set, update } = writable(defaultSettings);

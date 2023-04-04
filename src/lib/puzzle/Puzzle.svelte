@@ -318,7 +318,7 @@
 	</div>
 {/if}
 
-<div class="puzzle" class:solved={$solved}>
+<div class="puzzle animation-{$settings.animationSpeed}" class:solved={$solved}>
 	<svg
 		width={svgWidth}
 		height={svgHeight}
