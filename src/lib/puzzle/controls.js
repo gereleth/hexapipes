@@ -327,7 +327,7 @@ export function controls(node, game) {
 				// pan with 2-finger slides on touchpad
 				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width;
 				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height;
-				game.viewBox.pan(dx, dy);
+				game.viewBox.pan(-dx, -dy);
 			}
 		} else {
 			const delta = viewBox.width * 0.07 * normalized.spinY;
