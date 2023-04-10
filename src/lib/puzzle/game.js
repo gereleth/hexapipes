@@ -25,6 +25,8 @@ import { createViewBox } from './viewbox';
  * @property {String} color
  * @property {Boolean} locked
  * @property {Boolean} isPartOfLoop
+ * @property {Boolean} isPartOfIsland
+ * @property {Boolean} hasDisconnects
  * @property {EdgeMark[]} edgeMarks
  */
 
@@ -32,6 +34,7 @@ import { createViewBox } from './viewbox';
  * A component is a group of connected tiles
  * @typedef {Object} Component
  * @property {Set<Number>} tiles - set of indices of included tiles
+ * @property {Set<Number>} openEnds - set of indices of tiles that have disconnects
  * @property {String} color
  */
 
@@ -78,6 +81,20 @@ function StateStore(initialState) {
 	 */
 	self.setPartOfLoop = function (isPartOfLoop) {
 		self.data.isPartOfLoop = isPartOfLoop;
+		set(self.data);
+	};
+	/**
+	 * @param {Boolean} isPartOfIsland
+	 */
+	self.setPartOfIsland = function (isPartOfIsland) {
+		self.data.isPartOfIsland = isPartOfIsland;
+		set(self.data);
+	};
+	/**
+	 * @param {Boolean} hasDisconnects
+	 */
+	self.setHasDisconnects = function (hasDisconnects) {
+		self.data.hasDisconnects = hasDisconnects;
 		set(self.data);
 	};
 
@@ -136,6 +153,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 				rotations: savedTile.rotations,
 				color: savedTile.color,
 				isPartOfLoop: false,
+				isPartOfIsland: false,
+				hasDisconnects: false,
 				locked: savedTile.locked,
 				edgeMarks: savedTile.edgeMarks || [...defaultEdgeMarks]
 			});
@@ -157,6 +176,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 				rotations: 0,
 				color: 'white',
 				isPartOfLoop: false,
+				isPartOfIsland: false,
+				hasDisconnects: false,
 				locked: false,
 				edgeMarks
 			});
@@ -175,6 +196,10 @@ export function PipesGame(grid, tiles, savedProgress) {
 					connections.add(neighbour);
 				}
 			}
+			if (connections.size < directions.length) {
+				// some connections point outside the grid
+				tileState.setHasDisconnects(true);
+			}
 			self.connections.set(index, connections);
 		});
 		// merge initial components of connected tiles
@@ -186,30 +211,39 @@ export function PipesGame(grid, tiles, savedProgress) {
 			const state = self.tileStates[i].data;
 			const component = {
 				color: state.color,
-				tiles: new Set([i])
+				tiles: new Set([i]),
+				openEnds: new Set()
 			};
 			const connectedThrough = new Map();
 			let loop = false;
 			while (toCheck.size > 0) {
 				const index = toCheck.values().next().value;
+				const tileState = self.tileStates[index];
 				toCheck.delete(index);
 				checked.add(index);
 				self.components.set(index, component);
 				component.tiles.add(index);
+				if (tileState.data.hasDisconnects) {
+					component.openEnds.add(index);
+				}
 				const connected = self.connections.get(index) || empty;
 				for (let neighbour of connected) {
 					const through = connectedThrough.get(neighbour) || -1;
 					if (through === index) {
 						// seen this connection before
 						continue;
-					} else if (through !== -1) {
-						// connected to the same component through some other tile
-						loop = true;
-						continue;
 					}
 					if ((self.connections.get(neighbour) || empty).has(index)) {
+						if (through !== -1) {
+							// connected to the same component through some other tile
+							loop = true;
+							continue;
+						}
 						toCheck.add(neighbour);
 						connectedThrough.set(neighbour, index);
+					} else {
+						tileState.setHasDisconnects(true);
+						component.openEnds.add(index);
 					}
 				}
 			}
@@ -217,6 +251,11 @@ export function PipesGame(grid, tiles, savedProgress) {
 				const loopTiles = self.detectLoops(component.tiles);
 				for (let loopTile of loopTiles) {
 					self.tileStates[loopTile].setPartOfLoop(true);
+				}
+			}
+			if (component.openEnds.size === 0) {
+				for (let islandTile of component.tiles) {
+					self.tileStates[islandTile].setPartOfIsland(true);
 				}
 			}
 
@@ -240,6 +279,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 				rotations: 0,
 				color: 'white',
 				isPartOfLoop: false,
+				isPartOfIsland: false,
+				hasDisconnects: false,
 				locked: false,
 				// some tiles could have set their edgemarks to none
 				// if they are on the outer border
@@ -406,8 +447,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 */
 	self.handleConnections = function (event) {
 		const { tileIndex, dirIn, dirOut } = event.detail;
-		// console.log('==========================')
-		// console.log(tileIndex, dirIn, dirOut)
+		// console.log('==========================');
+		// console.log(tileIndex, dirIn, dirOut);
 		const tileConnections = self.connections.get(tileIndex);
 		if (tileConnections === undefined) {
 			return;
@@ -431,10 +472,15 @@ export function PipesGame(grid, tiles, savedProgress) {
 				// console.log('disconnecting components between tiles', tileIndex, neighbour)
 				self.disconnectComponents(tileIndex, neighbour);
 			}
+			self.setTileDisconnects(neighbour, true);
+			self.setTileDisconnects(tileIndex, true);
 		});
+		let hasDisconnects = false;
 		dirIn.forEach((direction) => {
 			const { neighbour, empty } = grid.find_neighbour(tileIndex, direction);
 			if (empty) {
+				hasDisconnects = true;
+				self.setTileDisconnects(tileIndex, true);
 				return;
 			}
 			tileConnections.add(neighbour);
@@ -443,15 +489,72 @@ export function PipesGame(grid, tiles, savedProgress) {
 				throw `Could not find connections data for tile ${neighbour}`;
 			}
 			if (!neighbourConnections.has(tileIndex)) {
+				hasDisconnects = true;
 				return; // non-mutual link shouldn't lead to merging
 			}
 			// console.log('merging components of tiles', tileIndex, neighbour)
 			self.mergeComponents(tileIndex, neighbour);
+			self.setTileDisconnects(neighbour);
 		});
+		if (hasDisconnects) {
+			self.setTileDisconnects(tileIndex, true);
+		} else {
+			self.setTileDisconnects(tileIndex);
+		}
 		if (self.initialized) {
 			self._solved = self.isSolved();
 			if (self._solved) {
 				self.solved.set(self._solved);
+			}
+		}
+	};
+
+	/**
+	 *
+	 * @param {Number} tileIndex
+	 * @param {Boolean|undefined} hasDisconnects
+	 */
+	self.setTileDisconnects = function (tileIndex, hasDisconnects = undefined) {
+		let newHasDisconnects = hasDisconnects || false;
+		if (hasDisconnects === undefined) {
+			const directions = self.grid.getDirections(
+				self.tileStates[tileIndex].data.tile,
+				0,
+				tileIndex
+			);
+			const connections = self.connections.get(tileIndex);
+			if (directions.length > connections.size) {
+				newHasDisconnects = true;
+			} else {
+				for (let neighbour of connections || []) {
+					if (!self.connections.get(neighbour)?.has(tileIndex)) {
+						newHasDisconnects = true;
+						break;
+					}
+				}
+			}
+		}
+		self.tileStates[tileIndex].setHasDisconnects(newHasDisconnects);
+		const component = self.components.get(tileIndex);
+		if (component === undefined) {
+			throw `Component open ends data for tile ${tileIndex} not found`;
+		}
+		if (newHasDisconnects) {
+			if (component.openEnds.size === 0) {
+				for (let index of component.tiles) {
+					self.tileStates[index].setPartOfIsland(false);
+				}
+			}
+			component.openEnds.add(tileIndex);
+		} else {
+			component.openEnds.delete(tileIndex);
+			if (
+				component.openEnds.size === 0 &&
+				component.tiles.size < self.grid.total - self.grid.emptyCells.size
+			) {
+				for (let index of component.tiles) {
+					self.tileStates[index].setPartOfIsland(true);
+				}
 			}
 		}
 	};
@@ -578,6 +681,9 @@ export function PipesGame(grid, tiles, savedProgress) {
 			constantComponent.tiles.add(changedTile);
 			self.tileStates[changedTile].setColor(constantComponent.color);
 		}
+		for (let changedTile of changedComponent.openEnds) {
+			constantComponent.openEnds.add(changedTile);
+		}
 	};
 
 	/**
@@ -636,12 +742,17 @@ export function PipesGame(grid, tiles, savedProgress) {
 		const changeTiles = fromIsBigger ? toTiles : fromTiles;
 		const newComponent = {
 			color: randomColor({ luminosity: 'light' }),
-			tiles: changeTiles
+			tiles: changeTiles,
+			/** @type {Set<Number>}*/
+			openEnds: new Set([])
 		};
 
 		for (let tileIndex of changeTiles) {
 			self.components.set(tileIndex, newComponent);
 			bigComponent.tiles.delete(tileIndex);
+			if (bigComponent.openEnds.delete(tileIndex)) {
+				newComponent.openEnds.add(tileIndex);
+			}
 			self.tileStates[tileIndex].setColor(newComponent.color);
 		}
 		// console.log('created new component', newComponent.id, 'with tiles', [...changeTiles])

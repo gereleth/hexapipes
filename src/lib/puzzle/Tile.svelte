@@ -14,6 +14,7 @@
 	let state = game.tileStates[i];
 
 	let bgColor = '#aaa';
+	let strokeColor = '#888';
 
 	const myDirections = game.grid.getDirections($state.tile, 0, i);
 
@@ -37,8 +38,23 @@
 			bgColor = locked ? '#bbb' : '#ddd';
 		}
 	}
+	/**
+	 * Choose tile stroke color
+	 * @param {Boolean} hasDisconnects
+	 * @param {Boolean} isPartOfIsland
+	 */
+	function chooseStrokeColor(hasDisconnects, isPartOfIsland) {
+		if (isPartOfIsland) {
+			strokeColor = '#b55';
+		} else if (hasDisconnects) {
+			strokeColor = '#666';
+		} else {
+			strokeColor = '#888';
+		}
+	}
 
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
+	$: chooseStrokeColor($state.hasDisconnects, $state.isPartOfIsland);
 </script>
 
 <g class="tile" transform="translate({cx},{cy})">
@@ -50,7 +66,7 @@
 		<!-- Pipe outline -->
 		<path
 			d={path}
-			stroke="#888"
+			stroke={strokeColor}
 			stroke-width={outlineWidth}
 			stroke-linejoin="bevel"
 			stroke-linecap="round"
@@ -62,7 +78,7 @@
 				cy="0"
 				r={game.grid.SINK_RADIUS}
 				fill={$state.color}
-				stroke="#888"
+				stroke={strokeColor}
 				stroke-width={game.grid.STROKE_WIDTH}
 				class="inside"
 			/>
