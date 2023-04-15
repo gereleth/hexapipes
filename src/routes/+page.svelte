@@ -142,6 +142,7 @@
 					Decreased timeout for "click and hold" edgemark creation and for locking tiles in touch
 					mode.
 				</li>
+				<li>Added a setting for animation speed so your pipes can rotate faster.</li>
 			</ul>
 		</li>
 		<li>
