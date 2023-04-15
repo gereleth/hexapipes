@@ -136,7 +136,7 @@ export function controls(node, game) {
 						currentSettings.assistant
 					);
 					state = 'edgemark';
-				}, 500);
+				}, 300);
 				state = 'mousedown';
 			} else {
 				if (mouseDownOrigin.locking) {
@@ -285,7 +285,6 @@ export function controls(node, game) {
 
 	/** @type {Boolean|undefined} */
 	let USING_A_TOUCHPAD = undefined;
-
 	/**
 	 * Tries to detect if the user has a touchpad rather than a mouse
 	 * @param {WheelEvent} event
@@ -305,7 +304,7 @@ export function controls(node, game) {
 			window.removeEventListener('wheel', checkForTouchpad);
 		}
 	}
-	window.addEventListener('wheel', checkForTouchpad);
+	window.addEventListener('wheel', checkForTouchpad, { passive: true });
 
 	/**
 	 * Zoom in or out
@@ -327,7 +326,8 @@ export function controls(node, game) {
 				// pan with 2-finger slides on touchpad
 				const dx = (normalized.pixelX / pixelsWidth) * viewBox.width;
 				const dy = (normalized.pixelY / pixelsHeight) * viewBox.height;
-				game.viewBox.pan(dx, dy);
+				const sensitivity = 0.5;
+				game.viewBox.pan(-dx * sensitivity, -dy * sensitivity);
 			}
 		} else {
 			const delta = viewBox.width * 0.07 * normalized.spinY;
@@ -413,7 +413,7 @@ export function controls(node, game) {
 						touchState = 'idle';
 						ongoingTouches = [];
 					}
-				}, 700);
+				}, 500);
 			} else {
 				if (!useZoomPan) {
 					touchState = 'idle';
@@ -599,7 +599,7 @@ export function controls(node, game) {
 	document.addEventListener('keydown', handleKeyDown);
 	document.addEventListener('keyup', handleKeyUp);
 	if (useZoomPan) {
-		node.addEventListener('wheel', handleWheel);
+		node.addEventListener('wheel', handleWheel, { passive: false });
 	}
 
 	node.addEventListener('touchstart', handleTouchStart, { passive: false });

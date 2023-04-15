@@ -125,6 +125,26 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-04-15</em> Some QOL improvements.
+			<ul>
+				<li>
+					Touchpad zooming and panning should now work consistently with your page scrolling
+					behaviour. If you have further issues with touchpad controls please report them
+					<a
+						href="https://github.com/gereleth/hexapipes/issues/87"
+						target="_blank"
+						rel="noreferrer"
+					>
+						here
+					</a>.
+				</li>
+				<li>
+					Decreased timeout for "click and hold" edgemark creation and for locking tiles in touch
+					mode.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-04-02</em> Add octagonal grid puzzles.
 			<ul>
 				<li>
