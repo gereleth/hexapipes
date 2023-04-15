@@ -136,7 +136,7 @@ export function controls(node, game) {
 						currentSettings.assistant
 					);
 					state = 'edgemark';
-				}, 500);
+				}, 300);
 				state = 'mousedown';
 			} else {
 				if (mouseDownOrigin.locking) {
@@ -413,7 +413,7 @@ export function controls(node, game) {
 						touchState = 'idle';
 						ongoingTouches = [];
 					}
-				}, 700);
+				}, 500);
 			} else {
 				if (!useZoomPan) {
 					touchState = 'idle';
