@@ -85,7 +85,13 @@
 </g>
 
 <style>
-	.pipe {
-		transition: transform 100ms;
+	:global(.animation-normal) .pipe {
+		transition: transform 100ms ease;
+	}
+	:global(.animation-fast) .pipe {
+		transition: transform 30ms ease;
+	}
+	:global(.animation-instant) .pipe {
+		transition: transform 0ms;
 	}
 </style>
