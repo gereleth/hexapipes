@@ -20,7 +20,6 @@
 
 	const [guideX, guideY] = game.grid.getGuideDotPosition($state.tile, i);
 
-	const outlineWidth = game.grid.STROKE_WIDTH * 2 + game.grid.PIPE_WIDTH;
 	const pipeWidth = game.grid.PIPE_WIDTH;
 
 	let path = game.grid.getPipesPath($state.tile, i);
@@ -55,6 +54,8 @@
 
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
 	$: chooseStrokeColor($state.hasDisconnects, $state.isPartOfIsland);
+	$: strokeWidth = $state.hasDisconnects ? game.grid.STROKE_WIDTH * 1.2 : game.grid.STROKE_WIDTH;
+	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
 </script>
 
 <g class="tile" transform="translate({cx},{cy})">
@@ -79,7 +80,7 @@
 				r={game.grid.SINK_RADIUS}
 				fill={$state.color}
 				stroke={strokeColor}
-				stroke-width={game.grid.STROKE_WIDTH}
+				stroke-width={strokeWidth}
 				class="inside"
 			/>
 		{/if}
