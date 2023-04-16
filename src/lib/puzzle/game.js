@@ -141,6 +141,24 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * component that it belongs to
 	 */
 	self.components = new Map();
+	/**
+	 * @type {Set<Number>} - set of indices of tiles with disconnects
+	 */
+	self.openEnds = new Set();
+	const totalTiles = grid.total - grid.emptyCells.size;
+	self.shareDisconnectedTiles = writable(1);
+	self.disconnectStrokeWidthScale = writable(1);
+	self.disconnectStrokeColor = writable('#888888');
+
+	self.shareDisconnectedTiles.subscribe((value) => {
+		if (value > 0.1) {
+			return;
+		}
+		const amount = 1 - value * 10;
+		const color = Math.round(136 - 34 * amount).toString(16);
+		self.disconnectStrokeColor.set('#' + color + color + color);
+		self.disconnectStrokeWidthScale.set(1 + 0.3 * amount);
+	});
 
 	/**
 	 * @type {EdgeMark[]}
@@ -225,6 +243,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				component.tiles.add(index);
 				if (tileState.data.hasDisconnects) {
 					component.openEnds.add(index);
+					self.openEnds.add(index);
 				}
 				const connected = self.connections.get(index) || empty;
 				for (let neighbour of connected) {
@@ -244,6 +263,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 					} else {
 						tileState.setHasDisconnects(true);
 						component.openEnds.add(index);
+						self.openEnds.add(index);
 					}
 				}
 			}
@@ -263,6 +283,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				i += 1;
 			}
 		}
+		self.shareDisconnectedTiles.set(self.openEnds.size / totalTiles);
 		self.initialized = true;
 	};
 
@@ -271,6 +292,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.components.clear();
 		self.initialized = false;
 		self.solved.set(false);
+		self.openEnds.clear();
 		self._solved = false;
 
 		self.tileStates.forEach((tileState, index) => {
@@ -546,17 +568,17 @@ export function PipesGame(grid, tiles, savedProgress) {
 				}
 			}
 			component.openEnds.add(tileIndex);
+			self.openEnds.add(tileIndex);
 		} else {
 			component.openEnds.delete(tileIndex);
-			if (
-				component.openEnds.size === 0 &&
-				component.tiles.size < self.grid.total - self.grid.emptyCells.size
-			) {
+			self.openEnds.delete(tileIndex);
+			if (component.openEnds.size === 0 && component.tiles.size < totalTiles) {
 				for (let index of component.tiles) {
 					self.tileStates[index].setPartOfIsland(true);
 				}
 			}
 		}
+		self.shareDisconnectedTiles.set(self.openEnds.size / totalTiles);
 	};
 
 	let firstValidIndex = 0;

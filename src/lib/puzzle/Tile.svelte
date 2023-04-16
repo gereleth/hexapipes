@@ -12,9 +12,13 @@
 	export let controlMode = 'rotate_lock';
 
 	let state = game.tileStates[i];
+	const disconnectStrokeWidthScale = game.disconnectStrokeWidthScale;
+	const disconnectStrokeColor = game.disconnectStrokeColor;
 
 	let bgColor = '#aaa';
 	let strokeColor = '#888';
+	let strokeWidth = game.grid.STROKE_WIDTH;
+	let outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
 
 	const myDirections = game.grid.getDirections($state.tile, 0, i);
 
@@ -37,24 +41,17 @@
 			bgColor = locked ? '#bbb' : '#ddd';
 		}
 	}
-	/**
-	 * Choose tile stroke color
-	 * @param {Boolean} hasDisconnects
-	 * @param {Boolean} isPartOfIsland
-	 */
-	function chooseStrokeColor(hasDisconnects, isPartOfIsland) {
-		if (isPartOfIsland) {
-			strokeColor = '#b55';
-		} else if (hasDisconnects) {
-			strokeColor = '#666';
-		} else {
-			strokeColor = '#888';
-		}
+	$: if ($state.hasDisconnects) {
+		strokeColor = $disconnectStrokeColor;
+		strokeWidth = game.grid.STROKE_WIDTH * $disconnectStrokeWidthScale;
+	} else if ($state.isPartOfIsland) {
+		strokeColor = '#b55';
+		strokeWidth = game.grid.STROKE_WIDTH;
+	} else {
+		strokeColor = '#888';
+		strokeWidth = game.grid.STROKE_WIDTH;
 	}
-
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
-	$: chooseStrokeColor($state.hasDisconnects, $state.isPartOfIsland);
-	$: strokeWidth = $state.hasDisconnects ? game.grid.STROKE_WIDTH * 1.2 : game.grid.STROKE_WIDTH;
 	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
 </script>
 
