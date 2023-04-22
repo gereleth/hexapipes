@@ -1,6 +1,5 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { createGrid } from '$lib/puzzle/grids/grids';
@@ -145,6 +144,9 @@
 			</label>
 			<label for="octagonal">
 				<input type="radio" bind:group={gridKind} id="octagonal" value="octagonal" /> Octagonal
+			</label>
+			<label for="etrat">
+				<input type="radio" bind:group={gridKind} id="etrat" value="etrat" /> Elongated triangular
 			</label>
 		</label>
 	</div>

@@ -1,13 +1,14 @@
 import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 import { OctaGrid } from '$lib/puzzle/grids/octagrid';
+import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
 
 /**
- * @typedef {'hexagonal'|'square'|'octagonal'} GridKind
+ * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'} GridKind
  */
 
 /**
- * @typedef {HexaGrid|SquareGrid|OctaGrid} Grid
+ * @typedef {HexaGrid|SquareGrid|OctaGrid|EtratGrid} Grid
  */
 
 /**
@@ -27,6 +28,8 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 		grid = new OctaGrid(width, height, wrap, tiles);
 	} else if (kind === 'square') {
 		grid = new SquareGrid(width, height, wrap, tiles);
+	} else if (kind === 'etrat') {
+		grid = new EtratGrid(width, height, wrap, tiles);
 	} else {
 		throw `Unknown grid kind ${kind}`;
 	}
@@ -34,7 +37,7 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 }
 
 /** @type {GridKind[]} */
-export const gridKinds = ['hexagonal', 'square', 'octagonal'];
+export const gridKinds = ['hexagonal', 'square', 'octagonal', 'etrat'];
 
 export const gridInfo = {
 	hexagonal: {
@@ -57,5 +60,12 @@ export const gridInfo = {
 		wrap: true,
 		exampleGrid: new OctaGrid(3, 3, false),
 		exampleTiles: [32, 64, 192, 18, 68, 66, 5, 200, 128, 130, 168, 0, 40, 8, 0, 0, 0, 0]
+	},
+	etrat: {
+		title: 'Elongated Triangular',
+		url: 'etrat',
+		wrap: true,
+		exampleGrid: new EtratGrid(3, 3, false),
+		exampleTiles: [0, 9, 2, 0, 7, 6, 0, 2, 6, 9, 6, 0, 12, 7, 0, 4, 2, 0]
 	}
 };
