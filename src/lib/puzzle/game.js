@@ -157,7 +157,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		const amount = 1 - value * 10;
 		const color = Math.round(136 - 34 * amount).toString(16);
 		self.disconnectStrokeColor.set('#' + color + color + color);
-		self.disconnectStrokeWidthScale.set(1 + 0.3 * amount);
+		self.disconnectStrokeWidthScale.set(1 + 0.4 * amount);
 	});
 
 	/**
