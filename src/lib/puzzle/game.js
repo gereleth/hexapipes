@@ -370,7 +370,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			throw `No way to rotate tile at ${tileIndex} from ${initial} to ${orientation}`;
 		}
 		if (rotations !== 0 || animate) {
-			self.rotateTile(tileIndex, rotations || self.grid.DIRECTIONS.length);
+			self.rotateTile(tileIndex, rotations);
 		}
 	};
 
