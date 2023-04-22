@@ -12,14 +12,18 @@
 	export let controlMode = 'rotate_lock';
 
 	let state = game.tileStates[i];
+	const disconnectStrokeWidthScale = game.disconnectStrokeWidthScale;
+	const disconnectStrokeColor = game.disconnectStrokeColor;
 
 	let bgColor = '#aaa';
+	let strokeColor = '#888';
+	let strokeWidth = game.grid.STROKE_WIDTH;
+	let outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
 
 	const myDirections = game.grid.getDirections($state.tile, 0, i);
 
 	const [guideX, guideY] = game.grid.getGuideDotPosition($state.tile, i);
 
-	const outlineWidth = game.grid.STROKE_WIDTH * 2 + game.grid.PIPE_WIDTH;
 	const pipeWidth = game.grid.PIPE_WIDTH;
 
 	let path = game.grid.getPipesPath($state.tile, i);
@@ -37,8 +41,18 @@
 			bgColor = locked ? '#bbb' : '#ddd';
 		}
 	}
-
+	$: if ($state.hasDisconnects) {
+		strokeColor = $disconnectStrokeColor;
+		strokeWidth = game.grid.STROKE_WIDTH * $disconnectStrokeWidthScale;
+	} else if ($state.isPartOfIsland) {
+		strokeColor = '#b55';
+		strokeWidth = game.grid.STROKE_WIDTH;
+	} else {
+		strokeColor = '#888';
+		strokeWidth = game.grid.STROKE_WIDTH;
+	}
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
+	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
 </script>
 
 <g class="tile" transform="translate({cx},{cy})">
@@ -50,7 +64,7 @@
 		<!-- Pipe outline -->
 		<path
 			d={path}
-			stroke="#888"
+			stroke={strokeColor}
 			stroke-width={outlineWidth}
 			stroke-linejoin="bevel"
 			stroke-linecap="round"
@@ -62,8 +76,8 @@
 				cy="0"
 				r={game.grid.SINK_RADIUS}
 				fill={$state.color}
-				stroke="#888"
-				stroke-width={game.grid.STROKE_WIDTH}
+				stroke={strokeColor}
+				stroke-width={strokeWidth}
 				class="inside"
 			/>
 		{/if}
