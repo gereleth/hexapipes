@@ -359,7 +359,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		if (tileState === undefined) {
 			return;
 		}
-		const initial = self.tiles[tileIndex];
+		const initial = self.grid.rotate(self.tiles[tileIndex], tileState.data.rotations, tileIndex);
 		let newState = initial;
 		let rotations = 0;
 		while (newState !== orientation && rotations < self.grid.DIRECTIONS.length) {
@@ -369,10 +369,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 		if (rotations === self.grid.DIRECTIONS.length) {
 			throw `No way to rotate tile at ${tileIndex} from ${initial} to ${orientation}`;
 		}
-		const current = tileState.data.rotations;
-		const delta = (rotations - current) % self.grid.DIRECTIONS.length;
-		if (delta !== 0 || animate) {
-			self.rotateTile(tileIndex, delta || self.grid.DIRECTIONS.length);
+		if (rotations !== 0 || animate) {
+			self.rotateTile(tileIndex, rotations || self.grid.DIRECTIONS.length);
 		}
 	};
 
