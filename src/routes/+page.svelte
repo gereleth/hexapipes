@@ -125,6 +125,16 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-04-22</em> Islands and disconnects highlighting.
+			<ul>
+				<li>
+					As you get closer to solving a puzzle the remaining disconnected pieces will get a darker
+					border to make them easier to notice.
+				</li>
+				<li>Islands are now shown with a reddish border so you know to break them up somewhere.</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-04-15</em> Some QOL improvements.
 			<ul>
 				<li>
