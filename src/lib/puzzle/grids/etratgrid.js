@@ -44,7 +44,8 @@ export class EtratGrid {
 	constructor(width, height, wrap, tiles = []) {
 		this.width = width;
 		const even = height % 2 === 0;
-		this.height = Math.ceil(height / 2) + (even ? 1 : 0);
+		this.height = height;
+		this.hexHeight = Math.ceil(height / 2) + (even ? 1 : 0);
 		this.wrap = wrap;
 
 		this.emptyCells = new Set();
@@ -53,7 +54,7 @@ export class EtratGrid {
 				this.emptyCells.add(index);
 			}
 		});
-		this.total = width * this.height * 3;
+		this.total = width * this.hexHeight * 3;
 		if (!wrap) {
 			for (let i = 0; i < width; i++) {
 				this.makeEmpty(i * 3);
@@ -64,11 +65,11 @@ export class EtratGrid {
 			}
 		}
 
-		this.hexagrid = new HexaGrid(width, this.height, wrap);
+		this.hexagrid = new HexaGrid(width, this.hexHeight, wrap);
 		this.XMIN = -0.6 - (wrap ? 1 : 0);
 		this.XMAX = width + 0.1 + (wrap ? 1 : 0);
 		this.YMIN = -YSTEP * (0.5 + (wrap ? 1 : 0));
-		this.YMAX = YSTEP * (this.height + (wrap ? 1 : 0));
+		this.YMAX = YSTEP * (this.hexHeight + (wrap ? 1 : 0));
 		if (!wrap) {
 			this.YMAX -= HEXYSTEP + (even ? 1 : 0);
 		}
