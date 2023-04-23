@@ -294,6 +294,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.solved.set(false);
 		self.openEnds.clear();
 		self._solved = false;
+		self.disconnectStrokeWidthScale.set(1);
+		self.disconnectStrokeColor.set('#888888');
 
 		self.tileStates.forEach((tileState, index) => {
 			tileState.set({
