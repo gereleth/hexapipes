@@ -39,13 +39,11 @@ function IslandDetectedException() {
 
 /**
  * @constructor
- * @param {import('$lib/puzzle/grids/grids').Grid} grid
- * @param {Number} index - tile index in grid
+ * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
  * @param {Number} initial - initial orientation
  */
-export function Cell(grid, index, initial) {
+export function Cell(polygon, initial) {
 	let self = this;
-	self.index = index;
 	self.initial = initial;
 
 	self.possible = new Set();
@@ -53,15 +51,12 @@ export function Cell(grid, index, initial) {
 		let rotated = initial;
 		while (!self.possible.has(rotated)) {
 			self.possible.add(rotated);
-			rotated = grid.rotate(rotated, 1, index);
+			rotated = polygon.rotate(rotated, 1);
 		}
 	} else {
 		// special case of null tile - can have any tile type/orientation
 		// TODO let the grid supply this set depending on index
-		self.possible = new Set();
-		for (let i = 1; i < grid.fullyConnected(index); i++) {
-			self.possible.add(i);
-		}
+		self.possible = new Set([...polygon.tileTypes.keys()]);
 	}
 	self.walls = 0;
 	self.connections = 0;
@@ -137,7 +132,7 @@ export function Cell(grid, index, initial) {
 		if (newPossible.size === 0) {
 			throw new NoOrientationsPossibleException(self);
 		}
-		const full = grid.fullyConnected(index);
+		const full = polygon.fully_connected;
 		let newWalls = full;
 		let newConnections = full;
 		newPossible.forEach((orientation) => {
@@ -156,7 +151,7 @@ export function Cell(grid, index, initial) {
 	 * @returns {Cell}
 	 */
 	self.clone = function () {
-		const clone = new Cell(grid, self.index, 0);
+		const clone = new Cell(polygon, 0);
 		clone.initial = self.initial;
 		clone.possible = new Set(self.possible);
 		clone.walls = self.walls;
@@ -212,7 +207,7 @@ export function Solver(tiles, grid) {
 		if (cell !== undefined) {
 			return cell;
 		}
-		cell = new Cell(self.grid, index, self.tiles[index]);
+		cell = new Cell(self.grid.polygon_at(index), self.tiles[index]);
 		self.unsolved.set(index, cell);
 		self.doLocalDeductions(index, cell);
 		return cell;

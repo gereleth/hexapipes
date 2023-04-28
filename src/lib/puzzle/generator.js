@@ -117,37 +117,50 @@ export class Generator {
 
 		/** @type {Map<Number, Number>} tile index => tile walls */
 		const borders = new Map();
-		/** @type {Map<Number, Set<Number>>} tile walls => set of forbidden types-orientations */
-		const forbidden = new Map();
+		/**
+		 * @type {Map<import('$lib/puzzle/grids/polygonutils').RegularPolygonTile, Map<Number, Set<Number>>>}
+		 * polygon => (tile walls => set of forbidden types-orientations) */
+		const polygonForbidden = new Map();
+		/** @type {Map<Number, Set<Number>>} tile index => forbidden orientations */
+		const tileForbidden = new Map();
 		if (avoidObvious > 0) {
 			for (let tileIndex of unvisited) {
-				for (let direction of this.grid.DIRECTIONS) {
-					const { neighbour, empty } = this.grid.find_neighbour(tileIndex, direction);
+				const polygon = this.grid.polygon_at(tileIndex);
+				for (let direction of polygon.directions) {
+					const { empty } = this.grid.find_neighbour(tileIndex, direction);
 					if (empty) {
 						borders.set(tileIndex, (borders.get(tileIndex) || 0) + direction);
 					}
 				}
-			}
-			for (let walls of new Set(borders.values())) {
-				let cell = new Cell(this.grid, 0, -1);
-				cell.addWall(walls);
-				cell.applyConstraints();
-				/** @type {Map<Number, Set<Number>>} */
-				const tileTypes = new Map();
-				for (let orientation of cell.possible) {
-					const tileType = this.grid.tileTypes.get(orientation) || 0;
-					if (!tileTypes.has(tileType)) {
-						tileTypes.set(tileType, new Set());
+				const walls = borders.get(tileIndex) || 0;
+				if (walls > 0) {
+					if (!polygonForbidden.has(polygon)) {
+						polygonForbidden.set(polygon, new Map());
 					}
-					tileTypes.get(tileType)?.add(orientation);
-				}
-				for (let [tileType, orientations] of tileTypes.entries()) {
-					if (orientations.size === 1) {
-						if (!forbidden.has(walls)) {
-							forbidden.set(walls, new Set());
+					const forbidden = polygonForbidden.get(polygon);
+					if (!forbidden?.has(walls)) {
+						const cell = new Cell(polygon, -1);
+						cell.addWall(walls);
+						cell.applyConstraints();
+						/** @type {Map<String, Set<Number>>} */
+						const tileTypes = new Map();
+						for (let orientation of cell.possible) {
+							const tileType = polygon.tileTypes.get(orientation)?.str || '';
+							if (!tileTypes.has(tileType)) {
+								tileTypes.set(tileType, new Set());
+							}
+							tileTypes.get(tileType)?.add(orientation);
 						}
-						forbidden.get(walls)?.add(orientations.values().next().value);
+						for (let [tileType, orientations] of tileTypes.entries()) {
+							if (orientations.size === 1) {
+								if (!forbidden.has(walls)) {
+									forbidden.set(walls, new Set());
+								}
+								forbidden.get(walls)?.add(orientations.values().next().value);
+							}
+						}
 					}
+					tileForbidden.set(tileIndex, forbidden?.get(walls));
 				}
 			}
 		}
@@ -185,7 +198,8 @@ export class Generator {
 			const obviousNeighbours = []; // these should be avoided with avoidObvious setting
 			const fullyConnectedNeighbours = []; // making a fully connected tile is a total last resort
 			const connections = tiles[fromNode];
-			for (let direction of this.grid.DIRECTIONS) {
+			const polygon = this.grid.polygon_at(fromNode);
+			for (let direction of polygon.directions) {
 				if ((direction & connections) > 0) {
 					continue;
 				}
@@ -194,19 +208,18 @@ export class Generator {
 					continue;
 				}
 				// classify this neighbour by priority
-				if (connections + direction === this.grid.fullyConnected(fromNode)) {
+				if (polygon.tileTypes.get(connections + direction)?.isFullyConnected) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
 				}
-				if (borders.has(fromNode) && Math.random() < avoidObvious) {
-					const walls = borders.get(fromNode) || 0;
-					const nogo = forbidden.get(walls);
+				if (tileForbidden.has(fromNode) && Math.random() < avoidObvious) {
+					const nogo = tileForbidden.get(fromNode);
 					if (nogo?.has(tiles[fromNode] + direction)) {
 						obviousNeighbours.push({ neighbour, direction });
 						continue;
 					}
 				}
-				if (this.grid.tileTypes.get(connections + direction) === this.grid.T2I) {
+				if (polygon.tileTypes.get(connections + direction)?.isStraight) {
 					if (Math.random() < avoidStraights) {
 						straightNeighbours.push({ neighbour, direction });
 						continue;
