@@ -1,4 +1,4 @@
-class TileType {
+export class TileType {
 	/**
 	 *
 	 * @param {String} str - a string representing connections as 1 and walls as 0
@@ -17,6 +17,7 @@ class TileType {
 			padded.includes('11') &&
 			!padded.includes('010') &&
 			!(padded.startsWith('10') && padded.endsWith('0'));
+		this.hasThreeOrMoreAdjacentConnections = padded.startsWith('111');
 	}
 }
 
