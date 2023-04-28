@@ -293,7 +293,7 @@ export class OctaGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	#tile_at(index) {
+	polygon_at(index) {
 		if (index >= this.width * this.height) {
 			return SQUARE;
 		}
@@ -306,7 +306,7 @@ export class OctaGrid {
 	 * @returns {Number}
 	 */
 	fullyConnected(index) {
-		return this.#tile_at(index).fully_connected;
+		return this.polygon_at(index).fully_connected;
 	}
 
 	/**
@@ -317,7 +317,7 @@ export class OctaGrid {
 	 * @returns
 	 */
 	rotate(tile, rotations, index = 0) {
-		return this.#tile_at(index).rotate(tile, rotations);
+		return this.polygon_at(index).rotate(tile, rotations);
 	}
 
 	/**
@@ -327,7 +327,7 @@ export class OctaGrid {
 	 * @returns
 	 */
 	getAngle(rotations, index) {
-		return this.#tile_at(index).get_angle(rotations);
+		return this.polygon_at(index).get_angle(rotations);
 	}
 
 	/**
@@ -338,7 +338,7 @@ export class OctaGrid {
 	 * @returns {Number[]}
 	 */
 	getDirections(tile, rotations = 0, index) {
-		return this.#tile_at(index).get_directions(tile, rotations);
+		return this.polygon_at(index).get_directions(tile, rotations);
 	}
 
 	/**
@@ -347,7 +347,7 @@ export class OctaGrid {
 	 * @returns
 	 */
 	getTilePath(index) {
-		return this.#tile_at(index).contour_path;
+		return this.polygon_at(index).contour_path;
 	}
 
 	/**
@@ -356,7 +356,7 @@ export class OctaGrid {
 	 * @param {Number} index
 	 */
 	getPipesPath(tile, index) {
-		return this.#tile_at(index).get_pipes_path(tile);
+		return this.polygon_at(index).get_pipes_path(tile);
 	}
 
 	/**
@@ -366,7 +366,7 @@ export class OctaGrid {
 	 * * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index = 0) {
-		const [dx, dy] = this.#tile_at(index).get_guide_dot_position(tile);
+		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
 		return [0.7 * dx, 0.7 * dy];
 	}
 
@@ -378,7 +378,7 @@ export class OctaGrid {
 	 * @param {Number} index
 	 */
 	clickOrientTile(tile, old_rotations, new_angle, index = 0) {
-		return this.#tile_at(index).click_orient_tile(tile, old_rotations, new_angle);
+		return this.polygon_at(index).click_orient_tile(tile, old_rotations, new_angle);
 	}
 
 	/**
@@ -388,7 +388,7 @@ export class OctaGrid {
 	 * @returns
 	 */
 	getEdgemarkLine(direction, index = 0) {
-		return this.#tile_at(index).get_edgemark_line(direction);
+		return this.polygon_at(index).get_edgemark_line(direction);
 	}
 
 	/**
@@ -402,7 +402,7 @@ export class OctaGrid {
 	 * @param {Number} y2
 	 */
 	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		return this.#tile_at(tile_index).detect_edgemark_gesture(
+		return this.polygon_at(tile_index).detect_edgemark_gesture(
 			x1 - tile_x,
 			x2 - tile_x,
 			tile_y - y1,
@@ -418,6 +418,6 @@ export class OctaGrid {
 		const { x, y, tileX, tileY, tileIndex } = point;
 		const dx = x - tileX;
 		const dy = tileY - y;
-		return this.#tile_at(tileIndex).is_close_to_edge(dx, dy);
+		return this.polygon_at(tileIndex).is_close_to_edge(dx, dy);
 	}
 }

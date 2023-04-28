@@ -165,6 +165,13 @@ export class SquareGrid {
 	}
 
 	/**
+	 * @param {Number} index
+	 * @returns {RegularPolygonTile}
+	 */
+	polygon_at(index) {
+		return SQUARE;
+	}
+	/**
 	 * Compute tile orientation after a number of rotations
 	 * @param {Number} tile
 	 * @param {Number} rotations
