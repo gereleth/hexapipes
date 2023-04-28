@@ -1,3 +1,25 @@
+class TileType {
+	/**
+	 *
+	 * @param {String} str - a string representing connections as 1 and walls as 0
+	 * @param {Number} num_directions
+	 */
+	constructor(str, num_directions) {
+		const padded = str.padEnd(num_directions, '0');
+		this.str = padded;
+		this.isDeadend = str === '1';
+		this.isFullyConnected = !padded.includes('0');
+		const straightStrHalf = '1'.padEnd(Math.floor(num_directions / 2), '0');
+		this.isStraight = padded === straightStrHalf + straightStrHalf;
+		this.hasNoAdjacentWalls = !padded.includes('00');
+		this.hasNoAdjacentConnections = !padded.includes('11') && !padded.endsWith('1');
+		this.hasOnlyAdjacentConnections =
+			padded.includes('11') &&
+			!padded.includes('010') &&
+			!(padded.startsWith('10') && padded.endsWith('0'));
+	}
+}
+
 export class RegularPolygonTile {
 	/**
 	 *
@@ -25,6 +47,38 @@ export class RegularPolygonTile {
 			this.directions.map((direction, index) => [direction, index])
 		);
 		this.fully_connected = this.directions.reduce((a, b) => a + b, 0);
+
+		// Map tile types
+		/** @type {Map<Number, TileType>} */
+		this.tileTypes = new Map();
+		const typeStrings = new Set(['1']);
+		while (typeStrings.size > 0) {
+			const currentTypeStr = typeStrings.values().next().value;
+			typeStrings.delete(currentTypeStr);
+			if (currentTypeStr.endsWith('1')) {
+				/** @type {Number[]} */
+				const indices = [];
+				currentTypeStr.split('').forEach((char, index) => {
+					if (char === '1') {
+						indices.push(index);
+					}
+				});
+				const tileType = new TileType(currentTypeStr, num_directions);
+				for (let i = 0; i < num_directions; i++) {
+					const value = indices.reduce((a, b) => a + this.directions[(i + b) % num_directions], 0);
+					if (this.tileTypes.has(value)) {
+						break;
+					}
+					this.tileTypes.set(value, tileType);
+				}
+			}
+			if (currentTypeStr.length < num_directions) {
+				typeStrings.add(currentTypeStr + '1');
+				if (currentTypeStr.length < num_directions - 1) {
+					typeStrings.add(currentTypeStr + '0');
+				}
+			}
+		}
 
 		// draw tile contour
 		let angle = angle_offset - this.angle_unit / 2;
