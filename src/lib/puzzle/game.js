@@ -417,7 +417,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 		}
 		let walls = 0;
 		let connections = 0;
-		for (let direction of self.grid.DIRECTIONS) {
+		const polygon = self.grid.polygon_at(tileIndex);
+		for (let direction of polygon.directions) {
 			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 			if (empty) {
 				walls += direction;
@@ -448,9 +449,9 @@ export function PipesGame(grid, tiles, savedProgress) {
 				walls += direction;
 			}
 		}
-		for (let r = 0; r < grid.DIRECTIONS.length; r++) {
+		for (let r = 0; r < polygon.directions.length; r++) {
 			const rotations = tileState.data.rotations + r;
-			const rotated = self.grid.rotate(tileState.data.tile, rotations, tileIndex);
+			const rotated = polygon.rotate(tileState.data.tile, rotations);
 			if ((rotated & connections) === connections && (rotated & walls) === 0) {
 				self.rotateTile(tileIndex, r);
 				break;
@@ -726,7 +727,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileState.toggleLocked();
 		}
 		if (targetState && assistant) {
-			for (let direction of self.grid.DIRECTIONS) {
+			for (let direction of self.grid.polygon_at(tileIndex).directions) {
 				const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 				if (empty) {
 					continue;

@@ -6,16 +6,17 @@ describe('Test find neighbour', () => {
 		const grid = new EtratGrid(3, 6, false);
 		const expected = new Map([
 			// up triangle
-			[12, [8, -1, 5, 13]],
+			[12, [8, 5, 13]],
 			// square
 			[13, [16, 12, 10, 14]],
 			// down triangle
-			[14, [24, 13, 21, -1]]
+			[14, [24, 13, 21]]
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			for (let i = 0; i < 4; i++) {
+			const polygon = grid.polygon_at(index);
+			for (let i = 0; i < polygon.directions.length; i++) {
 				const neighbourExpected = neighbours[i];
-				const direction = grid.DIRECTIONS[i];
+				const direction = polygon.directions[i];
 				const { neighbour, empty } = grid.find_neighbour(index, direction);
 				const msg = `Index ${index}, direction ${direction} => neighbour ${neighbour} empty ${empty}`;
 				expect(empty, msg).toBe(neighbourExpected === -1 || grid.emptyCells.has(neighbour));

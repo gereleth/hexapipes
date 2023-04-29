@@ -20,12 +20,13 @@ function getRandomElement(array) {
  * @returns {Number[]}
  */
 function randomRotate(tiles, grid) {
-	const numDirections = grid.DIRECTIONS.length;
 	return tiles.map((tile, index) => {
 		if (tile === 0) {
 			return 0;
 		}
-		let rotated = grid.rotate(tile, Math.floor(Math.random() * numDirections), index);
+		const polygon = grid.polygon_at(index);
+		const numDirections = polygon.directions.length;
+		let rotated = polygon.rotate(tile, Math.floor(Math.random() * numDirections));
 		return rotated;
 	});
 }
