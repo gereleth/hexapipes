@@ -735,15 +735,18 @@ export function Solver(tiles, grid) {
 	 * Solve the puzzle but mark ambiguous areas with a special value
 	 * Does not yield steps
 	 * If the solution is unique then marked == solution
+	 * @param {Number} [ambiguousTilesLimit = 0] - return if we find at least this many ambiguous tiles. Not all ambiguous tiles may be marked in this case. Default 0 means no limit, find all ambiguities.
 	 * @returns {{
 	 * 	marked: Number[],
 	 *  solvable: boolean,
 	 * 	unique: boolean,
-	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique,
+	 *  numAmbiguous: Number
+	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique, number of ambiguous tiles
 	 */
-	self.markAmbiguousTiles = function () {
+	self.markAmbiguousTiles = function (ambiguousTilesLimit = 0) {
 		let marked = [...self.solution];
 		let unique = true;
+		let numAmbiguous = 0;
 		// process what we can for a start
 		try {
 			if (self.dirty.size === 0) {
@@ -772,7 +775,7 @@ export function Solver(tiles, grid) {
 				}
 			}
 		} catch (error) {
-			return { marked, solvable: false, unique: false };
+			return { marked, solvable: false, unique: false, numAmbiguous };
 		}
 		// console.log('done initial deductions, unsolved size', self.unsolved.size);
 		// console.log(solution);
@@ -814,16 +817,22 @@ export function Solver(tiles, grid) {
 			if (solver.unsolved.size == 0) {
 				// got a solution
 				// console.log('got a solution');
+				numAmbiguous = 0;
 				for (let i = 0; i < marked.length; i++) {
 					if (marked[i] === self.UNSOLVED) {
 						marked[i] = solver.solution[i];
 					} else if (marked[i] === self.AMBIGUOUS) {
+						numAmbiguous += 1;
 						// do nothing
 					} else if (marked[i] !== solver.solution[i]) {
 						// console.log('ambiguous tile', i);
 						marked[i] = self.AMBIGUOUS;
 						unique = false;
+						numAmbiguous += 1;
 					}
+				}
+				if (ambiguousTilesLimit > 0 && numAmbiguous >= ambiguousTilesLimit) {
+					return { marked, solvable: true, unique, numAmbiguous };
 				}
 				if (trials.length > 1) {
 					// console.log('checking other option to', index, guess);
@@ -875,6 +884,6 @@ export function Solver(tiles, grid) {
 			}
 		}
 		const solvable = marked.every((tile) => tile !== self.UNSOLVED);
-		return { marked, solvable, unique };
+		return { marked, solvable, unique, numAmbiguous };
 	};
 }
