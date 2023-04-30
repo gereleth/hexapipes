@@ -35,9 +35,11 @@ export class Generator {
 	/**
 	 * @constructor
 	 * @param {import('$lib/puzzle/grids/grids').Grid} grid
+	 * @param {Number} [reuseTilesMinCount = 4] minimum count of connected tiles to leave when erasing ambiguities.
 	 */
-	constructor(grid) {
+	constructor(grid, reuseTilesMinCount = 4) {
 		this.grid = grid;
+		this.reuseTilesMinCount = reuseTilesMinCount;
 	}
 
 	/**
@@ -71,6 +73,8 @@ export class Generator {
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
 		const lastResortNodes = [];
 
+		/** @type {Map<Number, Set<Number>>} */
+		const startComponents = new Map();
 		// reuse non-ambiguous portions of startTiles
 		if (startTiles.length === total) {
 			const to_check = new Set(unvisited);
@@ -98,11 +102,8 @@ export class Generator {
 					}
 				}
 				components.push(component);
-				components.sort((a, b) => -(a.size - b.size));
-				if (components[0].size >= to_check.size) {
-					break;
-				}
 			}
+			components.sort((a, b) => -(a.size - b.size));
 			// components[0] now has the largest region of non-ambiguous connected tiles
 			for (let index of components[0] || []) {
 				for (let direction of this.grid.getDirections(startTiles[index], 0, index)) {
@@ -113,6 +114,21 @@ export class Generator {
 				}
 				visited.push(index);
 				unvisited.delete(index);
+			}
+			// reuse good smaller regions too
+			for (let component of components.slice(1)) {
+				if (component.size < this.reuseTilesMinCount) {
+					break;
+				}
+				for (let index of component) {
+					startComponents.set(index, component);
+					for (let direction of this.grid.getDirections(startTiles[index], 0, index)) {
+						const { neighbour } = this.grid.find_neighbour(index, direction);
+						if (component.has(neighbour)) {
+							tiles[index] += direction;
+						}
+					}
+				}
 			}
 		}
 
@@ -209,7 +225,14 @@ export class Generator {
 					continue;
 				}
 				// classify this neighbour by priority
-				if (polygon.tileTypes.get(connections + direction)?.isFullyConnected) {
+				if (
+					polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
+					(tiles[neighbour] > 0 &&
+						this.grid
+							.polygon_at(neighbour)
+							.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
+							?.isFullyConnected)
+				) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
 				}
@@ -273,6 +296,15 @@ export class Generator {
 				}
 			}
 			tiles[fromNode] += toVisit.direction;
+			if (tiles[toVisit.neighbour] > 0) {
+				// connected to a reused portion, visit it all
+				const component = startComponents.get(toVisit.neighbour);
+				component?.delete(toVisit.neighbour);
+				for (let i of component || []) {
+					unvisited.delete(i);
+					visited.push(i);
+				}
+			}
 			tiles[toVisit.neighbour] += this.grid.OPPOSITE.get(toVisit.direction) || 0;
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
