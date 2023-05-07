@@ -161,14 +161,13 @@ export class Generator {
 				}
 				const walls = borders.get(tileIndex) || 0;
 				if (walls > 0) {
+					const forbidden = polygonForbidden.get(polygon) || new Map();
 					if (!polygonForbidden.has(polygon)) {
-						polygonForbidden.set(polygon, new Map());
+						polygonForbidden.set(polygon, forbidden);
 					}
-					const forbidden = polygonForbidden.get(polygon);
-					if (forbidden === undefined) {
-						throw 'Error in avoid obvious: forbidden is undefined';
-					}
-					if (!forbidden?.has(walls)) {
+					const wallForbidden = forbidden.get(walls) || new Set();
+					if (!forbidden.has(walls)) {
+						forbidden.set(walls, wallForbidden);
 						const cell = new Cell(polygon, -1);
 						cell.addWall(walls);
 						cell.applyConstraints();
@@ -176,21 +175,21 @@ export class Generator {
 						const tileTypes = new Map();
 						for (let orientation of cell.possible) {
 							const tileType = polygon.tileTypes.get(orientation)?.str || '';
+							const orientations = tileTypes.get(tileType) || new Set();
 							if (!tileTypes.has(tileType)) {
-								tileTypes.set(tileType, new Set());
+								tileTypes.set(tileType, orientations);
 							}
-							tileTypes.get(tileType)?.add(orientation);
+							orientations.add(orientation);
 						}
 						for (let [tileType, orientations] of tileTypes.entries()) {
 							if (orientations.size === 1) {
-								if (!forbidden.has(walls)) {
-									forbidden.set(walls, new Set());
-								}
-								forbidden.get(walls)?.add(orientations.values().next().value);
+								wallForbidden.add(orientations.values().next().value);
 							}
 						}
 					}
-					tileForbidden.set(tileIndex, forbidden.get(walls));
+					if (wallForbidden.size > 0) {
+						tileForbidden.set(tileIndex, wallForbidden);
+					}
 				}
 			}
 		}
