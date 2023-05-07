@@ -36,10 +36,20 @@ export class Generator {
 	 * @constructor
 	 * @param {import('$lib/puzzle/grids/grids').Grid} grid
 	 * @param {Number} [reuseTilesMinCount = 4] minimum count of connected tiles to leave when erasing ambiguities.
+	 * @param {Number} [uniquenessPatience = 5] abandon generation attempt if the count of ambiguous tiles did not decrease in this many iterations
 	 */
-	constructor(grid, reuseTilesMinCount = 4) {
+	constructor(
+		grid,
+		reuseTilesMinCount = 3,
+		uniquenessPatience = 5,
+		maxUniquenessIterations = 100,
+		maxAttempts = 100
+	) {
 		this.grid = grid;
 		this.reuseTilesMinCount = reuseTilesMinCount;
+		this.uniquenessPatience = uniquenessPatience;
+		this.maxAttempts = maxAttempts;
+		this.maxUniquenessIterations = maxUniquenessIterations;
 	}
 
 	/**
@@ -155,6 +165,9 @@ export class Generator {
 						polygonForbidden.set(polygon, new Map());
 					}
 					const forbidden = polygonForbidden.get(polygon);
+					if (forbidden === undefined) {
+						throw 'Error in avoid obvious: forbidden is undefined';
+					}
 					if (!forbidden?.has(walls)) {
 						const cell = new Cell(polygon, -1);
 						cell.addWall(walls);
@@ -177,7 +190,7 @@ export class Generator {
 							}
 						}
 					}
-					tileForbidden.set(tileIndex, forbidden?.get(walls));
+					tileForbidden.set(tileIndex, forbidden.get(walls));
 				}
 			}
 		}
@@ -327,24 +340,44 @@ export class Generator {
 		solutionsNumber = 'unique'
 	) {
 		if (solutionsNumber === 'unique') {
+			/** @type {Number[]} */
+			let startTiles = [];
 			let attempt = 0;
-			// I don't expect many attempts to be needed, just 1 in .9999 cases
-			while (attempt < 3) {
+			while (attempt < this.maxAttempts) {
 				attempt += 1;
-				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
+				let tiles = this.pregenerate_growingtree(
+					branchingAmount,
+					avoidObvious,
+					avoidStraights,
+					startTiles
+				);
 				let uniqueIter = 0;
-				while (uniqueIter < 10) {
+				let patienceLeft = this.uniquenessPatience;
+				let ambiguous = this.grid.total;
+				while (uniqueIter < this.maxUniquenessIterations) {
 					uniqueIter += 1;
 					const solver = new Solver(tiles, this.grid);
-					const { marked, unique } = solver.markAmbiguousTiles();
+					const { marked, unique, numAmbiguous } = solver.markAmbiguousTiles(ambiguous);
 					if (unique) {
+						console.log('successfully generated unique puzzle', this.grid.width);
 						return randomRotate(marked, this.grid);
+					}
+					if (numAmbiguous >= ambiguous) {
+						patienceLeft -= 1;
+					} else {
+						ambiguous = numAmbiguous;
+						patienceLeft = this.uniquenessPatience;
+						startTiles = marked;
+					}
+					console.log({ attempt, uniqueIter, ambiguous: numAmbiguous, patienceLeft });
+					if (patienceLeft === 0) {
+						break;
 					}
 					tiles = this.pregenerate_growingtree(
 						branchingAmount,
 						avoidObvious,
 						avoidStraights,
-						marked
+						startTiles
 					);
 				}
 			}
@@ -354,7 +387,7 @@ export class Generator {
 			return randomRotate(tiles, this.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
-			while (attempt < 100) {
+			while (attempt < this.maxAttempts) {
 				attempt += 1;
 				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				const solver = new Solver(tiles, this.grid);
@@ -363,7 +396,7 @@ export class Generator {
 					return randomRotate(tiles, this.grid);
 				}
 			}
-			throw 'Could not generate a puzzle with multiple solutions in 100 attempts. Maybe try again.';
+			throw `Could not generate a puzzle with multiple solutions in ${this.maxAttempts} attempts. Maybe try again.`;
 		} else {
 			throw 'Unknown setting for solutionsNumber';
 		}
