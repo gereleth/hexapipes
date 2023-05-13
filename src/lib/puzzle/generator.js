@@ -5,6 +5,14 @@ import { Cell, Solver } from '$lib/puzzle/solver';
  */
 
 /**
+ * @typedef {object} GeneratorProgress
+ * @property {Number} attempt
+ * @property {Number} iteration
+ */
+
+const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
+
+/**
  * Returns a random element from an array
  * @param {Array<any>} array
  */
@@ -35,21 +43,25 @@ export class Generator {
 	/**
 	 * @constructor
 	 * @param {import('$lib/puzzle/grids/grids').Grid} grid
-	 * @param {Number} [reuseTilesMinCount = 4] minimum count of connected tiles to leave when erasing ambiguities.
-	 * @param {Number} [uniquenessPatience = 5] abandon generation attempt if the count of ambiguous tiles did not decrease in this many iterations
+	 * @param {Number} [reuse_tiles_min_count = 3] minimum count of connected tiles to leave when erasing ambiguities.
+	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous tiles did not decrease in this many iterations
 	 */
 	constructor(
 		grid,
-		reuseTilesMinCount = 3,
-		uniquenessPatience = 5,
-		maxUniquenessIterations = 100,
-		maxAttempts = 100
+		reuse_tiles_min_count = 3,
+		uniqueness_patience = 5,
+		max_uniqueness_iterations = 100,
+		max_attempts = 100,
+		solver_progress_callback = undefined,
+		generator_progress_callback = undefined
 	) {
 		this.grid = grid;
-		this.reuseTilesMinCount = reuseTilesMinCount;
-		this.uniquenessPatience = uniquenessPatience;
-		this.maxAttempts = maxAttempts;
-		this.maxUniquenessIterations = maxUniquenessIterations;
+		this.reuse_tiles_min_count = reuse_tiles_min_count;
+		this.uniqueness_patience = uniqueness_patience;
+		this.max_attempts = max_attempts;
+		this.max_uniqueness_iterations = max_uniqueness_iterations;
+		this.solver_progress_callback = solver_progress_callback;
+		this.generator_progress_callback = generator_progress_callback || emptyCallback;
 	}
 
 	/**
@@ -127,7 +139,7 @@ export class Generator {
 			}
 			// reuse good smaller regions too
 			for (let component of components.slice(1)) {
-				if (component.size < this.reuseTilesMinCount) {
+				if (component.size < this.reuse_tiles_min_count) {
 					break;
 				}
 				for (let index of component) {
@@ -342,7 +354,8 @@ export class Generator {
 			/** @type {Number[]} */
 			let startTiles = [];
 			let attempt = 0;
-			while (attempt < this.maxAttempts) {
+			const ambiguousLimit = Math.max(100, 0.1 * this.grid.total); // don't look for more ambiguous tiles than this
+			while (attempt < this.max_attempts) {
 				attempt += 1;
 				let tiles = this.pregenerate_growingtree(
 					branchingAmount,
@@ -350,25 +363,33 @@ export class Generator {
 					avoidStraights,
 					startTiles
 				);
-				let uniqueIter = 0;
-				let patienceLeft = this.uniquenessPatience;
+				let iteration = 0;
+				let patienceLeft = this.uniqueness_patience;
 				let ambiguous = this.grid.total;
-				while (uniqueIter < this.maxUniquenessIterations) {
-					uniqueIter += 1;
+				while (iteration < this.max_uniqueness_iterations) {
+					iteration += 1;
+					if (this.generator_progress_callback) {
+						this.generator_progress_callback({ attempt, iteration });
+					}
 					const solver = new Solver(tiles, this.grid);
-					const { marked, unique, numAmbiguous } = solver.markAmbiguousTiles(ambiguous);
+					if (this.solver_progress_callback) {
+						solver.progress_callback = this.solver_progress_callback;
+					}
+					const { marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
+						Math.min(ambiguous, ambiguousLimit)
+					);
 					if (unique) {
-						console.log('successfully generated unique puzzle', this.grid.width);
 						return randomRotate(marked, this.grid);
 					}
-					if (numAmbiguous >= ambiguous) {
+					if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {
+						startTiles = marked;
+					} else if (numAmbiguous >= ambiguous) {
 						patienceLeft -= 1;
 					} else {
 						ambiguous = numAmbiguous;
-						patienceLeft = this.uniquenessPatience;
+						patienceLeft = this.uniqueness_patience;
 						startTiles = marked;
 					}
-					console.log({ attempt, uniqueIter, ambiguous: numAmbiguous, patienceLeft });
 					if (patienceLeft === 0) {
 						break;
 					}
@@ -386,16 +407,22 @@ export class Generator {
 			return randomRotate(tiles, this.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
-			while (attempt < this.maxAttempts) {
+			while (attempt < this.max_attempts) {
 				attempt += 1;
+				if (this.generator_progress_callback) {
+					this.generator_progress_callback({ attempt, iteration: 1 });
+				}
 				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				const solver = new Solver(tiles, this.grid);
-				const { unique } = solver.markAmbiguousTiles();
+				if (this.solver_progress_callback) {
+					solver.progress_callback = this.solver_progress_callback;
+				}
+				const { unique } = solver.markAmbiguousTiles(1);
 				if (!unique) {
 					return randomRotate(tiles, this.grid);
 				}
 			}
-			throw `Could not generate a puzzle with multiple solutions in ${this.maxAttempts} attempts. Maybe try again.`;
+			throw `Could not generate a puzzle with multiple solutions in ${this.max_attempts} attempts. Maybe try again.`;
 		} else {
 			throw 'Unknown setting for solutionsNumber';
 		}
