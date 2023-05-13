@@ -39,6 +39,15 @@ function IslandDetectedException() {
  */
 
 /**
+ * Solver progress tracks current counts of solved/guessed/ambiguous tiles
+ * @typedef {Object} SolverProgress
+ * @property {Number} total
+ * @property {Number} solved
+ * @property {Number} guessed
+ * @property {Number} ambiguous
+ */
+
+/**
  * @constructor
  * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
  * @param {Number} initial - initial orientation
@@ -182,6 +191,8 @@ export function Cell(polygon, initial) {
 	return self;
 }
 
+const emptyCallback = (/**@type {SolverProgress} */ progress) => {};
+
 /**
  * @constructor
  * @param {Number[]} tiles - tile index in grid
@@ -191,6 +202,7 @@ export function Solver(tiles, grid) {
 	let self = this;
 	self.tiles = tiles;
 	self.grid = grid;
+	self.progress_callback = emptyCallback;
 
 	self.UNSOLVED = -1;
 	self.AMBIGUOUS = -2;
@@ -502,10 +514,10 @@ export function Solver(tiles, grid) {
 			// console.log({ index, orientation, final, possible: [...cell.possible] });
 			yield { index, orientation, final };
 			self.dirty.delete(index);
-			if (self.dirty.size === 0) {
-				// whip out heavy logic
-				self.avoidIslands();
-			}
+			// if (self.dirty.size === 0) {
+			// 	// whip out heavy logic
+			// 	self.avoidIslands();
+			// }
 		}
 	};
 
@@ -513,7 +525,6 @@ export function Solver(tiles, grid) {
 	 * Iterate over connected components and try to figure something out
 	 */
 	self.avoidIslands = function () {
-		// console.log('avoid islands loops');
 		const components = new Set(self.components.values());
 		const potentialIslands = new Set();
 		for (let component of components) {
@@ -731,6 +742,46 @@ export function Solver(tiles, grid) {
 		}
 	};
 
+	self.shortTrialsIndex = 0;
+	/**
+	 * Check orientations of unsolved cells to see if they produce contradictions quickly
+	 * Returns true if solver manages to exclude some orientation, false otherwise
+	 * @param {Number[]} marked
+	 * @returns {boolean}
+	 */
+	self.doShortTrials = function (marked = []) {
+		for (let i = this.shortTrialsIndex; i < this.shortTrialsIndex + this.grid.total; i++) {
+			const index = i % this.grid.total;
+			const cell = self.unsolved.get(index);
+			if (cell === undefined) {
+				continue;
+			}
+			if (marked[index] === this.AMBIGUOUS) {
+				continue;
+			}
+			for (let orientation of cell.possible) {
+				const clone = self.clone();
+				const cloneCell = clone.unsolved.get(index);
+				if (cloneCell === undefined) {
+					throw 'Clone cell is undefined';
+				}
+				cloneCell.possible = new Set([orientation]);
+				clone.dirty.add(index);
+				try {
+					for (let step of clone.processDirtyCells()) {
+						// do nothing, hope for an error
+					}
+				} catch (e) {
+					cell.possible.delete(orientation);
+					self.dirty.add(index);
+					self.shortTrialsIndex = index;
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+
 	/**
 	 * Solve the puzzle but mark ambiguous areas with a special value
 	 * Does not yield steps
@@ -747,6 +798,7 @@ export function Solver(tiles, grid) {
 		let marked = [...self.solution];
 		let unique = true;
 		let numAmbiguous = 0;
+		const total = self.grid.total - self.grid.emptyCells.size;
 		// process what we can for a start
 		try {
 			if (self.dirty.size === 0) {
@@ -793,9 +845,18 @@ export function Solver(tiles, grid) {
 				break;
 			}
 			const { index, guess, solver } = lastTrial;
+			self.progress_callback({
+				total,
+				ambiguous: numAmbiguous,
+				guessed: trials.length - 1,
+				solved: total - trials[0].solver.unsolved.size
+			});
 			// console.log('unsolved at start', new Map(solver.unsolved.entries()));
 			try {
 				for (let _ of solver.processDirtyCells()) {
+				}
+				if (trials.length === 1 && solver.doShortTrials()) {
+					continue;
 				}
 				// console.log('unsolved after cleanup', new Map(solver.unsolved.entries()));
 			} catch (error) {
@@ -832,6 +893,13 @@ export function Solver(tiles, grid) {
 					}
 				}
 				if (ambiguousTilesLimit > 0 && numAmbiguous >= ambiguousTilesLimit) {
+					self.progress_callback({
+						total,
+						ambiguous: numAmbiguous,
+						guessed: trials.length - 1,
+						solved:
+							trials.length === 1 ? total - numAmbiguous : total - trials[0].solver.unsolved.size
+					});
 					return { marked, solvable: true, unique, numAmbiguous };
 				}
 				if (trials.length > 1) {
@@ -884,6 +952,12 @@ export function Solver(tiles, grid) {
 			}
 		}
 		const solvable = marked.every((tile) => tile !== self.UNSOLVED);
+		self.progress_callback({
+			total,
+			ambiguous: numAmbiguous,
+			guessed: 0,
+			solved: total - numAmbiguous
+		});
 		return { marked, solvable, unique, numAmbiguous };
 	};
 }
