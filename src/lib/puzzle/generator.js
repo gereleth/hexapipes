@@ -108,6 +108,10 @@ export class Generator {
 					// ambiguous tile, ignore it
 					continue;
 				}
+				if (this.grid.polygon_at(index).tileTypes.get(startTiles[index])?.isFullyConnected) {
+					// fully connected tile, ignore it too
+					continue;
+				}
 				const to_visit = new Set([index]);
 				const component = new Set();
 				while (to_visit.size > 0) {
@@ -117,7 +121,12 @@ export class Generator {
 					component.add(i);
 					for (let direction of this.grid.getDirections(startTiles[i], 0, i)) {
 						const { neighbour, empty } = this.grid.find_neighbour(i, direction);
-						if (empty || startTiles[neighbour] < 0 || component.has(neighbour)) {
+						if (
+							empty ||
+							startTiles[neighbour] < 0 ||
+							component.has(neighbour) ||
+							this.grid.polygon_at(neighbour).tileTypes.get(startTiles[neighbour])?.isFullyConnected
+						) {
 							continue;
 						}
 						to_visit.add(neighbour);
