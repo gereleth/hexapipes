@@ -3,7 +3,6 @@
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { createGrid } from '$lib/puzzle/grids/grids';
-	import { Generator } from '$lib/puzzle/generator';
 	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
 	import Instructions from '$lib/Instructions.svelte';
 
