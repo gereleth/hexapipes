@@ -8,6 +8,10 @@ import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
  */
 
 /**
+ * @typedef {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'|'etrat'|'etrat-wrap'} GridCategory
+ */
+
+/**
  * @typedef {HexaGrid|SquareGrid|OctaGrid|EtratGrid} Grid
  */
 
