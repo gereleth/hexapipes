@@ -51,7 +51,7 @@
 		solverProgressItems = [];
 	}
 
-	function cancel() {
+	export function cancel() {
 		worker?.terminate();
 		showGenProgress = false;
 		dispatch('cancel');
@@ -103,6 +103,8 @@
 		width: 80%;
 		margin: auto;
 		min-height: 7em;
+		text-align: center;
+		color: var(--text-color);
 	}
 	.generator-progress {
 		padding: 0.5em 1em;
