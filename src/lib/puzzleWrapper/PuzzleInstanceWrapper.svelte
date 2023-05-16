@@ -37,10 +37,6 @@
 		error: undefined
 	};
 
-	let branchingAmount = 0.6;
-	let avoidObvious = 0;
-	let avoidStraights = 0;
-
 	let genId = 0;
 
 	/** @type {GeneratorComponent} */
@@ -94,15 +90,20 @@
 		}
 		solved = false;
 		savedProgress = undefined;
-		branchingAmount = 0.6;
-		avoidObvious = 0;
-		avoidStraights = 0;
+		let branchingAmount = 0.6;
+		let avoidObvious = 0;
+		let avoidStraights = 0;
 		if (gridKind === 'square' || gridKind === 'etrat') {
 			branchingAmount = Math.random() * 0.5 + 0.5; // 0.5 to 1
 			avoidObvious = Math.random() * 0.5 + 0.1; // 0.1 to 0.6
 			avoidStraights = Math.random() * 0.5 + 0.25; // 0.25 to 0.75
 		}
-		generatorComponent.generate();
+		generatorComponent.generate({
+			branchingAmount,
+			avoidObvious,
+			avoidStraights,
+			solutionsNumber: 'unique'
+		});
 	}
 
 	function newPuzzle() {
@@ -180,10 +181,6 @@
 		{width}
 		{height}
 		{wrap}
-		{branchingAmount}
-		{avoidObvious}
-		{avoidStraights}
-		solutionsNumber="unique"
 		on:generated={onGenerated}
 		on:error={() => {}}
 		on:cancel={() => {}}

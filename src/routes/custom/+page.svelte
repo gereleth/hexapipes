@@ -43,7 +43,12 @@
 			width += 1;
 		}
 		grid = createGrid(gridKind, width, height, wrap);
-		generatorComponent.generate();
+		generatorComponent.generate({
+			branchingAmount,
+			avoidObvious,
+			avoidStraights,
+			solutionsNumber
+		});
 		state = 'generating';
 	}
 	/**
@@ -252,10 +257,6 @@
 		{width}
 		{height}
 		{wrap}
-		{branchingAmount}
-		{avoidObvious}
-		{avoidStraights}
-		{solutionsNumber}
 		on:generated={onGenerated}
 		on:error={onError}
 		on:cancel={onCancel}

@@ -10,6 +10,14 @@ import { Cell, Solver } from '$lib/puzzle/solver';
  * @property {Number} iteration
  */
 
+/**
+ * @typedef {object} GeneratorOptions
+ * @property {Number} branchingAmount
+ * @property {Number} avoidObvious
+ * @property {Number} avoidStraights
+ * @property {SolutionsNumber} solutionsNumber
+ */
+
 const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
 
 /**

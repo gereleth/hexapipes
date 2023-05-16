@@ -16,6 +16,15 @@ import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
  */
 
 /**
+ * @typedef {Object} GridOptions
+ * @property {GridKind} kind
+ * @property {Number} width
+ * @property {Number} height
+ * @property {Boolean} wrap
+ * @property {Number[]|undefined} tiles
+ */
+
+/**
  * Creates a grid of a specified type
  * @param {GridKind} kind
  * @param {Number} width

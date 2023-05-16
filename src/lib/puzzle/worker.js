@@ -2,9 +2,14 @@ import { Generator } from '$lib/puzzle/generator';
 import { Solver } from '$lib/puzzle/solver';
 import { createGrid } from '$lib/puzzle/grids/grids';
 
+/**
+ *
+ * @param {import('$lib/puzzle/grids/grids').GridOptions} grid
+ * @param {import('$lib/puzzle/generator').GeneratorOptions} options
+ */
 function generate(grid, options) {
-	const { gridKind, width, height, wrap } = grid;
-	const grid_ = createGrid(gridKind, width, height, wrap);
+	const { kind, width, height, wrap } = grid;
+	const grid_ = createGrid(kind, width, height, wrap);
 	const gen = new Generator(grid_);
 	/** @param {import('$lib/puzzle/generator').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {

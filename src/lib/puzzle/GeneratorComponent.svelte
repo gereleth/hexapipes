@@ -10,13 +10,6 @@
 	export let wrap = false;
 	export let gridKind = 'hexagonal';
 
-	// Generator options
-	export let branchingAmount = 0.5;
-	export let avoidObvious = 0.5;
-	export let avoidStraights = 0.5;
-	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
-	export let solutionsNumber = 'unique';
-
 	/**@type {NodeJS.Timeout|undefined}*/
 	let timer;
 	/** @type {Worker|null} */
@@ -27,23 +20,22 @@
 	let solverProgressItems = [];
 	const dispatch = createEventDispatcher();
 
-	export function generate() {
+	/**
+	 *
+	 * @param {import('$lib/puzzle/generator').GeneratorOptions} options
+	 */
+	export function generate(options) {
 		worker = new Worker();
 		worker.onmessage = onWorkerMessage;
 		worker.postMessage({
 			command: 'generate',
 			grid: {
-				gridKind,
+				kind: gridKind,
 				width,
 				height,
 				wrap
 			},
-			options: {
-				branchingAmount,
-				avoidObvious,
-				avoidStraights,
-				solutionsNumber
-			}
+			options
 		});
 		timer = setTimeout(() => {
 			showGenProgress = true;
