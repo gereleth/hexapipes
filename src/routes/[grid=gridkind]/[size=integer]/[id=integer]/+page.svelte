@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/stores';
-	import PuzzleWrapper from '$lib/puzzleWrapper/PuzzleWrapper.svelte';
+	import PuzzleKindWrapper from '$lib/puzzleWrapper/PuzzleKindWrapper.svelte';
 
 	/** @type {import('./$types').PageData} */
 	export let data;
@@ -12,7 +12,7 @@
 	</title>
 </svelte:head>
 
-<PuzzleWrapper
+<PuzzleKindWrapper
 	width={data.width}
 	height={data.height}
 	tiles={data.tiles}

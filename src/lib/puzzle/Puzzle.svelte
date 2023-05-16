@@ -119,7 +119,7 @@
 	onMount(() => {
 		game.initializeBoard();
 		initialResize(innerWidth, innerHeight);
-		dispatch('initialized');
+		dispatch('start');
 		// unleashTheSolver();
 	});
 
