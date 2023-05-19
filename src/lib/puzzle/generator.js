@@ -5,6 +5,22 @@ import { Cell, Solver } from '$lib/puzzle/solver';
  */
 
 /**
+ * @typedef {object} GeneratorProgress
+ * @property {Number} attempt
+ * @property {Number} iteration
+ */
+
+/**
+ * @typedef {object} GeneratorOptions
+ * @property {Number} branchingAmount
+ * @property {Number} avoidObvious
+ * @property {Number} avoidStraights
+ * @property {SolutionsNumber} solutionsNumber
+ */
+
+const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
+
+/**
  * Returns a random element from an array
  * @param {Array<any>} array
  */
@@ -20,12 +36,13 @@ function getRandomElement(array) {
  * @returns {Number[]}
  */
 function randomRotate(tiles, grid) {
-	const numDirections = grid.DIRECTIONS.length;
 	return tiles.map((tile, index) => {
 		if (tile === 0) {
 			return 0;
 		}
-		let rotated = grid.rotate(tile, Math.floor(Math.random() * numDirections), index);
+		const polygon = grid.polygon_at(index);
+		const numDirections = polygon.directions.length;
+		let rotated = polygon.rotate(tile, Math.floor(Math.random() * numDirections));
 		return rotated;
 	});
 }
@@ -34,9 +51,25 @@ export class Generator {
 	/**
 	 * @constructor
 	 * @param {import('$lib/puzzle/grids/grids').Grid} grid
+	 * @param {Number} [reuse_tiles_min_count = 3] minimum count of connected tiles to leave when erasing ambiguities.
+	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous tiles did not decrease in this many iterations
 	 */
-	constructor(grid) {
+	constructor(
+		grid,
+		reuse_tiles_min_count = 3,
+		uniqueness_patience = 5,
+		max_uniqueness_iterations = 100,
+		max_attempts = 100,
+		solver_progress_callback = undefined,
+		generator_progress_callback = undefined
+	) {
 		this.grid = grid;
+		this.reuse_tiles_min_count = reuse_tiles_min_count;
+		this.uniqueness_patience = uniqueness_patience;
+		this.max_attempts = max_attempts;
+		this.max_uniqueness_iterations = max_uniqueness_iterations;
+		this.solver_progress_callback = solver_progress_callback;
+		this.generator_progress_callback = generator_progress_callback || emptyCallback;
 	}
 
 	/**
@@ -70,6 +103,8 @@ export class Generator {
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
 		const lastResortNodes = [];
 
+		/** @type {Map<Number, Set<Number>>} */
+		const startComponents = new Map();
 		// reuse non-ambiguous portions of startTiles
 		if (startTiles.length === total) {
 			const to_check = new Set(unvisited);
@@ -81,6 +116,10 @@ export class Generator {
 					// ambiguous tile, ignore it
 					continue;
 				}
+				if (this.grid.polygon_at(index).tileTypes.get(startTiles[index])?.isFullyConnected) {
+					// fully connected tile, ignore it too
+					continue;
+				}
 				const to_visit = new Set([index]);
 				const component = new Set();
 				while (to_visit.size > 0) {
@@ -90,18 +129,20 @@ export class Generator {
 					component.add(i);
 					for (let direction of this.grid.getDirections(startTiles[i], 0, i)) {
 						const { neighbour, empty } = this.grid.find_neighbour(i, direction);
-						if (empty || startTiles[neighbour] < 0 || component.has(neighbour)) {
+						if (
+							empty ||
+							startTiles[neighbour] < 0 ||
+							component.has(neighbour) ||
+							this.grid.polygon_at(neighbour).tileTypes.get(startTiles[neighbour])?.isFullyConnected
+						) {
 							continue;
 						}
 						to_visit.add(neighbour);
 					}
 				}
 				components.push(component);
-				components.sort((a, b) => -(a.size - b.size));
-				if (components[0].size >= to_check.size) {
-					break;
-				}
 			}
+			components.sort((a, b) => -(a.size - b.size));
 			// components[0] now has the largest region of non-ambiguous connected tiles
 			for (let index of components[0] || []) {
 				for (let direction of this.grid.getDirections(startTiles[index], 0, index)) {
@@ -113,40 +154,70 @@ export class Generator {
 				visited.push(index);
 				unvisited.delete(index);
 			}
+			// reuse good smaller regions too
+			for (let component of components.slice(1)) {
+				if (component.size < this.reuse_tiles_min_count) {
+					break;
+				}
+				for (let index of component) {
+					startComponents.set(index, component);
+					for (let direction of this.grid.getDirections(startTiles[index], 0, index)) {
+						const { neighbour } = this.grid.find_neighbour(index, direction);
+						if (component.has(neighbour)) {
+							tiles[index] += direction;
+						}
+					}
+				}
+			}
 		}
 
 		/** @type {Map<Number, Number>} tile index => tile walls */
 		const borders = new Map();
-		/** @type {Map<Number, Set<Number>>} tile walls => set of forbidden types-orientations */
-		const forbidden = new Map();
+		/**
+		 * @type {Map<import('$lib/puzzle/grids/polygonutils').RegularPolygonTile, Map<Number, Set<Number>>>}
+		 * polygon => (tile walls => set of forbidden types-orientations) */
+		const polygonForbidden = new Map();
+		/** @type {Map<Number, Set<Number>>} tile index => forbidden orientations */
+		const tileForbidden = new Map();
 		if (avoidObvious > 0) {
 			for (let tileIndex of unvisited) {
-				for (let direction of this.grid.DIRECTIONS) {
-					const { neighbour, empty } = this.grid.find_neighbour(tileIndex, direction);
+				const polygon = this.grid.polygon_at(tileIndex);
+				for (let direction of polygon.directions) {
+					const { empty } = this.grid.find_neighbour(tileIndex, direction);
 					if (empty) {
 						borders.set(tileIndex, (borders.get(tileIndex) || 0) + direction);
 					}
 				}
-			}
-			for (let walls of new Set(borders.values())) {
-				let cell = new Cell(this.grid, 0, -1);
-				cell.addWall(walls);
-				cell.applyConstraints();
-				/** @type {Map<Number, Set<Number>>} */
-				const tileTypes = new Map();
-				for (let orientation of cell.possible) {
-					const tileType = this.grid.tileTypes.get(orientation) || 0;
-					if (!tileTypes.has(tileType)) {
-						tileTypes.set(tileType, new Set());
+				const walls = borders.get(tileIndex) || 0;
+				if (walls > 0) {
+					const forbidden = polygonForbidden.get(polygon) || new Map();
+					if (!polygonForbidden.has(polygon)) {
+						polygonForbidden.set(polygon, forbidden);
 					}
-					tileTypes.get(tileType)?.add(orientation);
-				}
-				for (let [tileType, orientations] of tileTypes.entries()) {
-					if (orientations.size === 1) {
-						if (!forbidden.has(walls)) {
-							forbidden.set(walls, new Set());
+					const wallForbidden = forbidden.get(walls) || new Set();
+					if (!forbidden.has(walls)) {
+						forbidden.set(walls, wallForbidden);
+						const cell = new Cell(polygon, -1);
+						cell.addWall(walls);
+						cell.applyConstraints();
+						/** @type {Map<String, Set<Number>>} */
+						const tileTypes = new Map();
+						for (let orientation of cell.possible) {
+							const tileType = polygon.tileTypes.get(orientation)?.str || '';
+							const orientations = tileTypes.get(tileType) || new Set();
+							if (!tileTypes.has(tileType)) {
+								tileTypes.set(tileType, orientations);
+							}
+							orientations.add(orientation);
 						}
-						forbidden.get(walls)?.add(orientations.values().next().value);
+						for (let [tileType, orientations] of tileTypes.entries()) {
+							if (orientations.size === 1) {
+								wallForbidden.add(orientations.values().next().value);
+							}
+						}
+					}
+					if (wallForbidden.size > 0) {
+						tileForbidden.set(tileIndex, wallForbidden);
 					}
 				}
 			}
@@ -185,7 +256,8 @@ export class Generator {
 			const obviousNeighbours = []; // these should be avoided with avoidObvious setting
 			const fullyConnectedNeighbours = []; // making a fully connected tile is a total last resort
 			const connections = tiles[fromNode];
-			for (let direction of this.grid.DIRECTIONS) {
+			const polygon = this.grid.polygon_at(fromNode);
+			for (let direction of polygon.directions) {
 				if ((direction & connections) > 0) {
 					continue;
 				}
@@ -194,19 +266,25 @@ export class Generator {
 					continue;
 				}
 				// classify this neighbour by priority
-				if (connections + direction === this.grid.fullyConnected(fromNode)) {
+				if (
+					polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
+					(tiles[neighbour] > 0 &&
+						this.grid
+							.polygon_at(neighbour)
+							.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
+							?.isFullyConnected)
+				) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
 				}
-				if (borders.has(fromNode) && Math.random() < avoidObvious) {
-					const walls = borders.get(fromNode) || 0;
-					const nogo = forbidden.get(walls);
+				if (tileForbidden.has(fromNode) && Math.random() < avoidObvious) {
+					const nogo = tileForbidden.get(fromNode);
 					if (nogo?.has(tiles[fromNode] + direction)) {
 						obviousNeighbours.push({ neighbour, direction });
 						continue;
 					}
 				}
-				if (this.grid.tileTypes.get(connections + direction) === this.grid.T2I) {
+				if (polygon.tileTypes.get(connections + direction)?.isStraight) {
 					if (Math.random() < avoidStraights) {
 						straightNeighbours.push({ neighbour, direction });
 						continue;
@@ -259,6 +337,15 @@ export class Generator {
 				}
 			}
 			tiles[fromNode] += toVisit.direction;
+			if (tiles[toVisit.neighbour] > 0) {
+				// connected to a reused portion, visit it all
+				const component = startComponents.get(toVisit.neighbour);
+				component?.delete(toVisit.neighbour);
+				for (let i of component || []) {
+					unvisited.delete(i);
+					visited.push(i);
+				}
+			}
 			tiles[toVisit.neighbour] += this.grid.OPPOSITE.get(toVisit.direction) || 0;
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
@@ -281,24 +368,53 @@ export class Generator {
 		solutionsNumber = 'unique'
 	) {
 		if (solutionsNumber === 'unique') {
+			/** @type {Number[]} */
+			let startTiles = [];
 			let attempt = 0;
-			// I don't expect many attempts to be needed, just 1 in .9999 cases
-			while (attempt < 3) {
+			const ambiguousLimit = Math.max(100, 0.1 * this.grid.total); // don't look for more ambiguous tiles than this
+			while (attempt < this.max_attempts) {
 				attempt += 1;
-				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
-				let uniqueIter = 0;
-				while (uniqueIter < 10) {
-					uniqueIter += 1;
+				let tiles = this.pregenerate_growingtree(
+					branchingAmount,
+					avoidObvious,
+					avoidStraights,
+					startTiles
+				);
+				let iteration = 0;
+				let patienceLeft = this.uniqueness_patience;
+				let ambiguous = this.grid.total;
+				while (iteration < this.max_uniqueness_iterations) {
+					iteration += 1;
+					if (this.generator_progress_callback) {
+						this.generator_progress_callback({ attempt, iteration });
+					}
 					const solver = new Solver(tiles, this.grid);
-					const { marked, unique } = solver.markAmbiguousTiles();
+					if (this.solver_progress_callback) {
+						solver.progress_callback = this.solver_progress_callback;
+					}
+					const { marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
+						Math.min(ambiguous, ambiguousLimit)
+					);
 					if (unique) {
 						return randomRotate(marked, this.grid);
+					}
+					if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {
+						startTiles = marked;
+					} else if (numAmbiguous >= ambiguous) {
+						patienceLeft -= 1;
+					} else {
+						ambiguous = numAmbiguous;
+						patienceLeft = this.uniqueness_patience;
+						startTiles = marked;
+					}
+					if (patienceLeft === 0) {
+						break;
 					}
 					tiles = this.pregenerate_growingtree(
 						branchingAmount,
 						avoidObvious,
 						avoidStraights,
-						marked
+						startTiles
 					);
 				}
 			}
@@ -308,16 +424,22 @@ export class Generator {
 			return randomRotate(tiles, this.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
-			while (attempt < 100) {
+			while (attempt < this.max_attempts) {
 				attempt += 1;
+				if (this.generator_progress_callback) {
+					this.generator_progress_callback({ attempt, iteration: 1 });
+				}
 				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				const solver = new Solver(tiles, this.grid);
-				const { unique } = solver.markAmbiguousTiles();
+				if (this.solver_progress_callback) {
+					solver.progress_callback = this.solver_progress_callback;
+				}
+				const { unique } = solver.markAmbiguousTiles(1);
 				if (!unique) {
 					return randomRotate(tiles, this.grid);
 				}
 			}
-			throw 'Could not generate a puzzle with multiple solutions in 100 attempts. Maybe try again.';
+			throw `Could not generate a puzzle with multiple solutions in ${this.max_attempts} attempts. Maybe try again.`;
 		} else {
 			throw 'Unknown setting for solutionsNumber';
 		}

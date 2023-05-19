@@ -358,23 +358,22 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 */
 	self.setTileOrientation = function (tileIndex, orientation, animate = false) {
 		const tileState = self.tileStates[tileIndex];
+		const polygon = self.grid.polygon_at(tileIndex);
 		if (tileState === undefined) {
 			return;
 		}
-		const initial = self.tiles[tileIndex];
+		const initial = self.grid.rotate(self.tiles[tileIndex], tileState.data.rotations, tileIndex);
 		let newState = initial;
 		let rotations = 0;
-		while (newState !== orientation && rotations < self.grid.DIRECTIONS.length) {
+		while (newState !== orientation && rotations < polygon.directions.length) {
 			newState = self.grid.rotate(newState, 1, tileIndex);
 			rotations += 1;
 		}
-		if (rotations === self.grid.DIRECTIONS.length) {
+		if (rotations === polygon.directions.length) {
 			throw `No way to rotate tile at ${tileIndex} from ${initial} to ${orientation}`;
 		}
-		const current = tileState.data.rotations;
-		const delta = (rotations - current) % self.grid.DIRECTIONS.length;
-		if (delta !== 0 || animate) {
-			self.rotateTile(tileIndex, delta || self.grid.DIRECTIONS.length);
+		if (rotations !== 0 || animate) {
+			self.rotateTile(tileIndex, rotations === 0 ? polygon.directions.length : rotations);
 		}
 	};
 
@@ -420,7 +419,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 		}
 		let walls = 0;
 		let connections = 0;
-		for (let direction of self.grid.DIRECTIONS) {
+		const polygon = self.grid.polygon_at(tileIndex);
+		for (let direction of polygon.directions) {
 			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 			if (empty) {
 				walls += direction;
@@ -451,9 +451,9 @@ export function PipesGame(grid, tiles, savedProgress) {
 				walls += direction;
 			}
 		}
-		for (let r = 0; r < grid.DIRECTIONS.length; r++) {
+		for (let r = 0; r < polygon.directions.length; r++) {
 			const rotations = tileState.data.rotations + r;
-			const rotated = self.grid.rotate(tileState.data.tile, rotations, tileIndex);
+			const rotated = polygon.rotate(tileState.data.tile, rotations);
 			if ((rotated & connections) === connections && (rotated & walls) === 0) {
 				self.rotateTile(tileIndex, r);
 				break;
@@ -729,7 +729,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileState.toggleLocked();
 		}
 		if (targetState && assistant) {
-			for (let direction of self.grid.DIRECTIONS) {
+			for (let direction of self.grid.polygon_at(tileIndex).directions) {
 				const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 				if (empty) {
 					continue;

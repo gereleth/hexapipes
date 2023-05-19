@@ -124,13 +124,14 @@ describe('Test find neighbour', () => {
 			[3, [-1, -1, -1, -1, 2, 14, 7, 15]],
 			[6, [7, 14, 2, 13, 5, 17, 10, 18]],
 			// square tiles
-			[12, [-1, 1, -1, 0, -1, 4, -1, 5]],
-			[20, [-1, 9, -1, 8, -1, -1, -1, -1]]
+			[12, [1, 0, 4, 5]],
+			[20, [9, 8, -1, -1]]
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			for (let i = 0; i < 8; i++) {
+			const polygon = grid.polygon_at(index);
+			for (let i = 0; i < polygon.directions.length; i++) {
 				const neighbourExpected = neighbours[i];
-				const direction = grid.DIRECTIONS[i];
+				const direction = polygon.directions[i];
 				const { neighbour, empty } = grid.find_neighbour(index, direction);
 				const msg = `Index ${index}, direction ${direction} => neighbour ${neighbour} empty ${empty}`;
 				expect(empty, msg).toBe(neighbourExpected === -1 || grid.emptyCells.has(neighbour));
@@ -148,14 +149,15 @@ describe('Test find neighbour', () => {
 			[3, [0, 23, 11, 22, 2, 14, 7, 15]],
 			[6, [7, 14, 2, 13, 5, 17, 10, 18]],
 			// square tiles
-			[12, [-1, 1, -1, 0, -1, 4, -1, 5]],
-			[15, [-1, 0, -1, 3, -1, 7, -1, 4]],
-			[20, [-1, 9, -1, 8, -1, 0, -1, 1]]
+			[12, [1, 0, 4, 5]],
+			[15, [0, 3, 7, 4]],
+			[20, [9, 8, 0, 1]]
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			for (let i = 0; i < 8; i++) {
+			const polygon = grid.polygon_at(index);
+			for (let i = 0; i < neighbours.length; i++) {
 				const neighbourExpected = neighbours[i];
-				const direction = grid.DIRECTIONS[i];
+				const direction = polygon.directions[i];
 				const { neighbour, empty } = grid.find_neighbour(index, direction);
 				const msg = `Index ${index}, direction ${direction} => neighbour ${neighbour} empty ${empty}`;
 				expect(empty, msg).toBe(neighbourExpected === -1 || grid.emptyCells.has(neighbour));

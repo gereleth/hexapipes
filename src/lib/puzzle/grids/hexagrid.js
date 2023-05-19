@@ -282,6 +282,14 @@ export class HexaGrid {
 	}
 
 	/**
+	 * @param {Number} index
+	 * @returns {RegularPolygonTile}
+	 */
+	polygon_at(index) {
+		return HEXAGON;
+	}
+
+	/**
 	 * Compute tile orientation after a number of rotations
 	 * @param {Number} tile
 	 * @param {Number} rotations

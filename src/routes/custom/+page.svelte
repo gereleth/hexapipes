@@ -1,12 +1,13 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import Grids from '$lib/header/Grids.svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { createGrid } from '$lib/puzzle/grids/grids';
-	import { Generator } from '$lib/puzzle/generator';
+	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
 	import Instructions from '$lib/Instructions.svelte';
 
+	let state = 'idle';
+	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
 	let gridKind = 'hexagonal';
 	let width = 5;
 	let height = 5;
@@ -21,6 +22,8 @@
 
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
 	let puzzle;
+	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default}*/
+	let generatorComponent;
 	let solved = false;
 
 	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
@@ -31,7 +34,7 @@
 	let id = 0;
 	let animate = false;
 
-	async function generate() {
+	function generate() {
 		// ensure valid sizes
 		// the game does not handle XS wraps well, so each size must be at least 3
 		width = Math.max(width, wrap ? 3 : 1);
@@ -40,19 +43,40 @@
 			width += 1;
 		}
 		grid = createGrid(gridKind, width, height, wrap);
+		generatorComponent.generate({
+			branchingAmount,
+			avoidObvious,
+			avoidStraights,
+			solutionsNumber
+		});
+		state = 'generating';
+	}
+	/**
+	 *
+	 * @param {{detail: {tiles: Number[]}}} event
+	 */
+	async function onGenerated(event) {
 		id += 1;
-		const gen = new Generator(grid);
-		try {
-			tiles = gen.generate(branchingAmount, avoidObvious, avoidStraights, solutionsNumber);
-			errorMessage = '';
-		} catch (error) {
-			console.error(error);
-			errorMessage = '' + error;
-		}
+		tiles = event.detail.tiles;
+		errorMessage = '';
+		state = 'idle';
 		if (autosolve) {
 			await tick();
 			puzzle.unleashTheSolver();
 		}
+	}
+	/**
+	 *
+	 * @param {{detail: String}} event
+	 */
+	function onError(event) {
+		errorMessage = event.detail;
+		state = 'idle';
+	}
+
+	function onCancel() {
+		errorMessage = '';
+		state = 'idle';
 	}
 
 	function importPuzzle(event) {
@@ -106,13 +130,16 @@
 
 	function importFromFile(event) {
 		const files = event.target.files;
-		if (files.length <= 0) {
+		if (files === null || files.length <= 0) {
 			// no data selected
 			return false;
 		}
 		let fileReader = new FileReader();
 		fileReader.onload = importPuzzle;
-		fileReader.readAsText(files.item(0));
+		const file = files.item(0);
+		if (file !== null) {
+			fileReader.readAsText(file);
+		}
 	}
 
 	function startOver() {
@@ -120,7 +147,9 @@
 		puzzle.startOver();
 	}
 
-	onMount(() => generate());
+	onMount(() => {
+		generate();
+	});
 </script>
 
 <svelte:head>
@@ -146,6 +175,9 @@
 			<label for="octagonal">
 				<input type="radio" bind:group={gridKind} id="octagonal" value="octagonal" /> Octagonal
 			</label>
+			<label for="etrat">
+				<input type="radio" bind:group={gridKind} id="etrat" value="etrat" /> Elongated triangular
+			</label>
 		</label>
 	</div>
 	<label for="width">
@@ -160,7 +192,7 @@
 		Wrap
 		<input type="checkbox" name="wrap" id="wrap" bind:checked={wrap} />
 	</label>
-	<button on:click={generate}>Generate</button>
+	<button on:click={generate} disabled={state === 'generating'}>Generate</button>
 	<details>
 		<summary>More options</summary>
 		<label for="branching">
@@ -219,6 +251,16 @@
 	<label class="file-input" for="file-input"> Import from file </label>
 	<input class="file-input" id="file-input" type="file" on:change={importFromFile} />
 
+	<GeneratorComponent
+		bind:this={generatorComponent}
+		{gridKind}
+		{width}
+		{height}
+		{wrap}
+		on:generated={onGenerated}
+		on:error={onError}
+		on:cancel={onCancel}
+	/>
 	{#if errorMessage !== ''}
 		<div class="error">{errorMessage}</div>
 	{/if}

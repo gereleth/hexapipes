@@ -119,7 +119,7 @@
 	onMount(() => {
 		game.initializeBoard();
 		initialResize(innerWidth, innerHeight);
-		dispatch('initialized');
+		dispatch('start');
 		// unleashTheSolver();
 	});
 
@@ -293,8 +293,11 @@
 	<div class="solve-button">
 		{#if ms > -1}
 			<div>
-				Solved in {steps} steps, {msStats[Math.floor(msStats.length / 2)]} ms (median of {msStats.length}
-				runs from {msStats[0]} to {msStats[msStats.length - 1]} ms).
+				Solved in {steps} steps, {Math.round(10 * msStats[Math.floor(msStats.length / 2)]) / 10} ms (median
+				of {msStats.length}
+				runs from {Math.round(10 * msStats[0]) / 10} to {Math.round(
+					10 * msStats[msStats.length - 1]
+				) / 10} ms).
 			</div>
 			<div>Number of solutions: {numsol}</div>
 			{#if numsol > 1}

@@ -8,7 +8,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Starts with correct possible states from initial orientation - deadend', () => {
 		const index = 0;
 		const initial = 1;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		expect(cell.possible.size).toBe(6);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([1, 2, 4, 8, 16, 32]));
 	});
@@ -16,7 +16,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Starts with correct possible states from initial orientation - sharp turn', () => {
 		const index = 0;
 		const initial = 3;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		expect(cell.possible.size).toBe(6);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([3, 6, 12, 24, 48, 33]));
 	});
@@ -24,7 +24,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Starts with correct possible states from initial orientation - straight', () => {
 		const index = 0;
 		const initial = 9;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		expect(cell.possible.size).toBe(3);
 		expect([...cell.possible]).toEqual(expect.arrayContaining([9, 18, 36]));
 	});
@@ -32,7 +32,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Drops configurations that contradict walls - deadend', () => {
 		const index = 0;
 		const initial = 1;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addWall(8);
 		cell.applyConstraints();
 		expect(cell.possible.size).toBe(5);
@@ -42,7 +42,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Drops configurations that contradict walls - straight', () => {
 		const index = 0;
 		const initial = 9;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addWall(2);
 		cell.applyConstraints();
 		expect(cell.possible.size).toBe(2);
@@ -52,7 +52,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Drops configurations that contradict walls - sharp turn', () => {
 		const index = 0;
 		const initial = 3;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addWall(2);
 		cell.applyConstraints();
 		expect(cell.possible.size).toBe(4);
@@ -62,7 +62,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Drops configurations that contradict connections - deadend', () => {
 		const index = 0;
 		const initial = 1;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addConnection(8);
 		cell.applyConstraints();
 		expect(cell.possible.size).toBe(1);
@@ -72,7 +72,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Drops configurations that contradict connections - straight', () => {
 		const index = 0;
 		const initial = 9;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addConnection(2);
 		cell.applyConstraints();
 		expect(cell.possible.size).toBe(1);
@@ -82,7 +82,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Drops configurations that contradict connections - sharp turn', () => {
 		const index = 0;
 		const initial = 3;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addConnection(2);
 		cell.applyConstraints();
 		expect(cell.possible.size).toBe(2);
@@ -92,7 +92,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Reports correct added features - deadend', () => {
 		const index = 0;
 		const initial = 1;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addConnection(2);
 		const { addedConnections, addedWalls } = cell.applyConstraints();
 		expect(addedConnections).toBe(0);
@@ -102,7 +102,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Reports correct added features - straight', () => {
 		const index = 0;
 		const initial = 9;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addConnection(2);
 		const { addedConnections, addedWalls } = cell.applyConstraints();
 		expect(addedConnections).toBe(16);
@@ -112,7 +112,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Reports correct added features - wide turn', () => {
 		const index = 0;
 		const initial = 5;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addConnection(2);
 		const { addedConnections, addedWalls } = cell.applyConstraints();
 		expect(addedConnections).toBe(0);
@@ -122,7 +122,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Reports correct added features - X', () => {
 		const index = 0;
 		const initial = 54;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addWall(1);
 		const { addedConnections, addedWalls } = cell.applyConstraints();
 		expect(addedConnections).toBe(54);
@@ -132,7 +132,7 @@ describe('Test hexagrid cell constraints', () => {
 	it('Throws error if no orientations are possible - X', () => {
 		const index = 0;
 		const initial = 54;
-		let cell = new Cell(grid, index, initial);
+		let cell = new Cell(grid.polygon_at(index), initial);
 		cell.addWall(3);
 		expect(cell.applyConstraints).toThrowError('No orientations possible');
 	});
@@ -142,15 +142,14 @@ describe('Test cell cloning', () => {
 	const grid = new HexaGrid(1, 1, false);
 
 	it('Makes a copy of the cell', () => {
-		const cell = new Cell(grid, 0, 1);
+		const cell = new Cell(grid.polygon_at(0), 1);
 		const clone = cell.clone();
 		expect(clone.initial).toBe(cell.initial);
-		expect(clone.index).toBe(cell.index);
 		expect([...clone.possible]).toEqual(expect.arrayContaining([...cell.possible]));
 	});
 
 	it('Removing orientation from cell does not affect clone', () => {
-		const cell = new Cell(grid, 0, 1);
+		const cell = new Cell(grid.polygon_at(0), 1);
 		const possible = [...cell.possible];
 		const clone = cell.clone();
 		cell.possible.delete(1);
@@ -159,7 +158,7 @@ describe('Test cell cloning', () => {
 	});
 
 	it('Removing orientation from clone does not affect cell', () => {
-		const cell = new Cell(grid, 0, 1);
+		const cell = new Cell(grid.polygon_at(0), 1);
 		const possible = [...cell.possible];
 		const clone = cell.clone();
 		clone.possible.delete(1);

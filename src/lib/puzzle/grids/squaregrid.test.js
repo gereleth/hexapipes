@@ -108,9 +108,10 @@ describe('Test find neighbour', () => {
 			[4, [5, 0, -1, 8]]
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			for (let i = 0; i < 4; i++) {
+			const polygon = grid.polygon_at(index);
+			for (let i = 0; i < polygon.directions.length; i++) {
 				const neighbourExpected = neighbours[i];
-				const direction = grid.DIRECTIONS[i];
+				const direction = polygon.directions[i];
 				const { neighbour, empty } = grid.find_neighbour(index, direction);
 				expect(empty).toBe(neighbourExpected === -1);
 				expect(neighbour).toBe(neighbourExpected);
@@ -132,9 +133,10 @@ describe('Test find neighbour', () => {
 			[4, [5, 0, 7, 8]]
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			for (let i = 0; i < 4; i++) {
+			const polygon = grid.polygon_at(index);
+			for (let i = 0; i < polygon.directions.length; i++) {
 				const neighbourExpected = neighbours[i];
-				const direction = grid.DIRECTIONS[i];
+				const direction = polygon.directions[i];
 				const { neighbour, empty } = grid.find_neighbour(index, direction);
 				expect(empty).toBe(false);
 				expect(neighbour).toBe(neighbourExpected);

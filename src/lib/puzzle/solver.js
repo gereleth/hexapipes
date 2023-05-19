@@ -1,4 +1,5 @@
 import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
+import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 
 /* Constraint Violation Exceptions */
 
@@ -8,7 +9,7 @@ import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
  */
 function NoOrientationsPossibleException(cell) {
 	this.name = 'NoOrientationsPossible';
-	this.message = `No orientations possible for tile ${cell.initial} at index ${cell.index}`;
+	this.message = `No orientations possible for tile ${cell.initial}`;
 }
 
 function LoopDetectedException() {
@@ -38,14 +39,21 @@ function IslandDetectedException() {
  */
 
 /**
+ * Solver progress tracks current counts of solved/guessed/ambiguous tiles
+ * @typedef {Object} SolverProgress
+ * @property {Number} total
+ * @property {Number} solved
+ * @property {Number} guessed
+ * @property {Number} ambiguous
+ */
+
+/**
  * @constructor
- * @param {import('$lib/puzzle/grids/grids').Grid} grid
- * @param {Number} index - tile index in grid
+ * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
  * @param {Number} initial - initial orientation
  */
-export function Cell(grid, index, initial) {
+export function Cell(polygon, initial) {
 	let self = this;
-	self.index = index;
 	self.initial = initial;
 
 	self.possible = new Set();
@@ -53,15 +61,12 @@ export function Cell(grid, index, initial) {
 		let rotated = initial;
 		while (!self.possible.has(rotated)) {
 			self.possible.add(rotated);
-			rotated = grid.rotate(rotated, 1, index);
+			rotated = polygon.rotate(rotated, 1);
 		}
 	} else {
 		// special case of null tile - can have any tile type/orientation
 		// TODO let the grid supply this set depending on index
-		self.possible = new Set();
-		for (let i = 1; i < grid.fullyConnected(index); i++) {
-			self.possible.add(i);
-		}
+		self.possible = new Set([...polygon.tileTypes.keys()]);
 	}
 	self.walls = 0;
 	self.connections = 0;
@@ -93,15 +98,34 @@ export function Cell(grid, index, initial) {
 	};
 
 	/**
-	 * Removes orientations if they don't have at least one of the mentioned walls
+	 * Removes orientations if they only connect specified directions
 	 * @param {Number} directions
 	 */
-	self.mustHaveSomeWalls = function (directions) {
+	self.mustHaveOtherConnections = function (directions) {
+		let removed = false;
 		for (let orientation of self.possible) {
 			if ((orientation & directions) === orientation) {
 				self.possible.delete(orientation);
+				removed = true;
 			}
 		}
+		return removed;
+	};
+
+	/**
+	 * Removes orientations if they don't have at least one of the mentioned walls
+	 * @param {Number} directions
+	 * @returns {Boolean} - true if removed some orientations
+	 */
+	self.mustHaveSomeWalls = function (directions) {
+		let removed = false;
+		for (let orientation of self.possible) {
+			if ((orientation & directions) === directions) {
+				self.possible.delete(orientation);
+				removed = true;
+			}
+		}
+		return removed;
 	};
 
 	/**
@@ -137,7 +161,7 @@ export function Cell(grid, index, initial) {
 		if (newPossible.size === 0) {
 			throw new NoOrientationsPossibleException(self);
 		}
-		const full = grid.fullyConnected(index);
+		const full = polygon.fully_connected;
 		let newWalls = full;
 		let newConnections = full;
 		newPossible.forEach((orientation) => {
@@ -156,7 +180,7 @@ export function Cell(grid, index, initial) {
 	 * @returns {Cell}
 	 */
 	self.clone = function () {
-		const clone = new Cell(grid, self.index, 0);
+		const clone = new Cell(polygon, 0);
 		clone.initial = self.initial;
 		clone.possible = new Set(self.possible);
 		clone.walls = self.walls;
@@ -167,6 +191,8 @@ export function Cell(grid, index, initial) {
 	return self;
 }
 
+const emptyCallback = (/**@type {SolverProgress} */ progress) => {};
+
 /**
  * @constructor
  * @param {Number[]} tiles - tile index in grid
@@ -176,6 +202,7 @@ export function Solver(tiles, grid) {
 	let self = this;
 	self.tiles = tiles;
 	self.grid = grid;
+	self.progress_callback = emptyCallback;
 
 	self.UNSOLVED = -1;
 	self.AMBIGUOUS = -2;
@@ -185,8 +212,6 @@ export function Solver(tiles, grid) {
 
 	/** @type {Map<Number, Set<Number>>} */
 	self.components = new Map([]);
-
-	const directions = new Set(grid.DIRECTIONS);
 
 	/** @type {Number[]} */
 	self.solution = tiles.map(() => self.UNSOLVED);
@@ -200,7 +225,8 @@ export function Solver(tiles, grid) {
 	// ruling out orientations connecting only deadends messes up
 	// solving very small instances
 	// so it's only enabled if there's enough tiles
-	self.checkDeadendConnections = self.grid.total > self.grid.DIRECTIONS.length + 1;
+	self.checkDeadendConnections =
+		self.grid.total - self.grid.emptyCells.size > self.grid.DIRECTIONS.length + 1;
 
 	/**
 	 * Returns the cell at index. Initializes the cell if necessary.
@@ -212,7 +238,7 @@ export function Solver(tiles, grid) {
 		if (cell !== undefined) {
 			return cell;
 		}
-		cell = new Cell(self.grid, index, self.tiles[index]);
+		cell = new Cell(self.grid.polygon_at(index), self.tiles[index]);
 		self.unsolved.set(index, cell);
 		self.doLocalDeductions(index, cell);
 		return cell;
@@ -232,27 +258,64 @@ export function Solver(tiles, grid) {
 		if (component === neighbourComponent) {
 			throw new LoopDetectedException();
 		}
+		// loop avoidance logic
+		// for every joining cell check if it has neighbours already in component
+		// and add a wall between them in this case
+
+		// also check if any adjacent tiles could form a bridge between tiles
+		// already in component and forbid that
+		/** @type {Set<Number>} */
+		const adjacentIndices = new Set();
 		for (let otherIndex of neighbourComponent) {
 			self.components.set(otherIndex, component);
 			component.add(otherIndex);
-			// loop avoidance logic
-			// for every joining cell check if it has neighbours already in component
-			// and add a wall between them in this case
 			const cell = self.getCell(otherIndex);
 			const occupiedDirections = cell.walls + cell.connections;
 			let forbidden = 0;
-			for (let direction of self.grid.DIRECTIONS) {
+			for (let direction of self.grid.polygon_at(otherIndex).directions) {
 				if ((occupiedDirections & direction) > 0) {
 					continue;
 				}
-				const nIndex = self.grid.find_neighbour(otherIndex, direction).neighbour;
-				if (component.has(nIndex)) {
+				const adjacent = self.grid.find_neighbour(otherIndex, direction);
+				if (adjacent.empty) {
+					continue;
+				}
+				if (component.has(adjacent.neighbour)) {
 					forbidden += direction;
+				} else {
+					adjacentIndices.add(adjacent.neighbour);
 				}
 			}
 			if (forbidden > 0) {
 				cell.mustHaveAllWalls(forbidden);
 				self.dirty.add(otherIndex);
+			}
+		}
+		for (let adjacentIndex of adjacentIndices) {
+			const cell = self.getCell(adjacentIndex);
+			const occupiedDirections = cell.walls + cell.connections;
+			let forbidden = 0;
+			let forbiddenCount = 0;
+			for (let direction of self.grid.polygon_at(adjacentIndex).directions) {
+				if ((occupiedDirections & direction) > 0) {
+					continue;
+				}
+				const neighbour = self.grid.find_neighbour(adjacentIndex, direction).neighbour;
+				if (component.has(neighbour)) {
+					forbidden += direction;
+					forbiddenCount += 1;
+				}
+			}
+			if (forbiddenCount > 1) {
+				if (cell.mustHaveSomeWalls(forbidden)) {
+					self.dirty.add(adjacentIndex);
+				}
+				// console.log({
+				// 	forbidden,
+				// 	adjacentIndex,
+				// 	tiles: [...component],
+				// 	possible: [...cell.possible]
+				// });
 			}
 		}
 	};
@@ -268,20 +331,23 @@ export function Solver(tiles, grid) {
 			self.dirty.add(index);
 			return;
 		}
-
-		const tile = self.grid.tileTypes.get(cell.initial);
+		const polygon = self.grid.polygon_at(index);
+		const tileType = polygon.tileTypes.get(cell.initial);
+		if (tileType === undefined) {
+			throw 'Unknown tile type at index ' + index;
+		}
 		const possibleBefore = cell.possible.size;
 
 		// collect neighbour tile types
-		/** @type {Number[]} */
+		/** @type {(import('$lib/puzzle/grids/polygonutils').TileType|null)[]} */
 		const neighbourTiles = [];
-		const full = grid.fullyConnected(index);
+		const full = polygon.fully_connected;
 		let walls = 0;
 		let invalidDirections = 0;
-		for (let direction of self.grid.DIRECTIONS) {
+		for (let direction of polygon.directions) {
 			if ((full & direction) === 0) {
 				// invalid direction that should be disregarged
-				neighbourTiles.push(self.UNSOLVED);
+				neighbourTiles.push(null);
 				invalidDirections += direction;
 				continue;
 			}
@@ -289,7 +355,9 @@ export function Solver(tiles, grid) {
 			if (empty) {
 				walls += direction;
 			}
-			neighbourTiles.push(self.grid.tileTypes.get(self.tiles[neighbour]) || self.UNSOLVED);
+			neighbourTiles.push(
+				self.grid.polygon_at(neighbour).tileTypes.get(self.tiles[neighbour]) || null
+			);
 		}
 		// remove orientations that contradict outer walls
 		// any grid
@@ -305,68 +373,50 @@ export function Solver(tiles, grid) {
 		if (self.checkDeadendConnections) {
 			let deadendConnections = 0;
 			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (neighbourTile === self.grid.T1) {
-					deadendConnections += self.grid.DIRECTIONS[i];
+				if (neighbourTile?.isDeadend) {
+					deadendConnections += polygon.directions[i];
 				}
 			}
-			cell.mustHaveSomeWalls(deadendConnections);
+			cell.mustHaveOtherConnections(deadendConnections);
 		}
 
 		// Hexagrid specific tricks
-		if (self.grid instanceof HexaGrid) {
+		if (self.grid instanceof HexaGrid || self.grid instanceof OctaGrid) {
 			// can't connect middle prongs to a sharp turns tile
-			if ([self.grid.T4K, self.grid.T3w, self.grid.T5, self.grid.T4psi].some((x) => x === tile)) {
+			if (tileType.hasThreeOrMoreAdjacentConnections) {
 				for (let [i, neighbourTile] of neighbourTiles.entries()) {
-					if (
-						[self.grid.T4K, self.grid.T2v, self.grid.T3w, self.grid.T5, self.grid.T4X].some(
-							(x) => x === neighbourTile
-						)
-					) {
-						const direction = self.grid.DIRECTIONS[i];
+					if (neighbourTile?.hasOnlyAdjacentConnections) {
+						const direction = polygon.directions[i];
 						const forbidden =
-							direction + self.grid.rotate(direction, 1) + self.grid.rotate(direction, -1);
-						cell.mustHaveSomeWalls(forbidden);
+							direction + polygon.rotate(direction, 1) + polygon.rotate(direction, -1);
+						cell.mustHaveOtherConnections(forbidden);
 					}
 				}
 			}
 
 			// must connect psi-likes when they are adjacent
-			if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some((x) => x === tile)) {
+			if (tileType.hasNoAdjacentWalls) {
 				for (let [i, neighbourTile] of neighbourTiles.entries()) {
-					if (
-						[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
-							(x) => x === neighbourTile
-						)
-					) {
-						const direction = self.grid.DIRECTIONS[i];
+					if (neighbourTile?.hasNoAdjacentWalls) {
+						const direction = polygon.directions[i];
 						cell.mustHaveAllConnections(direction);
 					}
 				}
 			}
 
 			// never make two adjacent walls next to a psi & co
-			if ([self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].every((x) => x !== tile)) {
+			if (!tileType.hasNoAdjacentWalls) {
 				for (let [i, neighbourTile] of neighbourTiles.entries()) {
-					if (
-						[self.grid.T4psi, self.grid.T4X, self.grid.T5, self.grid.T3Y].some(
-							(x) => x === neighbourTile
-						)
-					) {
-						const direction = self.grid.DIRECTIONS[i];
+					if (neighbourTile?.hasNoAdjacentWalls) {
+						const direction = polygon.directions[i];
 						let forbidden = 0;
-						if (
-							[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
-								(x) => x === neighbourTiles[(i + 1) % 6]
-							)
-						) {
-							forbidden += self.grid.DIRECTIONS[(i + 1) % 6];
+						const i1 = (i + 1) % polygon.directions.length;
+						if (neighbourTiles[i1]?.hasNoAdjacentConnections) {
+							forbidden += polygon.directions[i1];
 						}
-						if (
-							[self.grid.T1, self.grid.T2c, self.grid.T2I].some(
-								(x) => x === neighbourTiles[(i + 5) % 6]
-							)
-						) {
-							forbidden += self.grid.DIRECTIONS[(i + 5) % 6];
+						const i2 = (i + polygon.directions.length - 1) % polygon.directions.length;
+						if (neighbourTiles[i2]?.hasNoAdjacentConnections) {
+							forbidden += polygon.directions[i2];
 						}
 						if (forbidden === 0) {
 							continue;
@@ -401,6 +451,7 @@ export function Solver(tiles, grid) {
 			if (cell === undefined) {
 				continue;
 			}
+			const polygon = self.grid.polygon_at(index);
 			// console.log('start processing dirty cell at', index, [...self.dirty]);
 			// console.log({
 			// 	walls: cell.walls,
@@ -415,7 +466,7 @@ export function Solver(tiles, grid) {
 			}
 			// add walls to walled off neighbours
 			if (addedWalls > 0) {
-				for (let direction of self.grid.DIRECTIONS) {
+				for (let direction of polygon.directions) {
 					if ((direction & addedWalls) > 0) {
 						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
 						if (empty) {
@@ -430,7 +481,7 @@ export function Solver(tiles, grid) {
 			}
 			// add connections to connected neighbours
 			if (addedConnections > 0) {
-				for (let direction of self.grid.DIRECTIONS) {
+				for (let direction of polygon.directions) {
 					if ((direction & addedConnections) > 0) {
 						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
 						if (empty) {
@@ -460,12 +511,88 @@ export function Solver(tiles, grid) {
 				self.unsolved.delete(index);
 				self.components.delete(index);
 			}
-			// console.log({ index, orientation, final });
+			// console.log({ index, orientation, final, possible: [...cell.possible] });
 			yield { index, orientation, final };
 			self.dirty.delete(index);
+			// if (self.dirty.size === 0) {
+			// 	// whip out heavy logic
+			// 	self.avoidIslands();
+			// }
 		}
 	};
 
+	/**
+	 * Iterate over connected components and try to figure something out
+	 */
+	self.avoidIslands = function () {
+		const components = new Set(self.components.values());
+		const potentialIslands = new Set();
+		for (let component of components) {
+			if (component.size > 1) {
+				continue;
+			}
+			const index = component.values().next().value;
+			const cell = self.getCell(index);
+			const remainingConnections = cell.possible.values().next().value - cell.connections;
+			const tileType = self.grid.polygon_at(index).tileTypes.get(remainingConnections);
+			if (tileType?.isDeadend) {
+				potentialIslands.add(index);
+			}
+		}
+		const adjacentIndices = new Set();
+		for (let index of potentialIslands) {
+			const cell = self.getCell(index);
+			const polygon = self.grid.polygon_at(index);
+			const occupiedDirections = cell.connections + cell.walls;
+			let forbidden = 0;
+			for (let direction of polygon.directions) {
+				if ((direction & occupiedDirections) > 0) {
+					continue;
+				}
+				const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+				if (empty) {
+					continue;
+				}
+				if (potentialIslands.has(neighbour)) {
+					forbidden += direction;
+				} else {
+					adjacentIndices.add(neighbour);
+				}
+			}
+			if (forbidden > 0) {
+				if (cell.mustHaveSomeWalls(forbidden)) {
+					// console.log({ index, forbidden, possible: [...cell.possible] });
+					self.dirty.add(index);
+				}
+			}
+		}
+		for (let index of adjacentIndices) {
+			const cell = self.getCell(index);
+			const polygon = self.grid.polygon_at(index);
+			const occupiedDirections = cell.connections + cell.walls;
+			let forbidden = 0;
+			let forbiddenCount = 0;
+			for (let direction of polygon.directions) {
+				if ((direction & occupiedDirections) > 0) {
+					continue;
+				}
+				const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+				if (empty) {
+					continue;
+				}
+				if (potentialIslands.has(neighbour)) {
+					forbidden += direction;
+					forbiddenCount += 1;
+				}
+			}
+			if (forbiddenCount > 1) {
+				if (cell.mustHaveOtherConnections(forbidden)) {
+					// console.log({ index, forbidden, possible: [...cell.possible], type: 'adjacent' });
+					self.dirty.add(index);
+				}
+			}
+		}
+	};
 	/**
 	 * Makes a copy of the solver
 	 * @return {Solver}
@@ -615,19 +742,63 @@ export function Solver(tiles, grid) {
 		}
 	};
 
+	self.shortTrialsIndex = 0;
+	/**
+	 * Check orientations of unsolved cells to see if they produce contradictions quickly
+	 * Returns true if solver manages to exclude some orientation, false otherwise
+	 * @param {Number[]} marked
+	 * @returns {boolean}
+	 */
+	self.doShortTrials = function (marked = []) {
+		for (let i = this.shortTrialsIndex; i < this.shortTrialsIndex + this.grid.total; i++) {
+			const index = i % this.grid.total;
+			const cell = self.unsolved.get(index);
+			if (cell === undefined) {
+				continue;
+			}
+			if (marked[index] === this.AMBIGUOUS) {
+				continue;
+			}
+			for (let orientation of cell.possible) {
+				const clone = self.clone();
+				const cloneCell = clone.unsolved.get(index);
+				if (cloneCell === undefined) {
+					throw 'Clone cell is undefined';
+				}
+				cloneCell.possible = new Set([orientation]);
+				clone.dirty.add(index);
+				try {
+					for (let step of clone.processDirtyCells()) {
+						// do nothing, hope for an error
+					}
+				} catch (e) {
+					cell.possible.delete(orientation);
+					self.dirty.add(index);
+					self.shortTrialsIndex = index;
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+
 	/**
 	 * Solve the puzzle but mark ambiguous areas with a special value
 	 * Does not yield steps
 	 * If the solution is unique then marked == solution
+	 * @param {Number} [ambiguousTilesLimit = 0] - return if we find at least this many ambiguous tiles. Not all ambiguous tiles may be marked in this case. Default 0 means no limit, find all ambiguities.
 	 * @returns {{
 	 * 	marked: Number[],
 	 *  solvable: boolean,
 	 * 	unique: boolean,
-	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique,
+	 *  numAmbiguous: Number
+	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique, number of ambiguous tiles
 	 */
-	self.markAmbiguousTiles = function () {
+	self.markAmbiguousTiles = function (ambiguousTilesLimit = 0) {
 		let marked = [...self.solution];
 		let unique = true;
+		let numAmbiguous = 0;
+		const total = self.grid.total - self.grid.emptyCells.size;
 		// process what we can for a start
 		try {
 			if (self.dirty.size === 0) {
@@ -656,7 +827,7 @@ export function Solver(tiles, grid) {
 				}
 			}
 		} catch (error) {
-			return { marked, solvable: false, unique: false };
+			return { marked, solvable: false, unique: false, numAmbiguous };
 		}
 		// console.log('done initial deductions, unsolved size', self.unsolved.size);
 		// console.log(solution);
@@ -674,9 +845,18 @@ export function Solver(tiles, grid) {
 				break;
 			}
 			const { index, guess, solver } = lastTrial;
+			self.progress_callback({
+				total,
+				ambiguous: numAmbiguous,
+				guessed: trials.length - 1,
+				solved: total - trials[0].solver.unsolved.size
+			});
 			// console.log('unsolved at start', new Map(solver.unsolved.entries()));
 			try {
 				for (let _ of solver.processDirtyCells()) {
+				}
+				if (trials.length === 1 && solver.doShortTrials()) {
+					continue;
 				}
 				// console.log('unsolved after cleanup', new Map(solver.unsolved.entries()));
 			} catch (error) {
@@ -698,16 +878,29 @@ export function Solver(tiles, grid) {
 			if (solver.unsolved.size == 0) {
 				// got a solution
 				// console.log('got a solution');
+				numAmbiguous = 0;
 				for (let i = 0; i < marked.length; i++) {
 					if (marked[i] === self.UNSOLVED) {
 						marked[i] = solver.solution[i];
 					} else if (marked[i] === self.AMBIGUOUS) {
+						numAmbiguous += 1;
 						// do nothing
 					} else if (marked[i] !== solver.solution[i]) {
 						// console.log('ambiguous tile', i);
 						marked[i] = self.AMBIGUOUS;
 						unique = false;
+						numAmbiguous += 1;
 					}
+				}
+				if (ambiguousTilesLimit > 0 && numAmbiguous >= ambiguousTilesLimit) {
+					self.progress_callback({
+						total,
+						ambiguous: numAmbiguous,
+						guessed: trials.length - 1,
+						solved:
+							trials.length === 1 ? total - numAmbiguous : total - trials[0].solver.unsolved.size
+					});
+					return { marked, solvable: true, unique, numAmbiguous };
 				}
 				if (trials.length > 1) {
 					// console.log('checking other option to', index, guess);
@@ -759,6 +952,12 @@ export function Solver(tiles, grid) {
 			}
 		}
 		const solvable = marked.every((tile) => tile !== self.UNSOLVED);
-		return { marked, solvable, unique };
+		self.progress_callback({
+			total,
+			ambiguous: numAmbiguous,
+			guessed: 0,
+			solved: total - numAmbiguous
+		});
+		return { marked, solvable, unique, numAmbiguous };
 	};
 }

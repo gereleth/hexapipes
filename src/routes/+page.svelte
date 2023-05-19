@@ -125,6 +125,15 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-05-19</em> New grid with <a href="/etrat/5">elongated triangular tiling</a>.
+			<ul>
+				<li>
+					A combination of square and triangular tiles creates pretty challenging puzzles! These are
+					considerably harder than other grids so far.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-04-22</em> Islands and disconnects highlighting.
 			<ul>
 				<li>

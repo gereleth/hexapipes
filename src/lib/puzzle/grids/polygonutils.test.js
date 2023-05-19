@@ -216,3 +216,141 @@ describe('Test octagrid square tile get directions', () => {
 		expect(square.get_directions(tile, 2)).toEqual(expect.arrayContaining([32, 128]));
 	});
 });
+
+describe('Test square tile types', () => {
+	const square = new RegularPolygonTile(4, 0, 0.5);
+
+	it('Has correct tiles count', () => {
+		expect(square.tileTypes.size).toBe(15);
+	});
+
+	it('Has correct types count', () => {
+		const types = new Set([...square.tileTypes.values()].map((x) => x.str));
+		expect(types.size).toBe(5);
+	});
+
+	it('Deadend tile', () => {
+		for (let tile of [1, 2, 4, 8]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('1000');
+			expect(type?.isDeadend).toBe(true);
+			expect(type?.isFullyConnected).toBe(false);
+			expect(type?.isStraight).toBe(false);
+			expect(type?.hasNoAdjacentConnections).toBe(true);
+			expect(type?.hasNoAdjacentWalls).toBe(false);
+			expect(type?.hasOnlyAdjacentConnections).toBe(false);
+		}
+	});
+
+	it('Turn tile', () => {
+		for (let tile of [3, 6, 9, 12]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('1100');
+			expect(type?.isDeadend).toBe(false);
+			expect(type?.isFullyConnected).toBe(false);
+			expect(type?.isStraight).toBe(false);
+			expect(type?.hasNoAdjacentConnections).toBe(false);
+			expect(type?.hasNoAdjacentWalls).toBe(false);
+			expect(type?.hasOnlyAdjacentConnections).toBe(true);
+		}
+	});
+
+	it('Straight tile', () => {
+		for (let tile of [5, 10]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('1010');
+			expect(type?.isDeadend).toBe(false);
+			expect(type?.isFullyConnected).toBe(false);
+			expect(type?.isStraight).toBe(true);
+			expect(type?.hasNoAdjacentConnections).toBe(true);
+			expect(type?.hasNoAdjacentWalls).toBe(true);
+			expect(type?.hasOnlyAdjacentConnections).toBe(false);
+		}
+	});
+
+	it('T tile', () => {
+		for (let tile of [14, 13, 11, 7]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('1110');
+			expect(type?.isDeadend).toBe(false);
+			expect(type?.isFullyConnected).toBe(false);
+			expect(type?.isStraight).toBe(false);
+			expect(type?.hasNoAdjacentConnections).toBe(false);
+			expect(type?.hasNoAdjacentWalls).toBe(true);
+			expect(type?.hasOnlyAdjacentConnections).toBe(true);
+		}
+	});
+
+	it('+ tile', () => {
+		for (let tile of [15]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('1111');
+			expect(type?.isDeadend).toBe(false);
+			expect(type?.isFullyConnected).toBe(true);
+			expect(type?.isStraight).toBe(false);
+			expect(type?.hasNoAdjacentConnections).toBe(false);
+			expect(type?.hasNoAdjacentWalls).toBe(true);
+			expect(type?.hasOnlyAdjacentConnections).toBe(true);
+		}
+	});
+});
+
+describe('Test triangle tile types', () => {
+	const square = new RegularPolygonTile(3, 0, 0.5, [1, 4, 8]);
+
+	it('Has correct tiles count', () => {
+		expect(square.tileTypes.size).toBe(7);
+	});
+
+	it('Has correct types count', () => {
+		const types = new Set([...square.tileTypes.values()].map((x) => x.str));
+		expect(types.size).toBe(3);
+	});
+
+	it('Deadend tile', () => {
+		for (let tile of [1, 4, 8]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('100');
+			expect(type?.isDeadend).toBe(true);
+			expect(type?.isFullyConnected).toBe(false);
+			expect(type?.isStraight).toBe(false);
+			expect(type?.hasNoAdjacentConnections).toBe(true);
+			expect(type?.hasNoAdjacentWalls).toBe(false);
+			expect(type?.hasOnlyAdjacentConnections).toBe(false);
+		}
+	});
+
+	it('Turn tile', () => {
+		for (let tile of [5, 9, 12]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('110');
+			expect(type?.isDeadend).toBe(false);
+			expect(type?.isFullyConnected).toBe(false);
+			expect(type?.isStraight).toBe(false);
+			expect(type?.hasNoAdjacentConnections).toBe(false);
+			expect(type?.hasNoAdjacentWalls).toBe(true);
+			expect(type?.hasOnlyAdjacentConnections).toBe(true);
+		}
+	});
+
+	it('Fully connected tile', () => {
+		for (let tile of [13]) {
+			const type = square.tileTypes.get(tile);
+			expect(type).toBeDefined();
+			expect(type?.str).toBe('111');
+			expect(type?.isDeadend).toBe(false);
+			expect(type?.isFullyConnected).toBe(true);
+			expect(type?.isStraight).toBe(false);
+			expect(type?.hasNoAdjacentConnections).toBe(false);
+			expect(type?.hasNoAdjacentWalls).toBe(true);
+			expect(type?.hasOnlyAdjacentConnections).toBe(true);
+		}
+	});
+});
