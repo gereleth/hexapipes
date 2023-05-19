@@ -161,7 +161,7 @@
 	{progressStoreName}
 	bind:this={puzzle}
 	on:solved={stop}
-	on:initialized={start}
+	on:start={start}
 	on:progress={saveProgress}
 	on:pause={() => solves.pause(data.date)}
 />
