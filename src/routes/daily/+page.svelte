@@ -180,7 +180,7 @@
 				<a href="/daily" on:click={() => document.location.reload()}>Next puzzle</a>
 			{:else}
 				Next daily puzzle in {timeTillNextPuzzle}.
-				<a href="/hexagonal/5">Play some others for now</a>
+				<a href="/{data.grid}{data.wrap ? '-wrap' : ''}/5">Play some others for now</a>
 			{/if}
 		{/if}
 	</div>
