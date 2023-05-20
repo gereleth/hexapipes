@@ -164,7 +164,8 @@
 				rotations: data.rotations,
 				locked: data.locked,
 				color: data.color,
-				edgeMarks: data.edgeMarks
+				edgeMarks: data.edgeMarks,
+				reflectEdgeMarks: data.reflectEdgeMarks
 			};
 		});
 		dispatch('progress', {

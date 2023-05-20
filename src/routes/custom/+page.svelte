@@ -178,6 +178,9 @@
 			<label for="etrat">
 				<input type="radio" bind:group={gridKind} id="etrat" value="etrat" /> Elongated triangular
 			</label>
+			<label for="cube">
+				<input type="radio" bind:group={gridKind} id="cube" value="cube" /> Cube
+			</label>
 		</label>
 	</div>
 	<label for="width">
