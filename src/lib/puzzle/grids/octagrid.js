@@ -331,6 +331,13 @@ export class OctaGrid {
 	}
 
 	/**
+	 * @param {Number} index
+	 */
+	getTileTransformCSS(index) {
+		return null;
+	}
+
+	/**
 	 *
 	 * @param {Number} tile
 	 * @param {Number} rotations
@@ -374,20 +381,22 @@ export class OctaGrid {
 	 * Compute number of rotations for orienting a tile with "click to orient" control mode
 	 * @param {Number} tile
 	 * @param {Number} old_rotations
-	 * @param {Number} new_angle
+	 * @param {Number} tx
+	 * @param {Number} ty
 	 * @param {Number} index
 	 */
-	clickOrientTile(tile, old_rotations, new_angle, index = 0) {
-		return this.polygon_at(index).click_orient_tile(tile, old_rotations, new_angle);
+	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
+		return this.polygon_at(index).click_orient_tile(tile, old_rotations, Math.atan2(-ty, tx));
 	}
 
 	/**
 	 * Returns coordinates of endpoints of edgemark line
 	 * @param {Number} direction
+	 * @param {Boolean} isWall
 	 * @param {Number} index
 	 * @returns
 	 */
-	getEdgemarkLine(direction, index = 0) {
+	getEdgemarkLine(direction, isWall, index = 0) {
 		return this.polygon_at(index).get_edgemark_line(direction);
 	}
 

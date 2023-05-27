@@ -356,7 +356,7 @@ export function Solver(tiles, grid) {
 				walls += direction;
 			}
 			neighbourTiles.push(
-				self.grid.polygon_at(neighbour).tileTypes.get(self.tiles[neighbour]) || null
+				neighbour >= 0 && self.grid.polygon_at(neighbour).tileTypes.get(self.tiles[neighbour]) || null
 			);
 		}
 		// remove orientations that contradict outer walls

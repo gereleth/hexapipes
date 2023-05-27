@@ -14,14 +14,18 @@
 
 	let path = grid.getPipesPath(tile, i);
 	const isSink = grid.getDirections(tile, 0, i).length === 1;
+
+	const tile_transform = grid.getTileTransformCSS(i) || ''
+
 </script>
 
 <g class="tile" transform="translate({cx},{cy})">
 	<!-- Tile background -->
-	<path d={grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
+	<path d={grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" 
+		fill={bgColor}  style="transform: {tile_transform}"/>
 
 	<!-- Pipe shape -->
-	<g class="pipe">
+	<g class="pipe" style="transform: {tile_transform}">
 		<!-- Pipe outline -->
 		<path
 			d={path}
@@ -47,7 +51,7 @@
 			d={path}
 			stroke="white"
 			stroke-width={pipeWidth}
-			stroke-linejoin="round"
+			stroke-linejoin={grid.lineJoin || 'round'}
 			stroke-linecap="round"
 		/>
 	</g>

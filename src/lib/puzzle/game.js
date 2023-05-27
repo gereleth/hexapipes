@@ -402,6 +402,12 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileState.data.edgeMarks[index] = mark;
 		}
 		tileState.set(tileState.data);
+		if (self.grid.EDGEMARK_REFLECTS) {
+			// force redraw of the neighbour because drawing of connection edgemarks
+			// is driven partly by neighbours' state
+			const neighbourState = self.tileStates[neighbour];
+			neighbourState.set(neighbourState.data);
+		}
 		if (tileState.data.edgeMarks[index] !== 'empty' && assistant) {
 			self.rotateToMatchMarks(tileIndex);
 			self.rotateToMatchMarks(neighbour);

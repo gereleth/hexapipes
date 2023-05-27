@@ -2,13 +2,14 @@ import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
 import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
+import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
 
 /**
- * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'} GridKind
+ * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'} GridKind
  */
 
 /**
- * @typedef {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'|'etrat'|'etrat-wrap'} GridCategory
+ * @typedef {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'|'etrat'|'etrat-wrap'|'cube'|'cube-wrap'} GridCategory
  */
 
 /**
@@ -43,6 +44,8 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 		grid = new SquareGrid(width, height, wrap, tiles);
 	} else if (kind === 'etrat') {
 		grid = new EtratGrid(width, height, wrap, tiles);
+	} else if (kind === 'cube') {
+		grid = new CubeGrid(width, height, wrap, tiles);
 	} else {
 		throw `Unknown grid kind ${kind}`;
 	}
@@ -50,7 +53,7 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 }
 
 /** @type {GridKind[]} */
-export const gridKinds = ['hexagonal', 'square', 'octagonal', 'etrat'];
+export const gridKinds = ['hexagonal', 'square', 'octagonal', 'etrat', 'cube'];
 
 export const gridInfo = {
 	hexagonal: {
@@ -80,5 +83,16 @@ export const gridInfo = {
 		wrap: true,
 		exampleGrid: new EtratGrid(3, 3, false),
 		exampleTiles: [0, 9, 2, 0, 7, 6, 0, 2, 6, 9, 6, 0, 12, 7, 0, 4, 2, 0]
+	},
+	cube: {
+		title: 'Cube',
+		url: 'cube',
+		wrap: true,
+		exampleGrid: new CubeGrid(3, 3, false),
+		exampleTiles: [
+			3, 1, 3,	10, 4, 1,	5, 12, 5,
+			13, 7, 11,	13, 7, 11,	8, 1, 10,
+			9, 11, 8,	4, 4, 2,	1, 9, 7
+		  ]
 	}
 };
