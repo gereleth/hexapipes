@@ -354,10 +354,15 @@ export function Solver(tiles, grid) {
 			const { neighbour, empty } = self.grid.find_neighbour(index, direction);
 			if (empty) {
 				walls += direction;
+				neighbourTiles.push(null);
+			} else {
+				const tileType = self.grid.polygon_at(neighbour).tileTypes.get(self.tiles[neighbour]);
+				if (tileType === undefined) {
+					throw `Undefined tile type for tile ${self.tiles[neighbour]} at index ${neighbour}`;
+				} else {
+					neighbourTiles.push(tileType);
+				}
 			}
-			neighbourTiles.push(
-				neighbour >= 0 && self.grid.polygon_at(neighbour).tileTypes.get(self.tiles[neighbour]) || null
-			);
 		}
 		// remove orientations that contradict outer walls
 		// any grid
