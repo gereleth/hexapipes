@@ -53,18 +53,25 @@
 		strokeColor = '#888';
 		strokeWidth = game.grid.STROKE_WIDTH;
 	}
-	$: angle = game.grid.getAngle($state.rotations, i);
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
 	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
 </script>
 
 <g class="tile" transform="translate({cx},{cy})">
 	<!-- Tile hexagon -->
-	<path d={game.grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" fill={bgColor}
-	 style="transform: {tile_transform}"/>
+	<path
+		d={game.grid.getTilePath(i)}
+		stroke="#aaa"
+		stroke-width="0.02"
+		fill={bgColor}
+		style="transform: {tile_transform}"
+	/>
 
 	<!-- Pipe shape -->
-	<g class="pipe" style="transform: {tile_transform} rotate({game.grid.getAngle($state.rotations, i)}rad)">
+	<g
+		class="pipe"
+		style="transform: {tile_transform} rotate({game.grid.getAngle($state.rotations, i)}rad)"
+	>
 		<!-- Pipe outline -->
 		<path
 			d={path}
