@@ -6,7 +6,6 @@ const DIRB = 2;
 const DIRC = 4;
 const DIRD = 8;
 
-const YSTEP = Math.sqrt(3) / 2;
 const RIGHT_FACE = new TransformedPolygonTile(
 	4,
 	0,
@@ -44,17 +43,14 @@ const LEFT_FACE = new TransformedPolygonTile(
 	Math.PI / 6
 );
 
-const RHOMB_DIRS = new Map([
-	[0, -Math.PI / 6],
-	[1, Math.PI / 2],
-	[2, (-Math.PI * 5) / 6]
-]);
-const RHOMB_OFFSETS = new Map(
-	[...RHOMB_DIRS.entries()].map(([rh, dir]) => [
-		rh,
-		[(Math.cos(dir) * Math.sqrt(3)) / 6, (-Math.sin(dir) * Math.sqrt(3)) / 6]
-	])
-);
+const FACES = [RIGHT_FACE, TOP_FACE, LEFT_FACE];
+const RHOMB_ANGLES = [-Math.PI / 6, Math.PI / 2, (-Math.PI * 5) / 6];
+const RHOMB_OFFSETS = RHOMB_ANGLES.map((angle) => {
+	return {
+		dx: (Math.cos(angle) * Math.sqrt(3)) / 6,
+		dy: (-Math.sin(angle) * Math.sqrt(3)) / 6
+	};
+});
 
 export class CubeGrid {
 	DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
@@ -170,8 +166,8 @@ export class CubeGrid {
 		const { index: index0, x: x0, y: y0 } = this.hexagrid.which_tile_at(x, y);
 		const rhomb0 = this.angle_to_rhomb(Math.atan2(-(y - y0), x - x0));
 		const index = index0 >= 0 ? 3 * index0 + rhomb0 : -1;
-		const ofs = RHOMB_OFFSETS.get(rhomb0);
-		return { index, x: x0 + ofs[0], y: y0 + ofs[1], rh: rhomb0 };
+		const { dx, dy } = RHOMB_OFFSETS[rhomb0];
+		return { index, x: x0 + dx, y: y0 + dy, rh: rhomb0 };
 	}
 
 	/**
@@ -223,7 +219,7 @@ export class CubeGrid {
 	 * @returns {TransformedPolygonTile}
 	 */
 	polygon_at(index) {
-		return [RIGHT_FACE, TOP_FACE, LEFT_FACE][index % 3];
+		return FACES[index % 3];
 	}
 
 	/**
@@ -269,17 +265,17 @@ export class CubeGrid {
 	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
-		const vishex = this.hexagrid.getVisibleTiles(box);
+		const visibleHexagons = this.hexagrid.getVisibleTiles(box);
 		const visibleTiles = [];
-		for (const vt of vishex) {
+		for (const vt of visibleHexagons) {
 			for (let b = 0; b < 3; ++b) {
 				const { x, y } = vt;
-				const ofs = RHOMB_OFFSETS.get(b);
+				const { dx, dy } = RHOMB_OFFSETS[b];
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}_${b}`;
 				visibleTiles.push({
 					index: vt.index * 3 + b,
-					x: x + ofs[0],
-					y: y + ofs[1],
+					x: x + dx,
+					y: y + dy,
 					key
 				});
 			}
@@ -346,6 +342,8 @@ export class CubeGrid {
 	/**
 	 * Check if a drag gesture resembles drawing an edge mark
 	 * @param {Number} tile_index
+	 * @param {Number} tile_x
+	 * @param {Number} tile_y
 	 * @param {Number} x1
 	 * @param {Number} x2
 	 * @param {Number} y1
