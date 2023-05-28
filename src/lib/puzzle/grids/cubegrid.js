@@ -7,17 +7,53 @@ const DIRC = 4;
 const DIRD = 8;
 
 const YSTEP = Math.sqrt(3) / 2;
-const RIGHT_FACE = new TransformedPolygonTile(4, 0, 0.5, [], 0.01, 1/Math.sqrt(3), 0.5, Math.PI / 6, 0, -Math.PI / 2);
-const TOP_FACE = new TransformedPolygonTile(4, 0, 0.5, [], 0.01, 1/Math.sqrt(3), 0.5, Math.PI / 6, 0, 5 * Math.PI / 6);
-const LEFT_FACE = new TransformedPolygonTile(4, 0, 0.5, [], 0.01, 1/Math.sqrt(3), 0.5, Math.PI / 6, 0, Math.PI / 6);
+const RIGHT_FACE = new TransformedPolygonTile(
+	4,
+	0,
+	0.5,
+	[],
+	0.01,
+	1 / Math.sqrt(3),
+	0.5,
+	Math.PI / 6,
+	0,
+	-Math.PI / 2
+);
+const TOP_FACE = new TransformedPolygonTile(
+	4,
+	0,
+	0.5,
+	[],
+	0.01,
+	1 / Math.sqrt(3),
+	0.5,
+	Math.PI / 6,
+	0,
+	(5 * Math.PI) / 6
+);
+const LEFT_FACE = new TransformedPolygonTile(
+	4,
+	0,
+	0.5,
+	[],
+	0.01,
+	1 / Math.sqrt(3),
+	0.5,
+	Math.PI / 6,
+	0,
+	Math.PI / 6
+);
 
 const RHOMB_DIRS = new Map([
 	[0, -Math.PI / 6],
 	[1, Math.PI / 2],
-	[2, -Math.PI * 5 / 6]
+	[2, (-Math.PI * 5) / 6]
 ]);
 const RHOMB_OFFSETS = new Map(
-	[...RHOMB_DIRS.entries()].map(([rh, dir]) => [rh, [Math.cos(dir)*Math.sqrt(3)/6, -Math.sin(dir)*Math.sqrt(3)/6]])
+	[...RHOMB_DIRS.entries()].map(([rh, dir]) => [
+		rh,
+		[(Math.cos(dir) * Math.sqrt(3)) / 6, (-Math.sin(dir) * Math.sqrt(3)) / 6]
+	])
 );
 
 export class CubeGrid {
@@ -31,24 +67,33 @@ export class CubeGrid {
 		[DIRD, DIRC]
 	]);
 	#RHOMB_NEIGHBOURS = new Map([
-		[0, new Map([
-			[DIRA, [0, 1]],
-			[DIRB, [0, 2]],
-			[DIRC, [SOUTHEAST, 1]],
-			[DIRD, [EAST, 2]]
-		])],
-		[1, new Map([
-			[DIRA, [0, 2]],
-			[DIRB, [0, 0]],
-			[DIRC, [NORTHEAST, 2]],
-			[DIRD, [NORTHWEST, 0]]
-		])],
-		[2, new Map([
-			[DIRA, [0, 0]],
-			[DIRB, [0, 1]],
-			[DIRC, [WEST, 0]],
-			[DIRD, [SOUTHWEST, 1]]
-		])]
+		[
+			0,
+			new Map([
+				[DIRA, [0, 1]],
+				[DIRB, [0, 2]],
+				[DIRC, [SOUTHEAST, 1]],
+				[DIRD, [EAST, 2]]
+			])
+		],
+		[
+			1,
+			new Map([
+				[DIRA, [0, 2]],
+				[DIRB, [0, 0]],
+				[DIRC, [NORTHEAST, 2]],
+				[DIRD, [NORTHWEST, 0]]
+			])
+		],
+		[
+			2,
+			new Map([
+				[DIRA, [0, 0]],
+				[DIRB, [0, 1]],
+				[DIRC, [WEST, 0]],
+				[DIRD, [SOUTHWEST, 1]]
+			])
+		]
 	]);
 	NUM_DIRECTIONS = 4;
 	KIND = 'cube';
@@ -82,11 +127,11 @@ export class CubeGrid {
 		this.lineJoin = 'bevel';
 
 		this.emptyCells = new Set();
-		this.hexagrid.emptyCells.forEach(index => {
+		this.hexagrid.emptyCells.forEach((index) => {
 			for (let rh = 0; rh < 3; rh++) {
-				this.emptyCells.add(index*3 + rh);
+				this.emptyCells.add(index * 3 + rh);
 			}
-		})
+		});
 		tiles.forEach((tile, index) => {
 			if (tile === 0) {
 				this.emptyCells.add(index);
@@ -105,7 +150,7 @@ export class CubeGrid {
 	 */
 	angle_to_rhomb(angle) {
 		/* Counter-clockwise from lower right of "right side up" cube */
-		return (Math.floor((angle + Math.PI/2) * 3 / (2 * Math.PI)) + 3) % 3;
+		return (Math.floor(((angle + Math.PI / 2) * 3) / (2 * Math.PI)) + 3) % 3;
 	}
 
 	/**
@@ -117,11 +162,11 @@ export class CubeGrid {
 	 * @returns {{index: Number, x:Number, y: Number, rh: Number}}
 	 */
 	which_tile_at(x, y) {
-		const {index: index0, x: x0, y: y0} = this.hexagrid.which_tile_at(x, y)
+		const { index: index0, x: x0, y: y0 } = this.hexagrid.which_tile_at(x, y);
 		const rhomb0 = this.angle_to_rhomb(Math.atan2(-(y - y0), x - x0));
 		const index = index0 >= 0 ? 3 * index0 + rhomb0 : -1;
 		const ofs = RHOMB_OFFSETS.get(rhomb0);
-		return {index, x: x0 + ofs[0], y: y0 + ofs[1], rh: rhomb0};
+		return { index, x: x0 + ofs[0], y: y0 + ofs[1], rh: rhomb0 };
 	}
 
 	/**
@@ -141,7 +186,7 @@ export class CubeGrid {
 			const { neighbour, empty } = this.hexagrid.find_neighbour(cubei, hexdir);
 			const cubeNeighbour = neighbour === -1 ? -1 : neighbour * 3 + rh;
 			const cubeEmpty = empty || this.emptyCells.has(cubeNeighbour);
-			return {neighbour: cubeNeighbour, empty: cubeEmpty};
+			return { neighbour: cubeNeighbour, empty: cubeEmpty };
 		}
 		const cubeNeighbour = index - rhomb + rh;
 		const empty = this.emptyCells.has(cubeNeighbour);
@@ -170,7 +215,7 @@ export class CubeGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {RegularPolygonTile}
+	 * @returns {TransformedPolygonTile}
 	 */
 	polygon_at(index) {
 		return [RIGHT_FACE, TOP_FACE, LEFT_FACE][index % 3];
@@ -197,7 +242,7 @@ export class CubeGrid {
 	}
 
 	/**
-	 * Get CSS transform function parameters for this tile 
+	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
 	getTileTransformCSS(index) {
@@ -223,7 +268,7 @@ export class CubeGrid {
 		const visibleTiles = [];
 		for (const vt of vishex) {
 			for (let b = 0; b < 3; ++b) {
-				const {x, y} = vt;
+				const { x, y } = vt;
 				const ofs = RHOMB_OFFSETS.get(b);
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}_${b}`;
 				visibleTiles.push({
@@ -295,7 +340,12 @@ export class CubeGrid {
 	 * @param {Number} y2
 	 */
 	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		return this.polygon_at(tile_index).detect_edgemark_gesture(x1 - tile_x, x2 - tile_x, y1 - tile_y, y2 - tile_y);
+		return this.polygon_at(tile_index).detect_edgemark_gesture(
+			x1 - tile_x,
+			x2 - tile_x,
+			y1 - tile_y,
+			y2 - tile_y
+		);
 	}
 
 	/**
@@ -303,6 +353,9 @@ export class CubeGrid {
 	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
 	 */
 	whichEdge(point) {
-		return this.polygon_at(point.tileIndex).is_close_to_edge(point.x - point.tileX, point.y - point.tileY);
+		return this.polygon_at(point.tileIndex).is_close_to_edge(
+			point.x - point.tileX,
+			point.y - point.tileY
+		);
 	}
 }

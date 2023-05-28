@@ -253,7 +253,7 @@ export class EtratGrid {
 	}
 
 	/**
-	 * Get CSS transform function parameters for this tile 
+	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
 	getTileTransformCSS(index) {
@@ -355,7 +355,7 @@ export class EtratGrid {
 	 * @param {Number} index
 	 */
 	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
-		return this.polygon_at(index).click_orient_tile(tile, old_rotations, Math.atan2(-ty, tx));
+		return this.polygon_at(index).click_orient_tile(tile, old_rotations, tx, ty);
 	}
 
 	/**

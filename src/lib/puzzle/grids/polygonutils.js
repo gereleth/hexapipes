@@ -270,10 +270,12 @@ export class RegularPolygonTile {
 	 * Compute number of rotations for orienting a tile with "click to orient" control mode
 	 * @param {Number} tile
 	 * @param {Number} old_rotations
-	 * @param {Number} new_angle
+	 * @param {Number} tx - x coordinate of clicked point relative to tile center
+	 * @param {Number} ty - y coordinate of clicked point relative to tile center
 	 * @returns {Number}
 	 */
-	click_orient_tile(tile, old_rotations, new_angle) {
+	click_orient_tile(tile, old_rotations, tx, ty) {
+		const new_angle = Math.atan2(-ty, tx);
 		const [guideX, guideY] = this.get_guide_dot_position(tile);
 		const old_angle = Math.atan2(guideY, guideX);
 		let times_rotate =
@@ -363,7 +365,7 @@ export class RegularPolygonTile {
 	 * @param {Number} direction
 	 */
 	get_edgemark_line(direction, extendOut = true) {
-		const cached = this.cache.edgemark_line.get(`${direction}-${extendOut}`);;
+		const cached = this.cache.edgemark_line.get(`${direction}-${extendOut}`);
 		if (cached !== undefined) {
 			return cached;
 		}
@@ -386,9 +388,19 @@ export class RegularPolygonTile {
 	}
 }
 
-
 export class TransformedPolygonTile extends RegularPolygonTile {
-	constructor(num_directions, angle_offset, radius_in, directions, border_width, scaleX, scaleY, skewX, skewY, rotateTh) {
+	constructor(
+		num_directions,
+		angle_offset,
+		radius_in,
+		directions,
+		border_width,
+		scaleX,
+		scaleY,
+		skewX,
+		skewY,
+		rotateTh
+	) {
 		super(num_directions, angle_offset, radius_in, directions, border_width);
 		// we could instead simplify the CSS & matrix construction
 		scaleX = scaleX || 1;
@@ -402,8 +414,8 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 	}
 
 	click_orient_tile(tile, old_rotations, tx, ty) {
-		const {x, y} = applyToPoint(this.transformInverse, {x: tx, y: ty});
-		return super.click_orient_tile(tile, old_rotations, Math.atan2(-y, x));
+		const { x, y } = applyToPoint(this.transformInverse, { x: tx, y: ty });
+		return super.click_orient_tile(tile, old_rotations, x, y);
 	}
 
 	detect_edgemark_gesture(tx1, tx2, ty1, ty2) {
@@ -411,11 +423,16 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 		const gridTileUpPt = { x: tx2, y: ty2 };
 		const polygonDownPt = applyToPoint(this.transformInverse, gridTileDownPt);
 		const polygonUpPt = applyToPoint(this.transformInverse, gridTileUpPt);
-		return super.detect_edgemark_gesture(polygonDownPt.x, polygonUpPt.x, -polygonDownPt.y, -polygonUpPt.y);
+		return super.detect_edgemark_gesture(
+			polygonDownPt.x,
+			polygonUpPt.x,
+			-polygonDownPt.y,
+			-polygonUpPt.y
+		);
 	}
 
 	is_close_to_edge(tx, ty) {
 		const polyPt = applyToPoint(this.transformInverse, { x: tx, y: ty });
-		return super.is_close_to_edge(polyPt.x, -polyPt.y);	
+		return super.is_close_to_edge(polyPt.x, -polyPt.y);
 	}
 }

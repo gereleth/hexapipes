@@ -311,7 +311,7 @@ export class HexaGrid {
 	}
 
 	/**
-	 * Get CSS transform function parameters for this tile 
+	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
 	getTileTransformCSS(index) {
@@ -495,7 +495,7 @@ export class HexaGrid {
 	 * @param {Number} index
 	 */
 	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
-		return HEXAGON.click_orient_tile(tile, old_rotations, Math.atan2(-ty, tx));
+		return HEXAGON.click_orient_tile(tile, old_rotations, tx, ty);
 	}
 
 	/**
