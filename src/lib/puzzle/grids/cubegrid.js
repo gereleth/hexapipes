@@ -118,7 +118,13 @@ export class CubeGrid {
 		this.height = height;
 		this.wrap = wrap;
 
-		this.hexagrid = new HexaGrid(width, height, wrap);
+		// scale hexagonal grid to keep tile counts about the same
+		// as in corresponding square puzzles
+		const scale = wrap ? 0.58 : 0.67;
+		this.hexWidth = Math.round(width * scale);
+		this.hexHeight = Math.round(height * scale);
+
+		this.hexagrid = new HexaGrid(this.hexWidth, this.hexHeight, wrap);
 		if (!wrap) {
 			this.hexagrid.useShape('hexagon');
 		}
@@ -136,7 +142,7 @@ export class CubeGrid {
 				this.emptyCells.add(index);
 			}
 		});
-		this.total = width * height * 3;
+		this.total = this.hexagrid.total * 3;
 
 		this.XMIN = this.hexagrid.XMIN;
 		this.XMAX = this.hexagrid.XMAX;
@@ -176,8 +182,8 @@ export class CubeGrid {
 	find_neighbour(index, direction) {
 		const rhomb = index % 3;
 		const cubei = (index - rhomb) / 3;
-		let c = cubei % this.width;
-		let r = (cubei - c) / this.width;
+		let c = cubei % this.hexWidth;
+		let r = (cubei - c) / this.hexWidth;
 		let neighbour = -1;
 
 		const [hexdir, rh] = this.#RHOMB_NEIGHBOURS.get(rhomb)?.get(direction) || [0, 0];

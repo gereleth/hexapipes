@@ -88,7 +88,7 @@ export const gridInfo = {
 		title: 'Cube',
 		url: 'cube',
 		wrap: true,
-		exampleGrid: new CubeGrid(3, 3, false),
+		exampleGrid: new CubeGrid(5, 5, false),
 		exampleTiles: [
 			3, 1, 3, 10, 4, 1, 5, 12, 5, 13, 7, 11, 13, 7, 11, 8, 1, 10, 9, 11, 8, 4, 4, 2, 1, 9, 7
 		]
