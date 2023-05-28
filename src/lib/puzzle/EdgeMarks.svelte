@@ -10,67 +10,67 @@
 	export let cx = 0;
 	export let cy = 0;
 
-	let state = game.tileStates[i];
+	/** @typedef {Object} VisibleMark
+	 * @property {Number} x1
+	 * @property {Number} x2
+	 * @property {Number} y1
+	 * @property {Number} y2
+	 * @property {import('$lib/puzzle/game').EdgeMark} state
+	 * @property {Number} direction
+	 */
 
-	let tile_transform = null;
-	$: tile_transform = game.grid.getTileTransformCSS(i) || '';
+	/** @typedef {Object} ReflectedMark -
+	 * @property {Number} cx
+	 * @property {Number} cy
+	 * @property {String} transform
+	 * @property {VisibleMark} mark
+	 */
+
+	const state = game.tileStates[i];
+	const tile_transform = game.grid.getTileTransformCSS(i) || '';
+
+	/** @type {VisibleMark[]} */
+	let visibleEdgeMarks = [];
+
+	/** @type {ReflectedMark[]} */
+	let reflectedEdgeMarks = [];
+
 	/**
-	 *
+	 * Collect edgemarks that should be displayed
 	 * @param {import('$lib/puzzle/game').EdgeMark[]} marks
 	 */
 	function visibleMarks(marks) {
-		let reflectMarks = null;
-		if (game.grid.EDGEMARK_REFLECTS) {
-			reflectMarks = game.grid.EDGEMARK_REFLECTS.map(direction => {
-				const {neighbour} = game.grid.find_neighbour(i, direction);
-				if (neighbour === -1) {
-					return 'none';
-				}
-				const oppositeDir = game.grid.OPPOSITE.get(direction);
-				const oppositeIndex = game.grid.EDGEMARK_DIRECTIONS.indexOf(oppositeDir);
-				return game.tileStates[neighbour].data.edgeMarks[oppositeIndex];
-			});
-		}
-		/**
-		 * @type {{x1:number, x2: number, y1: number, y2:number, state: import('$lib/puzzle/game').EdgeMark, direction:number}[]}
-		 */
-		const visible = [];
+		visibleEdgeMarks = [];
+		reflectedEdgeMarks = [];
 		marks.forEach((state, index) => {
 			if (state === 'none' || state === 'empty') {
 				return;
 			}
 			const direction = game.grid.EDGEMARK_DIRECTIONS[index];
-			const { x1, y1, x2, y2 } = game.grid.getEdgemarkLine(direction, state === 'wall', i);
-			visible.push({
-				x1,
-				y1,
-				x2,
-				y2,
-				state,
-				direction
-			});
+			const edgeMarkLine = game.grid.getEdgemarkLine(direction, state === 'wall', i);
+			const { x1, y1, x2, y2 } = edgeMarkLine;
+			const mark = { x1, y1, x2, y2, state, direction };
+			visibleEdgeMarks.push(mark);
+			if (Object.hasOwn(edgeMarkLine, 'grid_x2') && state === 'conn') {
+				const { neighbour } = game.grid.find_neighbour(i, direction);
+				const oppositeDirection = game.grid.OPPOSITE.get(direction) || 0;
+				const { x1, y1, x2, y2, grid_x2, grid_y2 } = game.grid.getEdgemarkLine(
+					oppositeDirection,
+					false,
+					neighbour
+				);
+				const oppositeMark = {
+					cx: cx + (edgeMarkLine.grid_x2 - grid_x2),
+					cy: cy + (edgeMarkLine.grid_y2 - grid_y2),
+					transform: game.grid.getTileTransformCSS(neighbour) || '',
+					mark: { x1, x2, y1, y2, state, direction: oppositeDirection }
+				};
+				reflectedEdgeMarks.push(oppositeMark);
+			}
 		});
-		if (reflectMarks) {
-			reflectMarks.forEach((state, index) => {
-				if (state === 'none' || state === 'empty' || state === 'wall') {
-					return;
-				}
-				const direction = game.grid.EDGEMARK_REFLECTS[index];
-				const { x1, y1, x2, y2 } = game.grid.getEdgemarkLine(direction, state === 'wall', i);
-				visible.push({
-					x1,
-					y1,
-					x2,
-					y2,
-					state,
-					direction
-				});
-			});
-		}
-		return visible;
 	}
 
-	$: visibleEdgeMarks = visibleMarks($state.edgeMarks);
+	$: visibleMarks($state.edgeMarks);
 </script>
 
 <g class="edgemarks" style="transform: translate({cx}px,{cy}px) {tile_transform}">
@@ -88,6 +88,22 @@
 		/>
 	{/each}
 </g>
+
+{#each reflectedEdgeMarks as { cx, cy, mark, transform } (mark.direction)}
+	<g class="edgemarks" style="transform: translate({cx}px,{cy}px) {transform}">
+		<line
+			transition:fade|local={{ duration: 100 }}
+			class="mark"
+			class:wall={mark.state === 'wall'}
+			x1={mark.x1}
+			y1={mark.y1}
+			x2={mark.x2}
+			y2={mark.y2}
+			stroke="green"
+			stroke-width="0.04"
+		/>
+	</g>
+{/each}
 
 <style>
 	.mark {

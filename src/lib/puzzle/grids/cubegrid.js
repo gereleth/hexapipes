@@ -59,7 +59,6 @@ const RHOMB_OFFSETS = new Map(
 export class CubeGrid {
 	DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
 	EDGEMARK_DIRECTIONS = [DIRB, DIRC];
-	EDGEMARK_REFLECTS = [DIRD, DIRA];
 	OPPOSITE = new Map([
 		[DIRA, DIRB],
 		[DIRB, DIRA],
@@ -326,7 +325,14 @@ export class CubeGrid {
 	 * @param {Number} direction
 	 * @param {Boolean} isWall
 	 * @param {Number} index
-	 * @returns
+	 * @returns {{
+	 * x1: Number,
+	 * x2: Number,
+	 * y1: Number,
+	 * y2: Number,
+	 * grid_x2: Number,
+	 * grid_y2: Number,
+	 * }}
 	 */
 	getEdgemarkLine(direction, isWall, index = 0) {
 		return this.polygon_at(index).get_edgemark_line(direction, isWall);

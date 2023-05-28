@@ -13,7 +13,7 @@ import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
  */
 
 /**
- * @typedef {HexaGrid|SquareGrid|OctaGrid|EtratGrid} Grid
+ * @typedef {HexaGrid|SquareGrid|OctaGrid|EtratGrid|CubeGrid} Grid
  */
 
 /**
@@ -90,9 +90,7 @@ export const gridInfo = {
 		wrap: true,
 		exampleGrid: new CubeGrid(3, 3, false),
 		exampleTiles: [
-			3, 1, 3,	10, 4, 1,	5, 12, 5,
-			13, 7, 11,	13, 7, 11,	8, 1, 10,
-			9, 11, 8,	4, 4, 2,	1, 9, 7
-		  ]
+			3, 1, 3, 10, 4, 1, 5, 12, 5, 13, 7, 11, 13, 7, 11, 8, 1, 10, 9, 11, 8, 4, 4, 2, 1, 9, 7
+		]
 	}
 };

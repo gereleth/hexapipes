@@ -363,9 +363,16 @@ export class RegularPolygonTile {
 	/**
 	 * Returns coordinates for drawing edgemark line relative to tile center
 	 * @param {Number} direction
+	 * @returns {{
+	 * x1: Number,
+	 * x2: Number,
+	 * y1: Number,
+	 * y2: Number,
+	 * }}
 	 */
 	get_edgemark_line(direction, extendOut = true) {
-		const cached = this.cache.edgemark_line.get(`${direction}-${extendOut}`);
+		const key = `${direction}-${extendOut}`;
+		const cached = this.cache.edgemark_line.get(key);
 		if (cached !== undefined) {
 			return cached;
 		}
@@ -383,7 +390,7 @@ export class RegularPolygonTile {
 			x2: offset_x + (extendOut ? dx : 0),
 			y2: -offset_y - (extendOut ? dy : 0)
 		};
-		this.cache.edgemark_line.set(`${direction}-${extendOut}`, line);
+		this.cache.edgemark_line.set(key, line);
 		return line;
 	}
 }
@@ -434,5 +441,26 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 	is_close_to_edge(tx, ty) {
 		const polyPt = applyToPoint(this.transformInverse, { x: tx, y: ty });
 		return super.is_close_to_edge(polyPt.x, -polyPt.y);
+	}
+
+	/**
+	 * Returns polygon coordinates for drawing edgemark line
+	 * and grid coordinates of last point for drawing bent edgemarks.
+	 * All coordinates are relative to tile center.
+	 * @param {Number} direction
+	 * @param {boolean} extendOut
+	 * @returns {{
+	 * x1: Number,
+	 * x2: Number,
+	 * y1: Number,
+	 * y2: Number,
+	 * grid_x2: Number,
+	 * grid_y2: Number,
+	 * }}
+	 */
+	get_edgemark_line(direction, extendOut = true) {
+		const { x1, x2, y1, y2 } = super.get_edgemark_line(direction, extendOut);
+		const { x, y } = applyToPoint(this.transformMatrix, { x: x2, y: y2 });
+		return { x1, x2, y1, y2, grid_x2: x, grid_y2: y };
 	}
 }
