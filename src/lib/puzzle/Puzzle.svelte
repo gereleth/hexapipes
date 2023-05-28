@@ -67,7 +67,7 @@
 		const hpx = maxPixelHeight / maxGridHeight;
 		let pxPerCell = Math.min(100, wpx, hpx);
 		if (!$settings.disableZoomPan) {
-			pxPerCell = Math.max(60, pxPerCell);
+			pxPerCell = (grid.ZOOM_FACTOR || 1) * Math.max(60, pxPerCell);
 		}
 		if (grid.wrap || $settings.disableZoomPan) {
 			svgWidth = Math.min(maxPixelWidth, pxPerCell * maxGridWidth);

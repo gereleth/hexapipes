@@ -96,6 +96,7 @@ export class CubeGrid {
 	STROKE_WIDTH = 0.06;
 	PIPE_LENGTH = 0.5;
 	SINK_RADIUS = 0.2;
+	ZOOM_FACTOR = 1.5;
 
 	/** @type {Set<Number>} - indices of empty cells */
 	emptyCells;
