@@ -399,6 +399,11 @@ export class HexaGrid {
 					}
 				}
 			}
+			if (middle_row % 2 === 0) {
+				this.XMAX -= 0.5;
+			} else {
+				this.XMIN += 0.5;
+			}
 			this.wrap = wrap;
 		} else if (shape === 'triangle') {
 			const wrap = this.wrap;
