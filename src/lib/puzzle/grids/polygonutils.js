@@ -406,7 +406,8 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 		scaleY,
 		skewX,
 		skewY,
-		rotateTh
+		rotateTh,
+		style
 	) {
 		super(num_directions, angle_offset, radius_in, directions, border_width);
 		// we could instead simplify the CSS & matrix construction
@@ -418,6 +419,7 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 		this.transformCSS = `rotate(${rotateTh}rad) skew(${skewX}rad, ${skewY}rad) scale(${scaleX}, ${scaleY})`;
 		this.transformMatrix = compose(rotate(rotateTh), skew(skewX, skewY), scale(scaleX, scaleY));
 		this.transformInverse = inverse(this.transformMatrix);
+		this.style = style;
 	}
 
 	click_orient_tile(tile, old_rotations, tx, ty) {

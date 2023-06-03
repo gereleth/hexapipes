@@ -16,7 +16,8 @@ const RIGHT_FACE = new TransformedPolygonTile(
 	0.5,
 	Math.PI / 6,
 	0,
-	-Math.PI / 2
+	-Math.PI / 2,
+	'filter: brightness(0.95)'
 );
 const TOP_FACE = new TransformedPolygonTile(
 	4,
@@ -28,7 +29,8 @@ const TOP_FACE = new TransformedPolygonTile(
 	0.5,
 	Math.PI / 6,
 	0,
-	(5 * Math.PI) / 6
+	(5 * Math.PI) / 6,
+	'filter: brightness(1.05)'
 );
 const LEFT_FACE = new TransformedPolygonTile(
 	4,

@@ -1,4 +1,6 @@
 <script>
+	import { gridInfo } from './grids/grids';
+
 	/** @type {Number} i*/
 	export let i;
 
@@ -55,9 +57,10 @@
 	}
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
 	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
+	$: style = game.grid.polygon_at(i).style || undefined;
 </script>
 
-<g class="tile" transform="translate({cx},{cy})">
+<g class="tile" transform="translate({cx},{cy})" {style}>
 	<!-- Tile hexagon -->
 	<path
 		d={game.grid.getTilePath(i)}

@@ -3,6 +3,7 @@
 	export let i;
 	/** @type {Number} */
 	export let tile;
+	/** @type {import('$lib/puzzle/grids/grids').Grid} */
 	export let grid;
 	export let cx = 0;
 	export let cy = 0;
@@ -15,14 +16,19 @@
 	let path = grid.getPipesPath(tile, i);
 	const isSink = grid.getDirections(tile, 0, i).length === 1;
 
-	const tile_transform = grid.getTileTransformCSS(i) || ''
-
+	const tile_transform = grid.getTileTransformCSS(i) || '';
+	const style = grid.polygon_at(i).style || undefined;
 </script>
 
-<g class="tile" transform="translate({cx},{cy})">
+<g class="tile" transform="translate({cx},{cy})" {style}>
 	<!-- Tile background -->
-	<path d={grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" 
-		fill={bgColor}  style="transform: {tile_transform}"/>
+	<path
+		d={grid.getTilePath(i)}
+		stroke="#aaa"
+		stroke-width="0.02"
+		fill={bgColor}
+		style="transform: {tile_transform}"
+	/>
 
 	<!-- Pipe shape -->
 	<g class="pipe" style="transform: {tile_transform}">
