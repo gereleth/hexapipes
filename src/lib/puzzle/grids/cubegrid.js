@@ -6,10 +6,12 @@ const DIRB = 2;
 const DIRC = 4;
 const DIRD = 8;
 
+const SCALE = 1.5; // cube x, y = SCALE * hexagon x, y
+
 const RIGHT_FACE = new TransformedPolygonTile(
 	4,
 	0,
-	0.5,
+	0.5 * SCALE,
 	[],
 	0.01,
 	1 / Math.sqrt(3),
@@ -17,12 +19,12 @@ const RIGHT_FACE = new TransformedPolygonTile(
 	Math.PI / 6,
 	0,
 	-Math.PI / 2,
-	'filter: brightness(0.95)'
+	'filter: brightness(0.96)'
 );
 const TOP_FACE = new TransformedPolygonTile(
 	4,
 	0,
-	0.5,
+	0.5 * SCALE,
 	[],
 	0.01,
 	1 / Math.sqrt(3),
@@ -30,12 +32,12 @@ const TOP_FACE = new TransformedPolygonTile(
 	Math.PI / 6,
 	0,
 	(5 * Math.PI) / 6,
-	'filter: brightness(1.05)'
+	'filter: brightness(1.04)'
 );
 const LEFT_FACE = new TransformedPolygonTile(
 	4,
 	0,
-	0.5,
+	0.5 * SCALE,
 	[],
 	0.01,
 	1 / Math.sqrt(3),
@@ -49,8 +51,8 @@ const FACES = [RIGHT_FACE, TOP_FACE, LEFT_FACE];
 const RHOMB_ANGLES = [-Math.PI / 6, Math.PI / 2, (-Math.PI * 5) / 6];
 const RHOMB_OFFSETS = RHOMB_ANGLES.map((angle) => {
 	return {
-		dx: (Math.cos(angle) * Math.sqrt(3)) / 6,
-		dy: (-Math.sin(angle) * Math.sqrt(3)) / 6
+		dx: (SCALE * Math.cos(angle) * Math.sqrt(3)) / 6,
+		dy: (-SCALE * Math.sin(angle) * Math.sqrt(3)) / 6
 	};
 });
 
@@ -94,11 +96,9 @@ export class CubeGrid {
 	]);
 	NUM_DIRECTIONS = 4;
 	KIND = 'cube';
-	PIPE_WIDTH = 0.15;
-	STROKE_WIDTH = 0.06;
-	PIPE_LENGTH = 0.5;
-	SINK_RADIUS = 0.2;
-	ZOOM_FACTOR = 1.5;
+	PIPE_WIDTH = 0.15 * SCALE;
+	STROKE_WIDTH = 0.06 * SCALE;
+	SINK_RADIUS = 0.2 * SCALE;
 
 	/** @type {Set<Number>} - indices of empty cells */
 	emptyCells;
@@ -143,10 +143,10 @@ export class CubeGrid {
 		});
 		this.total = this.hexagrid.total * 3;
 
-		this.XMIN = this.hexagrid.XMIN;
-		this.XMAX = this.hexagrid.XMAX;
-		this.YMIN = this.hexagrid.YMIN;
-		this.YMAX = this.hexagrid.YMAX;
+		this.XMIN = this.hexagrid.XMIN * SCALE;
+		this.XMAX = this.hexagrid.XMAX * SCALE;
+		this.YMIN = this.hexagrid.YMIN * SCALE;
+		this.YMAX = this.hexagrid.YMAX * SCALE;
 	}
 
 	/**
@@ -166,11 +166,13 @@ export class CubeGrid {
 	 * @returns {{index: Number, x:Number, y: Number, rh: Number}}
 	 */
 	which_tile_at(x, y) {
-		const { index: index0, x: x0, y: y0 } = this.hexagrid.which_tile_at(x, y);
-		const rhomb0 = this.angle_to_rhomb(Math.atan2(-(y - y0), x - x0));
+		const xhex = x / SCALE;
+		const yhex = y / SCALE;
+		const { index: index0, x: x0, y: y0 } = this.hexagrid.which_tile_at(xhex, yhex);
+		const rhomb0 = this.angle_to_rhomb(Math.atan2(-(yhex - y0), xhex - x0));
 		const index = index0 >= 0 ? 3 * index0 + rhomb0 : -1;
 		const { dx, dy } = RHOMB_OFFSETS[rhomb0];
-		return { index, x: x0 + dx, y: y0 + dy, rh: rhomb0 };
+		return { index, x: x0 * SCALE + dx, y: y0 * SCALE + dy, rh: rhomb0 };
 	}
 
 	/**
@@ -268,11 +270,19 @@ export class CubeGrid {
 	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
-		const visibleHexagons = this.hexagrid.getVisibleTiles(box);
+		const { xmin, ymin, width, height } = box;
+		const visibleHexagons = this.hexagrid.getVisibleTiles({
+			xmin: xmin / SCALE,
+			ymin: ymin / SCALE,
+			width: width / SCALE,
+			height: height / SCALE
+		});
 		const visibleTiles = [];
 		for (const vt of visibleHexagons) {
+			let { x, y } = vt;
+			x *= SCALE;
+			y *= SCALE;
 			for (let b = 0; b < 3; ++b) {
-				const { x, y } = vt;
 				const { dx, dy } = RHOMB_OFFSETS[b];
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}_${b}`;
 				visibleTiles.push({
