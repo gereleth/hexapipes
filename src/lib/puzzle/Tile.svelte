@@ -92,7 +92,7 @@
 				fill={$state.color}
 				stroke={strokeColor}
 				stroke-width={strokeWidth}
-				class="inside"
+				class="sink"
 			/>
 		{/if}
 		<!-- Pipe inside -->
