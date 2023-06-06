@@ -1,4 +1,5 @@
 import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
+import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
 
 export const EAST = 1;
 export const NORTHEAST = 2;
@@ -11,7 +12,11 @@ const YSTEP = Math.sqrt(3) / 2;
 
 const HEXAGON = new RegularPolygonTile(6, 0, 0.5);
 
-export class HexaGrid {
+/**
+ * Hexagonal grid
+ * @extends AbstractGrid
+ */
+export class HexaGrid extends AbstractGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST];
 	EDGEMARK_DIRECTIONS = [NORTHEAST, NORTHWEST, WEST];
 	OPPOSITE = new Map([
@@ -24,15 +29,6 @@ export class HexaGrid {
 	]);
 	NUM_DIRECTIONS = 6;
 	KIND = 'hexagonal';
-	PIPE_WIDTH = 0.12;
-	STROKE_WIDTH = 0.05;
-	PIPE_LENGTH = 0.5;
-	SINK_RADIUS = 0.17;
-
-	/** @type {Set<Number>} - indices of empty cells */
-	emptyCells;
-	/** @type {Number} - total number of cells including empties */
-	total;
 
 	#RC_DELTA = new Map([
 		[
@@ -87,47 +83,13 @@ export class HexaGrid {
 	 * @param {Number[]} tiles
 	 */
 	constructor(width, height, wrap, tiles = []) {
-		this.width = width;
-		this.height = height;
-		this.wrap = wrap;
-
-		this.emptyCells = new Set();
-		tiles.forEach((tile, index) => {
-			if (tile === 0) {
-				this.emptyCells.add(index);
-			}
-		});
+		super(width, height, wrap, tiles);
 		this.total = width * height;
 
 		this.XMIN = -0.6 - (wrap ? 1 : 0);
 		this.XMAX = width + 0.1 + (wrap ? 1 : 0);
 		this.YMIN = -YSTEP * (1 + (wrap ? 1 : 0));
 		this.YMAX = YSTEP * (height + (wrap ? 1 : 0));
-
-		/* Tile types for use in solver */
-		this.T0 = 0;
-		this.T1 = 1;
-		this.T2v = 3;
-		this.T2c = 5;
-		this.T2I = 9;
-		this.T3w = 7;
-		this.T3y = 11;
-		this.T3la = 13;
-		this.T3Y = 21;
-		this.T4K = 15;
-		this.T4X = 27;
-		this.T4psi = 23;
-		this.T5 = 31;
-		this.T6 = 63;
-		/** @type {Map<Number,Number>} */
-		this.tileTypes = new Map();
-		for (let t = 0; t < 64; t++) {
-			let rotated = t;
-			while (!this.tileTypes.has(rotated)) {
-				this.tileTypes.set(rotated, t);
-				rotated = this.rotate(rotated, 1);
-			}
-		}
 	}
 
 	/**
@@ -265,68 +227,11 @@ export class HexaGrid {
 	}
 
 	/**
-	 * Makes cell at index empty
-	 * @param {Number} index
-	 */
-	makeEmpty(index) {
-		this.emptyCells.add(index);
-	}
-
-	/**
-	 * A number corresponding to fully connected tile
-	 * @param {Number} index
-	 * @returns {Number}
-	 */
-	fullyConnected(index) {
-		return 63;
-	}
-
-	/**
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
 	polygon_at(index) {
 		return HEXAGON;
-	}
-
-	/**
-	 * Compute tile orientation after a number of rotations
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @param {Number} index - index of tile, not used here
-	 * @returns
-	 */
-	rotate(tile, rotations, index = 0) {
-		return HEXAGON.rotate(tile, rotations);
-	}
-
-	/**
-	 * Get angle for displaying rotated pipes state
-	 * @param {Number} rotations
-	 * @param {Number} index
-	 * @returns
-	 */
-	getAngle(rotations, index) {
-		return HEXAGON.get_angle(rotations);
-	}
-
-	/**
-	 * Get CSS transform function parameters for this tile
-	 * @param {Number} index
-	 */
-	getTileTransformCSS(index) {
-		return null;
-	}
-
-	/**
-	 *
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @param {Number} index
-	 * @returns {Number[]}
-	 */
-	getDirections(tile, rotations = 0, index = 0) {
-		return HEXAGON.get_directions(tile, rotations);
 	}
 
 	/**
@@ -373,8 +278,11 @@ export class HexaGrid {
 	 */
 	useShape(shape) {
 		if (shape === 'hexagon') {
-			const wrap = this.wrap;
-			this.wrap = false;
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
 			const middle_row = Math.floor(this.height / 2);
 			let left_cell = this.width * middle_row;
 			let right_cell = left_cell + this.width - 1;
@@ -406,8 +314,11 @@ export class HexaGrid {
 			}
 			this.wrap = wrap;
 		} else if (shape === 'triangle') {
-			const wrap = this.wrap;
-			this.wrap = false;
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
 			let left_cell = 0;
 			let right_cell = this.width - 1;
 			for (let [start_cell, shift_direction, erase_direction] of [
@@ -431,9 +342,11 @@ export class HexaGrid {
 			}
 			this.wrap = wrap;
 		} else if (shape === 'hourglass') {
-			console.log('hourglass');
-			const wrap = this.wrap;
-			this.wrap = false;
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
 			const middle_row = Math.floor(this.height / 2);
 			for (let [start_cell, shift_direction, erase_direction] of [
 				[0, SOUTHEAST, WEST],
@@ -460,82 +373,5 @@ export class HexaGrid {
 		} else {
 			throw 'unknown shape ' + shape;
 		}
-	}
-
-	/**
-	 * Tile contour path for svg drawing
-	 * @param {Number} index
-	 * @returns
-	 */
-	getTilePath(index) {
-		return HEXAGON.contour_path;
-	}
-
-	/**
-	 * Pipes lines path
-	 * @param {Number} tile
-	 * @param {Number} index
-	 */
-	getPipesPath(tile, index) {
-		return HEXAGON.get_pipes_path(tile);
-	}
-
-	/**
-	 * Computes position for drawing the tile guiding dot
-	 * @param {Number} tile
-	 * @param {Number} index
-	 * @returns {Number[]}
-	 */
-	getGuideDotPosition(tile, index = 0) {
-		const [dx, dy] = HEXAGON.get_guide_dot_position(tile);
-		return [0.8 * dx, 0.8 * dy];
-	}
-
-	/**
-	 * Compute number of rotations for orienting a tile with "click to orient" control mode
-	 * @param {Number} tile
-	 * @param {Number} old_rotations
-	 * @param {Number} tx
-	 * @param {Number} ty
-	 * @param {Number} index
-	 */
-	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
-		return HEXAGON.click_orient_tile(tile, old_rotations, tx, ty);
-	}
-
-	/**
-	 * Returns coordinates of endpoints of edgemark line
-	 * @param {Number} direction
-	 * @param {Boolean} isWall
-	 * @param {Number} index
-	 * @returns
-	 */
-	getEdgemarkLine(direction, isWall, index = 0) {
-		return HEXAGON.get_edgemark_line(direction);
-	}
-
-	/**
-	 * Check if a drag gesture resembles drawing an edge mark
-	 * @param {Number} tile_index
-	 * @param {Number} tile_x
-	 * @param {Number} tile_y
-	 * @param {Number} x1
-	 * @param {Number} x2
-	 * @param {Number} y1
-	 * @param {Number} y2
-	 */
-	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		return HEXAGON.detect_edgemark_gesture(x1 - tile_x, x2 - tile_x, tile_y - y1, tile_y - y2);
-	}
-
-	/**
-	 * Tells if a point is close to one of tile's edges
-	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
-	 */
-	whichEdge(point) {
-		const { x, y, tileX, tileY } = point;
-		const dx = x - tileX;
-		const dy = tileY - y;
-		return HEXAGON.is_close_to_edge(dx, dy);
 	}
 }

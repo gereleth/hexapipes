@@ -1,12 +1,13 @@
-import { RegularPolygonTile, TransformedPolygonTile } from '$lib/puzzle/grids/polygonutils';
+import { TransformedPolygonTile } from '$lib/puzzle/grids/polygonutils';
 import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from './hexagrid';
+import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
 
 const DIRA = 1;
 const DIRB = 2;
 const DIRC = 4;
 const DIRD = 8;
 
-const SCALE = 1.5; // cube x, y = SCALE * hexagon x, y
+const SCALE = 1.5; // cube (x, y) = SCALE * hexagon (x, y)
 
 const RIGHT_FACE = new TransformedPolygonTile(
 	4,
@@ -44,7 +45,8 @@ const LEFT_FACE = new TransformedPolygonTile(
 	0.5,
 	Math.PI / 6,
 	0,
-	Math.PI / 6
+	Math.PI / 6,
+	null
 );
 
 const FACES = [RIGHT_FACE, TOP_FACE, LEFT_FACE];
@@ -56,7 +58,11 @@ const RHOMB_OFFSETS = RHOMB_ANGLES.map((angle) => {
 	};
 });
 
-export class CubeGrid {
+/**
+ * Stacked cubes grid
+ * @extends AbstractGrid
+ */
+export class CubeGrid extends AbstractGrid {
 	DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
 	EDGEMARK_DIRECTIONS = [DIRB, DIRC];
 	OPPOSITE = new Map([
@@ -99,11 +105,10 @@ export class CubeGrid {
 	PIPE_WIDTH = 0.15 * SCALE;
 	STROKE_WIDTH = 0.06 * SCALE;
 	SINK_RADIUS = 0.2 * SCALE;
-
-	/** @type {Set<Number>} - indices of empty cells */
-	emptyCells;
-	/** @type {Number} - total number of cells including empties */
-	total;
+	EDGEMARK_WIDTH = 0.04 * SCALE;
+	GUIDE_DOT_RADIUS = 0.03 * SCALE;
+	BEND_EDGEMARKS = true;
+	LINE_JOIN = 'bevel';
 
 	/**
 	 *
@@ -113,9 +118,7 @@ export class CubeGrid {
 	 * @param {Number[]} tiles
 	 */
 	constructor(width, height, wrap, tiles = []) {
-		this.width = width;
-		this.height = height;
-		this.wrap = wrap;
+		super(width, height, wrap, tiles);
 
 		// scale hexagonal grid to keep tile counts about the same
 		// as in corresponding square puzzles
@@ -128,17 +131,9 @@ export class CubeGrid {
 			this.hexagrid.useShape('hexagon');
 		}
 
-		this.lineJoin = 'bevel';
-
-		this.emptyCells = new Set();
 		this.hexagrid.emptyCells.forEach((index) => {
 			for (let rh = 0; rh < 3; rh++) {
 				this.emptyCells.add(index * 3 + rh);
-			}
-		});
-		tiles.forEach((tile, index) => {
-			if (tile === 0) {
-				this.emptyCells.add(index);
 			}
 		});
 		this.total = this.hexagrid.total * 3;
@@ -150,6 +145,7 @@ export class CubeGrid {
 	}
 
 	/**
+	 *
 	 * @param {Number} angle
 	 */
 	angle_to_rhomb(angle) {
@@ -212,57 +208,11 @@ export class CubeGrid {
 	}
 
 	/**
-	 * Makes cell at index empty
-	 * @param {Number} index
-	 */
-	makeEmpty(index) {
-		this.emptyCells.add(index);
-	}
-
-	/**
 	 * @param {Number} index
 	 * @returns {TransformedPolygonTile}
 	 */
 	polygon_at(index) {
 		return FACES[index % 3];
-	}
-
-	/**
-	 * Compute tile orientation after a number of rotations
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @returns
-	 */
-	rotate(tile, rotations) {
-		return LEFT_FACE.rotate(tile, rotations);
-	}
-
-	/**
-	 * Get angle for displaying rotated pipes state
-	 * @param {Number} rotations
-	 * @param {Number} index
-	 * @returns
-	 */
-	getAngle(rotations, index) {
-		return this.polygon_at(index).get_angle(rotations);
-	}
-
-	/**
-	 * Get CSS transform function parameters for this tile
-	 * @param {Number} index
-	 */
-	getTileTransformCSS(index) {
-		return this.polygon_at(index).transformCSS;
-	}
-
-	/**
-	 *
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @returns {Number[]}
-	 */
-	getDirections(tile, rotations = 0) {
-		return LEFT_FACE.get_directions(tile, rotations);
 	}
 
 	/**
@@ -297,24 +247,6 @@ export class CubeGrid {
 	}
 
 	/**
-	 * Tile contour path for svg drawing
-	 * @param {Number} index
-	 * @returns
-	 */
-	getTilePath(index) {
-		return this.polygon_at(index).contour_path;
-	}
-
-	/**
-	 * Pipes lines path
-	 * @param {Number} tile
-	 * @param {Number} index
-	 */
-	getPipesPath(tile, index) {
-		return this.polygon_at(index).get_pipes_path(tile);
-	}
-
-	/**
 	 * Computes position for drawing the tile guiding dot
 	 * @param {Number} tile
 	 * * @param {Number} index
@@ -323,62 +255,5 @@ export class CubeGrid {
 	getGuideDotPosition(tile, index) {
 		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
 		return [0.8 * dx, 0.8 * dy];
-	}
-	/**
-	 * Compute number of rotations for orienting a tile with "click to orient" control mode
-	 * @param {Number} tile
-	 * @param {Number} old_rotations
-	 * @param {Number} tx
-	 * @param {Number} ty
-	 * @param {Number} index
-	 */
-	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
-		return this.polygon_at(index).click_orient_tile(tile, old_rotations, tx, ty);
-	}
-	/**
-	 * Returns coordinates of endpoints of edgemark line
-	 * @param {Number} direction
-	 * @param {Boolean} isWall
-	 * @param {Number} index
-	 * @returns {{
-	 * x1: Number,
-	 * x2: Number,
-	 * y1: Number,
-	 * y2: Number,
-	 * grid_x2: Number,
-	 * grid_y2: Number,
-	 * }}
-	 */
-	getEdgemarkLine(direction, isWall, index = 0) {
-		return this.polygon_at(index).get_edgemark_line(direction, isWall);
-	}
-	/**
-	 * Check if a drag gesture resembles drawing an edge mark
-	 * @param {Number} tile_index
-	 * @param {Number} tile_x
-	 * @param {Number} tile_y
-	 * @param {Number} x1
-	 * @param {Number} x2
-	 * @param {Number} y1
-	 * @param {Number} y2
-	 */
-	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		return this.polygon_at(tile_index).detect_edgemark_gesture(
-			x1 - tile_x,
-			x2 - tile_x,
-			y1 - tile_y,
-			y2 - tile_y
-		);
-	}
-
-	/**
-	 * Tells if a point is close to one of tile's edges
-	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
-	 */
-	whichEdge(point) {
-		return this.polygon_at(point.tileIndex).is_close_to_edge(
-			point.x - point.tileX,
-			point.y - point.tileY
-		);
 	}
 }

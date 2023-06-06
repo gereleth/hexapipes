@@ -16,6 +16,7 @@
 	let state = game.tileStates[i];
 	const disconnectStrokeWidthScale = game.disconnectStrokeWidthScale;
 	const disconnectStrokeColor = game.disconnectStrokeColor;
+	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
 
 	let bgColor = '#aaa';
 	let strokeColor = '#888';
@@ -101,12 +102,19 @@
 			d={path}
 			stroke={$state.color}
 			stroke-width={pipeWidth}
-			stroke-linejoin={game.grid.lineJoin || 'round'}
+			stroke-linejoin={game.grid.LINE_JOIN}
 			stroke-linecap="round"
 		/>
 		{#if controlMode === 'orient_lock' && !$state.locked && !solved}
 			<!-- Guide dot -->
-			<circle cx={guideX} cy={-guideY} fill="orange" stroke="white" r="0.03" stroke-width="0.01" />
+			<circle
+				cx={guideX}
+				cy={-guideY}
+				fill="orange"
+				stroke="white"
+				r={guideDotRadius}
+				stroke-width="0.01"
+			/>
 		{/if}
 	</g>
 	<!-- <text x="0" y="0" text-anchor="middle" font-size="0.2">{i}</text> -->

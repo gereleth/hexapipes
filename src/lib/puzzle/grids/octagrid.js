@@ -1,4 +1,5 @@
 import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
+import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
 
 const EAST = 1;
 const NORTHEAST = 2;
@@ -17,7 +18,11 @@ const Rsq = ((Roct - d) * Math.SQRT2) / 2;
 const OCTAGON = new RegularPolygonTile(8, 0, 0.5);
 const SQUARE = new RegularPolygonTile(4, Math.PI / 4, Rsq, [2, 8, 32, 128]);
 
-export class OctaGrid {
+/**
+ * Octagonal grid
+ * @extends AbstractGrid
+ */
+export class OctaGrid extends AbstractGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTH, NORTHWEST, WEST, SOUTHWEST, SOUTH, SOUTHEAST];
 	EDGEMARK_DIRECTIONS = [NORTHEAST, NORTH, NORTHWEST, WEST];
 	OPPOSITE = new Map([
@@ -59,11 +64,6 @@ export class OctaGrid {
 	PIPE_LENGTH = 0.5;
 	SINK_RADIUS = 0.13;
 
-	/** @type {Set<Number>} - indices of empty cells */
-	emptyCells;
-	/** @type {Number} - total number of cells excluding empties */
-	total;
-
 	/**
 	 *
 	 * @param {Number} width
@@ -72,16 +72,8 @@ export class OctaGrid {
 	 * @param {Number[]} tiles
 	 */
 	constructor(width, height, wrap, tiles = []) {
-		this.width = width;
-		this.height = height;
-		this.wrap = wrap;
+		super(width, height, wrap, tiles);
 
-		this.emptyCells = new Set();
-		tiles.forEach((tile, index) => {
-			if (tile === 0) {
-				this.emptyCells.add(index);
-			}
-		});
 		if (tiles.length === 0 && !wrap) {
 			const N = 2 * width * height;
 			for (let w = 1; w <= width; w++) {
@@ -97,35 +89,6 @@ export class OctaGrid {
 		this.XMAX = width - 0.4 + (wrap ? 1 : 0);
 		this.YMIN = -(1 + (wrap ? 1 : 0));
 		this.YMAX = height + (wrap ? 1 : 0);
-
-		/* Tile types for use in solver */
-		this.T0 = 0;
-		this.T1 = 1;
-		this.T2v = 3;
-		this.T2L = 5;
-		this.T2C = 9;
-		this.T2I = 17;
-		this.T3w = 7;
-		/** @type {Map<Number,Number>} */
-		this.tileTypes = new Map();
-		for (let t = 0; t < 256; t++) {
-			let rotated = t;
-			while (!this.tileTypes.has(rotated)) {
-				this.tileTypes.set(rotated, t);
-				rotated = this.rotate(rotated, 1);
-			}
-		}
-	}
-
-	/**
-	 * @param {Number} index
-	 */
-	index_to_xy(index) {
-		const isSquare = index >= this.width * this.height;
-		const i = index - (isSquare ? this.width * this.height : 0);
-		const x = i % this.width;
-		const y = Math.round((i - x) / this.width);
-		return [x + (isSquare ? 0.5 : 0), y + (isSquare ? 0.5 : 0)];
 	}
 
 	/**
@@ -226,14 +189,6 @@ export class OctaGrid {
 	}
 
 	/**
-	 * Makes cell at index empty
-	 * @param {Number} index
-	 */
-	makeEmpty(index) {
-		this.emptyCells.add(index);
-	}
-
-	/**
 	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
 	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
@@ -301,69 +256,10 @@ export class OctaGrid {
 	}
 
 	/**
-	 * A number corresponding to fully connected tile
-	 * @param {Number} index
-	 * @returns {Number}
-	 */
-	fullyConnected(index) {
-		return this.polygon_at(index).fully_connected;
-	}
-
-	/**
-	 * Compute tile orientation after a number of rotations
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @param {Number} index - index of tile, not used here
-	 * @returns
-	 */
-	rotate(tile, rotations, index = 0) {
-		return this.polygon_at(index).rotate(tile, rotations);
-	}
-
-	/**
-	 * Get angle for displaying rotated pipes state
-	 * @param {Number} rotations
-	 * @param {Number} index
-	 * @returns
-	 */
-	getAngle(rotations, index) {
-		return this.polygon_at(index).get_angle(rotations);
-	}
-
-	/**
 	 * @param {Number} index
 	 */
 	getTileTransformCSS(index) {
 		return null;
-	}
-
-	/**
-	 *
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @param {Number} index
-	 * @returns {Number[]}
-	 */
-	getDirections(tile, rotations = 0, index) {
-		return this.polygon_at(index).get_directions(tile, rotations);
-	}
-
-	/**
-	 * Tile contour path for svg drawing
-	 * @param {Number} index
-	 * @returns
-	 */
-	getTilePath(index) {
-		return this.polygon_at(index).contour_path;
-	}
-
-	/**
-	 * Pipes lines path
-	 * @param {Number} tile
-	 * @param {Number} index
-	 */
-	getPipesPath(tile, index) {
-		return this.polygon_at(index).get_pipes_path(tile);
 	}
 
 	/**
@@ -375,58 +271,5 @@ export class OctaGrid {
 	getGuideDotPosition(tile, index = 0) {
 		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
 		return [0.7 * dx, 0.7 * dy];
-	}
-
-	/**
-	 * Compute number of rotations for orienting a tile with "click to orient" control mode
-	 * @param {Number} tile
-	 * @param {Number} old_rotations
-	 * @param {Number} tx
-	 * @param {Number} ty
-	 * @param {Number} index
-	 */
-	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
-		return this.polygon_at(index).click_orient_tile(tile, old_rotations, tx, ty);
-	}
-
-	/**
-	 * Returns coordinates of endpoints of edgemark line
-	 * @param {Number} direction
-	 * @param {Boolean} isWall
-	 * @param {Number} index
-	 * @returns
-	 */
-	getEdgemarkLine(direction, isWall, index = 0) {
-		return this.polygon_at(index).get_edgemark_line(direction);
-	}
-
-	/**
-	 * Check if a drag gesture resembles drawing an edge mark
-	 * @param {Number} tile_index
-	 * @param {Number} tile_x
-	 * @param {Number} tile_y
-	 * @param {Number} x1
-	 * @param {Number} x2
-	 * @param {Number} y1
-	 * @param {Number} y2
-	 */
-	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		return this.polygon_at(tile_index).detect_edgemark_gesture(
-			x1 - tile_x,
-			x2 - tile_x,
-			tile_y - y1,
-			tile_y - y2
-		);
-	}
-
-	/**
-	 * Tells if a point is close to one of tile's edges
-	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
-	 */
-	whichEdge(point) {
-		const { x, y, tileX, tileY, tileIndex } = point;
-		const dx = x - tileX;
-		const dy = tileY - y;
-		return this.polygon_at(tileIndex).is_close_to_edge(dx, dy);
 	}
 }

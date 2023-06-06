@@ -306,6 +306,7 @@ export class RegularPolygonTile {
 	 * @param {Number} y2
 	 */
 	detect_edgemark_gesture(x1, x2, y1, y2) {
+		[y1, y2] = [-y1, -y2];
 		let start_angle = Math.atan2(y1, x1);
 		let end_angle = Math.atan2(y2, x2);
 		start_angle += start_angle < 0 ? 2 * Math.PI : 0;
@@ -376,6 +377,8 @@ export class RegularPolygonTile {
 	 * x2: Number,
 	 * y1: Number,
 	 * y2: Number,
+	 * grid_x2: Number,
+	 * grid_y2: Number,
 	 * }}
 	 */
 	get_edgemark_line(direction, extendOut = true) {
@@ -396,8 +399,12 @@ export class RegularPolygonTile {
 			x1: offset_x - dx,
 			y1: -offset_y + dy,
 			x2: offset_x + (extendOut ? dx : 0),
-			y2: -offset_y - (extendOut ? dy : 0)
+			y2: -offset_y - (extendOut ? dy : 0),
+			grid_x2: 0,
+			grid_y2: 0
 		};
+		line.grid_x2 = line.x2;
+		line.grid_y2 = line.y2;
 		this.cache.edgemark_line.set(key, line);
 		return line;
 	}
@@ -420,7 +427,7 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 	 * @param {Number} skew_x
 	 * @param {Number} skew_y
 	 * @param {Number} rotate_rad
-	 * @param {String} style - additional css style to apply to polygon
+	 * @param {String|null} style - additional css style to apply to polygon
 	 */
 	constructor(
 		num_directions,
@@ -480,8 +487,8 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 		return super.detect_edgemark_gesture(
 			polygonDownPt.x,
 			polygonUpPt.x,
-			-polygonDownPt.y,
-			-polygonUpPt.y
+			polygonDownPt.y,
+			polygonUpPt.y
 		);
 	}
 

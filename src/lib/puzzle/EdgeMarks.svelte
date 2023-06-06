@@ -35,6 +35,8 @@
 	/** @type {ReflectedMark[]} */
 	let reflectedEdgeMarks = [];
 
+	const width = game.grid.EDGEMARK_WIDTH;
+
 	/**
 	 * Collect edgemarks that should be displayed
 	 * @param {import('$lib/puzzle/game').EdgeMark[]} marks
@@ -51,7 +53,7 @@
 			const { x1, y1, x2, y2 } = edgeMarkLine;
 			const mark = { x1, y1, x2, y2, state, direction };
 			visibleEdgeMarks.push(mark);
-			if (Object.hasOwn(edgeMarkLine, 'grid_x2') && state === 'conn') {
+			if (game.grid.BEND_EDGEMARKS && state === 'conn') {
 				const { neighbour } = game.grid.find_neighbour(i, direction);
 				const oppositeDirection = game.grid.OPPOSITE.get(direction) || 0;
 				const { x1, y1, x2, y2, grid_x2, grid_y2 } = game.grid.getEdgemarkLine(
@@ -84,7 +86,7 @@
 			{x2}
 			{y2}
 			stroke="green"
-			stroke-width="0.04"
+			stroke-width={width}
 		/>
 	{/each}
 </g>
@@ -100,7 +102,7 @@
 			x2={mark.x2}
 			y2={mark.y2}
 			stroke="green"
-			stroke-width="0.04"
+			stroke-width={width}
 		/>
 	</g>
 {/each}

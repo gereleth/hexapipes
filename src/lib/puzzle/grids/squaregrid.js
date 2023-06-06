@@ -1,4 +1,5 @@
 import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
+import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
 
 const EAST = 1;
 const NORTH = 2;
@@ -7,7 +8,11 @@ const SOUTH = 8;
 
 const SQUARE = new RegularPolygonTile(4, 0, 0.5);
 
-export class SquareGrid {
+/**
+ * Square grid
+ * @extends AbstractGrid
+ */
+export class SquareGrid extends AbstractGrid {
 	DIRECTIONS = [EAST, NORTH, WEST, SOUTH];
 	EDGEMARK_DIRECTIONS = [NORTH, WEST];
 	OPPOSITE = new Map([
@@ -29,11 +34,6 @@ export class SquareGrid {
 	PIPE_LENGTH = 0.5;
 	SINK_RADIUS = 0.2;
 
-	/** @type {Set<Number>} - indices of empty cells */
-	emptyCells;
-	/** @type {Number} - total number of cells including empties */
-	total;
-
 	/**
 	 *
 	 * @param {Number} width
@@ -42,47 +42,13 @@ export class SquareGrid {
 	 * @param {Number[]} tiles
 	 */
 	constructor(width, height, wrap, tiles = []) {
-		this.width = width;
-		this.height = height;
-		this.wrap = wrap;
-
-		this.emptyCells = new Set();
-		tiles.forEach((tile, index) => {
-			if (tile === 0) {
-				this.emptyCells.add(index);
-			}
-		});
+		super(width, height, wrap, tiles);
 		this.total = width * height;
 
 		this.XMIN = -0.6 - (wrap ? 1 : 0);
 		this.XMAX = width - 0.4 + (wrap ? 1 : 0);
 		this.YMIN = -(1 + (wrap ? 1 : 0));
 		this.YMAX = height + (wrap ? 1 : 0);
-
-		/* Tile types for use in solver */
-		this.T0 = 0;
-		this.T1 = 1;
-		this.T2L = 3;
-		this.T2I = 5;
-		this.T3 = 7;
-		/** @type {Map<Number,Number>} */
-		this.tileTypes = new Map();
-		for (let t = 0; t < 16; t++) {
-			let rotated = t;
-			while (!this.tileTypes.has(rotated)) {
-				this.tileTypes.set(rotated, t);
-				rotated = this.rotate(rotated, 1);
-			}
-		}
-	}
-
-	/**
-	 * @param {Number} index
-	 */
-	index_to_xy(index) {
-		const x = index % this.width;
-		const y = Math.round((index - x) / this.width);
-		return [x, y];
 	}
 
 	/**
@@ -148,48 +114,11 @@ export class SquareGrid {
 	}
 
 	/**
-	 * Makes cell at index empty
-	 * @param {Number} index
-	 */
-	makeEmpty(index) {
-		this.emptyCells.add(index);
-	}
-
-	/**
-	 * A number corresponding to fully connected tile
-	 * @param {Number} index
-	 * @returns {Number}
-	 */
-	fullyConnected(index) {
-		return 15;
-	}
-
-	/**
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
 	polygon_at(index) {
 		return SQUARE;
-	}
-	/**
-	 * Compute tile orientation after a number of rotations
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @param {Number} index - index of tile, not used here
-	 * @returns
-	 */
-	rotate(tile, rotations, index = 0) {
-		return SQUARE.rotate(tile, rotations);
-	}
-
-	/**
-	 * Get angle for displaying rotated pipes state
-	 * @param {Number} rotations
-	 * @param {Number} index
-	 * @returns
-	 */
-	getAngle(rotations, index) {
-		return SQUARE.get_angle(rotations);
 	}
 
 	/**
@@ -198,16 +127,6 @@ export class SquareGrid {
 	 */
 	getTileTransformCSS(index) {
 		return null;
-	}
-
-	/**
-	 *
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @returns {Number[]}
-	 */
-	getDirections(tile, rotations = 0) {
-		return SQUARE.get_directions(tile, rotations);
 	}
 
 	/**
@@ -246,82 +165,5 @@ export class SquareGrid {
 			}
 		}
 		return visibleTiles;
-	}
-
-	/**
-	 * Tile contour path for svg drawing
-	 * @param {Number} index
-	 * @returns
-	 */
-	getTilePath(index) {
-		return SQUARE.contour_path;
-	}
-
-	/**
-	 * Pipes lines path
-	 * @param {Number} tile
-	 * @param {Number} index
-	 */
-	getPipesPath(tile, index) {
-		return SQUARE.get_pipes_path(tile);
-	}
-
-	/**
-	 * Computes position for drawing the tile guiding dot
-	 * @param {Number} tile
-	 * * @param {Number} index
-	 * @returns {Number[]}
-	 */
-	getGuideDotPosition(tile, index) {
-		const [dx, dy] = SQUARE.get_guide_dot_position(tile);
-		return [0.8 * dx, 0.8 * dy];
-	}
-
-	/**
-	 * Compute number of rotations for orienting a tile with "click to orient" control mode
-	 * @param {Number} tile
-	 * @param {Number} old_rotations
-	 * @param {Number} tx
-	 * @param {Number} ty
-	 * @param {Number} index
-	 */
-	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
-		return SQUARE.click_orient_tile(tile, old_rotations, tx, ty);
-	}
-
-	/**
-	 * Returns coordinates of endpoints of edgemark line
-	 * @param {Number} direction
-	 * @param {Boolean} isWall
-	 * @param {Number} index
-	 * @returns
-	 */
-	getEdgemarkLine(direction, isWall, index = 0) {
-		return SQUARE.get_edgemark_line(direction);
-	}
-
-	/**
-	 * Check if a drag gesture resembles drawing an edge mark
-	 * @param {Number} tile_index
-	 * @param {Number} tile_x
-	 * @param {Number} tile_y
-	 * @param {Number} x1
-	 * @param {Number} x2
-	 * @param {Number} y1
-	 * @param {Number} y2
-	 */
-	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		return SQUARE.detect_edgemark_gesture(x1 - tile_x, x2 - tile_x, tile_y - y1, tile_y - y2);
-	}
-
-	/**
-	 * Tells if a point is close to one of tile's edges
-	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
-	 */
-	whichEdge(point) {
-		const { x, y, tileX, tileY } = point;
-		const dx = x - tileX;
-		const dy = tileY - y;
-		return SQUARE.is_close_to_edge(dx, dy);
 	}
 }
