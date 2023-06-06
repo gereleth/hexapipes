@@ -24,12 +24,18 @@ export class TileType {
 }
 
 export class RegularPolygonTile {
+	/** @type {String|null} */
+	transformCSS = null;
+	/** @type {String|null} */
+	style = null;
+
 	/**
 	 *
 	 * @param {Number} num_directions
 	 * @param {Number} angle_offset
 	 * @param {Number} radius_in
 	 * @param {Number[]} directions
+	 * @param {Number} border_width
 	 */
 	constructor(num_directions, angle_offset, radius_in, directions = [], border_width = 0.01) {
 		this.num_directions = num_directions;
@@ -61,11 +67,13 @@ export class RegularPolygonTile {
 			if (currentTypeStr.endsWith('1')) {
 				/** @type {Number[]} */
 				const indices = [];
-				currentTypeStr.split('').forEach((char, index) => {
-					if (char === '1') {
-						indices.push(index);
-					}
-				});
+				currentTypeStr
+					.split('')
+					.forEach((/** @type {String} */ char, /** @type {Number} */ index) => {
+						if (char === '1') {
+							indices.push(index);
+						}
+					});
 				const tileType = new TileType(currentTypeStr, num_directions);
 				for (let i = 0; i < num_directions; i++) {
 					const value = indices.reduce((a, b) => a + this.directions[(i + b) % num_directions], 0);
@@ -395,41 +403,78 @@ export class RegularPolygonTile {
 	}
 }
 
+/**
+ * Polygon tile with skew/scale/rotate transformations applied
+ * @extends RegularPolygonTile
+ */
 export class TransformedPolygonTile extends RegularPolygonTile {
+	/**
+	 *
+	 * @param {Number} num_directions
+	 * @param {Number} angle_offset
+	 * @param {Number} radius_in
+	 * @param {Number[]} directions
+	 * @param {Number} border_width
+	 * @param {Number} scale_x
+	 * @param {Number} scale_y
+	 * @param {Number} skew_x
+	 * @param {Number} skew_y
+	 * @param {Number} rotate_rad
+	 * @param {String} style - additional css style to apply to polygon
+	 */
 	constructor(
 		num_directions,
 		angle_offset,
 		radius_in,
 		directions,
 		border_width,
-		scaleX,
-		scaleY,
-		skewX,
-		skewY,
-		rotateTh,
+		scale_x,
+		scale_y,
+		skew_x,
+		skew_y,
+		rotate_rad,
 		style
 	) {
 		super(num_directions, angle_offset, radius_in, directions, border_width);
-		// we could instead simplify the CSS & matrix construction
-		scaleX = scaleX || 1;
-		scaleY = scaleY || 1;
-		skewX = skewX || 0;
-		skewY = skewY || 0;
-		rotateTh = rotateTh || 0;
-		this.transformCSS = `rotate(${rotateTh}rad) skew(${skewX}rad, ${skewY}rad) scale(${scaleX}, ${scaleY})`;
-		this.transformMatrix = compose(rotate(rotateTh), skew(skewX, skewY), scale(scaleX, scaleY));
+		scale_x = scale_x || 1;
+		scale_y = scale_y || 1;
+		skew_x = skew_x || 0;
+		skew_y = skew_y || 0;
+		rotate_rad = rotate_rad || 0;
+		this.transformCSS = `rotate(${rotate_rad}rad) skew(${skew_x}rad, ${skew_y}rad) scale(${scale_x}, ${scale_y})`;
+		this.transformMatrix = compose(
+			rotate(rotate_rad),
+			skew(skew_x, skew_y),
+			scale(scale_x, scale_y)
+		);
 		this.transformInverse = inverse(this.transformMatrix);
 		this.style = style;
 	}
 
+	/**
+	 * Compute number of rotations for orienting a tile with "click to orient" control mode
+	 * @param {Number} tile
+	 * @param {Number} old_rotations
+	 * @param {Number} tx - x coordinate of clicked point relative to tile center
+	 * @param {Number} ty - y coordinate of clicked point relative to tile center
+	 * @returns {Number}
+	 */
 	click_orient_tile(tile, old_rotations, tx, ty) {
 		const { x, y } = applyToPoint(this.transformInverse, { x: tx, y: ty });
 		return super.click_orient_tile(tile, old_rotations, x, y);
 	}
 
-	detect_edgemark_gesture(tx1, tx2, ty1, ty2) {
-		const gridTileDownPt = { x: tx1, y: ty1 };
-		const gridTileUpPt = { x: tx2, y: ty2 };
+	/**
+	 * Detects gesture for drawing wall or connection marks
+	 * Coordinates should be relative to tile center
+	 * @param {Number} x1
+	 * @param {Number} x2
+	 * @param {Number} y1
+	 * @param {Number} y2
+	 */
+	detect_edgemark_gesture(x1, x2, y1, y2) {
+		const gridTileDownPt = { x: x1, y: y1 };
+		const gridTileUpPt = { x: x2, y: y2 };
 		const polygonDownPt = applyToPoint(this.transformInverse, gridTileDownPt);
 		const polygonUpPt = applyToPoint(this.transformInverse, gridTileUpPt);
 		return super.detect_edgemark_gesture(
@@ -440,8 +485,14 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 		);
 	}
 
-	is_close_to_edge(tx, ty) {
-		const polyPt = applyToPoint(this.transformInverse, { x: tx, y: ty });
+	/**
+	 * Tells if a point is close to the middle of a polygon's edge
+	 * Input coordinates are relative to tile's center
+	 * @param {Number} x
+	 * @param {Number} y
+	 */
+	is_close_to_edge(x, y) {
+		const polyPt = applyToPoint(this.transformInverse, { x, y });
 		return super.is_close_to_edge(polyPt.x, -polyPt.y);
 	}
 
