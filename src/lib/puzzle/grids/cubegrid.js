@@ -108,6 +108,7 @@ export class CubeGrid extends AbstractGrid {
 	EDGEMARK_WIDTH = 0.04 * SCALE;
 	GUIDE_DOT_RADIUS = 0.03 * SCALE;
 	BEND_EDGEMARKS = true;
+	/** @type {"inherit" | "round" | "bevel" | "miter"} */
 	LINE_JOIN = 'bevel';
 
 	/**

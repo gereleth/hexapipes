@@ -196,7 +196,7 @@ const emptyCallback = (/**@type {SolverProgress} */ progress) => {};
 /**
  * @constructor
  * @param {Number[]} tiles - tile index in grid
- * @param {import('$lib/puzzle/grids/grids').Grid} grid
+ * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  */
 export function Solver(tiles, grid) {
 	let self = this;

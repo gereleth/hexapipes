@@ -26,7 +26,7 @@
 	let generatorComponent;
 	let solved = false;
 
-	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
+	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
 	let grid;
 	/** @type {Number[]}*/
 	let tiles = [];
@@ -109,7 +109,7 @@
 				throw `Size mismatch: grid total = ${gr.total}, length of tiles = ${t.length}`;
 			}
 			t.forEach((tile, index) => {
-				if (tile < 0 || tile > gr.fullyConnected(index)) {
+				if (tile < 0 || tile > gr.polygon_at(index).fully_connected) {
 					throw `Bad tile value at index ${index}: ${tile}`;
 				}
 			});

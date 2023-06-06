@@ -7,7 +7,7 @@
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
-	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
+	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
 	export let grid;
 	/** @type {Number[]} */
 	export let tiles = [];

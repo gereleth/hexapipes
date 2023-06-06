@@ -112,7 +112,7 @@ function StateStore(initialState) {
 /**
  * Pipes puzzle internal state
  * @constructor
- * @param {import('$lib/puzzle/grids/grids').Grid} grid
+ * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {Number[]} tiles
  * @param {Progress|undefined} savedProgress
  */

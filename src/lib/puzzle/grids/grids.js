@@ -13,10 +13,6 @@ import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
  */
 
 /**
- * @typedef {HexaGrid|SquareGrid|OctaGrid|EtratGrid|CubeGrid} Grid
- */
-
-/**
  * @typedef {Object} GridOptions
  * @property {GridKind} kind
  * @property {Number} width
@@ -32,7 +28,7 @@ import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
  * @param {Number} height
  * @param {boolean} wrap
  * @param {Number[]|undefined} tiles
- * @returns {Grid}
+ * @returns {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}
  */
 export function createGrid(kind, width, height, wrap, tiles = undefined) {
 	let grid;

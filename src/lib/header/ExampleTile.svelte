@@ -3,7 +3,7 @@
 	export let i;
 	/** @type {Number} */
 	export let tile;
-	/** @type {import('$lib/puzzle/grids/grids').Grid} */
+	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} */
 	export let grid;
 	export let cx = 0;
 	export let cy = 0;
@@ -57,7 +57,7 @@
 			d={path}
 			stroke="white"
 			stroke-width={pipeWidth}
-			stroke-linejoin={grid.lineJoin || 'round'}
+			stroke-linejoin={grid.LINE_JOIN}
 			stroke-linecap="round"
 		/>
 	</g>

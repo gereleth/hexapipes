@@ -13,6 +13,7 @@ export class AbstractGrid {
 	EDGEMARK_WIDTH = 0.04;
 	GUIDE_DOT_RADIUS = 0.03;
 	BEND_EDGEMARKS = false;
+	/** @type {"inherit" | "round" | "bevel" | "miter"}	 */
 	LINE_JOIN = 'round';
 
 	/** @type {Set<Number>} - indices of empty cells */

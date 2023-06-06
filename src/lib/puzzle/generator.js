@@ -32,7 +32,7 @@ function getRandomElement(array) {
 /**
  * Randomize tile rotations
  * @param {Number[]} tiles
- * @param {import('$lib/puzzle/grids/grids').Grid} grid
+ * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @returns {Number[]}
  */
 function randomRotate(tiles, grid) {
@@ -50,7 +50,7 @@ function randomRotate(tiles, grid) {
 export class Generator {
 	/**
 	 * @constructor
-	 * @param {import('$lib/puzzle/grids/grids').Grid} grid
+	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
 	 * @param {Number} [reuse_tiles_min_count = 3] minimum count of connected tiles to leave when erasing ambiguities.
 	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous tiles did not decrease in this many iterations
 	 */
