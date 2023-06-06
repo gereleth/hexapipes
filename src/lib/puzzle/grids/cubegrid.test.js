@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { CubeGrid } from './cubegrid';
 
 describe('Test making a cell empty', () => {
-	const grid = new CubeGrid(3, 3, false);
+	const grid = new CubeGrid(5, 5, false);
 	grid.makeEmpty(14);
-	
+
 	it('Reports an empty neighbour', () => {
 		const { neighbour, empty } = grid.find_neighbour(9, 8);
 		expect(neighbour).toBe(14);
