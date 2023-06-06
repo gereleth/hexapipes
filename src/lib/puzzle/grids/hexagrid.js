@@ -93,17 +93,6 @@ export class HexaGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {Number} index
-	 */
-	index_to_xy(index) {
-		const c = index % this.width;
-		const r = Math.round((index - c) / this.width);
-		const x = c + (r % 2 === 0 ? 0.0 : 0.5);
-		const y = r * YSTEP;
-		return [x, y];
-	}
-
-	/**
 	 * Determines which tile a point at (x, y) belongs to
 	 * Returns tile index and tile center coordinates
 	 * If the point is over empty space then tileIndex is -1
