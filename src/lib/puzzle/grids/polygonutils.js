@@ -106,7 +106,8 @@ export class RegularPolygonTile {
 			rotate: new Map(),
 			pipes_path: new Map(),
 			guide_dot_position: new Map(),
-			edgemark_line: new Map()
+			edgemark_line: new Map(),
+			wall_line: new Map()
 		};
 	}
 
@@ -298,7 +299,43 @@ export class RegularPolygonTile {
 	}
 
 	/**
-	 * Detects gesture for drawing wall or connection marks
+	 * Given coordinates relative to tile center return the closest direction
+	 * @param {Number} x
+	 * @param {Number} y
+	 * @returns {Number} direction
+	 */
+	get_closest_direction(x, y) {
+		let angle = Math.atan2(-y, x);
+		angle += angle < 0 ? Math.PI * 2 : 0;
+		const direction_index = Math.round((angle - this.angle_offset) / this.angle_unit);
+		return this.directions[(direction_index + this.num_directions) % this.num_directions];
+	}
+
+	/**
+	 * Returns coordinates of edge line in direction
+	 * @param {Number} direction
+	 * @returns {{x1: Number, x2: Number, y1: Number, y2: Number, length: Number}}
+	 */
+	get_wall_line(direction) {
+		const cached = this.cache.wall_line.get(direction);
+		if (cached !== undefined) {
+			return cached;
+		}
+		const direction_index = this.direction_to_index.get(direction) || 0;
+		let angle1 = this.angle_offset + this.angle_unit * (direction_index - 0.5);
+		let angle2 = angle1 + this.angle_unit;
+		const x1 = Math.cos(angle1) * this.radius_out;
+		const y1 = Math.sin(angle1) * this.radius_out;
+		const x2 = Math.cos(angle2) * this.radius_out;
+		const y2 = Math.sin(angle2) * this.radius_out;
+		const length = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+		const result = { x1, x2, y1, y2, length };
+		this.cache.wall_line.set(direction, result);
+		return result;
+	}
+
+	/**
+	 * Detects gesture for drawing wall marks
 	 * Coordinates should be relative to tile center
 	 * @param {Number} x1
 	 * @param {Number} x2
@@ -306,43 +343,39 @@ export class RegularPolygonTile {
 	 * @param {Number} y2
 	 */
 	detect_edgemark_gesture(x1, x2, y1, y2) {
+		// find closest direction
 		[y1, y2] = [-y1, -y2];
-		let start_angle = Math.atan2(y1, x1);
-		let end_angle = Math.atan2(y2, x2);
-		start_angle += start_angle < 0 ? 2 * Math.PI : 0;
-		end_angle += end_angle < 0 ? 2 * Math.PI : 0;
-		let delta_angle = Math.abs(start_angle - end_angle);
-		let mean_angle = 0.5 * (start_angle + end_angle);
-		if (delta_angle > Math.PI) {
-			delta_angle = 2 * Math.PI - delta_angle;
-			mean_angle -= Math.PI;
+		const xmid = (x1 + x2) / 2;
+		const ymid = (y1 + y2) / 2;
+		const direction = this.get_closest_direction(xmid, -ymid);
+		const result = { mark: 'none', direction };
+		// find wall line in this direction
+		const wall = this.get_wall_line(direction);
+		// find out if gesture is parallel or perpendicular to the edge
+		const gesture_length_squared = (x1 - x2) ** 2 + (y1 - y2) ** 2;
+		const gesture_length = Math.sqrt(gesture_length_squared);
+		const scalar_product = Math.abs(
+			(wall.x1 - wall.x2) * (x1 - x2) + (wall.y1 - wall.y2) * (y1 - y2)
+		);
+		const cos_distance = scalar_product / (wall.length * gesture_length);
+		if (cos_distance > 0.6) {
+			result.mark = 'wall';
+		} else if (cos_distance < 0.4) {
+			result.mark = 'conn';
 		}
-		const direction_index = Math.round((mean_angle - this.angle_offset) / this.angle_unit);
-		const start_radius = Math.sqrt(y1 ** 2 + x1 ** 2);
-		const end_radius = Math.sqrt(y2 ** 2 + x2 ** 2);
-		const mean_radius = 0.5 * (start_radius + end_radius);
-
-		const radius_is_close = Math.abs(mean_radius - this.radius_in) <= 0.4 * this.radius_in;
-		const angle_is_close =
-			Math.abs(mean_angle - (this.angle_offset + direction_index * this.angle_unit)) <=
-			0.5 * this.angle_unit;
-		/** @type {{mark:import('$lib/puzzle/game').EdgeMark, direction: Number}} */
-		const result = {
-			mark: 'none',
-			direction: this.directions[(direction_index + this.num_directions) % this.num_directions]
-		};
-
-		if (radius_is_close && angle_is_close) {
-			// was close to tile border
-			// in a well defined direction
-			// toggle an edgemark here
-			const distance_along_border = this.radius_in * delta_angle;
-			const distance_across_border = Math.abs(start_radius - end_radius);
-			if (distance_along_border > distance_across_border) {
-				result.mark = 'wall';
-			} else if (distance_along_border < distance_across_border) {
-				result.mark = 'conn';
-			}
+		if (result.mark === 'none') {
+			return result;
+		}
+		// also check if gesture passes near edge middle to have fewer false positives
+		const wall_xmid = (wall.x1 + wall.x2) / 2;
+		const wall_ymid = (wall.y1 + wall.y2) / 2;
+		const l1_squared = (x1 - wall_xmid) ** 2 + (y1 - wall_ymid) ** 2;
+		const l1 = Math.sqrt(l1_squared);
+		const l2_squared = (x2 - wall_xmid) ** 2 + (y2 - wall_ymid) ** 2;
+		const l2 = Math.sqrt(l2_squared);
+		const cos_angle = (l1_squared + l2_squared - gesture_length_squared) / (2 * l1 * l2);
+		if (cos_angle > -0.6) {
+			result.mark = 'none';
 		}
 		return result;
 	}
@@ -354,6 +387,7 @@ export class RegularPolygonTile {
 	 * @param {Number} y
 	 */
 	is_close_to_edge(x, y) {
+		y = -y;
 		const delta_radius = Math.abs(Math.sqrt(x ** 2 + y ** 2) - this.radius_in);
 		let angle = Math.atan2(y, x);
 		angle += angle < 0 ? 2 * Math.PI : 0;
@@ -480,16 +514,27 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 	 * @param {Number} y2
 	 */
 	detect_edgemark_gesture(x1, x2, y1, y2) {
-		const gridTileDownPt = { x: x1, y: y1 };
-		const gridTileUpPt = { x: x2, y: y2 };
-		const polygonDownPt = applyToPoint(this.transformInverse, gridTileDownPt);
-		const polygonUpPt = applyToPoint(this.transformInverse, gridTileUpPt);
-		return super.detect_edgemark_gesture(
-			polygonDownPt.x,
-			polygonUpPt.x,
-			polygonDownPt.y,
-			polygonUpPt.y
+		// find closest direction
+		const xmid = (x1 + x2) / 2;
+		const ymid = (y1 + y2) / 2;
+		const direction = this.get_closest_direction(xmid, ymid);
+		const result = { mark: 'none', direction };
+		// find wall line in this direction
+		const wall = this.get_wall_line(direction);
+		// find out if gesture is parallel or perpendicular to the edge
+		const gesture_length_squared = (x1 - x2) ** 2 + (y1 - y2) ** 2;
+		const gesture_length = Math.sqrt(gesture_length_squared);
+		const scalar_product = Math.abs(
+			(wall.x1 - wall.x2) * (x1 - x2) + (wall.y1 - wall.y2) * (y1 - y2)
 		);
+		const cos_distance = scalar_product / (wall.length * gesture_length);
+		if (cos_distance > 0.6) {
+			result.mark = 'wall';
+		} else if (cos_distance < 0.4) {
+			result.mark = 'conn';
+		}
+		// also check if gesture passes near edge middle maybe?
+		return result;
 	}
 
 	/**
@@ -500,7 +545,37 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 	 */
 	is_close_to_edge(x, y) {
 		const polyPt = applyToPoint(this.transformInverse, { x, y });
-		return super.is_close_to_edge(polyPt.x, -polyPt.y);
+		return super.is_close_to_edge(polyPt.x, polyPt.y);
+	}
+
+	/**
+	 * Given coordinates relative to tile center return the closest direction
+	 * @param {Number} x
+	 * @param {Number} y
+	 * @returns {Number} direction
+	 */
+	get_closest_direction(x, y) {
+		const polyPt = applyToPoint(this.transformInverse, { x, y });
+		return super.get_closest_direction(polyPt.x, polyPt.y);
+	}
+
+	/**
+	 * Returns coordinates of edge line in direction
+	 * @param {Number} direction
+	 * @returns {{x1: Number, x2: Number, y1: Number, y2: Number, length: Number}}
+	 */
+	get_wall_line(direction) {
+		const cached = this.cache.wall_line.get(direction);
+		if (cached !== undefined) {
+			return cached;
+		}
+		const wall = super.get_wall_line(direction);
+		const { x: x1, y: y1 } = applyToPoint(this.transformMatrix, { x: wall.x1, y: wall.y1 });
+		const { x: x2, y: y2 } = applyToPoint(this.transformMatrix, { x: wall.x2, y: wall.y2 });
+		const length = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+		const result = { x1, x2, y1, y2, length };
+		this.cache.wall_line.set(direction, result);
+		return result;
 	}
 
 	/**

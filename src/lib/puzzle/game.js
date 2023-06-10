@@ -386,6 +386,10 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 */
 	self.toggleEdgeMark = function (mark, tileIndex, direction, assistant = false) {
 		const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+		if (empty) {
+			// no edgemarks on outer borders
+			return;
+		}
 		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 		if (index === -1) {
 			// toggle mark on the neighbour instead
