@@ -16,8 +16,8 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "next",
-		"@sveltejs/adapter-vercel": "next",
 		"@sveltejs/adapter-static": "*",
+		"@sveltejs/adapter-vercel": "next",
 		"@sveltejs/kit": "^1.0.0",
 		"@testing-library/svelte": "^3.2.1",
 		"@types/cookie": "^0.5.1",
@@ -37,6 +37,7 @@
 		"@fontsource/fira-mono": "^4.5.0",
 		"cookie": "^0.4.1",
 		"normalize-wheel": "^1.0.1",
-		"randomcolor": "0.6.2"
+		"randomcolor": "0.6.2",
+		"transformation-matrix": "^2.15.0"
 	}
 }

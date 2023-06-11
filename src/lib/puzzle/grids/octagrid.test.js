@@ -1,42 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OctaGrid } from './octagrid';
 
-describe('Test index_to_xy', () => {
-	it('Get location of octagonal tiles', () => {
-		const grid = new OctaGrid(4, 3, false);
-		const expected = new Map([
-			[0, [0, 0]],
-			[1, [1, 0]],
-			[3, [3, 0]],
-			[6, [2, 1]],
-			[7, [3, 1]],
-			[11, [3, 2]]
-		]);
-		for (let [index, xy] of expected.entries()) {
-			const [x, y] = grid.index_to_xy(index);
-			expect(x).toBe(xy[0]);
-			expect(y).toBe(xy[1]);
-		}
-	});
-
-	it('Get location of square tiles', () => {
-		const grid = new OctaGrid(4, 3, false);
-		const expected = new Map([
-			[12, [0.5, 0.5]],
-			[13, [1.5, 0.5]],
-			[15, [3.5, 0.5]],
-			[18, [2.5, 1.5]],
-			[19, [3.5, 1.5]],
-			[23, [3.5, 2.5]]
-		]);
-		for (let [index, xy] of expected.entries()) {
-			const [x, y] = grid.index_to_xy(index);
-			expect(x).toBe(xy[0]);
-			expect(y).toBe(xy[1]);
-		}
-	});
-});
-
 describe('Test rc_to_index', () => {
 	it('Get index of tiles, non-wrapping grid', () => {
 		const grid = new OctaGrid(4, 3, false);

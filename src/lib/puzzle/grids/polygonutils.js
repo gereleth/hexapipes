@@ -1,3 +1,5 @@
+import { scale, skew, rotate, compose, inverse, applyToPoint } from 'transformation-matrix';
+
 export class TileType {
 	/**
 	 *
@@ -22,12 +24,18 @@ export class TileType {
 }
 
 export class RegularPolygonTile {
+	/** @type {String|null} */
+	transformCSS = null;
+	/** @type {String|null} */
+	style = null;
+
 	/**
 	 *
 	 * @param {Number} num_directions
 	 * @param {Number} angle_offset
 	 * @param {Number} radius_in
 	 * @param {Number[]} directions
+	 * @param {Number} border_width
 	 */
 	constructor(num_directions, angle_offset, radius_in, directions = [], border_width = 0.01) {
 		this.num_directions = num_directions;
@@ -59,11 +67,13 @@ export class RegularPolygonTile {
 			if (currentTypeStr.endsWith('1')) {
 				/** @type {Number[]} */
 				const indices = [];
-				currentTypeStr.split('').forEach((char, index) => {
-					if (char === '1') {
-						indices.push(index);
-					}
-				});
+				currentTypeStr
+					.split('')
+					.forEach((/** @type {String} */ char, /** @type {Number} */ index) => {
+						if (char === '1') {
+							indices.push(index);
+						}
+					});
 				const tileType = new TileType(currentTypeStr, num_directions);
 				for (let i = 0; i < num_directions; i++) {
 					const value = indices.reduce((a, b) => a + this.directions[(i + b) % num_directions], 0);
@@ -96,7 +106,8 @@ export class RegularPolygonTile {
 			rotate: new Map(),
 			pipes_path: new Map(),
 			guide_dot_position: new Map(),
-			edgemark_line: new Map()
+			edgemark_line: new Map(),
+			wall_line: new Map()
 		};
 	}
 
@@ -268,10 +279,12 @@ export class RegularPolygonTile {
 	 * Compute number of rotations for orienting a tile with "click to orient" control mode
 	 * @param {Number} tile
 	 * @param {Number} old_rotations
-	 * @param {Number} new_angle
+	 * @param {Number} tx - x coordinate of clicked point relative to tile center
+	 * @param {Number} ty - y coordinate of clicked point relative to tile center
 	 * @returns {Number}
 	 */
-	click_orient_tile(tile, old_rotations, new_angle) {
+	click_orient_tile(tile, old_rotations, tx, ty) {
+		const new_angle = Math.atan2(-ty, tx);
 		const [guideX, guideY] = this.get_guide_dot_position(tile);
 		const old_angle = Math.atan2(guideY, guideX);
 		let times_rotate =
@@ -286,7 +299,43 @@ export class RegularPolygonTile {
 	}
 
 	/**
-	 * Detects gesture for drawing wall or connection marks
+	 * Given coordinates relative to tile center return the closest direction
+	 * @param {Number} x
+	 * @param {Number} y
+	 * @returns {Number} direction
+	 */
+	get_closest_direction(x, y) {
+		let angle = Math.atan2(-y, x);
+		angle += angle < 0 ? Math.PI * 2 : 0;
+		const direction_index = Math.round((angle - this.angle_offset) / this.angle_unit);
+		return this.directions[(direction_index + this.num_directions) % this.num_directions];
+	}
+
+	/**
+	 * Returns coordinates of edge line in direction
+	 * @param {Number} direction
+	 * @returns {{x1: Number, x2: Number, y1: Number, y2: Number, length: Number}}
+	 */
+	get_wall_line(direction) {
+		const cached = this.cache.wall_line.get(direction);
+		if (cached !== undefined) {
+			return cached;
+		}
+		const direction_index = this.direction_to_index.get(direction) || 0;
+		let angle1 = this.angle_offset + this.angle_unit * (direction_index - 0.5);
+		let angle2 = angle1 + this.angle_unit;
+		const x1 = Math.cos(angle1) * this.radius_out;
+		const y1 = Math.sin(angle1) * this.radius_out;
+		const x2 = Math.cos(angle2) * this.radius_out;
+		const y2 = Math.sin(angle2) * this.radius_out;
+		const length = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+		const result = { x1, x2, y1, y2, length };
+		this.cache.wall_line.set(direction, result);
+		return result;
+	}
+
+	/**
+	 * Detects gesture for drawing wall marks
 	 * Coordinates should be relative to tile center
 	 * @param {Number} x1
 	 * @param {Number} x2
@@ -294,42 +343,39 @@ export class RegularPolygonTile {
 	 * @param {Number} y2
 	 */
 	detect_edgemark_gesture(x1, x2, y1, y2) {
-		let start_angle = Math.atan2(y1, x1);
-		let end_angle = Math.atan2(y2, x2);
-		start_angle += start_angle < 0 ? 2 * Math.PI : 0;
-		end_angle += end_angle < 0 ? 2 * Math.PI : 0;
-		let delta_angle = Math.abs(start_angle - end_angle);
-		let mean_angle = 0.5 * (start_angle + end_angle);
-		if (delta_angle > Math.PI) {
-			delta_angle = 2 * Math.PI - delta_angle;
-			mean_angle -= Math.PI;
+		// find closest direction
+		[y1, y2] = [-y1, -y2];
+		const xmid = (x1 + x2) / 2;
+		const ymid = (y1 + y2) / 2;
+		const direction = this.get_closest_direction(xmid, -ymid);
+		const result = { mark: 'none', direction };
+		// find wall line in this direction
+		const wall = this.get_wall_line(direction);
+		// find out if gesture is parallel or perpendicular to the edge
+		const gesture_length_squared = (x1 - x2) ** 2 + (y1 - y2) ** 2;
+		const gesture_length = Math.sqrt(gesture_length_squared);
+		const scalar_product = Math.abs(
+			(wall.x1 - wall.x2) * (x1 - x2) + (wall.y1 - wall.y2) * (y1 - y2)
+		);
+		const cos_distance = scalar_product / (wall.length * gesture_length);
+		if (cos_distance > 0.6) {
+			result.mark = 'wall';
+		} else if (cos_distance < 0.4) {
+			result.mark = 'conn';
 		}
-		const direction_index = Math.round((mean_angle - this.angle_offset) / this.angle_unit);
-		const start_radius = Math.sqrt(y1 ** 2 + x1 ** 2);
-		const end_radius = Math.sqrt(y2 ** 2 + x2 ** 2);
-		const mean_radius = 0.5 * (start_radius + end_radius);
-
-		const radius_is_close = Math.abs(mean_radius - this.radius_in) <= 0.4 * this.radius_in;
-		const angle_is_close =
-			Math.abs(mean_angle - (this.angle_offset + direction_index * this.angle_unit)) <=
-			0.5 * this.angle_unit;
-		/** @type {{mark:import('$lib/puzzle/game').EdgeMark, direction: Number}} */
-		const result = {
-			mark: 'none',
-			direction: this.directions[(direction_index + this.num_directions) % this.num_directions]
-		};
-
-		if (radius_is_close && angle_is_close) {
-			// was close to tile border
-			// in a well defined direction
-			// toggle an edgemark here
-			const distance_along_border = this.radius_in * delta_angle;
-			const distance_across_border = Math.abs(start_radius - end_radius);
-			if (distance_along_border > distance_across_border) {
-				result.mark = 'wall';
-			} else if (distance_along_border < distance_across_border) {
-				result.mark = 'conn';
-			}
+		if (result.mark === 'none') {
+			return result;
+		}
+		// also check if gesture passes near edge middle to have fewer false positives
+		const wall_xmid = (wall.x1 + wall.x2) / 2;
+		const wall_ymid = (wall.y1 + wall.y2) / 2;
+		const l1_squared = (x1 - wall_xmid) ** 2 + (y1 - wall_ymid) ** 2;
+		const l1 = Math.sqrt(l1_squared);
+		const l2_squared = (x2 - wall_xmid) ** 2 + (y2 - wall_ymid) ** 2;
+		const l2 = Math.sqrt(l2_squared);
+		const cos_angle = (l1_squared + l2_squared - gesture_length_squared) / (2 * l1 * l2);
+		if (cos_angle > -0.6) {
+			result.mark = 'none';
 		}
 		return result;
 	}
@@ -341,6 +387,7 @@ export class RegularPolygonTile {
 	 * @param {Number} y
 	 */
 	is_close_to_edge(x, y) {
+		y = -y;
 		const delta_radius = Math.abs(Math.sqrt(x ** 2 + y ** 2) - this.radius_in);
 		let angle = Math.atan2(y, x);
 		angle += angle < 0 ? 2 * Math.PI : 0;
@@ -359,9 +406,18 @@ export class RegularPolygonTile {
 	/**
 	 * Returns coordinates for drawing edgemark line relative to tile center
 	 * @param {Number} direction
+	 * @returns {{
+	 * x1: Number,
+	 * x2: Number,
+	 * y1: Number,
+	 * y2: Number,
+	 * grid_x2: Number,
+	 * grid_y2: Number,
+	 * }}
 	 */
-	get_edgemark_line(direction) {
-		const cached = this.cache.edgemark_line.get(direction);
+	get_edgemark_line(direction, extendOut = true) {
+		const key = `${direction}-${extendOut}`;
+		const cached = this.cache.edgemark_line.get(key);
 		if (cached !== undefined) {
 			return cached;
 		}
@@ -376,10 +432,170 @@ export class RegularPolygonTile {
 		const line = {
 			x1: offset_x - dx,
 			y1: -offset_y + dy,
-			x2: offset_x + dx,
-			y2: -offset_y - dy
+			x2: offset_x + (extendOut ? dx : 0),
+			y2: -offset_y - (extendOut ? dy : 0),
+			grid_x2: 0,
+			grid_y2: 0
 		};
-		this.cache.edgemark_line.set(direction, line);
+		line.grid_x2 = line.x2;
+		line.grid_y2 = line.y2;
+		this.cache.edgemark_line.set(key, line);
 		return line;
+	}
+}
+
+/**
+ * Polygon tile with skew/scale/rotate transformations applied
+ * @extends RegularPolygonTile
+ */
+export class TransformedPolygonTile extends RegularPolygonTile {
+	/**
+	 *
+	 * @param {Number} num_directions
+	 * @param {Number} angle_offset
+	 * @param {Number} radius_in
+	 * @param {Number[]} directions
+	 * @param {Number} border_width
+	 * @param {Number} scale_x
+	 * @param {Number} scale_y
+	 * @param {Number} skew_x
+	 * @param {Number} skew_y
+	 * @param {Number} rotate_rad
+	 * @param {String|null} style - additional css style to apply to polygon
+	 */
+	constructor(
+		num_directions,
+		angle_offset,
+		radius_in,
+		directions,
+		border_width,
+		scale_x,
+		scale_y,
+		skew_x,
+		skew_y,
+		rotate_rad,
+		style
+	) {
+		super(num_directions, angle_offset, radius_in, directions, border_width);
+		scale_x = scale_x || 1;
+		scale_y = scale_y || 1;
+		skew_x = skew_x || 0;
+		skew_y = skew_y || 0;
+		rotate_rad = rotate_rad || 0;
+		this.transformCSS = `rotate(${rotate_rad}rad) skew(${skew_x}rad, ${skew_y}rad) scale(${scale_x}, ${scale_y})`;
+		this.transformMatrix = compose(
+			rotate(rotate_rad),
+			skew(skew_x, skew_y),
+			scale(scale_x, scale_y)
+		);
+		this.transformInverse = inverse(this.transformMatrix);
+		this.style = style;
+	}
+
+	/**
+	 * Compute number of rotations for orienting a tile with "click to orient" control mode
+	 * @param {Number} tile
+	 * @param {Number} old_rotations
+	 * @param {Number} tx - x coordinate of clicked point relative to tile center
+	 * @param {Number} ty - y coordinate of clicked point relative to tile center
+	 * @returns {Number}
+	 */
+	click_orient_tile(tile, old_rotations, tx, ty) {
+		const { x, y } = applyToPoint(this.transformInverse, { x: tx, y: ty });
+		return super.click_orient_tile(tile, old_rotations, x, y);
+	}
+
+	/**
+	 * Detects gesture for drawing wall or connection marks
+	 * Coordinates should be relative to tile center
+	 * @param {Number} x1
+	 * @param {Number} x2
+	 * @param {Number} y1
+	 * @param {Number} y2
+	 */
+	detect_edgemark_gesture(x1, x2, y1, y2) {
+		// find closest direction
+		const xmid = (x1 + x2) / 2;
+		const ymid = (y1 + y2) / 2;
+		const direction = this.get_closest_direction(xmid, ymid);
+		const result = { mark: 'none', direction };
+		// find wall line in this direction
+		const wall = this.get_wall_line(direction);
+		// find out if gesture is parallel or perpendicular to the edge
+		const gesture_length_squared = (x1 - x2) ** 2 + (y1 - y2) ** 2;
+		const gesture_length = Math.sqrt(gesture_length_squared);
+		const scalar_product = Math.abs(
+			(wall.x1 - wall.x2) * (x1 - x2) + (wall.y1 - wall.y2) * (y1 - y2)
+		);
+		const cos_distance = scalar_product / (wall.length * gesture_length);
+		if (cos_distance > 0.6) {
+			result.mark = 'wall';
+		} else if (cos_distance < 0.4) {
+			result.mark = 'conn';
+		}
+		// also check if gesture passes near edge middle maybe?
+		return result;
+	}
+
+	/**
+	 * Tells if a point is close to the middle of a polygon's edge
+	 * Input coordinates are relative to tile's center
+	 * @param {Number} x
+	 * @param {Number} y
+	 */
+	is_close_to_edge(x, y) {
+		const polyPt = applyToPoint(this.transformInverse, { x, y });
+		return super.is_close_to_edge(polyPt.x, polyPt.y);
+	}
+
+	/**
+	 * Given coordinates relative to tile center return the closest direction
+	 * @param {Number} x
+	 * @param {Number} y
+	 * @returns {Number} direction
+	 */
+	get_closest_direction(x, y) {
+		const polyPt = applyToPoint(this.transformInverse, { x, y });
+		return super.get_closest_direction(polyPt.x, polyPt.y);
+	}
+
+	/**
+	 * Returns coordinates of edge line in direction
+	 * @param {Number} direction
+	 * @returns {{x1: Number, x2: Number, y1: Number, y2: Number, length: Number}}
+	 */
+	get_wall_line(direction) {
+		const cached = this.cache.wall_line.get(direction);
+		if (cached !== undefined) {
+			return cached;
+		}
+		const wall = super.get_wall_line(direction);
+		const { x: x1, y: y1 } = applyToPoint(this.transformMatrix, { x: wall.x1, y: wall.y1 });
+		const { x: x2, y: y2 } = applyToPoint(this.transformMatrix, { x: wall.x2, y: wall.y2 });
+		const length = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+		const result = { x1, x2, y1, y2, length };
+		this.cache.wall_line.set(direction, result);
+		return result;
+	}
+
+	/**
+	 * Returns polygon coordinates for drawing edgemark line
+	 * and grid coordinates of last point for drawing bent edgemarks.
+	 * All coordinates are relative to tile center.
+	 * @param {Number} direction
+	 * @param {boolean} extendOut
+	 * @returns {{
+	 * x1: Number,
+	 * x2: Number,
+	 * y1: Number,
+	 * y2: Number,
+	 * grid_x2: Number,
+	 * grid_y2: Number,
+	 * }}
+	 */
+	get_edgemark_line(direction, extendOut = true) {
+		const { x1, x2, y1, y2 } = super.get_edgemark_line(direction, extendOut);
+		const { x, y } = applyToPoint(this.transformMatrix, { x: x2, y: y2 });
+		return { x1, x2, y1, y2, grid_x2: x, grid_y2: y };
 	}
 }

@@ -7,7 +7,7 @@
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
-	/** @type {import('$lib/puzzle/grids/grids').Grid}*/
+	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
 	export let grid;
 	/** @type {Number[]} */
 	export let tiles = [];
@@ -356,8 +356,24 @@
 	}
 	/* win animation */
 	.solved :global(.inside) {
-		filter: hue-rotate(360deg);
-		transition: filter 2s;
+		animation-name: win-inside;
+		animation-duration: 1.5s;
+		animation-timing-function: ease-out;
+	}
+	.solved :global(.sink) {
+		animation-name: win-sink;
+		animation-duration: 1.5s;
+		animation-timing-function: ease-out;
+	}
+	@keyframes win-sink {
+		50% {
+			fill: white;
+		}
+	}
+	@keyframes win-inside {
+		50% {
+			stroke: white;
+		}
 	}
 	div.solve-button {
 		text-align: center;

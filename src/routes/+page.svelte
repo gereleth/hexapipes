@@ -125,6 +125,19 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-06-11</em> New grid! You've played with squares before, how about some
+			<a href="/cube/5">cubes</a>?
+			<ul>
+				<li>
+					Thanks to <a href="https://github.com/gordonwoodhull" target="_blank" rel="noreferrer"
+						>Gordon Woodhull</a
+					> for the implementation!
+				</li>
+				<li>Cubes difficulty is pretty gentle, there's plenty of new patterns to figure out.</li>
+				<li>Win animation is now "brighten to white and back" instead of hue rotation.</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-05-19</em> New grid with <a href="/etrat/5">elongated triangular tiling</a>.
 			<ul>
 				<li>

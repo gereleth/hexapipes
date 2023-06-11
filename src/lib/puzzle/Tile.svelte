@@ -1,4 +1,6 @@
 <script>
+	import { gridInfo } from './grids/grids';
+
 	/** @type {Number} i*/
 	export let i;
 
@@ -14,6 +16,7 @@
 	let state = game.tileStates[i];
 	const disconnectStrokeWidthScale = game.disconnectStrokeWidthScale;
 	const disconnectStrokeColor = game.disconnectStrokeColor;
+	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
 
 	let bgColor = '#aaa';
 	let strokeColor = '#888';
@@ -29,6 +32,7 @@
 	let path = game.grid.getPipesPath($state.tile, i);
 	const isSink = myDirections.length === 1;
 
+	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 	/**
 	 * Choose tile background color
 	 * @param {Boolean} locked
@@ -41,6 +45,7 @@
 			bgColor = locked ? '#bbb' : '#ddd';
 		}
 	}
+
 	$: if ($state.hasDisconnects) {
 		strokeColor = $disconnectStrokeColor;
 		strokeWidth = game.grid.STROKE_WIDTH * $disconnectStrokeWidthScale;
@@ -53,14 +58,24 @@
 	}
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
 	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
+	$: style = game.grid.polygon_at(i).style || undefined;
 </script>
 
-<g class="tile" transform="translate({cx},{cy})">
+<g class="tile" transform="translate({cx},{cy})" {style}>
 	<!-- Tile hexagon -->
-	<path d={game.grid.getTilePath(i)} stroke="#aaa" stroke-width="0.02" fill={bgColor} />
+	<path
+		d={game.grid.getTilePath(i)}
+		stroke="#aaa"
+		stroke-width="0.02"
+		fill={bgColor}
+		style="transform: {tile_transform}"
+	/>
 
 	<!-- Pipe shape -->
-	<g class="pipe" style="transform:rotate({game.grid.getAngle($state.rotations, i)}rad)">
+	<g
+		class="pipe"
+		style="transform: {tile_transform} rotate({game.grid.getAngle($state.rotations, i)}rad)"
+	>
 		<!-- Pipe outline -->
 		<path
 			d={path}
@@ -78,7 +93,7 @@
 				fill={$state.color}
 				stroke={strokeColor}
 				stroke-width={strokeWidth}
-				class="inside"
+				class="sink"
 			/>
 		{/if}
 		<!-- Pipe inside -->
@@ -87,12 +102,19 @@
 			d={path}
 			stroke={$state.color}
 			stroke-width={pipeWidth}
-			stroke-linejoin="round"
+			stroke-linejoin={game.grid.LINE_JOIN}
 			stroke-linecap="round"
 		/>
 		{#if controlMode === 'orient_lock' && !$state.locked && !solved}
 			<!-- Guide dot -->
-			<circle cx={guideX} cy={-guideY} fill="orange" stroke="white" r="0.03" stroke-width="0.01" />
+			<circle
+				cx={guideX}
+				cy={-guideY}
+				fill="orange"
+				stroke="white"
+				r={guideDotRadius}
+				stroke-width="0.01"
+			/>
 		{/if}
 	</g>
 	<!-- <text x="0" y="0" text-anchor="middle" font-size="0.2">{i}</text> -->

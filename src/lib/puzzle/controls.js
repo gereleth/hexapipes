@@ -265,11 +265,11 @@ export function controls(node, game) {
 			} else if (currentSettings.controlMode === 'orient_lock') {
 				if (leftButton) {
 					const { tileX, tileY } = mouseDownOrigin;
-					const angle = Math.atan2(tileY - y, x - tileX);
 					const timesRotate = game.grid.clickOrientTile(
 						tileState.data.tile,
 						tileState.data.rotations,
-						angle,
+						x - tileX,
+						y - tileY,
 						tileIndex
 					);
 					game.rotateTile(tileIndex, timesRotate);
@@ -560,11 +560,11 @@ export function controls(node, game) {
 						save();
 					} else if (currentSettings.controlMode === 'orient_lock') {
 						const { tileX, tileY } = t;
-						const angle = Math.atan2(tileY - y, x - tileX);
 						const timesRotate = game.grid.clickOrientTile(
 							tileState.data.tile,
 							tileState.data.rotations,
-							angle,
+							x - tileX,
+							y - tileY,
 							tileIndex
 						);
 						game.rotateTile(tileIndex, timesRotate);
