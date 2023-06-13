@@ -228,7 +228,7 @@ export class AbstractGrid {
 	whichEdge(point) {
 		const { x, y, tileX, tileY, tileIndex } = point;
 		const dx = x - tileX;
-		const dy = tileY - y;
+		const dy = y - tileY;
 		return this.polygon_at(tileIndex).is_close_to_edge(dx, dy);
 	}
 }
