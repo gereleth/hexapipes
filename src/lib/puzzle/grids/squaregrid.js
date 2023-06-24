@@ -150,7 +150,7 @@ export class SquareGrid extends AbstractGrid {
 		for (let r = rmin; r <= rmax; r++) {
 			for (let c = cmin; c <= cmax; c++) {
 				const index = this.rc_to_index(r, c);
-				if (index === -1) {
+				if (index === -1 || this.emptyCells.has(index)) {
 					continue;
 				}
 				const x = c;
