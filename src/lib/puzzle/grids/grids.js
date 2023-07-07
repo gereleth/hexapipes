@@ -3,6 +3,7 @@ import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
 import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
+import { P3Grid } from '$lib/puzzle/grids/p3grid';
 
 /**
  * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'} GridKind
