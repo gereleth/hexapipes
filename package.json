@@ -36,6 +36,8 @@
 	"dependencies": {
 		"@fontsource/fira-mono": "^4.5.0",
 		"cookie": "^0.4.1",
+		"d3-array": "^3.2.4",
+		"d3-random": "^3.0.1",
 		"normalize-wheel": "^1.0.1",
 		"randomcolor": "0.6.2",
 		"transformation-matrix": "^2.15.0"

@@ -3,6 +3,7 @@ import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from
 import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
 import { calculatePenroseTiling, trianglesIntersect, Vector, Triangle } from './penrose-fill-polygon';
 
+
 const DIRA = 1;
 const DIRB = 2;
 const DIRC = 4;
@@ -34,6 +35,7 @@ function calculateBaseTransformedPolygons() {
 			scale_y = Math.sin(TAU/10);
 			skew_x = TAU * 3 / 20
 		}
+		const rotate_rad = rots[i];
 		ret.push(new TransformedPolygonTile(
 			num_directions,
 			angle_offset,
@@ -84,10 +86,10 @@ export class P3Grid extends AbstractGrid {
 			'square', 'X', 'fill');
 		this.p3rhombs = Object.values(this.penrose.p3Rhombuses);
 		const centers = this.p3rhombs.map(({center}) => center);
-		this.XMIN = Math.min.apply(null, centers.map(({x}) => x);
-		this.XMAX = Math.max.apply(null, centers.map(({x}) => x);
-		this.YMIN = Math.min.apply(null, centers.map(({y}) => y);
-		this.YMAX = Math.max.apply(null, centers.map(({y}) => y);
+		this.XMIN = Math.min.apply(null, centers.map(({x}) => x));
+		this.XMAX = Math.max.apply(null, centers.map(({x}) => x));
+		this.YMIN = Math.min.apply(null, centers.map(({y}) => y));
+		this.YMAX = Math.max.apply(null, centers.map(({y}) => y));
 
 		for(const [i, entry] of this.p3rhombs.entries())
 			entry.index = i;

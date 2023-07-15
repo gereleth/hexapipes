@@ -184,6 +184,9 @@
 			<label for="cube">
 				<input type="radio" bind:group={gridKind} id="cube" value="cube" /> Cube
 			</label>
+			<label for="p3">
+				<input type="radio" bind:group={gridKind} id="p3" value="p3" /> Penrose
+			</label>
 		</label>
 	</div>
 	<label for="width">
