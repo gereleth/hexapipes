@@ -1,7 +1,7 @@
 import { TransformedPolygonTile } from '$lib/puzzle/grids/polygonutils';
 import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from './hexagrid';
 import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
-import { calculatePenroseTiling, trianglesIntersect, Vector, Triangle } from './penrose-fill-polygon';
+import { calculatePenroseTiling, trianglesIntersect, Vector, Triangle, triangleListsIntersect } from './penrose-fill-polygon';
 
 
 const DIRA = 1;
@@ -85,6 +85,7 @@ export class P3Grid extends AbstractGrid {
 		this.penrose = calculatePenroseTiling(width * height, 1000, 1000,
 			'square', 'X', 'fill');
 		this.p3rhombs = Object.values(this.penrose.p3Rhombuses);
+		this.total = this.p3rhombs.length;
 		const centers = this.p3rhombs.map(({center}) => center);
 		this.XMIN = Math.min.apply(null, centers.map(({x}) => x));
 		this.XMAX = Math.max.apply(null, centers.map(({x}) => x));
@@ -125,7 +126,7 @@ export class P3Grid extends AbstractGrid {
 		if(!neicoord)
 			return { neighbour: -1, empty: true };
 		const neientry = this.penrose.p3Rhombuses[neicoord];
-		const oppi = neientry.neighbors.indexOf(entry.coord);
+		const oppi = neientry.neighbors.indexOf(entry.rhombus.coord);
 		console.assert(oppi != -1);
 		return { neighbour: neientry.index, oppositeDirection: 2 ** oppi};
 	}
@@ -144,25 +145,24 @@ export class P3Grid extends AbstractGrid {
 	 */
 	getVisibleTiles(box) {
 		const { xmin, ymin, width, height } = box;
-		const boxtri1 = new Triangle(
-			new Vector(xmin, ymin),
-			new Vector(xmin, ymin + height),
-			new Vector(xmin + width, ymin));
-		const boxtri2 = new Triangle(
-			new Vector(xmin + width, ymin + height),
-			new Vector(xmin + width, ymin),
-			new Vector(xmin, ymin + height));
+		const boxtris = [
+			new Triangle(
+				new Vector(xmin, ymin),
+				new Vector(xmin, ymin + height),
+				new Vector(xmin + width, ymin)),
+			new Triangle(
+				new Vector(xmin + width, ymin + height),
+				new Vector(xmin + width, ymin),
+				new Vector(xmin, ymin + height))
+		];
 		const visibleTiles = [];
-		for (const entry of this.p3rhombs) {
-			if([[boxtri1, entry.tri1],
-				[boxtri1, entry.tri2],
-				[boxtri2, entry.tri1],
-				[boxtri2, entry.tri2]].some(([A, B]) => trianglesIntersect(A, B)))
+		for (const {rhombus, index, center: {x, y}} of this.p3rhombs) {
+			if(triangleListsIntersect(boxtris, rhombus.getTriangles()))
 				visibleTiles.push({
-					index: entry.index,
-					x: entry.center.x,
-					y: entry.center.y,
-					key: entry.coord
+					index,
+					x,
+					y,
+					key: rhombus.coord
 				});
 		}
 		return visibleTiles;

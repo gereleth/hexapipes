@@ -1,4 +1,4 @@
-import {range, min, max, extent, mean, deviation} from 'd3-array';
+import {range, cross, min, max, extent, mean, deviation} from 'd3-array';
 import {randomUniform} from 'd3-random';
 
 var GOLDEN_RATIO = 0.6180339887498948482;
@@ -45,6 +45,10 @@ var cross2 = function(A, B) {
 export var trianglesIntersect = function(A, B) {
     return !(cross2(A, B) ||
              cross2(B, A));
+}
+
+export var triangleListsIntersect = function(As, Bs) {
+    return cross(As, Bs).some(([A, B]) => trianglesIntersect(A, B));
 }
 
 // Used to represent both points and vectors for simplicity
@@ -191,6 +195,12 @@ export class Rhombus {
 
         this.fillColor = fillColor;
         this.coord = coord;
+    }
+    getTriangles() {
+        return [
+            new Triangle(this.v1, this.v2, this.v3),
+            new Triangle(this.v2, this.v3, this.v4)
+        ];
     }
 }
 
