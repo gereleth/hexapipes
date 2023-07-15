@@ -87,10 +87,10 @@ export class P3Grid extends AbstractGrid {
 		this.p3rhombs = Object.values(this.penrose.p3Rhombuses);
 		this.total = this.p3rhombs.length;
 		const centers = this.p3rhombs.map(({center}) => center);
-		this.XMIN = Math.min.apply(null, centers.map(({x}) => x));
-		this.XMAX = Math.max.apply(null, centers.map(({x}) => x));
-		this.YMIN = Math.min.apply(null, centers.map(({y}) => y));
-		this.YMAX = Math.max.apply(null, centers.map(({y}) => y));
+		this.XMIN = Math.min.apply(null, centers.map(({x}) => x)) - SCALE;
+		this.XMAX = Math.max.apply(null, centers.map(({x}) => x)) + SCALE;
+		this.YMIN = Math.min.apply(null, centers.map(({y}) => y)) - SCALE;
+		this.YMAX = Math.max.apply(null, centers.map(({y}) => y)) + SCALE;
 
 		for(const [i, entry] of this.p3rhombs.entries())
 			entry.index = i;

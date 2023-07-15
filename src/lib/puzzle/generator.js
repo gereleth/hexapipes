@@ -290,7 +290,7 @@ export class Generator {
 						continue;
 					}
 				}
-				unvisitedNeighbours.push({ neighbour, direction });
+				unvisitedNeighbours.push({ neighbour, direction, oppositeDirection });
 			}
 			let toVisit = null;
 			let source = null;

@@ -8,7 +8,7 @@
 
 	let state = 'idle';
 	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
-	let gridKind = 'hexagonal';
+	let gridKind = 'p3';
 	let width = 5;
 	let height = 5;
 	let wrap = false;
@@ -17,7 +17,7 @@
 	let avoidStraights = 0.0;
 	let autosolve = false;
 	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
-	let solutionsNumber = 'unique';
+	let solutionsNumber = 'whatever';
 	let errorMessage = '';
 
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
