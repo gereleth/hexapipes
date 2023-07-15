@@ -106,7 +106,7 @@ export class P3Grid extends AbstractGrid {
 	 */
 	which_tile_at(x, y) {
 		const pt = new Vector(x, y);
-		const hit = this.p3rhombs.find(({tri1, tri2}) => tri1.pointInside(pt) || tri2.pointInside(pt));
+		const hit = this.p3rhombs.find(({rhombus}) => rhombus.getTriangles().some(tri => tri.pointInside(pt)));
 		if(hit) {
 			const {index, center: {x, y}} = hit;
 			return {index, x, y};
