@@ -455,7 +455,7 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 	 * @param {Number} angle_offset
 	 * @param {Number} radius_in
 	 * @param {Number[]} directions
-	 * @param {Number} border_width
+	 * @param {Number} <border_width
 	 * @param {Number} scale_x
 	 * @param {Number} scale_y
 	 * @param {Number} skew_x

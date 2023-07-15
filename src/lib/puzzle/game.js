@@ -385,7 +385,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * @param {Boolean} assistant
 	 */
 	self.toggleEdgeMark = function (mark, tileIndex, direction, assistant = false) {
-		const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+		const { neighbour, empty, oppositeDirection } = self.grid.find_neighbour(tileIndex, direction);
 		if (empty) {
 			// no edgemarks on outer borders
 			return;
@@ -393,8 +393,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 		if (index === -1) {
 			// toggle mark on the neighbour instead
-			const opposite = self.grid.OPPOSITE.get(direction);
-			if (!empty && opposite) {
+			if (!empty && oppositeDirection) {
 				self.toggleEdgeMark(mark, neighbour, opposite, assistant);
 			}
 			return;
@@ -425,7 +424,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		let connections = 0;
 		const polygon = self.grid.polygon_at(tileIndex);
 		for (let direction of polygon.directions) {
-			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+			const { neighbour, empty, oppositeDirection } = self.grid.find_neighbour(tileIndex, direction);
 			if (empty) {
 				walls += direction;
 				continue;
@@ -443,8 +442,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			let mark = 'empty';
 			if (index === -1) {
 				// neighbour state has info about this mark
-				const opposite = self.grid.OPPOSITE.get(direction) || 0;
-				const oppositeIndex = self.grid.EDGEMARK_DIRECTIONS.indexOf(opposite);
+				const oppositeIndex = self.grid.EDGEMARK_DIRECTIONS.indexOf(oppositeDirection);
 				mark = self.tileStates[neighbour].data.edgeMarks[oppositeIndex];
 			} else {
 				mark = tileState.data.edgeMarks[index];

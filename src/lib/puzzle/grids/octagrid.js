@@ -130,7 +130,7 @@ export class OctaGrid extends AbstractGrid {
 	/**
 	 * @param {Number} index
 	 * @param {Number} direction
-	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
+	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
 		let c = 0;
@@ -153,7 +153,7 @@ export class OctaGrid extends AbstractGrid {
 		c += dc;
 		neighbour = this.rc_to_index(r, c);
 		const empty = neighbour === -1 || this.emptyCells.has(neighbour);
-		return { neighbour, empty };
+		return { neighbour, empty, oppositeDirection: this.OPPOSITE[direction]  };
 	}
 
 	/**

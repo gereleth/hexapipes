@@ -77,7 +77,7 @@ export class AbstractGrid {
 	 * Finds neighbour of tile at index in a certain direction
 	 * @param {Number} index
 	 * @param {Number} direction
-	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
+	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
 		throw 'Implement find_neighbour(index, direction) method';
@@ -204,6 +204,10 @@ export class AbstractGrid {
 			extendOut = isWall;
 		}
 		return this.polygon_at(index).get_edgemark_line(direction, extendOut);
+	}
+
+	getEdgemarkDirections(index) {
+		return this.EDGEMARK_DIRECTIONS;
 	}
 
 	/**

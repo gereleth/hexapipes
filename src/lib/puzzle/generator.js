@@ -261,7 +261,7 @@ export class Generator {
 				if ((direction & connections) > 0) {
 					continue;
 				}
-				const { neighbour, empty } = this.grid.find_neighbour(fromNode, direction);
+				const { neighbour, empty, oppositeDirection } = this.grid.find_neighbour(fromNode, direction);
 				if (empty || !unvisited.has(neighbour)) {
 					continue;
 				}
@@ -271,22 +271,22 @@ export class Generator {
 					(tiles[neighbour] > 0 &&
 						this.grid
 							.polygon_at(neighbour)
-							.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
+							.tileTypes.get(tiles[neighbour] + (oppositeDirection || 0))
 							?.isFullyConnected)
 				) {
-					fullyConnectedNeighbours.push({ neighbour, direction });
+					fullyConnectedNeighbours.push({ neighbour, direction, oppositeDirection });
 					continue;
 				}
 				if (tileForbidden.has(fromNode) && Math.random() < avoidObvious) {
 					const nogo = tileForbidden.get(fromNode);
 					if (nogo?.has(tiles[fromNode] + direction)) {
-						obviousNeighbours.push({ neighbour, direction });
+						obviousNeighbours.push({ neighbour, direction, oppositeDirection });
 						continue;
 					}
 				}
 				if (polygon.tileTypes.get(connections + direction)?.isStraight) {
 					if (Math.random() < avoidStraights) {
-						straightNeighbours.push({ neighbour, direction });
+						straightNeighbours.push({ neighbour, direction, oppositeDirection });
 						continue;
 					}
 				}
@@ -346,7 +346,7 @@ export class Generator {
 					visited.push(i);
 				}
 			}
-			tiles[toVisit.neighbour] += this.grid.OPPOSITE.get(toVisit.direction) || 0;
+			tiles[toVisit.neighbour] += toVisit.oppositeDirection || 0;
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
 		}

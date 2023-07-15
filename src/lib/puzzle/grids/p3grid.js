@@ -1,107 +1,66 @@
 import { TransformedPolygonTile } from '$lib/puzzle/grids/polygonutils';
 import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from './hexagrid';
 import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
+import { calculatePenroseTiling, trianglesIntersect, Vector, Triangle } from './penrose-fill-polygon';
 
 const DIRA = 1;
 const DIRB = 2;
 const DIRC = 4;
 const DIRD = 8;
 
-const SCALE = 1.5; // cube (x, y) = SCALE * hexagon (x, y)
+const SCALE = 1;
 
-const RIGHT_FACE = new TransformedPolygonTile(
-	4,
-	0,
-	0.5 * SCALE,
-	[],
-	0.01,
-	1 / Math.sqrt(3),
-	0.5,
-	Math.PI / 6,
-	0,
-	-Math.PI / 2,
-	'filter: brightness(0.96)'
-);
-const TOP_FACE = new TransformedPolygonTile(
-	4,
-	0,
-	0.5 * SCALE,
-	[],
-	0.01,
-	1 / Math.sqrt(3),
-	0.5,
-	Math.PI / 6,
-	0,
-	(5 * Math.PI) / 6,
-	'filter: brightness(1.04)'
-);
-const LEFT_FACE = new TransformedPolygonTile(
-	4,
-	0,
-	0.5 * SCALE,
-	[],
-	0.01,
-	1 / Math.sqrt(3),
-	0.5,
-	Math.PI / 6,
-	0,
-	Math.PI / 6,
-	null
-);
+// equivalent to calculateBaseRhombuses in penrose-fill-polygon
+// except generates transform parameters rather than coordinates
+function calculateBaseTransformedPolygons() {
+	const ret = [];
+	const num_directions = 4,
+		angle_offset = 0,
+		radius_in = 0.5 * SCALE,
+		directions = [],
+		border_width = 0.01,
+		scale_x = 1,
+		skew_y = 0,
+		style = null;
+	const TAU = 2*Math.PI;
+	const rots = [0, TAU/5, TAU*2/5, TAU*3/5, TAU*4/5,
+		TAU*2/10, -TAU/10, -TAU*4/10, TAU*3/10, 0];
+	for(var i = 0; i < 10; i++) {
+		var scale_y, skew_x;
+		if(i < 5) {
+			scale_y = Math.sin(TAU/5);
+			skew_x = TAU / 20;
+		} else {
+			scale_y = Math.sin(TAU/10);
+			skew_x = TAU * 3 / 20
+		}
+		ret.push(new TransformedPolygonTile(
+			num_directions,
+			angle_offset,
+			radius_in,
+			directions,
+			border_width,
+			scale_x,
+			scale_y,
+			skew_x,
+			skew_y,
+			rotate_rad,
+			style
+		));
+	}
+	return ret;
+}
 
-const FACES = [RIGHT_FACE, TOP_FACE, LEFT_FACE];
-const RHOMB_ANGLES = [-Math.PI / 6, Math.PI / 2, (-Math.PI * 5) / 6];
-const RHOMB_OFFSETS = RHOMB_ANGLES.map((angle) => {
-	return {
-		dx: (SCALE * Math.cos(angle) * Math.sqrt(3)) / 6,
-		dy: (-SCALE * Math.sin(angle) * Math.sqrt(3)) / 6
-	};
-});
+const BASE_RHOMBS = calculateBaseTransformedPolygons();
 
 /**
  * Stacked cubes grid
  * @extends AbstractGrid
  */
-export class CubeGrid extends AbstractGrid {
+export class P3Grid extends AbstractGrid {
 	DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
-	EDGEMARK_DIRECTIONS = [DIRB, DIRC];
-	OPPOSITE = new Map([
-		[DIRA, DIRB],
-		[DIRB, DIRA],
-		[DIRC, DIRD],
-		[DIRD, DIRC]
-	]);
-	#RHOMB_NEIGHBOURS = new Map([
-		[
-			0,
-			new Map([
-				[DIRA, [0, 1]],
-				[DIRB, [0, 2]],
-				[DIRC, [SOUTHEAST, 1]],
-				[DIRD, [EAST, 2]]
-			])
-		],
-		[
-			1,
-			new Map([
-				[DIRA, [0, 2]],
-				[DIRB, [0, 0]],
-				[DIRC, [NORTHEAST, 2]],
-				[DIRD, [NORTHWEST, 0]]
-			])
-		],
-		[
-			2,
-			new Map([
-				[DIRA, [0, 0]],
-				[DIRB, [0, 1]],
-				[DIRC, [WEST, 0]],
-				[DIRD, [SOUTHWEST, 1]]
-			])
-		]
-	]);
 	NUM_DIRECTIONS = 4;
-	KIND = 'cube';
+	KIND = 'p3';
 	PIPE_WIDTH = 0.15 * SCALE;
 	STROKE_WIDTH = 0.06 * SCALE;
 	SINK_RADIUS = 0.2 * SCALE;
@@ -121,37 +80,17 @@ export class CubeGrid extends AbstractGrid {
 	constructor(width, height, wrap, tiles = []) {
 		super(width, height, wrap, tiles);
 
-		// scale hexagonal grid to keep tile counts about the same
-		// as in corresponding square puzzles
-		const scale = wrap ? 0.58 : 0.67;
-		this.hexWidth = Math.round(width * scale);
-		this.hexHeight = Math.round(height * scale);
+		this.penrose = calculatePenroseTiling(width * height, 1000, 1000,
+			'square', 'X', 'fill');
+		this.p3rhombs = Object.values(this.penrose.p3Rhombuses);
+		const centers = this.p3rhombs.map(({center}) => center);
+		this.XMIN = Math.min.apply(null, centers.map(({x}) => x);
+		this.XMAX = Math.max.apply(null, centers.map(({x}) => x);
+		this.YMIN = Math.min.apply(null, centers.map(({y}) => y);
+		this.YMAX = Math.max.apply(null, centers.map(({y}) => y);
 
-		this.hexagrid = new HexaGrid(this.hexWidth, this.hexHeight, wrap);
-		if (!wrap) {
-			this.hexagrid.useShape('hexagon');
-		}
-
-		this.hexagrid.emptyCells.forEach((index) => {
-			for (let rh = 0; rh < 3; rh++) {
-				this.emptyCells.add(index * 3 + rh);
-			}
-		});
-		this.total = this.hexagrid.total * 3;
-
-		this.XMIN = this.hexagrid.XMIN * SCALE;
-		this.XMAX = this.hexagrid.XMAX * SCALE;
-		this.YMIN = this.hexagrid.YMIN * SCALE;
-		this.YMAX = this.hexagrid.YMAX * SCALE;
-	}
-
-	/**
-	 *
-	 * @param {Number} angle
-	 */
-	angle_to_rhomb(angle) {
-		/* Counter-clockwise from lower right of "right side up" cube */
-		return (Math.floor(((angle + Math.PI / 2) * 3) / (2 * Math.PI)) + 3) % 3;
+		for(const [i, entry] of this.p3rhombs.entries())
+			entry.index = i;
 	}
 
 	/**
@@ -160,52 +99,33 @@ export class CubeGrid extends AbstractGrid {
 	 * If the point is over empty space then tileIndex is -1
 	 * @param {Number} x
 	 * @param {Number} y
-	 * @returns {{index: Number, x:Number, y: Number, rh: Number}}
+	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
 	which_tile_at(x, y) {
-		const xhex = x / SCALE;
-		const yhex = y / SCALE;
-		const { index: index0, x: x0, y: y0 } = this.hexagrid.which_tile_at(xhex, yhex);
-		const rhomb0 = this.angle_to_rhomb(Math.atan2(-(yhex - y0), xhex - x0));
-		const index = index0 >= 0 ? 3 * index0 + rhomb0 : -1;
-		const { dx, dy } = RHOMB_OFFSETS[rhomb0];
-		return { index, x: x0 * SCALE + dx, y: y0 * SCALE + dy, rh: rhomb0 };
+		const pt = new Vector(x, y);
+		const hit = this.p3rhombs.find(({tri1, tri2}) => tri1.pointInside(pt) || tri2.pointInside(pt));
+		if(hit) {
+			const {index, center: {x, y}} = hit;
+			return {index, x, y};
+		}
+		return {index: -1}
 	}
 
 	/**
 	 * @param {Number} index
 	 * @param {Number} direction
-	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
+	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
-		const rhomb = index % 3;
-		const cubei = (index - rhomb) / 3;
-		let c = cubei % this.hexWidth;
-		let r = (cubei - c) / this.hexWidth;
-		let neighbour = -1;
-
-		const [hexdir, rh] = this.#RHOMB_NEIGHBOURS.get(rhomb)?.get(direction) || [0, 0];
-		if (hexdir != 0) {
-			const { neighbour, empty } = this.hexagrid.find_neighbour(cubei, hexdir);
-			const cubeNeighbour = neighbour === -1 ? -1 : neighbour * 3 + rh;
-			const cubeEmpty = empty || this.emptyCells.has(cubeNeighbour);
-			return { neighbour: cubeNeighbour, empty: cubeEmpty };
-		}
-		const cubeNeighbour = index - rhomb + rh;
-		const empty = this.emptyCells.has(cubeNeighbour);
-		return { neighbour: cubeNeighbour, empty };
-	}
-
-	/**
-	 * Get index of tile located at row r column c rhomb b
-	 * @param {Number} r
-	 * @param {Number} c
-	 * @param {Number} b
-	 * @returns {Number}
-	 */
-	rcb_to_index(r, c, b) {
-		const index = this.hexagrid.rc_to_index(r, c);
-		return index * 3 + b;
+		const diri = Math.log2(direction);
+		const entry = this.p3rhombs[index];
+		const neicoord = entry.neighbors[diri];
+		if(!neicoord)
+			return { neighbour: -1, empty: true };
+		const neientry = this.penrose.p3Rhombuses[neicoord];
+		const oppi = neientry.neighbors.indexOf(entry.coord);
+		console.assert(oppi != -1);
+		return { neighbour: neientry.index, oppositeDirection: 2 ** oppi};
 	}
 
 	/**
@@ -213,7 +133,7 @@ export class CubeGrid extends AbstractGrid {
 	 * @returns {TransformedPolygonTile}
 	 */
 	polygon_at(index) {
-		return FACES[index % 3];
+		return BASE_RHOMBS[this.p3rhombs[index].base];
 	}
 
 	/**
@@ -222,35 +142,38 @@ export class CubeGrid extends AbstractGrid {
 	 */
 	getVisibleTiles(box) {
 		const { xmin, ymin, width, height } = box;
-		const visibleHexagons = this.hexagrid.getVisibleTiles({
-			xmin: xmin / SCALE,
-			ymin: ymin / SCALE,
-			width: width / SCALE,
-			height: height / SCALE
-		});
+		const boxtri1 = new Triangle(
+			new Vector(xmin, ymin),
+			new Vector(xmin, ymin + height),
+			new Vector(xmin + width, ymin));
+		const boxtri2 = new Triangle(
+			new Vector(xmin + width, ymin + height),
+			new Vector(xmin + width, ymin),
+			new Vector(xmin, ymin + height));
 		const visibleTiles = [];
-		for (const vt of visibleHexagons) {
-			let { x, y } = vt;
-			x *= SCALE;
-			y *= SCALE;
-			for (let b = 0; b < 3; ++b) {
-				const { dx, dy } = RHOMB_OFFSETS[b];
-				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}_${b}`;
+		for (const entry of this.p3rhombs) {
+			if([[boxtri1, entry.tri1],
+				[boxtri1, entry.tri2],
+				[boxtri2, entry.tri1],
+				[boxtri2, entry.tri2]].some(([A, B]) => trianglesIntersect(A, B)))
 				visibleTiles.push({
-					index: vt.index * 3 + b,
-					x: x + dx,
-					y: y + dy,
-					key
+					index: entry.index,
+					x: entry.center.x,
+					y: entry.center.y,
+					key: entry.coord
 				});
-			}
 		}
 		return visibleTiles;
+	}
+
+	getEdgemarkDirections(index) {
+		return this.p3rhombs[index].base < 5 ? [DIRC, DIRD] : [DIRA, DIRC];
 	}
 
 	/**
 	 * Computes position for drawing the tile guiding dot
 	 * @param {Number} tile
-	 * * @param {Number} index
+	 * @param {Number} index
 	 * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index) {

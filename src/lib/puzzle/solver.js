@@ -473,12 +473,12 @@ export function Solver(tiles, grid) {
 			if (addedWalls > 0) {
 				for (let direction of polygon.directions) {
 					if ((direction & addedWalls) > 0) {
-						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+						const { neighbour, empty, oppositeDirection } = self.grid.find_neighbour(index, direction);
 						if (empty) {
 							continue;
 						}
 						const neighbourCell = self.getCell(neighbour);
-						neighbourCell.addWall(self.grid.OPPOSITE.get(direction) || 0);
+						neighbourCell.addWall(oppositeDirection || 0);
 						// console.log('add wall to', neighbour, 'in direction', direction);
 						self.dirty.add(neighbour);
 					}
@@ -488,12 +488,12 @@ export function Solver(tiles, grid) {
 			if (addedConnections > 0) {
 				for (let direction of polygon.directions) {
 					if ((direction & addedConnections) > 0) {
-						const { neighbour, empty } = self.grid.find_neighbour(index, direction);
+						const { neighbour, empty, oppositeDirection } = self.grid.find_neighbour(index, direction);
 						if (empty) {
 							throw 'Trying to connect to an empty neighbour!';
 						}
 						const neighbourCell = self.getCell(neighbour);
-						neighbourCell.addConnection(self.grid.OPPOSITE.get(direction) || 0);
+						neighbourCell.addConnection(oppositeDirection || 0);
 						// console.log('add connection to', neighbour, 'in direction', direction);
 						self.mergeComponents(index, neighbour);
 						self.dirty.add(neighbour);

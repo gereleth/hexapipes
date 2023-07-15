@@ -191,7 +191,7 @@ export class CubeGrid extends AbstractGrid {
 	/**
 	 * @param {Number} index
 	 * @param {Number} direction
-	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
+	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
 		const rhomb = index % 3;
@@ -209,7 +209,7 @@ export class CubeGrid extends AbstractGrid {
 		}
 		const cubeNeighbour = index - rhomb + rh;
 		const empty = this.emptyCells.has(cubeNeighbour);
-		return { neighbour: cubeNeighbour, empty };
+		return { neighbour: cubeNeighbour, empty, oppositeDirection: this.OPPOSITE.get(direction)  };
 	}
 
 	/**

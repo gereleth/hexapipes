@@ -98,11 +98,12 @@ export class EtratGrid extends AbstractGrid {
 	/**
 	 * @param {Number} index
 	 * @param {Number} direction
-	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
+	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
 		const hexIndex = Math.floor(index / 3);
 		const unitIndex = index - 3 * hexIndex;
+		const oppositeDirection = this.OPPOSITE.get(direction);
 		if (unitIndex === 0) {
 			// up triangle
 			if (direction === SOUTH) {
@@ -117,7 +118,7 @@ export class EtratGrid extends AbstractGrid {
 					return hexNeighbour;
 				}
 				const neighbour = 3 * hexNeighbour.neighbour + 2;
-				return { neighbour, empty: this.emptyCells.has(neighbour) };
+				return { neighbour, empty: this.emptyCells.has(neighbour), oppositeDirection };
 			}
 		} else if (unitIndex === 2) {
 			// down triangle
@@ -133,7 +134,7 @@ export class EtratGrid extends AbstractGrid {
 					return hexNeighbour;
 				}
 				const neighbour = 3 * hexNeighbour.neighbour;
-				return { neighbour, empty: this.emptyCells.has(neighbour) };
+				return { neighbour, empty: this.emptyCells.has(neighbour), oppositeDirection };
 			}
 		} else {
 			// square
@@ -150,7 +151,7 @@ export class EtratGrid extends AbstractGrid {
 					return hexNeighbour;
 				}
 				const neighbour = 3 * hexNeighbour.neighbour + 1;
-				return { neighbour, empty: this.emptyCells.has(neighbour) };
+				return { neighbour, empty: this.emptyCells.has(neighbour), oppositeDirection };
 			}
 		}
 	}

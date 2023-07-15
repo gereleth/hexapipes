@@ -54,8 +54,7 @@
 			const mark = { x1, y1, x2, y2, state, direction };
 			visibleEdgeMarks.push(mark);
 			if (game.grid.BEND_EDGEMARKS && state === 'conn') {
-				const { neighbour } = game.grid.find_neighbour(i, direction);
-				const oppositeDirection = game.grid.OPPOSITE.get(direction) || 0;
+				const { neighbour, oppositeDirection } = game.grid.find_neighbour(i, direction);
 				const { x1, y1, x2, y2, grid_x2, grid_y2 } = game.grid.getEdgemarkLine(
 					oppositeDirection,
 					false,

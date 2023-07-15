@@ -141,7 +141,7 @@ export class HexaGrid extends AbstractGrid {
 	/**
 	 * @param {Number} index
 	 * @param {Number} direction
-	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
+	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
 		let c = index % this.width;
@@ -172,7 +172,7 @@ export class HexaGrid extends AbstractGrid {
 			neighbour = this.width * r + c;
 		}
 		const empty = neighbour === -1 || this.emptyCells.has(neighbour);
-		return { neighbour, empty };
+		return { neighbour, empty, oppositeDirection: this.OPPOSITE[direction] };
 	}
 
 	/**
