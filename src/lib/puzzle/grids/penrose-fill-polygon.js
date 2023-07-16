@@ -199,7 +199,7 @@ export class Rhombus {
     getTriangles() {
         return [
             new Triangle(this.v1, this.v2, this.v3),
-            new Triangle(this.v2, this.v3, this.v4)
+            new Triangle(this.v3, this.v4, this.v1)
         ];
     }
 }
