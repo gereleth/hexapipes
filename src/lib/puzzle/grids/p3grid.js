@@ -102,6 +102,7 @@ export class P3Grid extends AbstractGrid {
 		this.p3rhombs = Object.values(this.penrose.p3Rhombuses);
 		this.total = this.p3rhombs.length;
 		const centers = this.p3rhombs.map(({ center }) => center);
+		this.rotation_offsets = new Map();
 		this.XMIN =
 			Math.min.apply(
 				null,
@@ -124,6 +125,7 @@ export class P3Grid extends AbstractGrid {
 			) + SCALE;
 
 		for (const [i, entry] of this.p3rhombs.entries()) entry.index = i;
+		this.rotation_offsets = new Map();
 	}
 
 	/**
@@ -146,7 +148,48 @@ export class P3Grid extends AbstractGrid {
 			} = hit;
 			return { index, x, y };
 		}
-		return { index: -1 };
+		return { index: -1, x, y };
+	}
+
+	/**
+	 * A hack to get rotations to display correctly
+	 * Draws an edgemark and checks in which neighbouring tile it ends
+	 * That should be our neighbour in this direction =>
+	 * Find out what offset into directions array makes this happen
+	 * @param {Number} index
+	 * @returns {Number}
+	 */
+	get_rotation_offset(index) {
+		let offset = this.rotation_offsets.get(index);
+		if (offset === undefined) {
+			const polygon = this.polygon_at(index);
+			let neighbour = -1;
+			let direction_index = -1;
+			for (let i = 0; i < 4; i++) {
+				direction_index = i;
+				const direction = 2 ** i;
+				const edgemark = polygon.get_edgemark_line(direction, false);
+				neighbour = this.which_tile_at(
+					this.p3rhombs[index].center.x + edgemark.grid_x2 * 1.1,
+					this.p3rhombs[index].center.y + edgemark.grid_y2 * 1.1
+				).index;
+				if (neighbour !== -1) {
+					break;
+				}
+			}
+			const rhomb = this.p3rhombs[index];
+			for (let i = 0; i < 4; i++) {
+				const neicoord = rhomb.neighbors[i];
+				if (!neicoord) continue;
+				const neighbor_index = this.penrose.p3Rhombuses[neicoord].index;
+				if (neighbor_index === neighbour) {
+					offset = (i - direction_index + 4) % 4;
+					break;
+				}
+			}
+			this.rotation_offsets.set(index, offset);
+		}
+		return offset;
 	}
 
 	/**
@@ -155,14 +198,23 @@ export class P3Grid extends AbstractGrid {
 	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
-		const diri = Math.log2(direction);
+		const offset = this.get_rotation_offset(index);
+		const polygon = this.polygon_at(index);
+		const diri = (polygon.direction_to_index.get(direction) + offset) % 4;
 		const entry = this.p3rhombs[index];
 		const neicoord = entry.neighbors[diri];
 		if (!neicoord) return { neighbour: -1, empty: true };
 		const neientry = this.penrose.p3Rhombuses[neicoord];
 		const oppi = neientry.neighbors.indexOf(entry.rhombus.coord);
 		console.assert(oppi != -1);
-		return { neighbour: neientry.index, oppositeDirection: 2 ** oppi };
+
+		return {
+			neighbour: neientry.index,
+			empty: false,
+			oppositeDirection: this.polygon_at(neientry.index).directions[
+				(oppi + this.get_rotation_offset(neientry.index)) % 4
+			]
+		};
 	}
 
 	/**
