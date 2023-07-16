@@ -1,8 +1,12 @@
 import { TransformedPolygonTile } from '$lib/puzzle/grids/polygonutils';
-import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from './hexagrid';
 import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
-import { calculatePenroseTiling, trianglesIntersect, Vector, Triangle, triangleListsIntersect } from './penrose-fill-polygon';
-
+import {
+	calculatePenroseTiling,
+	trianglesIntersect,
+	Vector,
+	Triangle,
+	triangleListsIntersect
+} from './penrose-fill-polygon';
 
 const DIRA = 1;
 const DIRB = 2;
@@ -23,32 +27,44 @@ function calculateBaseTransformedPolygons() {
 		scale_x = 1,
 		skew_y = 0,
 		style = null;
-	const TAU = 2*Math.PI;
-	const rots = [0, TAU/5, TAU*2/5, TAU*3/5, TAU*4/5,
-		TAU*2/10, -TAU/10, -TAU*4/10, TAU*3/10, 0];
-	for(var i = 0; i < 10; i++) {
+	const TAU = 2 * Math.PI;
+	const rots = [
+		0,
+		TAU / 5,
+		(TAU * 2) / 5,
+		(TAU * 3) / 5,
+		(TAU * 4) / 5,
+		(TAU * 2) / 10,
+		-TAU / 10,
+		(-TAU * 4) / 10,
+		(TAU * 3) / 10,
+		0
+	];
+	for (var i = 0; i < 10; i++) {
 		var scale_y, skew_x;
-		if(i < 5) {
-			scale_y = Math.sin(TAU/5);
+		if (i < 5) {
+			scale_y = Math.sin(TAU / 5);
 			skew_x = TAU / 20;
 		} else {
-			scale_y = Math.sin(TAU/10);
-			skew_x = TAU * 3 / 20
+			scale_y = Math.sin(TAU / 10);
+			skew_x = (TAU * 3) / 20;
 		}
 		const rotate_rad = rots[i];
-		ret.push(new TransformedPolygonTile(
-			num_directions,
-			angle_offset,
-			radius_in,
-			directions,
-			border_width,
-			scale_x,
-			scale_y,
-			skew_x,
-			skew_y,
-			rotate_rad,
-			style
-		));
+		ret.push(
+			new TransformedPolygonTile(
+				num_directions,
+				angle_offset,
+				radius_in,
+				directions,
+				border_width,
+				scale_x,
+				scale_y,
+				skew_x,
+				skew_y,
+				rotate_rad,
+				style
+			)
+		);
 	}
 	return ret;
 }
@@ -82,18 +98,32 @@ export class P3Grid extends AbstractGrid {
 	constructor(width, height, wrap, tiles = []) {
 		super(width, height, wrap, tiles);
 
-		this.penrose = calculatePenroseTiling(width * height, 1000, 1000,
-			'square', 'X', 'fill');
+		this.penrose = calculatePenroseTiling(width * height, 1000, 1000, 'square', 'X', 'fill');
 		this.p3rhombs = Object.values(this.penrose.p3Rhombuses);
 		this.total = this.p3rhombs.length;
-		const centers = this.p3rhombs.map(({center}) => center);
-		this.XMIN = Math.min.apply(null, centers.map(({x}) => x)) - SCALE;
-		this.XMAX = Math.max.apply(null, centers.map(({x}) => x)) + SCALE;
-		this.YMIN = Math.min.apply(null, centers.map(({y}) => y)) - SCALE;
-		this.YMAX = Math.max.apply(null, centers.map(({y}) => y)) + SCALE;
+		const centers = this.p3rhombs.map(({ center }) => center);
+		this.XMIN =
+			Math.min.apply(
+				null,
+				centers.map(({ x }) => x)
+			) - SCALE;
+		this.XMAX =
+			Math.max.apply(
+				null,
+				centers.map(({ x }) => x)
+			) + SCALE;
+		this.YMIN =
+			Math.min.apply(
+				null,
+				centers.map(({ y }) => y)
+			) - SCALE;
+		this.YMAX =
+			Math.max.apply(
+				null,
+				centers.map(({ y }) => y)
+			) + SCALE;
 
-		for(const [i, entry] of this.p3rhombs.entries())
-			entry.index = i;
+		for (const [i, entry] of this.p3rhombs.entries()) entry.index = i;
 	}
 
 	/**
@@ -106,12 +136,17 @@ export class P3Grid extends AbstractGrid {
 	 */
 	which_tile_at(x, y) {
 		const pt = new Vector(x, y);
-		const hit = this.p3rhombs.find(({rhombus}) => rhombus.getTriangles().some(tri => tri.pointInside(pt)));
-		if(hit) {
-			const {index, center: {x, y}} = hit;
-			return {index, x, y};
+		const hit = this.p3rhombs.find(({ rhombus }) =>
+			rhombus.getTriangles().some((tri) => tri.pointInside(pt))
+		);
+		if (hit) {
+			const {
+				index,
+				center: { x, y }
+			} = hit;
+			return { index, x, y };
 		}
-		return {index: -1}
+		return { index: -1 };
 	}
 
 	/**
@@ -123,12 +158,11 @@ export class P3Grid extends AbstractGrid {
 		const diri = Math.log2(direction);
 		const entry = this.p3rhombs[index];
 		const neicoord = entry.neighbors[diri];
-		if(!neicoord)
-			return { neighbour: -1, empty: true };
+		if (!neicoord) return { neighbour: -1, empty: true };
 		const neientry = this.penrose.p3Rhombuses[neicoord];
 		const oppi = neientry.neighbors.indexOf(entry.rhombus.coord);
 		console.assert(oppi != -1);
-		return { neighbour: neientry.index, oppositeDirection: 2 ** oppi};
+		return { neighbour: neientry.index, oppositeDirection: 2 ** oppi };
 	}
 
 	/**
@@ -149,15 +183,21 @@ export class P3Grid extends AbstractGrid {
 			new Triangle(
 				new Vector(xmin, ymin),
 				new Vector(xmin, ymin + height),
-				new Vector(xmin + width, ymin)),
+				new Vector(xmin + width, ymin)
+			),
 			new Triangle(
 				new Vector(xmin + width, ymin + height),
 				new Vector(xmin + width, ymin),
-				new Vector(xmin, ymin + height))
+				new Vector(xmin, ymin + height)
+			)
 		];
 		const visibleTiles = [];
-		for (const {rhombus, index, center: {x, y}} of this.p3rhombs) {
-			if(triangleListsIntersect(boxtris, rhombus.getTriangles()))
+		for (const {
+			rhombus,
+			index,
+			center: { x, y }
+		} of this.p3rhombs) {
+			if (triangleListsIntersect(boxtris, rhombus.getTriangles()))
 				visibleTiles.push({
 					index,
 					x,
