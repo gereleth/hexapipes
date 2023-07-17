@@ -24,6 +24,7 @@
 	 * @property {Number} cy
 	 * @property {String} transform
 	 * @property {VisibleMark} mark
+	 * @property {Number} originalDirection
 	 */
 
 	const state = game.tileStates[i];
@@ -64,7 +65,8 @@
 					cx: cx + (edgeMarkLine.grid_x2 - grid_x2),
 					cy: cy + (edgeMarkLine.grid_y2 - grid_y2),
 					transform: game.grid.getTileTransformCSS(neighbour) || '',
-					mark: { x1, x2, y1, y2, state, direction: oppositeDirection }
+					mark: { x1, x2, y1, y2, state, direction: oppositeDirection },
+					originalDirection: direction
 				};
 				reflectedEdgeMarks.push(oppositeMark);
 			}
@@ -90,7 +92,7 @@
 	{/each}
 </g>
 
-{#each reflectedEdgeMarks as { cx, cy, mark, transform } (mark.direction)}
+{#each reflectedEdgeMarks as { cx, cy, mark, transform, originalDirection } (originalDirection)}
 	<g class="edgemarks" style="transform: translate({cx}px,{cy}px) {transform}">
 		<line
 			transition:fade|local={{ duration: 100 }}

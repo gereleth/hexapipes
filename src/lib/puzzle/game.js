@@ -125,6 +125,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self._solved = false;
 	self.solved = writable(false);
 	self.viewBox = createViewBox(grid);
+	const INCONSISTENT_OPPOSITES = grid.EDGEMARK_DIRECTIONS.length === grid.DIRECTIONS.length;
 
 	/**
 	 * @type {Map<Number, Set<Number>>} - a map of
@@ -390,11 +391,17 @@ export function PipesGame(grid, tiles, savedProgress) {
 			// no edgemarks on outer borders
 			return;
 		}
+		if (INCONSISTENT_OPPOSITES && neighbour < tileIndex && oppositeDirection) {
+			// for grids with no well-defined opposite directions (hello, p3)
+			// toggle mark on the tile with min index
+			self.toggleEdgeMark(mark, neighbour, oppositeDirection, assistant);
+			return;
+		}
 		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 		if (index === -1) {
 			// toggle mark on the neighbour instead
-			if (!empty && oppositeDirection) {
-				self.toggleEdgeMark(mark, neighbour, opposite, assistant);
+			if (oppositeDirection) {
+				self.toggleEdgeMark(mark, neighbour, oppositeDirection, assistant);
 			}
 			return;
 		}
@@ -424,7 +431,10 @@ export function PipesGame(grid, tiles, savedProgress) {
 		let connections = 0;
 		const polygon = self.grid.polygon_at(tileIndex);
 		for (let direction of polygon.directions) {
-			const { neighbour, empty, oppositeDirection } = self.grid.find_neighbour(tileIndex, direction);
+			const { neighbour, empty, oppositeDirection } = self.grid.find_neighbour(
+				tileIndex,
+				direction
+			);
 			if (empty) {
 				walls += direction;
 				continue;
@@ -440,7 +450,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 			/** @type {EdgeMark} */
 			let mark = 'empty';
-			if (index === -1) {
+			if (index === -1 || (INCONSISTENT_OPPOSITES && neighbour < tileIndex)) {
 				// neighbour state has info about this mark
 				const oppositeIndex = self.grid.EDGEMARK_DIRECTIONS.indexOf(oppositeDirection);
 				mark = self.tileStates[neighbour].data.edgeMarks[oppositeIndex];

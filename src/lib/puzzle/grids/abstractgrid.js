@@ -206,10 +206,6 @@ export class AbstractGrid {
 		return this.polygon_at(index).get_edgemark_line(direction, extendOut);
 	}
 
-	getEdgemarkDirections(index) {
-		return this.EDGEMARK_DIRECTIONS;
-	}
-
 	/**
 	 * Check if a drag gesture resembles drawing an edge mark
 	 * @param {Number} tile_index
