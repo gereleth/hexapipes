@@ -77,6 +77,7 @@ const BASE_RHOMBS = calculateBaseTransformedPolygons();
  */
 export class P3Grid extends AbstractGrid {
 	DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
+	EDGEMARK_DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
 	NUM_DIRECTIONS = 4;
 	KIND = 'p3';
 	PIPE_WIDTH = 0.15 * SCALE;
@@ -125,7 +126,7 @@ export class P3Grid extends AbstractGrid {
 			) + SCALE;
 
 		for (const [i, entry] of this.p3rhombs.entries()) entry.index = i;
-		this.rotation_offsets = new Map();
+		this.fix_rotation_offsets();
 	}
 
 	/**
@@ -156,15 +157,14 @@ export class P3Grid extends AbstractGrid {
 	 * Draws an edgemark and checks in which neighbouring tile it ends
 	 * That should be our neighbour in this direction =>
 	 * Find out what offset into directions array makes this happen
-	 * @param {Number} index
-	 * @returns {Number}
+	 * @returns {void}
 	 */
-	get_rotation_offset(index) {
-		let offset = this.rotation_offsets.get(index);
-		if (offset === undefined) {
+	fix_rotation_offsets() {
+		for (let [index, rhomb] of this.p3rhombs.entries()) {
 			const polygon = this.polygon_at(index);
 			let neighbour = -1;
 			let direction_index = -1;
+			let offset = 0;
 			for (let i = 0; i < 4; i++) {
 				direction_index = i;
 				const direction = 2 ** i;
@@ -177,7 +177,6 @@ export class P3Grid extends AbstractGrid {
 					break;
 				}
 			}
-			const rhomb = this.p3rhombs[index];
 			for (let i = 0; i < 4; i++) {
 				const neicoord = rhomb.neighbors[i];
 				if (!neicoord) continue;
@@ -187,9 +186,12 @@ export class P3Grid extends AbstractGrid {
 					break;
 				}
 			}
-			this.rotation_offsets.set(index, offset);
+			rhomb.neighbors_idx = rhomb.neighbors.map((_, i, neighbors) => {
+				const coord = neighbors[(i + offset) % 4];
+				if (coord === null) return null;
+				return this.penrose.p3Rhombuses[coord].index;
+			});
 		}
-		return offset;
 	}
 
 	/**
@@ -198,22 +200,21 @@ export class P3Grid extends AbstractGrid {
 	 * @returns {{neighbour: Number, empty: boolean, oppositeDirection: Number}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
 	find_neighbour(index, direction) {
-		const offset = this.get_rotation_offset(index);
 		const polygon = this.polygon_at(index);
-		const diri = (polygon.direction_to_index.get(direction) + offset) % 4;
+		const diri = polygon.direction_to_index.get(direction);
 		const entry = this.p3rhombs[index];
-		const neicoord = entry.neighbors[diri];
-		if (!neicoord) return { neighbour: -1, empty: true };
-		const neientry = this.penrose.p3Rhombuses[neicoord];
-		const oppi = neientry.neighbors.indexOf(entry.rhombus.coord);
+		const neighbor_index = entry.neighbors_idx[diri];
+		if (neighbor_index === null) {
+			return { neighbour: -1, empty: true };
+		}
+		const neientry = this.p3rhombs[neighbor_index];
+		const oppi = neientry.neighbors_idx.indexOf(index);
 		console.assert(oppi != -1);
 
 		return {
 			neighbour: neientry.index,
 			empty: false,
-			oppositeDirection: this.polygon_at(neientry.index).directions[
-				(oppi + this.get_rotation_offset(neientry.index)) % 4
-			]
+			oppositeDirection: this.polygon_at(neientry.index).directions[oppi]
 		};
 	}
 
@@ -258,10 +259,6 @@ export class P3Grid extends AbstractGrid {
 				});
 		}
 		return visibleTiles;
-	}
-
-	getEdgemarkDirections(index) {
-		return this.p3rhombs[index].base < 5 ? [DIRC, DIRD] : [DIRA, DIRC];
 	}
 
 	/**
