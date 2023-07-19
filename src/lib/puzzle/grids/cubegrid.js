@@ -199,17 +199,17 @@ export class CubeGrid extends AbstractGrid {
 		let c = cubei % this.hexWidth;
 		let r = (cubei - c) / this.hexWidth;
 		let neighbour = -1;
-
+		const oppositeDirection = this.OPPOSITE.get(direction) || 0;
 		const [hexdir, rh] = this.#RHOMB_NEIGHBOURS.get(rhomb)?.get(direction) || [0, 0];
 		if (hexdir != 0) {
 			const { neighbour, empty } = this.hexagrid.find_neighbour(cubei, hexdir);
 			const cubeNeighbour = neighbour === -1 ? -1 : neighbour * 3 + rh;
 			const cubeEmpty = empty || this.emptyCells.has(cubeNeighbour);
-			return { neighbour: cubeNeighbour, empty: cubeEmpty };
+			return { neighbour: cubeNeighbour, empty: cubeEmpty, oppositeDirection };
 		}
 		const cubeNeighbour = index - rhomb + rh;
 		const empty = this.emptyCells.has(cubeNeighbour);
-		return { neighbour: cubeNeighbour, empty, oppositeDirection: this.OPPOSITE.get(direction)  };
+		return { neighbour: cubeNeighbour, empty, oppositeDirection };
 	}
 
 	/**

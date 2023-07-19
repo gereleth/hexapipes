@@ -103,14 +103,14 @@ export class EtratGrid extends AbstractGrid {
 	find_neighbour(index, direction) {
 		const hexIndex = Math.floor(index / 3);
 		const unitIndex = index - 3 * hexIndex;
-		const oppositeDirection = this.OPPOSITE.get(direction);
+		const oppositeDirection = this.OPPOSITE.get(direction) || 0;
 		if (unitIndex === 0) {
 			// up triangle
 			if (direction === SOUTH) {
 				const neighbour = index + 1;
-				return { neighbour, empty: this.emptyCells.has(neighbour) };
+				return { neighbour, empty: this.emptyCells.has(neighbour), oppositeDirection };
 			} else if (direction === NORTH) {
-				return { neighbour: -1, empty: true };
+				return { neighbour: -1, empty: true, oppositeDirection };
 			} else {
 				const hexDirection = direction === EAST ? 2 : 4;
 				const hexNeighbour = this.hexagrid.find_neighbour(hexIndex, hexDirection);
@@ -124,9 +124,9 @@ export class EtratGrid extends AbstractGrid {
 			// down triangle
 			if (direction === NORTH) {
 				const neighbour = index - 1;
-				return { neighbour, empty: this.emptyCells.has(neighbour) };
+				return { neighbour, empty: this.emptyCells.has(neighbour), oppositeDirection };
 			} else if (direction === SOUTH) {
-				return { neighbour: -1, empty: true };
+				return { neighbour: -1, empty: true, oppositeDirection };
 			} else {
 				const hexDirection = direction === EAST ? 32 : 16;
 				const hexNeighbour = this.hexagrid.find_neighbour(hexIndex, hexDirection);
@@ -140,10 +140,10 @@ export class EtratGrid extends AbstractGrid {
 			// square
 			if (direction === NORTH) {
 				const neighbour = index - 1;
-				return { neighbour, empty: this.emptyCells.has(neighbour) };
+				return { neighbour, empty: this.emptyCells.has(neighbour), oppositeDirection };
 			} else if (direction === SOUTH) {
 				const neighbour = index + 1;
-				return { neighbour, empty: this.emptyCells.has(neighbour) };
+				return { neighbour, empty: this.emptyCells.has(neighbour), oppositeDirection };
 			} else {
 				const hexDirection = direction === EAST ? 1 : 8;
 				const hexNeighbour = this.hexagrid.find_neighbour(hexIndex, hexDirection);

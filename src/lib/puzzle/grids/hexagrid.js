@@ -172,7 +172,7 @@ export class HexaGrid extends AbstractGrid {
 			neighbour = this.width * r + c;
 		}
 		const empty = neighbour === -1 || this.emptyCells.has(neighbour);
-		return { neighbour, empty, oppositeDirection: this.OPPOSITE[direction] };
+		return { neighbour, empty, oppositeDirection: this.OPPOSITE.get(direction) || 0 };
 	}
 
 	/**

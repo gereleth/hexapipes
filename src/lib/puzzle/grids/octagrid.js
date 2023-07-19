@@ -153,7 +153,7 @@ export class OctaGrid extends AbstractGrid {
 		c += dc;
 		neighbour = this.rc_to_index(r, c);
 		const empty = neighbour === -1 || this.emptyCells.has(neighbour);
-		return { neighbour, empty, oppositeDirection: this.OPPOSITE[direction]  };
+		return { neighbour, empty, oppositeDirection: this.OPPOSITE.get(direction) };
 	}
 
 	/**
