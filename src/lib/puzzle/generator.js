@@ -261,7 +261,10 @@ export class Generator {
 				if ((direction & connections) > 0) {
 					continue;
 				}
-				const { neighbour, empty, oppositeDirection } = this.grid.find_neighbour(fromNode, direction);
+				const { neighbour, empty, oppositeDirection } = this.grid.find_neighbour(
+					fromNode,
+					direction
+				);
 				if (empty || !unvisited.has(neighbour)) {
 					continue;
 				}
@@ -271,8 +274,7 @@ export class Generator {
 					(tiles[neighbour] > 0 &&
 						this.grid
 							.polygon_at(neighbour)
-							.tileTypes.get(tiles[neighbour] + (oppositeDirection || 0))
-							?.isFullyConnected)
+							.tileTypes.get(tiles[neighbour] + (oppositeDirection || 0))?.isFullyConnected)
 				) {
 					fullyConnectedNeighbours.push({ neighbour, direction, oppositeDirection });
 					continue;
@@ -316,7 +318,12 @@ export class Generator {
 				} else {
 					array.pop();
 				}
-				continue;
+				if (visited.length === 0 && avoiding.length === 0 && lastResortNodes.length === 0) {
+					console.warn('Grid problem: unreachable tiles:', [...unvisited]);
+					break;
+				} else {
+					continue;
+				}
 			}
 			if (source === fullyConnectedNeighbours) {
 				// wants to become fully connected, this is a last resort action
