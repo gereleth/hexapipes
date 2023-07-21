@@ -202,6 +202,10 @@ export class Rhombus {
             new Triangle(this.v3, this.v4, this.v1)
         ];
     }
+    static fromJson(json) {
+        const {v1, v2, v3, v4, coord, fillColor} = json;
+        return new Rhombus(v1, v2, v3, v4, coord, fillColor);
+    }
 }
 
 const rtri_neighbors = {

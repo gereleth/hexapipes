@@ -22,7 +22,7 @@ function generate(grid, options) {
 	const { branchingAmount, avoidObvious, avoidStraights, solutionsNumber } = options;
 	try {
 		const tiles = gen.generate(branchingAmount, avoidObvious, avoidStraights, solutionsNumber);
-		postMessage({ msg: 'generated', tiles });
+		postMessage({ msg: 'generated', tiles, grid: grid_.getState() });
 	} catch (error) {
 		postMessage({ msg: 'error', error });
 	}

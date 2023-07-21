@@ -45,7 +45,7 @@
 	 */
 	function onWorkerMessage(event) {
 		if (event.data.msg === 'generated') {
-			dispatch('generated', { tiles: event.data.tiles });
+			dispatch('generated', { tiles: event.data.tiles, grid: event.data.grid });
 			showGenProgress = false;
 			clearTimeout(timer);
 		} else if (event.data.msg === 'error') {

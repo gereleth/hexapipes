@@ -3,9 +3,10 @@ import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
 import {
 	calculatePenroseTiling,
 	trianglesIntersect,
+	triangleListsIntersect,
 	Vector,
 	Triangle,
-	triangleListsIntersect
+	Rhombus
 } from './penrose-fill-polygon';
 
 const DIRA = 1;
@@ -98,36 +99,61 @@ export class P3Grid extends AbstractGrid {
 	 */
 	constructor(width, height, wrap, tiles = []) {
 		super(width, height, wrap, tiles);
+		this.initialize();
+	}
 
-		this.penrose = calculatePenroseTiling(width * height, 1000, 1000, 'square', 'X', 'fill');
-		this.p3rhombs = Object.values(this.penrose.p3Rhombuses);
+	initialize(state) {
+		if (state) {
+			this.coordRhomb = {}
+			for (const [coord, rhomb] of Object.entries(state)) {
+				const {index, neighbors, base} = rhomb;
+				let {rhombus, center} = rhomb;
+				center = new Vector(center.x, center.y);
+				rhombus = Rhombus.fromJson(rhombus);
+				this.coordRhomb[coord] = {index, neighbors, rhombus, center, base};
+			}
+		}
+		else {
+			const before = performance.now();
+			const penrose = calculatePenroseTiling(this.width * this.height, 1000, 1000, 'square', 'X', 'fill');
+			this.coordRhomb = penrose.p3Rhombuses;
+			console.log('calculatePenrose took', performance.now() - before, 'ms', Object.keys(this.coordRhomb).length, 'tiles');
+		}
+		this.p3rhombs = Object.values(this.coordRhomb);
 		this.total = this.p3rhombs.length;
-		const centers = this.p3rhombs.map(({ center }) => center);
+		const points = this.p3rhombs.flatMap(({ rhombus }) => [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v3]);
 		this.rotation_offsets = new Map();
 		this.XMIN =
 			Math.min.apply(
 				null,
-				centers.map(({ x }) => x)
-			) - SCALE;
+				points.map(({ x }) => x)
+			);
 		this.XMAX =
 			Math.max.apply(
 				null,
-				centers.map(({ x }) => x)
-			) + SCALE;
+				points.map(({ x }) => x)
+			);
 		this.YMIN =
 			Math.min.apply(
 				null,
-				centers.map(({ y }) => y)
-			) - SCALE;
+				points.map(({ y }) => y)
+			);
 		this.YMAX =
 			Math.max.apply(
 				null,
-				centers.map(({ y }) => y)
-			) + SCALE;
+				points.map(({ y }) => y)
+			);
 
 		for (const [i, entry] of this.p3rhombs.entries()) entry.index = i;
 		this.fix_rotation_offsets();
 	}
+
+	getState() {
+		return this.coordRhomb;
+	}
+
+
+
 
 	/**
 	 * Determines which tile a point at (x, y) belongs to
@@ -139,9 +165,11 @@ export class P3Grid extends AbstractGrid {
 	 */
 	which_tile_at(x, y) {
 		const pt = new Vector(x, y);
+		const before = performance.now();
 		const hit = this.p3rhombs.find(({ rhombus }) =>
 			rhombus.getTriangles().some((tri) => tri.pointInside(pt))
 		);
+		console.log('p3grid which_tile_at took', performance.now() - before, 'ms')
 		if (hit) {
 			const {
 				index,
@@ -170,8 +198,8 @@ export class P3Grid extends AbstractGrid {
 				const direction = 2 ** i;
 				const edgemark = polygon.get_edgemark_line(direction, false);
 				neighbour = this.which_tile_at(
-					this.p3rhombs[index].center.x + edgemark.grid_x2 * 1.1,
-					this.p3rhombs[index].center.y + edgemark.grid_y2 * 1.1
+					rhomb.center.x + edgemark.grid_x2 * 1.1,
+					rhomb.center.y + edgemark.grid_y2 * 1.1
 				).index;
 				if (neighbour !== -1) {
 					break;
@@ -180,7 +208,7 @@ export class P3Grid extends AbstractGrid {
 			for (let i = 0; i < 4; i++) {
 				const neicoord = rhomb.neighbors[i];
 				if (!neicoord) continue;
-				const neighbor_index = this.penrose.p3Rhombuses[neicoord].index;
+				const neighbor_index = this.coordRhomb[neicoord].index;
 				if (neighbor_index === neighbour) {
 					offset = (i - direction_index + 4) % 4;
 					break;
@@ -189,7 +217,7 @@ export class P3Grid extends AbstractGrid {
 			rhomb.neighbors_idx = rhomb.neighbors.map((_, i, neighbors) => {
 				const coord = neighbors[(i + offset) % 4];
 				if (coord === null) return null;
-				return this.penrose.p3Rhombuses[coord].index;
+				return this.coordRhomb[coord].index;
 			});
 		}
 	}
@@ -245,6 +273,7 @@ export class P3Grid extends AbstractGrid {
 			)
 		];
 		const visibleTiles = [];
+		const before = performance.now();
 		for (const {
 			rhombus,
 			index,
@@ -258,6 +287,7 @@ export class P3Grid extends AbstractGrid {
 					key: rhombus.coord
 				});
 		}
+		console.log('p3grid getVisibleTiles took', performance.now() - before, 'ms');
 		return visibleTiles;
 	}
 

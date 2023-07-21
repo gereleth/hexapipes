@@ -45,7 +45,6 @@
 	let puzzle;
 
 	let grid = createGrid(gridKind, width, height, wrap);
-
 	/** @type {import('$lib/puzzle/game').Progress|undefined} */
 	let savedProgress;
 	/** @type {Number|undefined}*/
@@ -128,6 +127,7 @@
 	 */
 	function onGenerated(event) {
 		tiles = event.detail.tiles;
+		if (grid.initialize) grid.initialize(event.detail.grid);
 		genId += 1;
 		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles: tiles }));
 	}
