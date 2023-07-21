@@ -136,7 +136,9 @@
 		if (puzzleId === -1) {
 			const instance = window.localStorage.getItem(instanceStoreName);
 			if (instance !== null) {
-				tiles = JSON.parse(instance).tiles;
+				let gridState;
+				({grid: gridState, tiles} = JSON.parse(instance));
+				if (grid.initialize) grid.initialize(gridState);
 			}
 		}
 		solved = false;
