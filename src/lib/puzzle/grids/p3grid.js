@@ -115,7 +115,7 @@ export class P3Grid extends AbstractGrid {
 		}
 		else {
 			const before = performance.now();
-			const penrose = calculatePenroseTiling(this.width * this.height, 1000, 1000, 'square', 'X', 'fill');
+			const penrose = calculatePenroseTiling(this.width * this.height, 1000, 1000, 'square', 'X', 'cull');
 			this.coordRhomb = penrose.p3Rhombuses;
 			console.log('calculatePenrose took', performance.now() - before, 'ms', Object.keys(this.coordRhomb).length, 'tiles');
 		}
