@@ -22,7 +22,7 @@
 					$page.url.pathname.startsWith('/octagonal') ||
 					$page.url.pathname.startsWith('/etrat') ||
 					$page.url.pathname.startsWith('/cube') ||
-					$page.url.pathname.startsWith('/p3') ||
+					$page.url.pathname.startsWith('/penrose') ||
 					$page.url.pathname.startsWith('/custom') ||
 					$page.url.pathname.startsWith('/play')}
 			>

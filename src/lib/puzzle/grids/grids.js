@@ -3,14 +3,14 @@ import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
 import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
 import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
-import { P3Grid } from '$lib/puzzle/grids/p3grid';
+import { PenroseGrid } from '$lib/puzzle/grids/penrosegrid';
 
 /**
- * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'p3'} GridKind
+ * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'penrose'} GridKind
  */
 
 /**
- * @typedef {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'|'etrat'|'etrat-wrap'|'cube'|'cube-wrap'|'p3'} GridCategory
+ * @typedef {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'|'etrat'|'etrat-wrap'|'cube'|'cube-wrap'|'penrose'} GridCategory
  */
 
 /**
@@ -43,8 +43,8 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 		grid = new EtratGrid(width, height, wrap, tiles);
 	} else if (kind === 'cube') {
 		grid = new CubeGrid(width, height, wrap, tiles);
-	} else if (kind === 'p3') {
-		grid = new P3Grid(width, height, wrap, tiles);
+	} else if (kind === 'penrose') {
+		grid = new PenroseGrid(width, height, wrap, tiles);
 	} else {
 		throw `Unknown grid kind ${kind}`;
 	}
@@ -52,7 +52,7 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 }
 
 /** @type {GridKind[]} */
-export const gridKinds = ['hexagonal', 'square', 'octagonal', 'etrat', 'cube', 'p3'];
+export const gridKinds = ['hexagonal', 'square', 'octagonal', 'etrat', 'cube', 'penrose'];
 
 export const gridInfo = {
 	hexagonal: {
@@ -92,11 +92,11 @@ export const gridInfo = {
 			0, 0, 0, 3, 2, 12, 13, 4, 1, 7, 6, 1, 7, 1, 11, 2, 12, 11, 0, 0, 0, 6, 13, 4, 4, 3, 5
 		]
 	},
-	p3: {
+	penrose: {
 		title: 'Penrose',
-		url: 'p3',
+		url: 'penrose',
 		wrap: false,
-		exampleGrid: new P3Grid(3, 3, false),
+		exampleGrid: new PenroseGrid(3, 3, false),
 		exampleTiles: new Array(50, 0)
 	}
 };

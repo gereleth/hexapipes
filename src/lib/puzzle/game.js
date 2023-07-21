@@ -393,7 +393,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			return;
 		}
 		if (INCONSISTENT_OPPOSITES && neighbour < tileIndex && oppositeDirection) {
-			// for grids with no well-defined opposite directions (hello, p3)
+			// for grids with no well-defined opposite directions (hello, penrose)
 			// toggle mark on the tile with min index
 			self.toggleEdgeMark(mark, neighbour, oppositeDirection, assistant);
 			return;

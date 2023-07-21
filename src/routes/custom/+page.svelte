@@ -8,7 +8,7 @@
 
 	let state = 'idle';
 	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
-	let gridKind = 'p3';
+	let gridKind = 'penrose';
 	let width = 5;
 	let height = 5;
 	let wrap = false;
@@ -184,8 +184,8 @@
 			<label for="cube">
 				<input type="radio" bind:group={gridKind} id="cube" value="cube" /> Cube
 			</label>
-			<label for="p3">
-				<input type="radio" bind:group={gridKind} id="p3" value="p3" /> Penrose
+			<label for="penrose">
+				<input type="radio" bind:group={gridKind} id="penrose" value="penrose" /> Penrose
 			</label>
 		</label>
 	</div>

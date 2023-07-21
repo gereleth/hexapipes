@@ -76,7 +76,7 @@ const BASE_RHOMBS = calculateBaseTransformedPolygons();
  * Stacked cubes grid
  * @extends AbstractGrid
  */
-export class P3Grid extends AbstractGrid {
+export class PenroseGrid extends AbstractGrid {
 	DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
 	EDGEMARK_DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
 	NUM_DIRECTIONS = 4;
@@ -169,7 +169,7 @@ export class P3Grid extends AbstractGrid {
 		const hit = this.p3rhombs.find(({ rhombus }) =>
 			rhombus.getTriangles().some((tri) => tri.pointInside(pt))
 		);
-		console.log('p3grid which_tile_at took', performance.now() - before, 'ms')
+		console.log('PenroseGrid which_tile_at took', performance.now() - before, 'ms')
 		if (hit) {
 			const {
 				index,
@@ -287,7 +287,7 @@ export class P3Grid extends AbstractGrid {
 					key: rhombus.coord
 				});
 		}
-		console.log('p3grid getVisibleTiles took', performance.now() - before, 'ms');
+		console.log('PenroseGrid getVisibleTiles took', performance.now() - before, 'ms');
 		return visibleTiles;
 	}
 
