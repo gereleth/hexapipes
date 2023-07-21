@@ -41,6 +41,7 @@ import { createViewBox } from './viewbox';
 /**
  * Saved progress for pipes puzzle
  * @typedef {Object} Progress
+ * @property {Any} grid
  * @property {SavedTileState[]} tiles
  */
 
@@ -166,6 +167,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 */
 	const defaultEdgeMarks = ['empty', 'empty', 'empty'];
 	if (savedProgress) {
+		if (self.grid.initialize) self.grid.initialize(savedProgress.grid);
 		self.tileStates = savedProgress.tiles.map((savedTile, index) => {
 			return new StateStore({
 				tile: tiles[index],

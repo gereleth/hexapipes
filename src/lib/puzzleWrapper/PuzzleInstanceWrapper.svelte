@@ -129,7 +129,7 @@
 		tiles = event.detail.tiles;
 		if (grid.initialize) grid.initialize(event.detail.grid);
 		genId += 1;
-		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles: tiles }));
+		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles: tiles, grid: event.detail.grid }));
 	}
 
 	onMount(() => {
