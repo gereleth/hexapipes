@@ -170,8 +170,7 @@
 		dispatch('progress', {
 			name: myProgressName,
 			data: {
-				tiles: tileStates,
-				grid: grid.getState ? grid.getState() : null
+				tiles: tileStates
 			}
 		});
 	}

@@ -167,7 +167,6 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 */
 	const defaultEdgeMarks = ['empty', 'empty', 'empty'];
 	if (savedProgress) {
-		if (self.grid.initialize) self.grid.initialize(savedProgress.grid);
 		self.tileStates = savedProgress.tiles.map((savedTile, index) => {
 			return new StateStore({
 				tile: tiles[index],
