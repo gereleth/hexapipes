@@ -166,11 +166,11 @@ export class PenroseGrid extends AbstractGrid {
 	 */
 	which_tile_at(x, y) {
 		const pt = new Vector(x, y);
-		//const before = performance.now();
+		const before = performance.now();
 		const hit = this.p3rhombs.find(({ rhombus }) =>
 			rhombus.getTriangles().some((tri) => tri.pointInside(pt))
 		);
-		//console.log('PenroseGrid which_tile_at took', performance.now() - before, 'ms')
+		console.log('PenroseGrid which_tile_at took', performance.now() - before, 'ms')
 		if (hit) {
 			const {
 				index,
