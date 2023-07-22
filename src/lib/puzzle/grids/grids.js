@@ -4,6 +4,7 @@ import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
 import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
 import { PenroseGrid } from '$lib/puzzle/grids/penrosegrid';
+import penrose_grid_data from '$lib/puzzle/grids/penrose-grid-data.json'
 
 /**
  * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'penrose'} GridKind
@@ -97,7 +98,47 @@ export const gridInfo = {
 		url: 'penrose',
 		wrap: false,
 		exampleGrid: new PenroseGrid(3, 3, false),
-		exampleTiles: new Array(50, 0)
+		gridData: penrose_grid_data,
+		exampleTiles: [
+			14,
+			8,
+			12,
+			13,
+			13,
+			9,
+			13,
+			13,
+			12,
+			3,
+			12,
+			6,
+			2,
+			12,
+			2,
+			7,
+			11,
+			2,
+			1,
+			2,
+			2,
+			1,
+			3,
+			7,
+			6,
+			12,
+			6,
+			11,
+			4,
+			8,
+			3,
+			14,
+			1,
+			4,
+			5,
+			1,
+			11,
+			10
+		  ]
 	}
 };
 
