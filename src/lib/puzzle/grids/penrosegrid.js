@@ -166,11 +166,11 @@ export class PenroseGrid extends AbstractGrid {
 	 */
 	which_tile_at(x, y) {
 		const pt = new Vector(x, y);
-		const before = performance.now();
+		//const before = performance.now();
 		const hit = this.p3rhombs.find(({ rhombus }) =>
 			rhombus.getTriangles().some((tri) => tri.pointInside(pt))
 		);
-		console.log('PenroseGrid which_tile_at took', performance.now() - before, 'ms')
+		//console.log('PenroseGrid which_tile_at took', performance.now() - before, 'ms')
 		if (hit) {
 			const {
 				index,
@@ -182,39 +182,12 @@ export class PenroseGrid extends AbstractGrid {
 	}
 
 	/**
-	 * A hack to get rotations to display correctly
-	 * Draws an edgemark and checks in which neighbouring tile it ends
-	 * That should be our neighbour in this direction =>
-	 * Find out what offset into directions array makes this happen
+	 * The offset is 1 for thick rhombs and 0 for thin rhombs.
 	 * @returns {void}
 	 */
 	fix_rotation_offsets() {
 		for (let [index, rhomb] of this.p3rhombs.entries()) {
-			const polygon = this.polygon_at(index);
-			let neighbour = -1;
-			let direction_index = -1;
-			let offset = 0;
-			for (let i = 0; i < 4; i++) {
-				direction_index = i;
-				const direction = 2 ** i;
-				const edgemark = polygon.get_edgemark_line(direction, false);
-				neighbour = this.which_tile_at(
-					rhomb.center.x + edgemark.grid_x2 * 1.1,
-					rhomb.center.y + edgemark.grid_y2 * 1.1
-				).index;
-				if (neighbour !== -1) {
-					break;
-				}
-			}
-			for (let i = 0; i < 4; i++) {
-				const neicoord = rhomb.neighbors[i];
-				if (!neicoord) continue;
-				const neighbor_index = this.coordRhomb[neicoord].index;
-				if (neighbor_index === neighbour) {
-					offset = (i - direction_index + 4) % 4;
-					break;
-				}
-			}
+			const offset = rhomb.base % 10 < 5 ? 1 : 0;
 			rhomb.neighbors_idx = rhomb.neighbors.map((_, i, neighbors) => {
 				const coord = neighbors[(i + offset) % 4];
 				if (coord === null) return null;
