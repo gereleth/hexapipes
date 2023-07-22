@@ -1,1256 +1,431 @@
 {
-  "XDYYYYXDDYX,YYYYYYXDDYX": {
-    "base": 4,
-    "rhombus": {
-      "v1": {
-        "x": 1.9270509831248464,
-        "y": 5.567581822058038
-      },
-      "v2": {
-        "x": 1.618033988749897,
-        "y": 4.616525305762882
-      },
-      "v3": {
-        "x": 2.6180339887498945,
-        "y": 4.616525305762882
-      },
-      "v4": {
-        "x": 2.927050983124844,
-        "y": 5.567581822058033
-      },
-      "fillColor": "red",
-      "coord": "XDYYYYXDDYX,YYYYYYXDDYX"
-    },
-    "center": {
-      "x": 2.2725424859373704,
-      "y": 5.09205356391046
-    },
-    "neighbors": [
-      "XXDYYYXDDYX,YYXYYYXDDYX",
-      "CXXDYYXDDYX,DYYYYYXDDYX",
-      "XYXDYYXDDYX,YXYYYYXDDYX",
-      "CXYYYYXDDYX,DDYYYYXDDYX"
-    ]
-  },
-  "CXXDYYXDDYX,DYYYYYXDDYX": {
-    "base": 16,
-    "rhombus": {
-      "v1": {
-        "x": 1.9270509831248464,
-        "y": 5.567581822058038
-      },
-      "v2": {
-        "x": 2.927050983124844,
-        "y": 5.567581822058033
-      },
-      "v3": {
-        "x": 3.7360679774997867,
-        "y": 6.155367074350507
-      },
-      "v4": {
-        "x": 2.7360679774997894,
-        "y": 6.155367074350507
-      },
-      "fillColor": "blue",
-      "coord": "CXXDYYXDDYX,DYYYYYXDDYX"
-    },
-    "center": {
-      "x": 2.8315594803123165,
-      "y": 5.861474448204273
-    },
-    "neighbors": [
-      "XDYYYYXDDYX,YYYYYYXDDYX",
-      null,
-      null,
-      "XXXDYYXDDYX,YCXDYYXDDYX"
-    ]
-  },
-  "CXYYYYXDDYX,DDYYYYXDDYX": {
-    "base": 19,
-    "rhombus": {
-      "v1": {
-        "x": 1.618033988749897,
-        "y": 4.616525305762882
-      },
-      "v2": {
-        "x": 2.4270509831248397,
-        "y": 4.028740053470408
-      },
-      "v3": {
-        "x": 3.427050983124837,
-        "y": 4.028740053470408
-      },
-      "v4": {
-        "x": 2.6180339887498945,
-        "y": 4.616525305762882
-      },
-      "fillColor": "blue",
-      "coord": "CXYYYYXDDYX,DDYYYYXDDYX"
-    },
-    "center": {
-      "x": 2.522542485937367,
-      "y": 4.322632679616644
-    },
-    "neighbors": [
-      "CCXXDYXDDYX,DYXXDYXDDYX",
-      "XDYYYYXDDYX,YYYYYYXDDYX",
-      "XYXDYYXDDYX,YXYYYYXDDYX",
-      "XXYYYYXDDYX,YYXXDYXDDYX"
-    ]
-  },
-  "XYXDYYXDDYX,YXYYYYXDDYX": {
-    "base": 3,
-    "rhombus": {
-      "v1": {
-        "x": 2.6180339887498945,
-        "y": 4.616525305762882
-      },
-      "v2": {
-        "x": 3.427050983124837,
-        "y": 4.028740053470408
-      },
-      "v3": {
-        "x": 3.7360679774997867,
-        "y": 4.979796569765558
-      },
-      "v4": {
-        "x": 2.927050983124844,
-        "y": 5.567581822058033
-      },
-      "fillColor": "red",
-      "coord": "XYXDYYXDDYX,YXYYYYXDDYX"
-    },
-    "center": {
-      "x": 3.1770509831248406,
-      "y": 4.798160937764219
-    },
-    "neighbors": [
-      "CXYYYYXDDYX,DDYYYYXDDYX",
-      "XDYYYYXDDYX,YYYYYYXDDYX",
-      "XXXDYYXDDYX,YCXDYYXDDYX",
-      "CCXDYYXDDYX,DYXDYYXDDYX"
-    ]
-  },
-  "XXYYYYXDDYX,YYXXDYXDDYX": {
-    "base": 0,
-    "rhombus": {
-      "v1": {
-        "x": 3.427050983124837,
-        "y": 4.028740053470408
-      },
-      "v2": {
-        "x": 2.4270509831248397,
-        "y": 4.028740053470408
-      },
-      "v3": {
-        "x": 2.7360679774997894,
-        "y": 3.077683537175251
-      },
-      "v4": {
-        "x": 3.7360679774997867,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XXYYYYXDDYX,YYXXDYXDDYX"
-    },
-    "center": {
-      "x": 3.081559480312313,
-      "y": 3.553211795322829
-    },
-    "neighbors": [
-      "CXYYYYXDDYX,DDYYYYXDDYX",
-      "XXDDYYXDDYX,YYXDYYXDDYX",
-      "XXYYXYXDDYX,YYXXYXYCCCX",
-      "CCXXDYXDDYX,DYXXDYXDDYX"
-    ]
-  },
-  "XXDYYYXDDYX,YYXYYYXDDYX": {
-    "base": 13,
-    "rhombus": {
-      "v1": {
-        "x": 1.9270509831248464,
-        "y": 5.567581822058038
-      },
-      "v2": {
-        "x": 1.1180339887498925,
-        "y": 6.155367074350507
-      },
-      "v3": {
-        "x": 0.8090169943749428,
-        "y": 5.204310558055356
-      },
-      "v4": {
-        "x": 1.618033988749897,
-        "y": 4.616525305762882
-      },
-      "fillColor": "red",
-      "coord": "XXDYYYXDDYX,YYXYYYXDDYX"
-    },
-    "center": {
-      "x": 1.3680339887498945,
-      "y": 5.385946190056697
-    },
-    "neighbors": [
-      null,
-      "XDYYYYXDDYX,YYYYYYXDDYX",
-      "XXYXDYXDDYX,YYCXDYXDDYX",
-      null
-    ]
-  },
-  "CXDDYYXDDYX,DDDDYYXDDYX": {
-    "base": 15,
-    "rhombus": {
-      "v1": {
-        "x": 4.545084971874729,
-        "y": 5.567581822058033
-      },
-      "v2": {
-        "x": 4.23606797749978,
-        "y": 4.616525305762877
-      },
-      "v3": {
-        "x": 4.545084971874729,
-        "y": 3.6654687894677256
-      },
-      "v4": {
-        "x": 4.854101966249679,
-        "y": 4.616525305762877
-      },
-      "fillColor": "blue",
-      "coord": "CXDDYYXDDYX,DDDDYYXDDYX"
-    },
-    "center": {
-      "x": 4.545084971874729,
-      "y": 4.616525305762879
-    },
-    "neighbors": [
-      "CCXDYYXDDYX,DYXDYYXDDYX",
-      "XDDDYYXDDYX,YCCXYYXDDYX",
-      "XYCCXXYCCCX,YXDDYYXDDYX",
-      "XXDDYYXDDYX,YYXDYYXDDYX"
-    ]
-  },
-  "XDDDYYXDDYX,YCCXYYXDDYX": {
+  "XDDDYX,YCCXYX": {
     "base": 10,
     "rhombus": {
       "v1": {
-        "x": 4.854101966249679,
-        "y": 4.616525305762877
+        "x": 1.1180339887498938,
+        "y": 3.0776835371752527
       },
       "v2": {
-        "x": 5.854101966249677,
-        "y": 4.616525305762877
+        "x": 2.118033988749894,
+        "y": 3.0776835371752527
       },
       "v3": {
-        "x": 5.545084971874738,
-        "y": 5.567581822058033
+        "x": 1.809016994374946,
+        "y": 4.028740053470406
       },
       "v4": {
-        "x": 4.545084971874729,
-        "y": 5.567581822058033
+        "x": 0.8090169943749459,
+        "y": 4.028740053470406
       },
       "fillColor": "red",
-      "coord": "XDDDYYXDDYX,YCCXYYXDDYX"
+      "coord": "XDDDYX,YCCXYX"
     },
     "center": {
-      "x": 5.199593469062209,
-      "y": 5.092053563910454
+      "x": 1.4635254915624198,
+      "y": 3.553211795322829
     },
     "neighbors": [
-      "XYCCXXYCCCX,YXDDYYXDDYX",
-      "CXDDYYXDDYX,DDDDYYXDDYX",
-      "CCCXYYXDDYX,DYCXYYXDDYX",
-      "XYCXYYXDDYX,YXXXYYXDDYX"
+      "XYCCCX,YXDDYX",
+      null,
+      null,
+      "XYCXYX,YXXXYX"
     ]
   },
-  "XYCCXXYCCCX,YXDDYYXDDYX": {
+  "XYCCCX,YXDDYX": {
     "base": 4,
     "rhombus": {
       "v1": {
-        "x": 4.854101966249679,
-        "y": 4.616525305762877
+        "x": 1.1180339887498938,
+        "y": 3.0776835371752527
       },
       "v2": {
-        "x": 4.545084971874729,
-        "y": 3.6654687894677256
+        "x": 0.8090169943749469,
+        "y": 2.1266270208800986
       },
       "v3": {
-        "x": 5.545084971874738,
-        "y": 3.6654687894677256
+        "x": 1.809016994374946,
+        "y": 2.126627020880099
       },
       "v4": {
-        "x": 5.854101966249677,
-        "y": 4.616525305762877
+        "x": 2.118033988749894,
+        "y": 3.0776835371752527
       },
       "fillColor": "red",
-      "coord": "XYCCXXYCCCX,YXDDYYXDDYX"
+      "coord": "XYCCCX,YXDDYX"
     },
     "center": {
-      "x": 5.199593469062209,
-      "y": 4.140997047615301
+      "x": 1.4635254915624198,
+      "y": 2.602155279027676
     },
     "neighbors": [
-      "CXDDYYXDDYX,DDDDYYXDDYX",
-      "XDDDYYXDDYX,YCCXYYXDDYX",
-      "XDDYXXYCCCX,YCCCXXYCCCX",
-      "CCCCXXYCCCX,DYCCXXYCCCX"
-    ]
-  },
-  "XXDDYYXDDYX,YYXDYYXDDYX": {
-    "base": 1,
-    "rhombus": {
-      "v1": {
-        "x": 4.545084971874729,
-        "y": 3.6654687894677256
-      },
-      "v2": {
-        "x": 4.23606797749978,
-        "y": 4.616525305762877
-      },
-      "v3": {
-        "x": 3.427050983124837,
-        "y": 4.028740053470408
-      },
-      "v4": {
-        "x": 3.7360679774997867,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XXDDYYXDDYX,YYXDYYXDDYX"
-    },
-    "center": {
-      "x": 3.986067977499783,
-      "y": 3.8471044214690666
-    },
-    "neighbors": [
-      "CXDDYYXDDYX,DDDDYYXDDYX",
-      "XXYCXXYCCCX,YYCCXXYCCCX",
-      "XXYYYYXDDYX,YYXXDYXDDYX",
-      "CCXDYYXDDYX,DYXDYYXDDYX"
-    ]
-  },
-  "CCXDYYXDDYX,DYXDYYXDDYX": {
-    "base": 8,
-    "rhombus": {
-      "v1": {
-        "x": 3.427050983124837,
-        "y": 4.028740053470408
-      },
-      "v2": {
-        "x": 4.23606797749978,
-        "y": 4.616525305762877
-      },
-      "v3": {
-        "x": 4.545084971874729,
-        "y": 5.567581822058033
-      },
-      "v4": {
-        "x": 3.7360679774997867,
-        "y": 4.979796569765558
-      },
-      "fillColor": "blue",
-      "coord": "CCXDYYXDDYX,DYXDYYXDDYX"
-    },
-    "center": {
-      "x": 3.986067977499783,
-      "y": 4.79816093776422
-    },
-    "neighbors": [
-      "XXDDYYXDDYX,YYXDYYXDDYX",
-      "XYXDYYXDDYX,YXYYYYXDDYX",
-      "XXXDYYXDDYX,YCXDYYXDDYX",
-      "CXDDYYXDDYX,DDDDYYXDDYX"
-    ]
-  },
-  "XXXDYYXDDYX,YCXDYYXDDYX": {
-    "base": 2,
-    "rhombus": {
-      "v1": {
-        "x": 3.7360679774997867,
-        "y": 4.979796569765558
-      },
-      "v2": {
-        "x": 4.545084971874729,
-        "y": 5.567581822058033
-      },
-      "v3": {
-        "x": 3.7360679774997867,
-        "y": 6.155367074350507
-      },
-      "v4": {
-        "x": 2.927050983124844,
-        "y": 5.567581822058033
-      },
-      "fillColor": "red",
-      "coord": "XXXDYYXDDYX,YCXDYYXDDYX"
-    },
-    "center": {
-      "x": 3.7360679774997867,
-      "y": 5.567581822058033
-    },
-    "neighbors": [
-      "CCXDYYXDDYX,DYXDYYXDDYX",
-      "XYXDYYXDDYX,YXYYYYXDDYX",
-      "CXXDYYXDDYX,DYYYYYXDDYX",
-      null
-    ]
-  },
-  "CCCXYYXDDYX,DYCXYYXDDYX": {
-    "base": 16,
-    "rhombus": {
-      "v1": {
-        "x": 4.545084971874729,
-        "y": 5.567581822058033
-      },
-      "v2": {
-        "x": 5.545084971874738,
-        "y": 5.567581822058033
-      },
-      "v3": {
-        "x": 6.354101966249681,
-        "y": 6.155367074350502
-      },
-      "v4": {
-        "x": 5.354101966249684,
-        "y": 6.155367074350507
-      },
-      "fillColor": "blue",
-      "coord": "CCCXYYXDDYX,DYCXYYXDDYX"
-    },
-    "center": {
-      "x": 5.449593469062205,
-      "y": 5.861474448204268
-    },
-    "neighbors": [
-      "XDDDYYXDDYX,YCCXYYXDDYX",
       null,
-      null,
-      "XYCXYYXDDYX,YXXXYYXDDYX"
+      "XDDDYX,YCCXYX",
+      "XDDYCX,YCCCCX",
+      "CCCCCX,DYCCCX"
     ]
   },
-  "XYCXYYXDDYX,YXXXYYXDDYX": {
+  "XYCXYX,YXXXYX": {
     "base": 11,
     "rhombus": {
       "v1": {
-        "x": 5.545084971874738,
-        "y": 5.567581822058033
+        "x": 1.809016994374946,
+        "y": 4.028740053470406
       },
       "v2": {
-        "x": 5.854101966249677,
-        "y": 4.616525305762877
+        "x": 2.118033988749894,
+        "y": 3.0776835371752527
       },
       "v3": {
-        "x": 6.66311896062462,
-        "y": 5.204310558055351
+        "x": 2.927050983124841,
+        "y": 3.6654687894677247
       },
       "v4": {
-        "x": 6.354101966249681,
-        "y": 6.155367074350502
+        "x": 2.618033988749894,
+        "y": 4.616525305762879
       },
       "fillColor": "red",
-      "coord": "XYCXYYXDDYX,YXXXYYXDDYX"
+      "coord": "XYCXYX,YXXXYX"
     },
     "center": {
-      "x": 6.104101966249679,
-      "y": 5.385946190056692
+      "x": 2.3680339887498936,
+      "y": 3.8471044214690653
     },
     "neighbors": [
-      "XDDDYYXDDYX,YCCXYYXDDYX",
-      "CCCXYYXDDYX,DYCXYYXDDYX",
-      null,
-      "XYYYXXYCCCX,YXDYXXYCCCX"
-    ]
-  },
-  "XXYXDYXDDYX,YYCXDYXDDYX": {
-    "base": 12,
-    "rhombus": {
-      "v1": {
-        "x": 0.8090169943749428,
-        "y": 5.204310558055356
-      },
-      "v2": {
-        "x": 0,
-        "y": 4.616525305762882
-      },
-      "v3": {
-        "x": 0.8090169943749428,
-        "y": 4.028740053470408
-      },
-      "v4": {
-        "x": 1.618033988749897,
-        "y": 4.616525305762882
-      },
-      "fillColor": "red",
-      "coord": "XXYXDYXDDYX,YYCXDYXDDYX"
-    },
-    "center": {
-      "x": 0.8090169943749428,
-      "y": 4.616525305762882
-    },
-    "neighbors": [
-      null,
-      "XXDYYYXDDYX,YYXYYYXDDYX",
-      "XXXXDYXDDYX,YCXXDYXDDYX",
-      null
-    ]
-  },
-  "CCXXDYXDDYX,DYXXDYXDDYX": {
-    "base": 17,
-    "rhombus": {
-      "v1": {
-        "x": 2.7360679774997894,
-        "y": 3.077683537175251
-      },
-      "v2": {
-        "x": 2.4270509831248397,
-        "y": 4.028740053470408
-      },
-      "v3": {
-        "x": 1.618033988749897,
-        "y": 4.616525305762882
-      },
-      "v4": {
-        "x": 1.927050983124835,
-        "y": 3.6654687894677256
-      },
-      "fillColor": "blue",
-      "coord": "CCXXDYXDDYX,DYXXDYXDDYX"
-    },
-    "center": {
-      "x": 2.1770509831248432,
-      "y": 3.8471044214690666
-    },
-    "neighbors": [
-      "XXYYYYXDDYX,YYXXDYXDDYX",
-      "XYXXDYXDDYX,YXYYXYXDDYX",
-      "XXXXDYXDDYX,YCXXDYXDDYX",
-      "CXYYYYXDDYX,DDYYYYXDDYX"
-    ]
-  },
-  "XYXXDYXDDYX,YXYYXYXDDYX": {
-    "base": 12,
-    "rhombus": {
-      "v1": {
-        "x": 1.927050983124835,
-        "y": 3.6654687894677256
-      },
-      "v2": {
-        "x": 1.1180339887498925,
-        "y": 3.077683537175251
-      },
-      "v3": {
-        "x": 1.927050983124835,
-        "y": 2.489898284882782
-      },
-      "v4": {
-        "x": 2.7360679774997894,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XYXXDYXDDYX,YXYYXYXDDYX"
-    },
-    "center": {
-      "x": 1.927050983124835,
-      "y": 3.077683537175254
-    },
-    "neighbors": [
-      "XXXXDYXDDYX,YCXXDYXDDYX",
-      "CCXXDYXDDYX,DYXXDYXDDYX",
-      "CXYYXYXDDYX,DDYYXYXDDYX",
-      "XDYYXYXDDYX,YYYYXYXDDYX"
-    ]
-  },
-  "XXXXDYXDDYX,YCXXDYXDDYX": {
-    "base": 1,
-    "rhombus": {
-      "v1": {
-        "x": 1.927050983124835,
-        "y": 3.6654687894677256
-      },
-      "v2": {
-        "x": 1.618033988749897,
-        "y": 4.616525305762882
-      },
-      "v3": {
-        "x": 0.8090169943749428,
-        "y": 4.028740053470408
-      },
-      "v4": {
-        "x": 1.1180339887498925,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XXXXDYXDDYX,YCXXDYXDDYX"
-    },
-    "center": {
-      "x": 1.368033988749889,
-      "y": 3.8471044214690666
-    },
-    "neighbors": [
-      "CCXXDYXDDYX,DYXXDYXDDYX",
-      "XYXXDYXDDYX,YXYYXYXDDYX",
-      null,
-      "XXYXDYXDDYX,YYCXDYXDDYX"
-    ]
-  },
-  "XDYYXYXDDYX,YYYYXYXDDYX": {
-    "base": 3,
-    "rhombus": {
-      "v1": {
-        "x": 0.8090169943749428,
-        "y": 2.1266270208801
-      },
-      "v2": {
-        "x": 1.618033988749897,
-        "y": 1.5388417685876254
-      },
-      "v3": {
-        "x": 1.927050983124835,
-        "y": 2.489898284882782
-      },
-      "v4": {
-        "x": 1.1180339887498925,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XDYYXYXDDYX,YYYYXYXDDYX"
-    },
-    "center": {
-      "x": 1.368033988749889,
-      "y": 2.308262652881441
-    },
-    "neighbors": [
-      "XXDYXYXDDYX,YYXYXYXDDYX",
-      null,
-      "XYXXDYXDDYX,YXYYXYXDDYX",
-      "CXYYXYXDDYX,DDYYXYXDDYX"
-    ]
-  },
-  "CXYYXYXDDYX,DDYYXYXDDYX": {
-    "base": 8,
-    "rhombus": {
-      "v1": {
-        "x": 1.618033988749897,
-        "y": 1.5388417685876254
-      },
-      "v2": {
-        "x": 2.4270509831248397,
-        "y": 2.1266270208801
-      },
-      "v3": {
-        "x": 2.7360679774997894,
-        "y": 3.077683537175251
-      },
-      "v4": {
-        "x": 1.927050983124835,
-        "y": 2.489898284882782
-      },
-      "fillColor": "blue",
-      "coord": "CXYYXYXDDYX,DDYYXYXDDYX"
-    },
-    "center": {
-      "x": 2.1770509831248432,
-      "y": 2.3082626528814383
-    },
-    "neighbors": [
-      "CCXXYXYCCCX,DYXXYXYCCCX",
-      "XDYYXYXDDYX,YYYYXYXDDYX",
-      "XYXXDYXDDYX,YXYYXYXDDYX",
-      "XXYYXYXDDYX,YYXXYXYCCCX"
-    ]
-  },
-  "XXYYXYXDDYX,YYXXYXYCCCX": {
-    "base": 4,
-    "rhombus": {
-      "v1": {
-        "x": 2.7360679774997894,
-        "y": 3.077683537175251
-      },
-      "v2": {
-        "x": 2.4270509831248397,
-        "y": 2.1266270208801
-      },
-      "v3": {
-        "x": 3.427050983124837,
-        "y": 2.126627020880094
-      },
-      "v4": {
-        "x": 3.7360679774997867,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XXYYXYXDDYX,YYXXYXYCCCX"
-    },
-    "center": {
-      "x": 3.081559480312313,
-      "y": 2.6021552790276727
-    },
-    "neighbors": [
-      "CXYYXYXDDYX,DDYYXYXDDYX",
-      "XXYYYYXDDYX,YYXXDYXDDYX",
-      "XXYYCXYCCCX,YYXXXXYCCCX",
-      "CCXXYXYCCCX,DYXXYXYCCCX"
-    ]
-  },
-  "XXDYXYXDDYX,YYXYXYXDDYX": {
-    "base": 12,
-    "rhombus": {
-      "v1": {
-        "x": 0.8090169943749428,
-        "y": 2.1266270208801
-      },
-      "v2": {
-        "x": 0,
-        "y": 1.5388417685876254
-      },
-      "v3": {
-        "x": 0.8090169943749428,
-        "y": 0.9510565162951509
-      },
-      "v4": {
-        "x": 1.618033988749897,
-        "y": 1.5388417685876254
-      },
-      "fillColor": "red",
-      "coord": "XXDYXYXDDYX,YYXYXYXDDYX"
-    },
-    "center": {
-      "x": 0.8090169943749428,
-      "y": 1.5388417685876254
-    },
-    "neighbors": [
-      null,
-      "XDYYXYXDDYX,YYYYXYXDDYX",
-      "XXYXYXYCCCX,YYCXYXYCCCX",
-      null
-    ]
-  },
-  "XXYXYXYCCCX,YYCXYXYCCCX": {
-    "base": 11,
-    "rhombus": {
-      "v1": {
-        "x": 0.8090169943749428,
-        "y": 0.9510565162951509
-      },
-      "v2": {
-        "x": 1.1180339887498925,
-        "y": 0
-      },
-      "v3": {
-        "x": 1.9270509831248464,
-        "y": 0.5877852522924689
-      },
-      "v4": {
-        "x": 1.618033988749897,
-        "y": 1.5388417685876254
-      },
-      "fillColor": "red",
-      "coord": "XXYXYXYCCCX,YYCXYXYCCCX"
-    },
-    "center": {
-      "x": 1.3680339887498945,
-      "y": 0.76942088429381
-    },
-    "neighbors": [
-      null,
-      "XXDYXYXDDYX,YYXYXYXDDYX",
-      "XXXXYXYCCCX,YCXXYXYCCCX",
-      null
-    ]
-  },
-  "CCXXYXYCCCX,DYXXYXYCCCX": {
-    "base": 6,
-    "rhombus": {
-      "v1": {
-        "x": 3.427050983124837,
-        "y": 2.126627020880094
-      },
-      "v2": {
-        "x": 2.4270509831248397,
-        "y": 2.1266270208801
-      },
-      "v3": {
-        "x": 1.618033988749897,
-        "y": 1.5388417685876254
-      },
-      "v4": {
-        "x": 2.6180339887498945,
-        "y": 1.5388417685876254
-      },
-      "fillColor": "blue",
-      "coord": "CCXXYXYCCCX,DYXXYXYCCCX"
-    },
-    "center": {
-      "x": 2.522542485937367,
-      "y": 1.8327343947338597
-    },
-    "neighbors": [
-      "XXYYXYXDDYX,YYXXYXYCCCX",
-      "XYXXYXYCCCX,YXYYCXYCCCX",
-      "XXXXYXYCCCX,YCXXYXYCCCX",
-      "CXYYXYXDDYX,DDYYXYXDDYX"
-    ]
-  },
-  "XYXXYXYCCCX,YXYYCXYCCCX": {
-    "base": 11,
-    "rhombus": {
-      "v1": {
-        "x": 2.6180339887498945,
-        "y": 1.5388417685876254
-      },
-      "v2": {
-        "x": 2.927050983124844,
-        "y": 0.5877852522924689
-      },
-      "v3": {
-        "x": 3.7360679774997867,
-        "y": 1.1755705045849436
-      },
-      "v4": {
-        "x": 3.427050983124837,
-        "y": 2.126627020880094
-      },
-      "fillColor": "red",
-      "coord": "XYXXYXYCCCX,YXYYCXYCCCX"
-    },
-    "center": {
-      "x": 3.1770509831248406,
-      "y": 1.3572061365862846
-    },
-    "neighbors": [
-      "XXXXYXYCCCX,YCXXYXYCCCX",
-      "CCXXYXYCCCX,DYXXYXYCCCX",
-      "CXYYCXYCCCX,DDYYCXYCCCX",
-      null
-    ]
-  },
-  "XXXXYXYCCCX,YCXXYXYCCCX": {
-    "base": 0,
-    "rhombus": {
-      "v1": {
-        "x": 2.6180339887498945,
-        "y": 1.5388417685876254
-      },
-      "v2": {
-        "x": 1.618033988749897,
-        "y": 1.5388417685876254
-      },
-      "v3": {
-        "x": 1.9270509831248464,
-        "y": 0.5877852522924689
-      },
-      "v4": {
-        "x": 2.927050983124844,
-        "y": 0.5877852522924689
-      },
-      "fillColor": "red",
-      "coord": "XXXXYXYCCCX,YCXXYXYCCCX"
-    },
-    "center": {
-      "x": 2.2725424859373704,
-      "y": 1.063313510440047
-    },
-    "neighbors": [
-      "CCXXYXYCCCX,DYXXYXYCCCX",
-      "XYXXYXYCCCX,YXYYCXYCCCX",
-      null,
-      "XXYXYXYCCCX,YYCXYXYCCCX"
-    ]
-  },
-  "CXYYCXYCCCX,DDYYCXYCCCX": {
-    "base": 17,
-    "rhombus": {
-      "v1": {
-        "x": 4.545084971874729,
-        "y": 0.5877852522924746
-      },
-      "v2": {
-        "x": 4.23606797749978,
-        "y": 1.5388417685876254
-      },
-      "v3": {
-        "x": 3.427050983124837,
-        "y": 2.126627020880094
-      },
-      "v4": {
-        "x": 3.7360679774997867,
-        "y": 1.1755705045849436
-      },
-      "fillColor": "blue",
-      "coord": "CXYYCXYCCCX,DDYYCXYCCCX"
-    },
-    "center": {
-      "x": 3.986067977499783,
-      "y": 1.3572061365862844
-    },
-    "neighbors": [
-      "CCXXXXYCCCX,DYXXXXYCCCX",
-      null,
-      "XYXXYXYCCCX,YXYYCXYCCCX",
-      "XXYYCXYCCCX,YYXXXXYCCCX"
-    ]
-  },
-  "XXYYCXYCCCX,YYXXXXYCCCX": {
-    "base": 3,
-    "rhombus": {
-      "v1": {
-        "x": 3.427050983124837,
-        "y": 2.126627020880094
-      },
-      "v2": {
-        "x": 4.23606797749978,
-        "y": 1.5388417685876254
-      },
-      "v3": {
-        "x": 4.545084971874729,
-        "y": 2.489898284882776
-      },
-      "v4": {
-        "x": 3.7360679774997867,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XXYYCXYCCCX,YYXXXXYCCCX"
-    },
-    "center": {
-      "x": 3.986067977499783,
-      "y": 2.308262652881435
-    },
-    "neighbors": [
-      "CXYYCXYCCCX,DDYYCXYCCCX",
-      "XXYYXYXDDYX,YYXXYXYCCCX",
-      "XXYCXXYCCCX,YYCCXXYCCCX",
-      "CCXXXXYCCCX,DYXXXXYCCCX"
-    ]
-  },
-  "XYYYXXYCCCX,YXDYXXYCCCX": {
-    "base": 12,
-    "rhombus": {
-      "v1": {
-        "x": 6.66311896062462,
-        "y": 5.204310558055351
-      },
-      "v2": {
-        "x": 5.854101966249677,
-        "y": 4.616525305762877
-      },
-      "v3": {
-        "x": 6.66311896062462,
-        "y": 4.028740053470408
-      },
-      "v4": {
-        "x": 7.472135954999573,
-        "y": 4.616525305762882
-      },
-      "fillColor": "red",
-      "coord": "XYYYXXYCCCX,YXDYXXYCCCX"
-    },
-    "center": {
-      "x": 6.66311896062462,
-      "y": 4.616525305762879
-    },
-    "neighbors": [
-      "XYCXYYXDDYX,YXXXYYXDDYX",
+      "XDDDYX,YCCXYX",
       null,
       null,
-      "XDDYXXYCCCX,YCCCXXYCCCX"
+      "XYYYCX,YXDYCX"
     ]
   },
-  "XDDYXXYCCCX,YCCCXXYCCCX": {
-    "base": 13,
-    "rhombus": {
-      "v1": {
-        "x": 6.66311896062462,
-        "y": 4.028740053470408
-      },
-      "v2": {
-        "x": 5.854101966249677,
-        "y": 4.616525305762877
-      },
-      "v3": {
-        "x": 5.545084971874738,
-        "y": 3.6654687894677256
-      },
-      "v4": {
-        "x": 6.354101966249681,
-        "y": 3.077683537175251
-      },
-      "fillColor": "red",
-      "coord": "XDDYXXYCCCX,YCCCXXYCCCX"
-    },
-    "center": {
-      "x": 6.104101966249679,
-      "y": 3.8471044214690666
-    },
-    "neighbors": [
-      "XYYYXXYCCCX,YXDYXXYCCCX",
-      null,
-      "CCCCXXYCCCX,DYCCXXYCCCX",
-      "XYCCXXYCCCX,YXDDYYXDDYX"
-    ]
-  },
-  "CCCCXXYCCCX,DYCCXXYCCCX": {
+  "CCCCCX,DYCCCX": {
     "base": 9,
     "rhombus": {
       "v1": {
-        "x": 6.354101966249681,
-        "y": 3.077683537175251
+        "x": 2.618033988749893,
+        "y": 1.5388417685876266
       },
       "v2": {
-        "x": 5.545084971874738,
-        "y": 3.6654687894677256
+        "x": 1.809016994374946,
+        "y": 2.126627020880099
       },
       "v3": {
-        "x": 4.545084971874729,
-        "y": 3.6654687894677256
+        "x": 0.8090169943749469,
+        "y": 2.1266270208800986
       },
       "v4": {
-        "x": 5.354101966249684,
-        "y": 3.077683537175251
+        "x": 1.6180339887498938,
+        "y": 1.5388417685876266
       },
       "fillColor": "blue",
-      "coord": "CCCCXXYCCCX,DYCCXXYCCCX"
+      "coord": "CCCCCX,DYCCCX"
     },
     "center": {
-      "x": 5.449593469062205,
-      "y": 3.371576163321488
+      "x": 1.71352549156242,
+      "y": 1.8327343947338626
     },
     "neighbors": [
-      "XDDYXXYCCCX,YCCCXXYCCCX",
-      "CXYCXXYCCCX,DDYCXXYCCCX",
-      "XXYCXXYCCCX,YYCCXXYCCCX",
-      "XYCCXXYCCCX,YXDDYYXDDYX"
+      "XDDYCX,YCCCCX",
+      "CXYCCX,DDYCCX",
+      "XXYCCX,YYCCCX",
+      "XYCCCX,YXDDYX"
     ]
   },
-  "XXYCXXYCCCX,YYCCXXYCCCX": {
+  "XDDYCX,YCCCCX": {
+    "base": 3,
+    "rhombus": {
+      "v1": {
+        "x": 1.809016994374946,
+        "y": 2.126627020880099
+      },
+      "v2": {
+        "x": 2.618033988749893,
+        "y": 1.5388417685876266
+      },
+      "v3": {
+        "x": 2.927050983124841,
+        "y": 2.4898982848827793
+      },
+      "v4": {
+        "x": 2.118033988749894,
+        "y": 3.0776835371752527
+      },
+      "fillColor": "red",
+      "coord": "XDDYCX,YCCCCX"
+    },
+    "center": {
+      "x": 2.3680339887498936,
+      "y": 2.308262652881439
+    },
+    "neighbors": [
+      "CCCCCX,DYCCCX",
+      "XYCCCX,YXDDYX",
+      "XYYYCX,YXDYCX",
+      "CXDYCX,DDDYCX"
+    ]
+  },
+  "XXYCCX,YYCCCX": {
     "base": 12,
     "rhombus": {
       "v1": {
-        "x": 4.545084971874729,
-        "y": 3.6654687894677256
+        "x": 0.8090169943749469,
+        "y": 2.1266270208800986
       },
       "v2": {
-        "x": 3.7360679774997867,
-        "y": 3.077683537175251
+        "x": 0,
+        "y": 1.5388417685876261
       },
       "v3": {
-        "x": 4.545084971874729,
-        "y": 2.489898284882776
+        "x": 0.8090169943749469,
+        "y": 0.9510565162951533
       },
       "v4": {
-        "x": 5.354101966249684,
-        "y": 3.077683537175251
+        "x": 1.6180339887498938,
+        "y": 1.5388417685876266
       },
       "fillColor": "red",
-      "coord": "XXYCXXYCCCX,YYCCXXYCCCX"
+      "coord": "XXYCCX,YYCCCX"
     },
     "center": {
-      "x": 4.545084971874729,
-      "y": 3.077683537175251
+      "x": 0.8090169943749469,
+      "y": 1.538841768587626
     },
     "neighbors": [
-      "XXDDYYXDDYX,YYXDYYXDDYX",
-      "CCCCXXYCCCX,DYCCXXYCCCX",
-      "CXYCXXYCCCX,DDYCXXYCCCX",
-      "XXYYCXYCCCX,YYXXXXYCCCX"
+      null,
+      "CCCCCX,DYCCCX",
+      "CXYCCX,DDYCCX",
+      null
     ]
   },
-  "XDYCXXYCCCX,YYYCXXYCCCX": {
+  "XDYCCX,YYYCCX": {
     "base": 1,
     "rhombus": {
       "v1": {
-        "x": 6.663118960624631,
-        "y": 2.1266270208801
+        "x": 2.9270509831248397,
+        "y": 0.5877852522924735
       },
       "v2": {
-        "x": 6.354101966249681,
-        "y": 3.077683537175251
+        "x": 2.618033988749893,
+        "y": 1.5388417685876266
       },
       "v3": {
-        "x": 5.545084971874738,
-        "y": 2.489898284882776
+        "x": 1.809016994374946,
+        "y": 0.9510565162951536
       },
       "v4": {
-        "x": 5.854101966249677,
-        "y": 1.5388417685876254
+        "x": 2.118033988749894,
+        "y": 0
       },
       "fillColor": "red",
-      "coord": "XDYCXXYCCCX,YYYCXXYCCCX"
+      "coord": "XDYCCX,YYYCCX"
     },
     "center": {
-      "x": 6.104101966249685,
-      "y": 2.308262652881438
+      "x": 2.3680339887498927,
+      "y": 0.7694208842938135
     },
     "neighbors": [
+      "XXXYCX,YCXYCX",
       null,
-      "CXXXXXYCCCX,DYYCXXYCCCX",
-      "XYXXXXYCCCX,YXYCXXYCCCX",
-      "CXYCXXYCCCX,DDYCXXYCCCX"
+      null,
+      "CXYCCX,DDYCCX"
     ]
   },
-  "CXXXXXYCCCX,DYYCXXYCCCX": {
-    "base": 18,
-    "rhombus": {
-      "v1": {
-        "x": 6.663118960624631,
-        "y": 2.1266270208801
-      },
-      "v2": {
-        "x": 5.854101966249677,
-        "y": 1.5388417685876254
-      },
-      "v3": {
-        "x": 5.5450849718747275,
-        "y": 0.5877852522924746
-      },
-      "v4": {
-        "x": 6.354101966249681,
-        "y": 1.1755705045849436
-      },
-      "fillColor": "blue",
-      "coord": "CXXXXXYCCCX,DYYCXXYCCCX"
-    },
-    "center": {
-      "x": 6.104101966249679,
-      "y": 1.3572061365862873
-    },
-    "neighbors": [
-      "XDYCXXYCCCX,YYYCXXYCCCX",
-      null,
-      null,
-      "XXXXXXYCCCX,YCXXXXYCCCX"
-    ]
-  },
-  "CXYCXXYCCCX,DDYCXXYCCCX": {
+  "CXYCCX,DDYCCX": {
     "base": 6,
     "rhombus": {
       "v1": {
-        "x": 6.354101966249681,
-        "y": 3.077683537175251
+        "x": 2.618033988749893,
+        "y": 1.5388417685876266
       },
       "v2": {
-        "x": 5.354101966249684,
-        "y": 3.077683537175251
+        "x": 1.6180339887498938,
+        "y": 1.5388417685876266
       },
       "v3": {
-        "x": 4.545084971874729,
-        "y": 2.489898284882776
+        "x": 0.8090169943749469,
+        "y": 0.9510565162951533
       },
       "v4": {
-        "x": 5.545084971874738,
-        "y": 2.489898284882776
+        "x": 1.809016994374946,
+        "y": 0.9510565162951536
       },
       "fillColor": "blue",
-      "coord": "CXYCXXYCCCX,DDYCXXYCCCX"
+      "coord": "CXYCCX,DDYCCX"
     },
     "center": {
-      "x": 5.449593469062205,
-      "y": 2.7837909110290138
+      "x": 1.71352549156242,
+      "y": 1.2449491424413899
     },
     "neighbors": [
-      "CCCCXXYCCCX,DYCCXXYCCCX",
-      "XDYCXXYCCCX,YYYCXXYCCCX",
-      "XYXXXXYCCCX,YXYCXXYCCCX",
-      "XXYCXXYCCCX,YYCCXXYCCCX"
+      "CCCCCX,DYCCCX",
+      "XDYCCX,YYYCCX",
+      null,
+      "XXYCCX,YYCCCX"
     ]
   },
-  "XYXXXXYCCCX,YXYCXXYCCCX": {
-    "base": 0,
+  "XYYYCX,YXDYCX": {
+    "base": 12,
     "rhombus": {
       "v1": {
-        "x": 5.545084971874738,
-        "y": 2.489898284882776
+        "x": 2.927050983124841,
+        "y": 3.6654687894677247
       },
       "v2": {
-        "x": 4.545084971874729,
-        "y": 2.489898284882776
+        "x": 2.118033988749894,
+        "y": 3.0776835371752527
       },
       "v3": {
-        "x": 4.854101966249679,
-        "y": 1.5388417685876254
+        "x": 2.927050983124841,
+        "y": 2.4898982848827793
       },
       "v4": {
-        "x": 5.854101966249677,
-        "y": 1.5388417685876254
+        "x": 3.736067977499788,
+        "y": 3.0776835371752527
       },
       "fillColor": "red",
-      "coord": "XYXXXXYCCCX,YXYCXXYCCCX"
+      "coord": "XYYYCX,YXDYCX"
     },
     "center": {
-      "x": 5.199593469062209,
-      "y": 2.0143700267352007
+      "x": 2.927050983124841,
+      "y": 3.0776835371752522
     },
     "neighbors": [
-      "CXYCXXYCCCX,DDYCXXYCCCX",
-      "XDYCXXYCCCX,YYYCXXYCCCX",
-      "XXXXXXYCCCX,YCXXXXYCCCX",
-      "CCXXXXYCCCX,DYXXXXYCCCX"
+      "XYCXYX,YXXXYX",
+      null,
+      "CXDYCX,DDDYCX",
+      "XDDYCX,YCCCCX"
     ]
   },
-  "CCXXXXYCCCX,DYXXXXYCCCX": {
-    "base": 15,
+  "CXDYCX,DDDYCX": {
+    "base": 8,
     "rhombus": {
       "v1": {
-        "x": 4.545084971874729,
-        "y": 2.489898284882776
+        "x": 2.618033988749893,
+        "y": 1.5388417685876266
       },
       "v2": {
-        "x": 4.23606797749978,
-        "y": 1.5388417685876254
+        "x": 3.4270509831248397,
+        "y": 2.1266270208801
       },
       "v3": {
-        "x": 4.545084971874729,
-        "y": 0.5877852522924746
+        "x": 3.736067977499788,
+        "y": 3.0776835371752527
       },
       "v4": {
-        "x": 4.854101966249679,
-        "y": 1.5388417685876254
+        "x": 2.927050983124841,
+        "y": 2.4898982848827793
       },
       "fillColor": "blue",
-      "coord": "CCXXXXYCCCX,DYXXXXYCCCX"
+      "coord": "CXDYCX,DDDYCX"
     },
     "center": {
-      "x": 4.545084971874729,
-      "y": 1.5388417685876254
+      "x": 3.1770509831248406,
+      "y": 2.3082626528814396
     },
     "neighbors": [
-      "XXYYCXYCCCX,YYXXXXYCCCX",
-      "XYXXXXYCCCX,YXYCXXYCCCX",
-      "XXXXXXYCCCX,YCXXXXYCCCX",
-      "CXYYCXYCCCX,DDYYCXYCCCX"
+      "CCXYCX,DYXYCX",
+      "XDDYCX,YCCCCX",
+      "XYYYCX,YXDYCX",
+      "XXDYCX,YYXYCX"
     ]
   },
-  "XXXXXXYCCCX,YCXXXXYCCCX": {
+  "XXDYCX,YYXYCX": {
     "base": 4,
     "rhombus": {
       "v1": {
-        "x": 4.854101966249679,
-        "y": 1.5388417685876254
+        "x": 3.736067977499788,
+        "y": 3.0776835371752527
       },
       "v2": {
-        "x": 4.545084971874729,
-        "y": 0.5877852522924746
+        "x": 3.4270509831248397,
+        "y": 2.1266270208801
       },
       "v3": {
-        "x": 5.5450849718747275,
-        "y": 0.5877852522924746
+        "x": 4.42705098312484,
+        "y": 2.1266270208801
       },
       "v4": {
-        "x": 5.854101966249677,
-        "y": 1.5388417685876254
+        "x": 4.736067977499788,
+        "y": 3.0776835371752536
       },
       "fillColor": "red",
-      "coord": "XXXXXXYCCCX,YCXXXXYCCCX"
+      "coord": "XXDYCX,YYXYCX"
     },
     "center": {
-      "x": 5.199593469062203,
+      "x": 4.081559480312314,
+      "y": 2.6021552790276763
+    },
+    "neighbors": [
+      "CXDYCX,DDDYCX",
+      null,
+      null,
+      "CCXYCX,DYXYCX"
+    ]
+  },
+  "CCXYCX,DYXYCX": {
+    "base": 6,
+    "rhombus": {
+      "v1": {
+        "x": 4.42705098312484,
+        "y": 2.1266270208801
+      },
+      "v2": {
+        "x": 3.4270509831248397,
+        "y": 2.1266270208801
+      },
+      "v3": {
+        "x": 2.618033988749893,
+        "y": 1.5388417685876266
+      },
+      "v4": {
+        "x": 3.618033988749893,
+        "y": 1.5388417685876266
+      },
+      "fillColor": "blue",
+      "coord": "CCXYCX,DYXYCX"
+    },
+    "center": {
+      "x": 3.5225424859373664,
+      "y": 1.8327343947338632
+    },
+    "neighbors": [
+      "XXDYCX,YYXYCX",
+      null,
+      "XXXYCX,YCXYCX",
+      "CXDYCX,DDDYCX"
+    ]
+  },
+  "XXXYCX,YCXYCX": {
+    "base": 0,
+    "rhombus": {
+      "v1": {
+        "x": 3.618033988749893,
+        "y": 1.5388417685876266
+      },
+      "v2": {
+        "x": 2.618033988749893,
+        "y": 1.5388417685876266
+      },
+      "v3": {
+        "x": 2.9270509831248397,
+        "y": 0.5877852522924735
+      },
+      "v4": {
+        "x": 3.927050983124841,
+        "y": 0.5877852522924735
+      },
+      "fillColor": "red",
+      "coord": "XXXYCX,YCXYCX"
+    },
+    "center": {
+      "x": 3.2725424859373664,
       "y": 1.06331351044005
     },
     "neighbors": [
-      "CCXXXXYCCCX,DYXXXXYCCCX",
-      "XYXXXXYCCCX,YXYCXXYCCCX",
-      "CXXXXXYCCCX,DYYCXXYCCCX",
-      null
+      "CCXYCX,DYXYCX",
+      null,
+      null,
+      "XDYCCX,YYYCCX"
     ]
   }
 }
