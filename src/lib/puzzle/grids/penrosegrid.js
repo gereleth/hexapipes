@@ -41,16 +41,17 @@ function calculateBaseTransformedPolygons() {
 		(TAU * 3) / 10,
 		0
 	];
-	for (var i = 0; i < 10; i++) {
+	for (var i = 0; i < 20; i++) {
 		var scale_y, skew_x;
-		if (i < 5) {
+		if (i % 10 < 5) {
 			scale_y = Math.sin(TAU / 5);
-			skew_x = TAU / 20;
+			skew_x = - TAU / 20;
 		} else {
 			scale_y = Math.sin(TAU / 10);
-			skew_x = (TAU * 3) / 20;
+			skew_x = - (TAU * 3) / 20;
 		}
-		const rotate_rad = rots[i];
+		// reverse rotation because browser coordinates are y increasing downward
+		const rotate_rad = i < 10 ? -rots[i] : -rots[i-10] + TAU / 2;
 		ret.push(
 			new TransformedPolygonTile(
 				num_directions,
@@ -121,7 +122,7 @@ export class PenroseGrid extends AbstractGrid {
 		}
 		this.p3rhombs = Object.values(this.coordRhomb);
 		this.total = this.p3rhombs.length;
-		const points = this.p3rhombs.flatMap(({ rhombus }) => [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v3]);
+		const points = this.p3rhombs.flatMap(({ rhombus }) => [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v4]);
 		this.rotation_offsets = new Map();
 		this.XMIN =
 			Math.min.apply(
