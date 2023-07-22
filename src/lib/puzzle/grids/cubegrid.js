@@ -128,16 +128,32 @@ export class CubeGrid extends AbstractGrid {
 		this.hexHeight = Math.round(height * scale);
 
 		this.hexagrid = new HexaGrid(this.hexWidth, this.hexHeight, wrap);
-		if (!wrap) {
-			this.hexagrid.useShape('hexagon');
-		}
-
-		this.hexagrid.emptyCells.forEach((index) => {
-			for (let rh = 0; rh < 3; rh++) {
-				this.emptyCells.add(index * 3 + rh);
-			}
-		});
 		this.total = this.hexagrid.total * 3;
+
+		if (tiles.length === 0) {
+			if (!wrap) {
+				this.hexagrid.useShape('hexagon');
+			}
+
+			this.hexagrid.emptyCells.forEach((index) => {
+				for (let rh = 0; rh < 3; rh++) {
+					this.emptyCells.add(index * 3 + rh);
+				}
+			});
+		} else {
+			// tiles already provided, they might use another shape
+			tiles.forEach((tile, index) => {
+				if (tile === 0) {
+					this.emptyCells.add(index);
+				}
+			});
+			this.emptyCells.forEach((index) => {
+				if (index % 3 !== 0) return;
+				if (this.emptyCells.has(index + 1) && this.emptyCells.has(index + 2)) {
+					this.hexagrid.emptyCells.add(index / 3);
+				}
+			});
+		}
 
 		this.XMIN = this.hexagrid.XMIN * SCALE;
 		this.XMAX = this.hexagrid.XMAX * SCALE;
@@ -234,6 +250,10 @@ export class CubeGrid extends AbstractGrid {
 			x *= SCALE;
 			y *= SCALE;
 			for (let b = 0; b < 3; ++b) {
+				const index = vt.index * 3 + b;
+				if (this.emptyCells.has(index)) {
+					continue;
+				}
 				const { dx, dy } = RHOMB_OFFSETS[b];
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}_${b}`;
 				visibleTiles.push({

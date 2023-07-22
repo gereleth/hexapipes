@@ -1,6 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import { CubeGrid } from './cubegrid';
 
+describe('Initializing with different field shapes', () => {
+	it('Uses hexagonal shape if no tiles are provided', () => {
+		const grid = new CubeGrid(5, 5, false);
+		expect([...grid.hexagrid.emptyCells]).toEqual(expect.arrayContaining([0, 6]));
+		expect([...grid.emptyCells]).toEqual(expect.arrayContaining([0, 1, 2, 18, 19, 20]));
+	});
+
+	it('Has no empty tiles if wrap', () => {
+		const grid = new CubeGrid(5, 5, true);
+		expect(grid.hexagrid.emptyCells.size).toBe(0);
+		expect(grid.emptyCells.size).toBe(0);
+	});
+
+	it('Sets empty tiles according to provided tiles array', () => {
+		const tiles = Array(27).fill(1);
+		tiles[0] = 0;
+		const grid = new CubeGrid(5, 5, false, tiles);
+		expect([...grid.hexagrid.emptyCells]).toEqual(expect.arrayContaining([]));
+		expect([...grid.emptyCells]).toEqual(expect.arrayContaining([0]));
+	});
+
+	it('Sets hexagons empty if corresponding cubes are empty', () => {
+		const tiles = Array(27).fill(1);
+		for (let i = 0; i < 7; i++) {
+			tiles[i] = 0;
+		}
+		const grid = new CubeGrid(5, 5, false, tiles);
+		expect([...grid.hexagrid.emptyCells]).toEqual(expect.arrayContaining([0, 1]));
+		expect([...grid.emptyCells]).toEqual(expect.arrayContaining([0, 1, 2, 3, 4, 5, 6]));
+	});
+});
+
 describe('Test making a cell empty', () => {
 	const grid = new CubeGrid(5, 5, false);
 	grid.makeEmpty(14);
