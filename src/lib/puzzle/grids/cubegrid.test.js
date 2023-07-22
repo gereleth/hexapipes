@@ -84,4 +84,11 @@ describe('Test making a cell empty', () => {
 		expect(neighbour).toBe(-1);
 		expect(empty).toBe(true);
 	});
+
+	it('Does not return empty face in visible tiles', () => {
+		const visible = grid
+			.getVisibleTiles({ xmin: 0, ymin: 0, width: 5, height: 5 })
+			.map((v) => v.index);
+		expect(visible).not.toContain(14);
+	});
 });
