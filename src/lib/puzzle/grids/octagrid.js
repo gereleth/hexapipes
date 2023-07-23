@@ -272,4 +272,131 @@ export class OctaGrid extends AbstractGrid {
 		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
 		return [0.7 * dx, 0.7 * dy];
 	}
+
+	/**
+	 * Shape the playing field by making some tiles empty
+	 * @param {'octagon'|'donut'|'butterfly'|'hole'|'half-wrap-horizontal'|'half-wrap-vertical'} shape
+	 */
+	useShape(shape) {
+		if (shape === 'octagon') {
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
+			const cutoff = Math.round(this.width / 4);
+			let left_top_cell = cutoff - 1;
+			let right_top_cell = this.width - cutoff;
+			let left_bottom_cell = this.width * (this.height - 1) + cutoff - 1;
+			let right_bottom_cell = this.width * this.height - cutoff;
+			for (let [start_cell, shift_direction, erase_direction] of [
+				[left_top_cell, SOUTHWEST, NORTHWEST],
+				[right_top_cell, SOUTHEAST, NORTHEAST],
+				[left_bottom_cell, NORTHWEST, SOUTHWEST],
+				[right_bottom_cell, NORTHEAST, SOUTHEAST]
+			]) {
+				let cell = start_cell;
+				this.makeEmpty(start_cell);
+				while (true) {
+					let new_cell = this.find_neighbour(cell, shift_direction);
+					if (new_cell.empty) {
+						break;
+					} else {
+						cell = new_cell.neighbour;
+					}
+					this.makeEmpty(cell);
+					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					while (!empty) {
+						this.makeEmpty(neighbour);
+						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+					}
+				}
+			}
+			this.wrap = wrap;
+		} else if (shape === 'hole') {
+			if (this.width % 2 === 1) {
+				let middle_octagon = Math.floor((this.width * this.height) / 2);
+				this.makeEmpty(middle_octagon);
+				this.DIRECTIONS.forEach((direction) => {
+					const { neighbour, empty } = this.find_neighbour(middle_octagon, direction);
+					if (!empty) {
+						this.makeEmpty(neighbour);
+					}
+				});
+			} else {
+				let middle_square =
+					this.width * this.height - 1 + Math.floor((this.width * (this.height - 1)) / 2);
+				this.makeEmpty(middle_square);
+				this.DIRECTIONS.forEach((direction) => {
+					const { neighbour, empty } = this.find_neighbour(middle_square, direction);
+					if (!empty) {
+						this.makeEmpty(neighbour);
+					}
+				});
+			}
+		} else if (shape === 'butterfly') {
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
+			const cutoff = Math.floor((Math.round(this.width / 3) + 1) / 2);
+			let top_cell = this.width * (cutoff - 1) + Math.floor((this.width - cutoff) / 2) + 1;
+			let right_cell = this.width * Math.floor(this.height / 2) + this.width - cutoff;
+			let bottom_cell =
+				this.width * (this.height - cutoff) + Math.floor((this.width - cutoff) / 2) + 1;
+			let left_cell = this.width * Math.floor(this.height / 2) + cutoff - 1;
+			if (this.width % 2 === 0) {
+				top_cell = this.find_neighbour(
+					top_cell,
+					top_cell % this.width > (this.width - 1) / 2 ? SOUTHWEST : SOUTHEAST
+				).neighbour;
+				right_cell = this.find_neighbour(right_cell, NORTHWEST).neighbour;
+				left_cell = this.find_neighbour(left_cell, NORTHEAST).neighbour;
+				bottom_cell = this.find_neighbour(
+					bottom_cell,
+					bottom_cell % this.width > (this.width - 1) / 2 ? NORTHWEST : NORTHEAST
+				).neighbour;
+			}
+			for (let [start_cell, shift_direction, erase_direction] of [
+				[top_cell, NORTHEAST, NORTHWEST],
+				[right_cell, NORTHEAST, SOUTHEAST],
+				[left_cell, NORTHWEST, SOUTHWEST],
+				[bottom_cell, SOUTHWEST, SOUTHEAST]
+			]) {
+				let cell = start_cell;
+				while (true) {
+					this.makeEmpty(cell);
+					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					while (!empty) {
+						this.makeEmpty(neighbour);
+						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+					}
+					let new_cell = this.find_neighbour(cell, shift_direction);
+					if (new_cell.empty) {
+						break;
+					} else {
+						cell = new_cell.neighbour;
+					}
+				}
+			}
+			this.wrap = wrap;
+		} else if (shape === 'half-wrap-horizontal') {
+			for (let i = 0; i < this.width; i++) {
+				this.emptyCells.add(i);
+			}
+		} else if (shape === 'half-wrap-vertical') {
+			for (let i = 0; i < this.height; i++) {
+				this.emptyCells.add(this.width * i);
+			}
+		} else if (shape === 'donut') {
+			console.log('donut');
+			this.useShape('octagon');
+			console.log('used octagon');
+			this.useShape('hole');
+			console.log('used hole');
+		} else {
+			throw 'unknown shape ' + shape;
+		}
+	}
 }
