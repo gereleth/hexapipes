@@ -231,4 +231,22 @@ export class AbstractGrid {
 		const dy = y - tileY;
 		return this.polygon_at(tileIndex).is_close_to_edge(dx, dy);
 	}
+
+	/**
+	 * Exports the grid's data
+	 */
+	export() {
+		let tiles = undefined;
+		if (this.emptyCells.size > 0) {
+			tiles = Array(this.total).fill(-1);
+			this.emptyCells.forEach((i) => (tiles[i] = 0));
+		}
+		return {
+			width: this.width,
+			height: this.height,
+			wrap: this.wrap,
+			kind: this.KIND,
+			tiles
+		};
+	}
 }
