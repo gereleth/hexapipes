@@ -8,8 +8,9 @@ import { createGrid } from '$lib/puzzle/grids/grids';
  * @param {import('$lib/puzzle/generator').GeneratorOptions} options
  */
 function generate(grid, options) {
-	const { kind, width, height, wrap } = grid;
-	const grid_ = createGrid(kind, width, height, wrap);
+	const { kind, width, height, wrap, tiles } = grid;
+	console.log(grid);
+	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	const gen = new Generator(grid_);
 	/** @param {import('$lib/puzzle/generator').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {

@@ -2,7 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { createGrid } from '$lib/puzzle/grids/grids';
+	import { createGrid, randomGrid } from '$lib/puzzle/grids/grids';
 	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
 	import Instructions from '$lib/Instructions.svelte';
 
@@ -42,13 +42,17 @@
 		if (width * height === 1) {
 			width += 1;
 		}
-		grid = createGrid(gridKind, width, height, wrap);
-		generatorComponent.generate({
-			branchingAmount,
-			avoidObvious,
-			avoidStraights,
-			solutionsNumber
-		});
+		// grid = createGrid(gridKind, width, height, wrap);
+		grid = randomGrid();
+		generatorComponent.generate(
+			{
+				branchingAmount,
+				avoidObvious,
+				avoidStraights,
+				solutionsNumber
+			},
+			grid
+		);
 		state = 'generating';
 	}
 	/**
@@ -256,10 +260,6 @@
 
 	<GeneratorComponent
 		bind:this={generatorComponent}
-		{gridKind}
-		{width}
-		{height}
-		{wrap}
 		on:generated={onGenerated}
 		on:error={onError}
 		on:cancel={onCancel}

@@ -236,7 +236,7 @@ export class AbstractGrid {
 	 * Exports the grid's data
 	 */
 	export() {
-		let tiles = undefined;
+		let tiles = [];
 		if (this.emptyCells.size > 0) {
 			tiles = Array(this.total).fill(-1);
 			this.emptyCells.forEach((i) => (tiles[i] = 0));

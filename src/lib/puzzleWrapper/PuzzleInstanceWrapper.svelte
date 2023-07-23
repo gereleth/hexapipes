@@ -98,12 +98,15 @@
 			avoidObvious = Math.random() * 0.5 + 0.1; // 0.1 to 0.6
 			avoidStraights = Math.random() * 0.5 + 0.25; // 0.25 to 0.75
 		}
-		generatorComponent.generate({
-			branchingAmount,
-			avoidObvious,
-			avoidStraights,
-			solutionsNumber: 'unique'
-		});
+		generatorComponent.generate(
+			{
+				branchingAmount,
+				avoidObvious,
+				avoidStraights,
+				solutionsNumber: 'unique'
+			},
+			grid
+		);
 	}
 
 	function newPuzzle() {
@@ -177,10 +180,6 @@
 <div class="container">
 	<GeneratorComponent
 		bind:this={generatorComponent}
-		{gridKind}
-		{width}
-		{height}
-		{wrap}
 		on:generated={onGenerated}
 		on:error={() => {}}
 		on:cancel={() => {}}

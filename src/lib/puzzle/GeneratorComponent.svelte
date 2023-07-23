@@ -4,12 +4,6 @@
 	import Worker from '$lib/puzzle/worker.js?worker';
 	import SolverProgress from '$lib/puzzle/SolverProgress.svelte';
 
-	// Grid properties
-	export let width = 3;
-	export let height = 3;
-	export let wrap = false;
-	export let gridKind = 'hexagonal';
-
 	/**@type {NodeJS.Timeout|undefined}*/
 	let timer;
 	/** @type {Worker|null} */
@@ -23,18 +17,14 @@
 	/**
 	 *
 	 * @param {import('$lib/puzzle/generator').GeneratorOptions} options
+	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
 	 */
-	export function generate(options) {
+	export function generate(options, grid) {
 		worker = new Worker();
 		worker.onmessage = onWorkerMessage;
 		worker.postMessage({
 			command: 'generate',
-			grid: {
-				kind: gridKind,
-				width,
-				height,
-				wrap
-			},
+			grid: grid.export(),
 			options
 		});
 		timer = setTimeout(() => {
