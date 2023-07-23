@@ -263,7 +263,7 @@ export class HexaGrid extends AbstractGrid {
 
 	/**
 	 * Shape the playing field by making some tiles empty
-	 * @param {'hexagon'|'triangle'|'hourglass'} shape
+	 * @param {'hexagon'|'triangle'|'hourglass'|'donut'|'round-hole'|'half-wrap-horizontal'|'half-wrap-vertical'} shape
 	 */
 	useShape(shape) {
 		if (shape === 'hexagon') {
@@ -359,6 +359,24 @@ export class HexaGrid extends AbstractGrid {
 				}
 			}
 			this.wrap = wrap;
+		} else if (shape === 'round-hole') {
+			const middle_index = Math.floor(this.total / 2);
+			this.emptyCells.add(middle_index);
+			this.DIRECTIONS.forEach((direction) => {
+				const { neighbour } = this.find_neighbour(middle_index, direction);
+				this.emptyCells.add(neighbour);
+			});
+		} else if (shape === 'half-wrap-horizontal') {
+			for (let i = 0; i < this.width; i++) {
+				this.emptyCells.add(i);
+			}
+		} else if (shape === 'half-wrap-vertical') {
+			for (let i = 0; i < this.height; i++) {
+				this.emptyCells.add(this.width * i);
+			}
+		} else if (shape === 'donut') {
+			this.useShape('hexagon');
+			this.useShape('round-hole');
 		} else {
 			throw 'unknown shape ' + shape;
 		}
