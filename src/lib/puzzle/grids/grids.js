@@ -98,6 +98,7 @@ function randomChoice(array) {
 function randomTotal() {
 	return Math.floor(250 + 100 * Math.random());
 }
+
 /**
  * Creates a random grid for setting a daily puzzle
  * @returns {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}
@@ -105,7 +106,12 @@ function randomTotal() {
 export function randomGrid() {
 	let kind = 'hexagonal';
 	if (Math.random() < 0.4) {
-		kind = randomChoice(['octagonal', 'etrat', 'square', 'cube']).toString();
+		kind = randomChoice([
+			'octagonal',
+			//'etrat',  // too hard
+			//'square', // too easy
+			'cube'
+		]);
 	}
 	kind = 'octagonal';
 	if (kind === 'hexagonal') {
