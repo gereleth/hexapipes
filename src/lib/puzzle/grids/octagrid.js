@@ -278,6 +278,9 @@ export class OctaGrid extends AbstractGrid {
 	 * @param {'octagon'|'donut'|'butterfly'|'hole'|'half-wrap-horizontal'|'half-wrap-vertical'} shape
 	 */
 	useShape(shape) {
+		const w = this.width;
+		const h = this.height;
+		const n = this.width * this.height;
 		if (shape === 'octagon') {
 			let wrap = false;
 			if (this.wrap) {
@@ -286,9 +289,9 @@ export class OctaGrid extends AbstractGrid {
 			}
 			const cutoff = Math.round(this.width / 4);
 			let left_top_cell = cutoff - 1;
-			let right_top_cell = this.width - cutoff;
-			let left_bottom_cell = this.width * (this.height - 1) + cutoff - 1;
-			let right_bottom_cell = this.width * this.height - cutoff;
+			let right_top_cell = w - cutoff;
+			let left_bottom_cell = w * (h - 1) + cutoff - 1;
+			let right_bottom_cell = w * h - cutoff;
 			for (let [start_cell, shift_direction, erase_direction] of [
 				[left_top_cell, SOUTHWEST, NORTHWEST],
 				[right_top_cell, SOUTHEAST, NORTHEAST],
@@ -314,8 +317,8 @@ export class OctaGrid extends AbstractGrid {
 			}
 			this.wrap = wrap;
 		} else if (shape === 'hole') {
-			if (this.width % 2 === 1) {
-				let middle_octagon = Math.floor((this.width * this.height) / 2);
+			if (w % 2 === 1) {
+				let middle_octagon = Math.floor(n / 2);
 				this.makeEmpty(middle_octagon);
 				this.DIRECTIONS.forEach((direction) => {
 					const { neighbour, empty } = this.find_neighbour(middle_octagon, direction);
@@ -324,8 +327,7 @@ export class OctaGrid extends AbstractGrid {
 					}
 				});
 			} else {
-				let middle_square =
-					this.width * this.height - 1 + Math.floor((this.width * (this.height - 1)) / 2);
+				let middle_square = n - 1 + Math.floor((n - w) / 2);
 				this.makeEmpty(middle_square);
 				this.DIRECTIONS.forEach((direction) => {
 					const { neighbour, empty } = this.find_neighbour(middle_square, direction);
@@ -340,22 +342,21 @@ export class OctaGrid extends AbstractGrid {
 				this.wrap = false;
 				wrap = true;
 			}
-			const cutoff = Math.floor((Math.round(this.width / 3) + 1) / 2);
-			let top_cell = this.width * (cutoff - 1) + Math.floor((this.width - cutoff) / 2) + 1;
-			let right_cell = this.width * Math.floor(this.height / 2) + this.width - cutoff;
-			let bottom_cell =
-				this.width * (this.height - cutoff) + Math.floor((this.width - cutoff) / 2) + 1;
-			let left_cell = this.width * Math.floor(this.height / 2) + cutoff - 1;
-			if (this.width % 2 === 0) {
+			const cutoff = Math.floor((Math.round(w / 3) + 1) / 2);
+			let top_cell = w * (cutoff - 1) + Math.floor((w - cutoff) / 2) + 1;
+			let right_cell = w * Math.floor(h / 2) + w - cutoff;
+			let bottom_cell = w * (h - cutoff) + Math.floor((w - cutoff) / 2) + 1;
+			let left_cell = w * Math.floor(h / 2) + cutoff - 1;
+			if (w % 2 === 0) {
 				top_cell = this.find_neighbour(
 					top_cell,
-					top_cell % this.width > (this.width - 1) / 2 ? SOUTHWEST : SOUTHEAST
+					top_cell % w > (w - 1) / 2 ? SOUTHWEST : SOUTHEAST
 				).neighbour;
 				right_cell = this.find_neighbour(right_cell, NORTHWEST).neighbour;
 				left_cell = this.find_neighbour(left_cell, NORTHEAST).neighbour;
 				bottom_cell = this.find_neighbour(
 					bottom_cell,
-					bottom_cell % this.width > (this.width - 1) / 2 ? NORTHWEST : NORTHEAST
+					bottom_cell % w > (w - 1) / 2 ? NORTHWEST : NORTHEAST
 				).neighbour;
 			}
 			for (let [start_cell, shift_direction, erase_direction] of [
@@ -383,18 +384,19 @@ export class OctaGrid extends AbstractGrid {
 			this.wrap = wrap;
 		} else if (shape === 'half-wrap-horizontal') {
 			for (let i = 0; i < this.width; i++) {
-				this.emptyCells.add(i);
+				this.makeEmpty(i);
+				this.makeEmpty(n + i);
+				this.makeEmpty(n + n - 1 - i);
 			}
 		} else if (shape === 'half-wrap-vertical') {
 			for (let i = 0; i < this.height; i++) {
-				this.emptyCells.add(this.width * i);
+				this.makeEmpty(w * i);
+				this.makeEmpty(n + w * i);
+				this.makeEmpty(n + w + w * i - 1);
 			}
 		} else if (shape === 'donut') {
-			console.log('donut');
 			this.useShape('octagon');
-			console.log('used octagon');
 			this.useShape('hole');
-			console.log('used hole');
 		} else {
 			throw 'unknown shape ' + shape;
 		}
