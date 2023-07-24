@@ -277,4 +277,20 @@ export class CubeGrid extends AbstractGrid {
 		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
 		return [0.8 * dx, 0.8 * dy];
 	}
+
+	/**
+	 * Shape the playing field by making some tiles empty
+	 * @param {'hexagon'|'triangle'|'hourglass'|'donut'|'round-hole'|'half-wrap-horizontal'|'half-wrap-vertical'} shape
+	 */
+	useShape(shape) {
+		// just rely on hexagrid...
+		this.emptyCells = new Set();
+		this.hexagrid.emptyCells = new Set();
+		this.hexagrid.useShape(shape);
+		this.hexagrid.emptyCells.forEach((i) => {
+			this.makeEmpty(3 * i);
+			this.makeEmpty(3 * i + 1);
+			this.makeEmpty(3 * i + 2);
+		});
+	}
 }
