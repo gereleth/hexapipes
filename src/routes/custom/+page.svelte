@@ -42,8 +42,7 @@
 		if (width * height === 1) {
 			width += 1;
 		}
-		// grid = createGrid(gridKind, width, height, wrap);
-		grid = randomGrid();
+		grid = createGrid(gridKind, width, height, wrap);
 		generatorComponent.generate(
 			{
 				branchingAmount,
