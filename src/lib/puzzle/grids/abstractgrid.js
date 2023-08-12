@@ -160,6 +160,15 @@ export class AbstractGrid {
 	}
 
 	/**
+	 * Clipping path for svg pipes
+	 * @param {Number} index
+	 * @returns {String}
+	 */
+	getClipPath(index) {
+		return this.polygon_at(index).clip_path;
+	}
+
+	/**
 	 * Pipes lines path
 	 * @param {Number} tile
 	 * @param {Number} index
