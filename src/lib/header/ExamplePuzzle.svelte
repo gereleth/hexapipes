@@ -1,5 +1,6 @@
 <script>
 	import ExampleTile from '$lib/header/ExampleTile.svelte';
+	import ClipPolygon from '$lib/puzzle/ClipPolygon.svelte';
 
 	export let grid;
 	/** @type {Number[]} */
@@ -35,6 +36,15 @@
 		height={svgHeight}
 		viewBox="{viewBox.xmin} {viewBox.ymin} {viewBox.width} {viewBox.height}"
 	>
+		<defs>
+			{#each Array(grid.total) as _, index (index)}
+				<ClipPolygon
+					i={index}
+					id={[grid.KIND,'clip','path',index].join('-')}
+					grid={grid}
+				/>
+			{/each}
+		</defs>
 		{#each visibleTiles as visibleTile, i (visibleTile.key)}
 			<ExampleTile
 				{grid}
