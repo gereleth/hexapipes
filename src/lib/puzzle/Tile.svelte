@@ -75,6 +75,7 @@
 	<g
 		class="pipe"
 		style="transform: {tile_transform} rotate({game.grid.getAngle($state.rotations, i)}rad)"
+		clip-path="url(#clip-path-{i})"
 	>
 		<!-- Pipe outline -->
 		<path

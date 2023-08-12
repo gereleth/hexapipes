@@ -92,14 +92,8 @@ export class RegularPolygonTile {
 		}
 
 		// draw tile contour
-		let angle = angle_offset - this.angle_unit / 2;
-		const r = this.radius_out - border_width;
-		this.contour_path = `m ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
-		for (let i = 1; i <= this.num_directions; i++) {
-			angle += this.angle_unit;
-			this.contour_path += ` L ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
-		}
-		this.contour_path += ' z';
+		this.contour_path = this.polygon_path(this.radius_out - border_width);
+		this.clip_path = this.polygon_path(this.radius_out + border_width/2);
 
 		// caches for frequently recomputed values
 		this.cache = {
@@ -109,6 +103,17 @@ export class RegularPolygonTile {
 			edgemark_line: new Map(),
 			wall_line: new Map()
 		};
+	}
+
+	polygon_path(r) {
+		let angle = this.angle_offset - this.angle_unit / 2;
+		let path = `m ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
+		for (let i = 1; i <= this.num_directions; i++) {
+			angle += this.angle_unit;
+			path += ` L ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
+		}
+		path += ' z';
+		return path;
 	}
 
 	/**
@@ -189,8 +194,9 @@ export class RegularPolygonTile {
 		this.directions.forEach((direction, index) => {
 			if ((direction & tile) > 0) {
 				const angle = this.angle_offset + this.angle_unit * index;
-				const dx = this.radius_in * Math.cos(angle);
-				const dy = this.radius_in * Math.sin(angle);
+				const radius = this.radius_in * 1.2;
+				const dx = radius * Math.cos(angle);
+				const dy = radius * Math.sin(angle);
 				path += ` l ${dx} ${-dy} L 0 0`;
 			}
 		});
