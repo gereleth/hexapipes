@@ -1,17 +1,16 @@
 <script>
     /** @type {Number} i*/
     export let i;
+    export let id;
 
     /**
      * @type {import('$lib/puzzle/game').PipesGame} game
      */
-    export let game;
-    export let cx = 0;
-    export let cy = 0;
+    export let grid;
 </script>
 
-<clipPath id="clip-path-{i}">
+<clipPath id="{id}">
     <path
-        d={game.grid.getClipPath(i)}
+        d={grid.getClipPath(i)}
     />
 </clipPath>

@@ -332,12 +332,11 @@
 		on:save={save.soon}
 	>
 		<defs> 
-			{#each $visibleTiles as visibleTile, i (visibleTile.key)}
+			{#each Array(game.grid.total) as _, index (index)}
 				<ClipPolygon
-					i={visibleTile.index}
-					{game}
-					cx={visibleTile.x}
-					cy={visibleTile.y}
+					i={index}
+					id={'clip-path-' + index}
+					grid={game.grid}
 				/>
 			{/each}
 		</defs>
