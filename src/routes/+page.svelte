@@ -125,6 +125,10 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-08-20</em> Fixed a <a href="https://github.com/gereleth/hexapipes/issues/102">bug</a>
+			in calculating "Average of 12" statistic for daily puzzles.
+		</li>
+		<li>
 			<em>2023-06-11</em> New grid! You've played with squares before, how about some
 			<a href="/cube/5">cubes</a>?
 			<ul>
