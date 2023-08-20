@@ -422,6 +422,7 @@ export function _calculateStats(solves, isDaily) {
 	let bestTime = Number.POSITIVE_INFINITY;
 	let meanOf3 = null;
 	let bestMeanOf3 = Number.POSITIVE_INFINITY;
+	/** @type {Number[]} */
 	let ts = [];
 	let averageOf5 = null;
 	let bestAverageOf5 = Number.POSITIVE_INFINITY;
@@ -464,7 +465,7 @@ export function _calculateStats(solves, isDaily) {
 			ts.push(isSolved ? t : Number.POSITIVE_INFINITY);
 		}
 		if (ts.length > 12) {
-			ts.shift();
+			ts.splice(0, ts.length - 12);
 		}
 		if (ts.length >= 3) {
 			if (meanOf3 === null) {
