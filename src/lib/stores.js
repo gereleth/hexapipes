@@ -378,6 +378,140 @@ export function getSolves(path) {
 }
 
 /**
+ * Calculate mean of array of numbers
+ * @param {Number[]} arr
+ * @returns {Number}
+ */
+function meanOfArray(arr) {
+	let mean = 0;
+	for (let item of arr) {
+		mean += item;
+	}
+	mean /= arr.length;
+	return mean;
+}
+
+/**
+ * Calculate mean of array of numbers
+ * while excluding one min and one max value
+ * @param {Number[]} arr
+ * @returns {Number}
+ */
+function averageOfArray(arr) {
+	const sorted = [...arr].sort((a, b) => a - b);
+	let mean = 0;
+	for (let item of sorted.slice(1, -1)) {
+		mean += item;
+	}
+	mean /= arr.length - 2;
+	return mean;
+}
+
+/**
+ *
+ * @param {Solve[]} solves
+ * @param {Boolean} isDaily
+ * @returns
+ */
+export function _calculateStats(solves, isDaily) {
+	let streak = 0;
+	let totalSolved = 0;
+	let streakIncrement = 1;
+	const startIndex = solves.length > 0 && solves[0].elapsedTime === -1 ? 1 : 0;
+	let currentTime = null;
+	let bestTime = Number.POSITIVE_INFINITY;
+	let meanOf3 = null;
+	let bestMeanOf3 = Number.POSITIVE_INFINITY;
+	let ts = [];
+	let averageOf5 = null;
+	let bestAverageOf5 = Number.POSITIVE_INFINITY;
+	let averageOf12 = null;
+	let bestAverageOf12 = Number.POSITIVE_INFINITY;
+	for (let i = startIndex; i < solves.length; i++) {
+		let t = solves[i].elapsedTime;
+		let isSolved = t !== -1;
+		let isStreak = isSolved;
+		let missedDays = 0;
+		if (isDaily && isStreak && i !== startIndex) {
+			const thisDay = new Date(solves[i].puzzleId);
+			const prevDay = new Date(solves[i - 1].puzzleId);
+			const daysBetween = Math.round(
+				(prevDay.valueOf() - thisDay.valueOf()) / (24 * 60 * 60 * 1000)
+			);
+			if (daysBetween > 1) {
+				isStreak = false;
+				missedDays = Math.min(12, daysBetween - 1);
+			}
+		}
+		if (isSolved) {
+			totalSolved += 1;
+			bestTime = Math.min(bestTime, t);
+			if (currentTime === null) {
+				currentTime = t;
+			}
+		} else if (currentTime === null) {
+			currentTime = Number.POSITIVE_INFINITY;
+		}
+
+		if (isStreak) {
+			streak += streakIncrement;
+			ts.push(t);
+		} else {
+			streakIncrement = 0;
+			for (let d = 0; d < missedDays; d++) {
+				ts.push(Number.POSITIVE_INFINITY);
+			}
+			ts.push(isSolved ? t : Number.POSITIVE_INFINITY);
+		}
+		if (ts.length > 12) {
+			ts.shift();
+		}
+		if (ts.length >= 3) {
+			if (meanOf3 === null) {
+				meanOf3 = meanOfArray(ts.slice(-3));
+			}
+			bestMeanOf3 = Math.min(meanOfArray(ts.slice(-3)), bestMeanOf3);
+		}
+		if (ts.length >= 5) {
+			if (averageOf5 === null) {
+				averageOf5 = averageOfArray(ts.slice(-5));
+			}
+			bestAverageOf5 = Math.min(averageOfArray(ts.slice(-5)), bestAverageOf5);
+		}
+		if (ts.length >= 12) {
+			if (averageOf12 === null) {
+				averageOf12 = averageOfArray(ts);
+			}
+			bestAverageOf12 = Math.min(averageOfArray(ts), bestAverageOf12);
+		}
+	}
+	if (currentTime === null) {
+		currentTime = Number.POSITIVE_INFINITY;
+	}
+	if (meanOf3 === null) {
+		meanOf3 = Number.POSITIVE_INFINITY;
+	}
+	if (averageOf5 === null) {
+		averageOf5 = Number.POSITIVE_INFINITY;
+	}
+	if (averageOf12 === null) {
+		averageOf12 = Number.POSITIVE_INFINITY;
+	}
+	return {
+		streak,
+		totalSolved,
+		currentTime,
+		bestTime,
+		meanOf3,
+		bestMeanOf3,
+		averageOf5,
+		bestAverageOf5,
+		averageOf12,
+		bestAverageOf12
+	};
+}
+
+/**
  * @param {String} path
  */
 function createStatsStore(path) {
@@ -413,142 +547,9 @@ function createStatsStore(path) {
 
 	const { subscribe, set, update } = writable(data);
 
-	/**
-	 * Calculate mean of array of numbers
-	 * @param {Number[]} arr
-	 * @returns {Number}
-	 */
-	function meanOfArray(arr) {
-		let mean = 0;
-		for (let item of arr) {
-			mean += item;
-		}
-		mean /= arr.length;
-		return mean;
-	}
-
-	/**
-	 * Calculate mean of array of numbers
-	 * while excluding one min and one max value
-	 * @param {Number[]} arr
-	 * @returns {Number}
-	 */
-	function averageOfArray(arr) {
-		const sorted = [...arr].sort((a, b) => a - b);
-		let mean = 0;
-		for (let item of sorted.slice(1, -1)) {
-			mean += item;
-		}
-		mean /= arr.length - 2;
-		return mean;
-	}
-
-	/**
-	 *
-	 * @param {Solve[]} solves
-	 * @returns
-	 */
-	function _calculateStats(solves) {
-		let streak = 0;
-		let totalSolved = 0;
-		let streakIncrement = 1;
-		const startIndex = solves.length > 0 && solves[0].elapsedTime === -1 ? 1 : 0;
-		let currentTime = null;
-		let bestTime = Number.POSITIVE_INFINITY;
-		let meanOf3 = null;
-		let bestMeanOf3 = Number.POSITIVE_INFINITY;
-		let ts = [];
-		let averageOf5 = null;
-		let bestAverageOf5 = Number.POSITIVE_INFINITY;
-		let averageOf12 = null;
-		let bestAverageOf12 = Number.POSITIVE_INFINITY;
-		for (let i = startIndex; i < solves.length; i++) {
-			let t = solves[i].elapsedTime;
-			let isSolved = t !== -1;
-			let isStreak = isSolved;
-			let missedDays = 0;
-			if (isDaily && isStreak && i !== startIndex) {
-				const thisDay = new Date(solves[i].puzzleId);
-				const prevDay = new Date(solves[i - 1].puzzleId);
-				const daysBetween = Math.round(
-					(prevDay.valueOf() - thisDay.valueOf()) / (24 * 60 * 60 * 1000)
-				);
-				if (daysBetween > 1) {
-					isStreak = false;
-					missedDays = Math.min(12, daysBetween - 1);
-				}
-			}
-			if (isSolved) {
-				totalSolved += 1;
-				bestTime = Math.min(bestTime, t);
-				if (currentTime === null) {
-					currentTime = t;
-				}
-			} else if (currentTime === null) {
-				currentTime = Number.POSITIVE_INFINITY;
-			}
-
-			if (isStreak) {
-				streak += streakIncrement;
-				ts.push(t);
-			} else {
-				streakIncrement = 0;
-				for (let d = 0; d < missedDays; d++) {
-					ts.push(Number.POSITIVE_INFINITY);
-				}
-				ts.push(isSolved ? t : Number.POSITIVE_INFINITY);
-			}
-			if (ts.length > 12) {
-				ts.shift();
-			}
-			if (ts.length >= 3) {
-				if (meanOf3 === null) {
-					meanOf3 = meanOfArray(ts.slice(-3));
-				}
-				bestMeanOf3 = Math.min(meanOfArray(ts.slice(-3)), bestMeanOf3);
-			}
-			if (ts.length >= 5) {
-				if (averageOf5 === null) {
-					averageOf5 = averageOfArray(ts.slice(-5));
-				}
-				bestAverageOf5 = Math.min(averageOfArray(ts.slice(-5)), bestAverageOf5);
-			}
-			if (ts.length >= 12) {
-				if (averageOf12 === null) {
-					averageOf12 = averageOfArray(ts);
-				}
-				bestAverageOf12 = Math.min(averageOfArray(ts), bestAverageOf12);
-			}
-		}
-		if (currentTime === null) {
-			currentTime = Number.POSITIVE_INFINITY;
-		}
-		if (meanOf3 === null) {
-			meanOf3 = Number.POSITIVE_INFINITY;
-		}
-		if (averageOf5 === null) {
-			averageOf5 = Number.POSITIVE_INFINITY;
-		}
-		if (averageOf12 === null) {
-			averageOf12 = Number.POSITIVE_INFINITY;
-		}
-		return {
-			streak,
-			totalSolved,
-			currentTime,
-			bestTime,
-			meanOf3,
-			bestMeanOf3,
-			averageOf5,
-			bestAverageOf5,
-			averageOf12,
-			bestAverageOf12
-		};
-	}
-
 	solvesStore.subscribe((solves) => {
 		update((data) => {
-			const newStats = _calculateStats(solves);
+			const newStats = _calculateStats(solves, isDaily);
 			data.streak = newStats.streak;
 			data.totalSolved = newStats.totalSolved;
 			data.single = {
