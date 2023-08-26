@@ -172,8 +172,9 @@ export class AbstractGrid {
 	 * Pipes lines path
 	 * @param {Number} tile
 	 * @param {Number} index
+	 * @param {Number} rotations
 	 */
-	getPipesPath(tile, index) {
+	getPipesPath(tile, index, rotations) {
 		return this.polygon_at(index).get_pipes_path(tile);
 	}
 

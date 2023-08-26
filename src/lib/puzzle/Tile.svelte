@@ -33,6 +33,7 @@
 	const isSink = myDirections.length === 1;
 
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
+	const pipe_transform = '';
 	/**
 	 * Choose tile background color
 	 * @param {Boolean} locked
@@ -56,6 +57,7 @@
 		strokeColor = '#888';
 		strokeWidth = game.grid.STROKE_WIDTH;
 	}
+	$: path = game.grid.getPipesPath($state.tile, i, $state.rotations);
 	$: chooseBgColor($state.locked, $state.isPartOfLoop);
 	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
 	$: style = game.grid.polygon_at(i).style || undefined;
@@ -74,7 +76,7 @@
 	<!-- Pipe shape -->
 	<g
 		class="pipe"
-		style="transform: {tile_transform} rotate({game.grid.getAngle($state.rotations, i)}rad)"
+		style="transform: {pipe_transform}"
 		clip-path="url(#clip-path-{i})"
 	>
 		<!-- Pipe outline -->
@@ -122,13 +124,13 @@
 </g>
 
 <style>
-	:global(.animation-normal) .pipe {
-		transition: transform 100ms ease;
+	:global(.animation-normal) .pipe path {
+		transition: d 100ms ease;
 	}
-	:global(.animation-fast) .pipe {
-		transition: transform 30ms ease;
+	:global(.animation-fast) .pipe path {
+		transition: d 30ms ease;
 	}
-	:global(.animation-instant) .pipe {
-		transition: transform 0ms;
+	:global(.animation-instant) .pipe path {
+		transition: d 0ms;
 	}
 </style>

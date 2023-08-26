@@ -75,6 +75,10 @@ export class Vector {
     add(anotherVector) {
         return new Vector(this.x + anotherVector.x, this.y + anotherVector.y);
     }
+
+    subtract(anotherVector) {
+        return new Vector(this.x - anotherVector.x, this.y - anotherVector.y);
+    }
 }
 
 // adapted from

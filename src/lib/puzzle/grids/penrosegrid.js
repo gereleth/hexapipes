@@ -153,8 +153,41 @@ export class PenroseGrid extends AbstractGrid {
 		return this.coordRhomb;
 	}
 
+	getPipesPath(tile, index, rotations) {
+		let path = `M 0 0`;
+		let directions = this.DIRECTIONS;
+		rotations = rotations % directions.length;
+		if (rotations < 0) {
+			directions = [...directions.slice(rotations), ...directions.slice(0, rotations)]
+		} else if (rotations > 0) {
+			directions = [...directions.slice(-rotations), ...directions.slice(0, -rotations)]
+		}
+		tile = this.polygon_at(index).rotate(tile, rotations);
+		directions.forEach(direction => {
+			const {center} = this.p3rhombs[index];
+			if ((direction & tile) > 0) {
+				const {neighbour} = this.find_neighbour(index, direction);
+				if (neighbour === -1) {
+					return; // deal with literal edge case later
+				}
+				const {center: neicenter} = this.p3rhombs[neighbour];
+				path += `l ${neicenter.x - center.x} ${neicenter.y - center.y} L 0 0`
+			}
+		});
+		return path;
+	}
 
-
+	getClipPath(index) {
+		let {rhombus, center} = this.p3rhombs[index];
+		let vs = [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v4, rhombus.v1]
+			.map(v => new Vector(v.x, v.y).subtract(center));
+		let path = `m ${vs[0].x} ${vs[0].y}`;
+		for (let i = 1; i < vs.length; i++) {
+			path += ` L ${vs[i].x} ${vs[i].y}`;
+		}
+		path += ' z';
+		return path;
+	}
 
 	/**
 	 * Determines which tile a point at (x, y) belongs to
