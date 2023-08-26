@@ -81,7 +81,7 @@ export class PenroseGrid extends AbstractGrid {
 	DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
 	EDGEMARK_DIRECTIONS = [DIRA, DIRB, DIRC, DIRD];
 	NUM_DIRECTIONS = 4;
-	KIND = 'p3';
+	KIND = 'penrose';
 	PIPE_WIDTH = 0.15 * SCALE;
 	STROKE_WIDTH = 0.06 * SCALE;
 	SINK_RADIUS = 0.2 * SCALE;
