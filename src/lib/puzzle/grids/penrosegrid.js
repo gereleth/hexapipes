@@ -156,14 +156,18 @@ export class PenroseGrid extends AbstractGrid {
 		return this.coordRhomb;
 	}
 
-	getSymbolEnd(index, direction, portion) {
-		const dirind = this.polygon_at(index).direction_to_index.get(direction);
-		let {rhombus, center} = this.p3rhombs[index];
+	getSymbolEnd(dirind, rhombus, center, base, direction, portion) {
 		const points = rhombus.getPoints().reverse();
 		// this shouldn't be necessary; all rhomb points should consistently start with side 0
-		const index1 = (this.p3rhombs[index].base % 10 < 5 ? dirind + 3 : dirind + 2) % 4;
+		const index1 = (base % 10 < 5 ? dirind + 3 : dirind + 2) % 4;
 		const p1 = points[index1].subtract(center), p2 = points[(index1 + 1) % 4].subtract(center);
 		return new Vector((p1.x + p2.x) * portion / 2, (p1.y + p2.y) * portion / 2);
+	}
+
+	getTileSymbolEnd(index, direction, portion) {
+		const dirind = this.polygon_at(index).direction_to_index.get(direction);
+		let {rhombus, center, base } = this.p3rhombs[index];
+		return this.getSymbolEnd(dirind, rhombus, center, base, direction, portion);
 	}
 
 	getPipesPath(tile, index, rotations) {
@@ -175,7 +179,9 @@ export class PenroseGrid extends AbstractGrid {
 			directions = [...directions.slice(-rotations), ...directions.slice(0, -rotations)]
 		}
 		const symbol_portion = 0.7;
-		const bezier = true;
+		let bezier = true;
+		if(symbol_portion > 1)
+			bezier = false; 
 		tile = this.polygon_at(index).rotate(tile, rotations);
 		const {center} = this.p3rhombs[index];
 		const {direction_to_index} = this.polygon_at(index);
@@ -192,9 +198,9 @@ export class PenroseGrid extends AbstractGrid {
 				}
 				const {center: neicenter} = this.p3rhombs[neighbour];
 				let points;
-				const A = this.getSymbolEnd(index, direction, symbol_portion);
+				const A = this.getTileSymbolEnd(index, direction, symbol_portion);
 				if(symbol_portion <= 1) {
-					const B = neicenter.add(this.getSymbolEnd(neighbour, oppositeDirection, symbol_portion)).subtract(center);
+					const B = neicenter.add(this.getTileSymbolEnd(neighbour, oppositeDirection, symbol_portion)).subtract(center);
 					if(bezier) {
 						const C = new Vector((A.x + B.x)/2, (A.y + B.y)/2);
 						points = [[A, A, C], [C, B, B], [B, C, C], [A, A, this.ZERO_POINT]]
