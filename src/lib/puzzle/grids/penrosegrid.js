@@ -171,7 +171,9 @@ export class PenroseGrid extends AbstractGrid {
 		} else if (rotations > 0) {
 			directions = [...directions.slice(-rotations), ...directions.slice(0, -rotations)]
 		}
-		const portion = 0.8;
+		const symbol_portion = 0.5;
+		const neighbour_portion = 1;
+		const bezier = true;
 		tile = this.polygon_at(index).rotate(tile, rotations);
 		const {center} = this.p3rhombs[index];
 		const {direction_to_index} = this.polygon_at(index);
@@ -188,15 +190,26 @@ export class PenroseGrid extends AbstractGrid {
 				}
 				const {center: neicenter} = this.p3rhombs[neighbour];
 				let points;
-				const A = this.getSymbolEnd(index, direction, portion);
-				if(portion <= 1) {
-					const B = neicenter.add(this.getSymbolEnd(neighbour, oppositeDirection, portion)).subtract(center);
-					points = [A, B, A, this.ZERO_POINT];
+				const A = this.getSymbolEnd(index, direction, symbol_portion);
+				if(symbol_portion <= 1) {
+					const B = neicenter.add(this.getSymbolEnd(neighbour, oppositeDirection, symbol_portion)).subtract(center);
+					if(bezier) {
+						const np = neighbour_portion;
+						const C = new Vector((1 - np)*A.x + np*B.x, (1 - np)*A.y + np*B.y);
+						points = [[A, A, C], [A, A, this.ZERO_POINT]]
+					} else {
+						points = [A, B, A, this.ZERO_POINT];
+					}
 				}
 				else { 
 					points = [A, this.ZERO_POINT];
 				}
-				const path = points.map((p, i) => `L ${p.x} ${p.y}`).join(' ');
+				let path;
+				if(bezier) {
+					path = points.map(bez => 'C ' + bez.map(p => `${p.x} ${p.y}`).join(', ')).join(' '); 
+				} else {
+					path = points.map((p, i) => `L ${p.x} ${p.y}`).join(' ');
+				}
 				console.log('gpp', path);
 				return path;
 			}
