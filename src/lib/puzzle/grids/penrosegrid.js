@@ -158,6 +158,7 @@ export class PenroseGrid extends AbstractGrid {
 		const dirind = this.polygon_at(index).direction_to_index.get(direction);
 		let {rhombus, center} = this.p3rhombs[index];
 		const points = rhombus.getPoints().reverse();
+		// this shouldn't be necessary; all rhomb points should consistently start with side 0
 		const index1 = (this.p3rhombs[index].base % 10 < 5 ? dirind + 3 : dirind + 2) % 4;
 		const p1 = points[index1].subtract(center), p2 = points[(index1 + 1) % 4].subtract(center);
 		return new Vector((p1.x + p2.x) * portion / 2, (p1.y + p2.y) * portion / 2);
@@ -171,8 +172,7 @@ export class PenroseGrid extends AbstractGrid {
 		} else if (rotations > 0) {
 			directions = [...directions.slice(-rotations), ...directions.slice(0, -rotations)]
 		}
-		const symbol_portion = 0.5;
-		const neighbour_portion = 1;
+		const symbol_portion = 0.7;
 		const bezier = true;
 		tile = this.polygon_at(index).rotate(tile, rotations);
 		const {center} = this.p3rhombs[index];
@@ -194,9 +194,8 @@ export class PenroseGrid extends AbstractGrid {
 				if(symbol_portion <= 1) {
 					const B = neicenter.add(this.getSymbolEnd(neighbour, oppositeDirection, symbol_portion)).subtract(center);
 					if(bezier) {
-						const np = neighbour_portion;
-						const C = new Vector((1 - np)*A.x + np*B.x, (1 - np)*A.y + np*B.y);
-						points = [[A, A, C], [A, A, this.ZERO_POINT]]
+						const C = new Vector((A.x + B.x)/2, (A.y + B.y)/2);
+						points = [[A, A, C], [C, B, B], [B, C, C], [A, A, this.ZERO_POINT]]
 					} else {
 						points = [A, B, A, this.ZERO_POINT];
 					}
