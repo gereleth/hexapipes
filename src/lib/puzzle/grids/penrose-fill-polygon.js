@@ -62,6 +62,10 @@ export class Vector {
         return new Vector(end.x - start.x, end.y - start.y);
     }
 
+    static fromJson(json) {
+        return new Vector(json.x, json.y);
+    }
+
     print(xform, yform, prec = 4) {
         xform = xform || (x => x);
         yform = yform || (y => y);
@@ -206,9 +210,12 @@ export class Rhombus {
             new Triangle(this.v3, this.v4, this.v1)
         ];
     }
+    getPoints() {
+        return [this.v1, this.v2, this.v3, this.v4];
+    }
     static fromJson(json) {
         const {v1, v2, v3, v4, coord, fillColor} = json;
-        return new Rhombus(v1, v2, v3, v4, coord, fillColor);
+        return new Rhombus(Vector.fromJson(v1), Vector.fromJson(v2), Vector.fromJson(v3), Vector.fromJson(v4), coord, fillColor);
     }
 }
 

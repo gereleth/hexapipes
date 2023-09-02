@@ -90,6 +90,7 @@ export class PenroseGrid extends AbstractGrid {
 	BEND_EDGEMARKS = true;
 	/** @type {"inherit" | "round" | "bevel" | "miter"} */
 	LINE_JOIN = 'bevel';
+	ZERO_POINT = new Vector(0, 0);
 
 	/**
 	 *
@@ -153,8 +154,16 @@ export class PenroseGrid extends AbstractGrid {
 		return this.coordRhomb;
 	}
 
+	getSymbolEnd(index, direction, portion) {
+		const dirind = this.polygon_at(index).direction_to_index.get(direction);
+		let {rhombus, center} = this.p3rhombs[index];
+		const points = rhombus.getPoints().reverse();
+		const index1 = (this.p3rhombs[index].base % 10 < 5 ? dirind + 3 : dirind + 2) % 4;
+		const p1 = points[index1].subtract(center), p2 = points[(index1 + 1) % 4].subtract(center);
+		return new Vector((p1.x + p2.x) * portion / 2, (p1.y + p2.y) * portion / 2);
+	}
+
 	getPipesPath(tile, index, rotations) {
-		let path = `M 0 0`;
 		let directions = this.DIRECTIONS;
 		rotations = rotations % directions.length;
 		if (rotations < 0) {
@@ -162,25 +171,43 @@ export class PenroseGrid extends AbstractGrid {
 		} else if (rotations > 0) {
 			directions = [...directions.slice(-rotations), ...directions.slice(0, -rotations)]
 		}
+		const portion = 0.8;
 		tile = this.polygon_at(index).rotate(tile, rotations);
-		directions.forEach(direction => {
-			const {center} = this.p3rhombs[index];
+		const {center} = this.p3rhombs[index];
+		const {direction_to_index} = this.polygon_at(index);
+		return [`M 0 0`, ...directions.map(direction => {
 			if ((direction & tile) > 0) {
-				const {neighbour} = this.find_neighbour(index, direction);
+				// use the fully rotated direction for geometry
+				let dirind = direction_to_index.get(direction);
+				dirind = (dirind + rotations) % 4;
+				while(dirind < 0) dirind += 4;
+				direction = directions[dirind];
+				const {neighbour, oppositeDirection} = this.find_neighbour(index, direction);
 				if (neighbour === -1) {
 					return; // deal with literal edge case later
 				}
 				const {center: neicenter} = this.p3rhombs[neighbour];
-				path += `l ${neicenter.x - center.x} ${neicenter.y - center.y} L 0 0`
+				let points;
+				const A = this.getSymbolEnd(index, direction, portion);
+				if(portion <= 1) {
+					const B = neicenter.add(this.getSymbolEnd(neighbour, oppositeDirection, portion)).subtract(center);
+					points = [A, B, A, this.ZERO_POINT];
+				}
+				else { 
+					points = [A, this.ZERO_POINT];
+				}
+				const path = points.map((p, i) => `L ${p.x} ${p.y}`).join(' ');
+				console.log('gpp', path);
+				return path;
 			}
-		});
-		return path;
+			return null;
+		})].filter(x => x).join(' ');
 	}
 
 	getClipPath(index) {
 		let {rhombus, center} = this.p3rhombs[index];
 		let vs = [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v4, rhombus.v1]
-			.map(v => new Vector(v.x, v.y).subtract(center));
+			.map(v => v.subtract(center));
 		let path = `m ${vs[0].x} ${vs[0].y}`;
 		for (let i = 1; i < vs.length; i++) {
 			path += ` L ${vs[i].x} ${vs[i].y}`;
