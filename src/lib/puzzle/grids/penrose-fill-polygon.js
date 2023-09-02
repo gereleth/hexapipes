@@ -599,18 +599,50 @@ export function calculatePenroseTiling(minTiles, width, height, boundsShape, sta
         culledTris.push(triangles[disind[i]]);
         triangles.splice(disind[i], 1);
     }
+    const outsideNeighborCoords = [];
     for(const [rhombcoord, {tri1, tri2, rhombus}] of Object.entries(rhombhash)) {
         const neighbors = [];
         var j = 0;
         // X1, X2, Y1, Y2 or C1, C2, D1, D2
         for(const tri of [tri1, tri2])
             for(const side of [1, 2]) {
-                var nei = tatham_neighbor_or_null(tri.coord, side);
+                const nei = tatham_neighbor_or_null(tri.coord, side);
+                if(nei && !tri2rhomb[nei]) {
+                    const oh = tatham_neighbor_or_null(nei, 0);
+                    if(oh)
+                        outsideNeighborCoords.push([tri.coord,oh].sort().join(','));
+                }
                 const rhombnei = nei && tri2rhomb[nei] || null;
                 neighbors.push(rhombnei);
             }
         rhombhash[rhombcoord].neighbors = neighbors;
     }
+
+    const outside_tris = outsideNeighborCoords.flatMap(rc => rc.split(','));
+    const [outside_neighbor_tris] = generateTriangles(
+        [startri],
+        tri => outside_tris.some(find => find.indexOf(tri.coord) === find.length - tri.coord.length),
+        tris => !tris.length || tris[0].coord.length === outside_tris[0].length);
+    const outside_tri_by_coord = new Map(outside_neighbor_tris.map(tri => [tri.coord, tri]));
+    const outsideNeighbors = new Map(outsideNeighborCoords.map(rc => {
+        const [tri1, tri2] = rc.split(',').map(tc => outside_tri_by_coord.get(tc));
+        if(!tri1 || !tri2) {
+            console.log('generation of outside neighbor failed', rc);
+            return null;
+        }
+        const rhombus = new Rhombus(tri1.v1, tri1.v2, tri2.v1, tri2.v2, rc, 'none');
+        const center = new Vector(
+            (rhombus.v1.x + rhombus.v3.x) / 2,
+            (rhombus.v1.y + rhombus.v3.y) / 2)
+        return [
+            rc, {
+                tri1,
+                tri2,
+                center,
+                rhombus
+            }
+        ];
+    }).filter(x => x));
     const culledRhombs = [];
     if(resolveRagged === "cull") {
         var cullRhombs;
@@ -619,7 +651,7 @@ export function calculatePenroseTiling(minTiles, width, height, boundsShape, sta
                 .filter(({neighbors}) => neighbors.filter(n => n).length < 2);
             for(const {rhombus, neighbors} of cullRhombs) {
                 culledRhombs.push(rhombus);
-                for(nei of neighbors) {
+                for(const nei of neighbors) {
                     if(!nei)
                         continue;
                     const entry = rhombhash[nei];
@@ -704,6 +736,7 @@ export function calculatePenroseTiling(minTiles, width, height, boundsShape, sta
         discardedTriangles: discarded,
         culledTriangles: culledTris,
         p3Rhombuses: rhombhash,
+        outsideNeighbors,
         culledRhombuses: culledRhombs,
         fillsIdentified: find_tris,
         fillsFound: found_tris,

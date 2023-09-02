@@ -114,11 +114,13 @@ export class PenroseGrid extends AbstractGrid {
 				rhombus = Rhombus.fromJson(rhombus);
 				this.coordRhomb[coord] = {index, neighbors, rhombus, center, base};
 			}
+			this.outsideNeighbours = {}; // put them in same map with a flag?
 		}
 		else {
 			const before = performance.now();
 			const penrose = calculatePenroseTiling(this.width * this.height, 1000, 1000, 'square', 'X', 'cull');
 			this.coordRhomb = penrose.p3Rhombuses;
+			this.outsideNeighbours = penrose.outsideNeighbors;
 			console.log('calculatePenrose took', performance.now() - before, 'ms', Object.keys(this.coordRhomb).length, 'tiles');
 		}
 		this.p3rhombs = Object.values(this.coordRhomb);
