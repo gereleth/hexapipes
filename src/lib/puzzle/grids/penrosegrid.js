@@ -156,7 +156,7 @@ export class PenroseGrid extends AbstractGrid {
 		return this.coordRhomb;
 	}
 
-	getSymbolEnd(dirind, rhombus, center, base, direction, portion) {
+	getSymbolEnd(rhombus, center, base, dirind, portion) {
 		const points = rhombus.getPoints().reverse();
 		// this shouldn't be necessary; all rhomb points should consistently start with side 0
 		const index1 = (base % 10 < 5 ? dirind + 3 : dirind + 2) % 4;
@@ -166,8 +166,8 @@ export class PenroseGrid extends AbstractGrid {
 
 	getTileSymbolEnd(index, direction, portion) {
 		const dirind = this.polygon_at(index).direction_to_index.get(direction);
-		let {rhombus, center, base } = this.p3rhombs[index];
-		return this.getSymbolEnd(dirind, rhombus, center, base, direction, portion);
+		let {rhombus, center, base} = this.p3rhombs[index];
+		return this.getSymbolEnd(rhombus, center, base, dirind, portion);
 	}
 
 	getPipesPath(tile, index, rotations) {
@@ -186,41 +186,45 @@ export class PenroseGrid extends AbstractGrid {
 		const {center} = this.p3rhombs[index];
 		const {direction_to_index} = this.polygon_at(index);
 		return [`M 0 0`, ...directions.map(direction => {
-			if ((direction & tile) > 0) {
-				// use the fully rotated direction for geometry
-				let dirind = direction_to_index.get(direction);
-				dirind = (dirind + rotations) % 4;
-				while(dirind < 0) dirind += 4;
-				direction = directions[dirind];
-				const {neighbour, oppositeDirection} = this.find_neighbour(index, direction);
-				if (neighbour === -1) {
-					return; // deal with literal edge case later
-				}
-				const {center: neicenter} = this.p3rhombs[neighbour];
-				let points;
-				const A = this.getTileSymbolEnd(index, direction, symbol_portion);
-				if(symbol_portion <= 1) {
-					const B = neicenter.add(this.getTileSymbolEnd(neighbour, oppositeDirection, symbol_portion)).subtract(center);
-					if(bezier) {
-						const C = new Vector((A.x + B.x)/2, (A.y + B.y)/2);
-						points = [[A, A, C], [C, B, B], [B, C, C], [A, A, this.ZERO_POINT]]
-					} else {
-						points = [A, B, A, this.ZERO_POINT];
-					}
-				}
-				else { 
-					points = [A, this.ZERO_POINT];
-				}
-				let path;
-				if(bezier) {
-					path = points.map(bez => 'C ' + bez.map(p => `${p.x} ${p.y}`).join(', ')).join(' '); 
+			if ((direction & tile) === 0) return null;
+			// use the rotated direction for geometry
+			let dirind = direction_to_index.get(direction);
+			dirind = (dirind + rotations) % 4;
+			while(dirind < 0) dirind += 4;
+			direction = directions[dirind];
+			const {neighbour, oppositeDirection} = this.find_neighbour(index, direction);
+			const A = this.getTileSymbolEnd(index, direction, symbol_portion);
+			let B;
+			if(symbol_portion < 1) {
+				let neicenter, symbend;
+				if (neighbour !== -1) {
+					({center: neicenter} = this.p3rhombs[neighbour]);
+					symbend = this.getTileSymbolEnd(neighbour, oppositeDirection, symbol_portion);
 				} else {
-					path = points.map((p, i) => `L ${p.x} ${p.y}`).join(' ');
+					return null;
 				}
-				console.log('gpp', path);
-				return path;
+				B = neicenter.add(symbend).subtract(center);
 			}
-			return null;
+			let points;
+			if(symbol_portion < 1) {
+				if(bezier) {
+					const C = new Vector((A.x + B.x)/2, (A.y + B.y)/2);
+					points = [[A, A, C], [C, B, B], [B, C, C], [A, A, this.ZERO_POINT]]
+				} else {
+					points = [A, B, A, this.ZERO_POINT];
+				}
+			}
+			else { 
+				points = [A, this.ZERO_POINT];
+			}
+			let path;
+			if(bezier) {
+				path = points.map(bez => 'C ' + bez.map(p => `${p.x} ${p.y}`).join(', ')).join(' '); 
+			} else {
+				path = points.map((p, i) => `L ${p.x} ${p.y}`).join(' ');
+			}
+			console.log('gpp', path);
+			return path;
 		})].filter(x => x).join(' ');
 	}
 
