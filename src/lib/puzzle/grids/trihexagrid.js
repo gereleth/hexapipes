@@ -29,10 +29,10 @@ export class TrihexaGrid extends AbstractGrid {
 	]);
 	NUM_DIRECTIONS = 6;
 	KIND = 'trihexagonal';
-	PIPE_WIDTH = 0.12;
-	STROKE_WIDTH = 0.05;
+	PIPE_WIDTH = 0.1;
+	STROKE_WIDTH = 0.04;
 	PIPE_LENGTH = 0.5;
-	SINK_RADIUS = 0.13;
+	SINK_RADIUS = 0.11;
 
 	/**
 	 *
