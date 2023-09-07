@@ -45,13 +45,13 @@ function calculateBaseTransformedPolygons() {
 		var scale_y, skew_x;
 		if (i % 10 < 5) {
 			scale_y = Math.sin(TAU / 5);
-			skew_x = - TAU / 20;
+			skew_x = -TAU / 20;
 		} else {
 			scale_y = Math.sin(TAU / 10);
-			skew_x = - (TAU * 3) / 20;
+			skew_x = -(TAU * 3) / 20;
 		}
 		// reverse rotation because browser coordinates are y increasing downward
-		const rotate_rad = i < 10 ? -rots[i] : -rots[i-10] + TAU / 2;
+		const rotate_rad = i < 10 ? -rots[i] : -rots[i - 10] + TAU / 2;
 		ret.push(
 			new TransformedPolygonTile(
 				num_directions,
@@ -106,47 +106,60 @@ export class PenroseGrid extends AbstractGrid {
 
 	initialize(state) {
 		if (state) {
-			this.coordRhomb = {}
+			this.coordRhomb = {};
 			for (const [coord, rhomb] of Object.entries(state)) {
-				const {index, neighbors, base} = rhomb;
-				let {rhombus, center} = rhomb;
+				const { index, neighbors, base } = rhomb;
+				let { rhombus, center } = rhomb;
 				center = new Vector(center.x, center.y);
 				rhombus = Rhombus.fromJson(rhombus);
-				this.coordRhomb[coord] = {index, neighbors, rhombus, center, base};
+				this.coordRhomb[coord] = { index, neighbors, rhombus, center, base };
 			}
 			this.outsideNeighbours = {}; // put them in same map with a flag?
-		}
-		else {
+		} else {
 			const before = performance.now();
-			const penrose = calculatePenroseTiling(this.width * this.height, 1000, 1000, 'square', 'X', 'cull');
+			const penrose = calculatePenroseTiling(
+				this.width * this.height,
+				1000,
+				1000,
+				'square',
+				'X',
+				'cull'
+			);
 			this.coordRhomb = penrose.p3Rhombuses;
 			this.outsideNeighbours = penrose.outsideNeighbors;
-			console.log('calculatePenrose took', performance.now() - before, 'ms', Object.keys(this.coordRhomb).length, 'tiles');
+			console.log(
+				'calculatePenrose took',
+				performance.now() - before,
+				'ms',
+				Object.keys(this.coordRhomb).length,
+				'tiles'
+			);
 		}
 		this.p3rhombs = Object.values(this.coordRhomb);
 		this.total = this.p3rhombs.length;
-		const points = this.p3rhombs.flatMap(({ rhombus }) => [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v4]);
+		const points = this.p3rhombs.flatMap(({ rhombus }) => [
+			rhombus.v1,
+			rhombus.v2,
+			rhombus.v3,
+			rhombus.v4
+		]);
 		this.rotation_offsets = new Map();
-		this.XMIN =
-			Math.min.apply(
-				null,
-				points.map(({ x }) => x)
-			);
-		this.XMAX =
-			Math.max.apply(
-				null,
-				points.map(({ x }) => x)
-			);
-		this.YMIN =
-			Math.min.apply(
-				null,
-				points.map(({ y }) => y)
-			);
-		this.YMAX =
-			Math.max.apply(
-				null,
-				points.map(({ y }) => y)
-			);
+		this.XMIN = Math.min.apply(
+			null,
+			points.map(({ x }) => x)
+		);
+		this.XMAX = Math.max.apply(
+			null,
+			points.map(({ x }) => x)
+		);
+		this.YMIN = Math.min.apply(
+			null,
+			points.map(({ y }) => y)
+		);
+		this.YMAX = Math.max.apply(
+			null,
+			points.map(({ y }) => y)
+		);
 
 		for (const [i, entry] of this.p3rhombs.entries()) entry.index = i;
 		this.fix_rotation_offsets();
@@ -160,13 +173,14 @@ export class PenroseGrid extends AbstractGrid {
 		const points = rhombus.getPoints().reverse();
 		// this shouldn't be necessary; all rhomb points should consistently start with side 0
 		const index1 = (base % 10 < 5 ? dirind + 3 : dirind + 2) % 4;
-		const p1 = points[index1].subtract(center), p2 = points[(index1 + 1) % 4].subtract(center);
-		return new Vector((p1.x + p2.x) * portion / 2, (p1.y + p2.y) * portion / 2);
+		const p1 = points[index1].subtract(center),
+			p2 = points[(index1 + 1) % 4].subtract(center);
+		return new Vector(((p1.x + p2.x) * portion) / 2, ((p1.y + p2.y) * portion) / 2);
 	}
 
 	getTileSymbolEnd(index, direction, portion) {
 		const dirind = this.polygon_at(index).direction_to_index.get(direction);
-		let {rhombus, center, base} = this.p3rhombs[index];
+		let { rhombus, center, base } = this.p3rhombs[index];
 		return this.getSymbolEnd(rhombus, center, base, dirind, portion);
 	}
 
@@ -174,64 +188,73 @@ export class PenroseGrid extends AbstractGrid {
 		let directions = this.DIRECTIONS;
 		rotations = rotations % directions.length;
 		if (rotations < 0) {
-			directions = [...directions.slice(rotations), ...directions.slice(0, rotations)]
+			directions = [...directions.slice(rotations), ...directions.slice(0, rotations)];
 		} else if (rotations > 0) {
-			directions = [...directions.slice(-rotations), ...directions.slice(0, -rotations)]
+			directions = [...directions.slice(-rotations), ...directions.slice(0, -rotations)];
 		}
 		const symbol_portion = 0.7;
 		let bezier = true;
-		if(symbol_portion > 1)
-			bezier = false; 
+		if (symbol_portion > 1) bezier = false;
 		tile = this.polygon_at(index).rotate(tile, rotations);
-		const {center} = this.p3rhombs[index];
-		const {direction_to_index} = this.polygon_at(index);
-		return [`M 0 0`, ...directions.map(direction => {
-			if ((direction & tile) === 0) return null;
-			// use the rotated direction for geometry
-			let dirind = direction_to_index.get(direction);
-			dirind = (dirind + rotations) % 4;
-			while(dirind < 0) dirind += 4;
-			direction = directions[dirind];
-			const {neighbour, oppositeDirection} = this.find_neighbour(index, direction);
-			const A = this.getTileSymbolEnd(index, direction, symbol_portion);
-			let B;
-			if(symbol_portion < 1) {
-				let neicenter, symbend;
-				if (neighbour !== -1) {
-					({center: neicenter} = this.p3rhombs[neighbour]);
-					symbend = this.getTileSymbolEnd(neighbour, oppositeDirection, symbol_portion);
-				} else {
-					return null;
+		const { center } = this.p3rhombs[index];
+		const { direction_to_index } = this.polygon_at(index);
+		return [
+			`M 0 0`,
+			...directions.map((direction) => {
+				if ((direction & tile) === 0) return null;
+				// use the rotated direction for geometry
+				let dirind = direction_to_index.get(direction);
+				dirind = (dirind + rotations) % 4;
+				while (dirind < 0) dirind += 4;
+				direction = directions[dirind];
+				const { neighbour, oppositeDirection } = this.find_neighbour(index, direction);
+				const A = this.getTileSymbolEnd(index, direction, symbol_portion);
+				let B;
+				if (symbol_portion < 1) {
+					let neicenter, symbend;
+					if (neighbour !== -1) {
+						({ center: neicenter } = this.p3rhombs[neighbour]);
+						symbend = this.getTileSymbolEnd(neighbour, oppositeDirection, symbol_portion);
+						B = neicenter.add(symbend).subtract(center);
+					} else {
+						B = A.multiply(2 / symbol_portion);
+					}
 				}
-				B = neicenter.add(symbend).subtract(center);
-			}
-			let points;
-			if(symbol_portion < 1) {
-				if(bezier) {
-					const C = new Vector((A.x + B.x)/2, (A.y + B.y)/2);
-					points = [[A, A, C], [C, B, B], [B, C, C], [A, A, this.ZERO_POINT]]
+				let points;
+				if (symbol_portion < 1) {
+					if (bezier) {
+						const C = new Vector((A.x + B.x) / 2, (A.y + B.y) / 2);
+						points = [
+							[A, A, C],
+							[C, B, B],
+							[B, C, C],
+							[A, A, this.ZERO_POINT]
+						];
+					} else {
+						points = [A, B, A, this.ZERO_POINT];
+					}
 				} else {
-					points = [A, B, A, this.ZERO_POINT];
+					points = [A, this.ZERO_POINT];
 				}
-			}
-			else { 
-				points = [A, this.ZERO_POINT];
-			}
-			let path;
-			if(bezier) {
-				path = points.map(bez => 'C ' + bez.map(p => `${p.x} ${p.y}`).join(', ')).join(' '); 
-			} else {
-				path = points.map((p, i) => `L ${p.x} ${p.y}`).join(' ');
-			}
-			console.log('gpp', path);
-			return path;
-		})].filter(x => x).join(' ');
+				let path;
+				if (bezier) {
+					path = points.map((bez) => 'C ' + bez.map((p) => `${p.x} ${p.y}`).join(', ')).join(' ');
+				} else {
+					path = points.map((p, i) => `L ${p.x} ${p.y}`).join(' ');
+				}
+				console.log('gpp', path);
+				return path;
+			})
+		]
+			.filter((x) => x)
+			.join(' ');
 	}
 
 	getClipPath(index) {
-		let {rhombus, center} = this.p3rhombs[index];
-		let vs = [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v4, rhombus.v1]
-			.map(v => v.subtract(center));
+		let { rhombus, center } = this.p3rhombs[index];
+		let vs = [rhombus.v1, rhombus.v2, rhombus.v3, rhombus.v4, rhombus.v1].map((v) =>
+			v.subtract(center)
+		);
 		let path = `m ${vs[0].x} ${vs[0].y}`;
 		for (let i = 1; i < vs.length; i++) {
 			path += ` L ${vs[i].x} ${vs[i].y}`;
@@ -254,7 +277,7 @@ export class PenroseGrid extends AbstractGrid {
 		const hit = this.p3rhombs.find(({ rhombus }) =>
 			rhombus.getTriangles().some((tri) => tri.pointInside(pt))
 		);
-		console.log('PenroseGrid which_tile_at took', performance.now() - before, 'ms')
+		console.log('PenroseGrid which_tile_at took', performance.now() - before, 'ms');
 		if (hit) {
 			const {
 				index,
