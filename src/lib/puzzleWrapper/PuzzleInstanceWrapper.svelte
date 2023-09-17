@@ -137,6 +137,11 @@
 			const instance = window.localStorage.getItem(instanceStoreName);
 			if (instance !== null) {
 				tiles = JSON.parse(instance).tiles;
+				// if the grid was refactored and handles size differently
+				// then ignore the previously saved instance
+				if (tiles.length !== grid.total) {
+					tiles = [];
+				}
 			}
 		}
 		solved = false;
