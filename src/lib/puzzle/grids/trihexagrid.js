@@ -32,7 +32,7 @@ export class TrihexaGrid extends AbstractGrid {
 	PIPE_WIDTH = 0.1;
 	STROKE_WIDTH = 0.04;
 	PIPE_LENGTH = 0.5;
-	SINK_RADIUS = 0.11;
+	SINK_RADIUS = 0.12;
 
 	/**
 	 *
