@@ -43,18 +43,22 @@ export class TrihexaGrid extends AbstractGrid {
 	 */
 	constructor(width, height, wrap, tiles = []) {
 		super(width, height, wrap, tiles);
-		this.w = 2 * Math.round((0.5 * width) / SQRT3);
-		this.h = 2 * Math.round((0.5 * height) / SQRT3);
+		this.even = this.height % 2 === 0;
 
-		this.total = this.w * this.h * 3;
+		this.total = this.width * this.height * 3;
 		if (!wrap) {
-			this.makeEmpty((this.w - 1) * 3 + 1); // upper right corner triangle
-			this.makeEmpty((this.h - 1) * this.w * 3 + 2); // lower left corner triangle
+			if (this.even) {
+				this.makeEmpty((this.width - 1) * 3 + 1); // upper right corner triangle
+				this.makeEmpty((this.height - 1) * this.width * 3 + 2); // lower left corner triangle
+			} else {
+				this.makeEmpty((this.width - 1) * 3 + 1); // upper right corner triangle
+				this.makeEmpty(this.height * this.width * 3 - 1); // lower right corner triangle
+			}
 		}
 		this.XMIN = -0.1 - XSTEP - (wrap ? 1 : 0);
-		this.XMAX = 0.1 + this.w * 2 * XSTEP + (wrap ? 1 : 0);
+		this.XMAX = 0.1 + this.width * 2 * XSTEP + (wrap ? 1 : 0);
 		this.YMIN = -0.6 - (wrap ? 1 : 0);
-		this.YMAX = this.h - 1 + 0.6 + (wrap ? 1 : 0);
+		this.YMAX = this.height - 1 + 0.6 + (wrap ? 1 : 0);
 	}
 
 	/**
@@ -64,21 +68,21 @@ export class TrihexaGrid extends AbstractGrid {
 	 * @param {Number} unit
 	 */
 	_fish_to_index(row, fish, unit) {
-		if (fish < 0 || fish >= this.w || row < 0 || row >= this.h) {
+		if (fish < 0 || fish >= this.width || row < 0 || row >= this.height) {
 			if (!this.wrap) {
 				return -1;
 			} else {
-				fish = fish % this.w;
+				fish = fish % this.width;
 				if (fish < 0) {
-					fish += this.w;
+					fish += this.width;
 				}
-				row = row % this.h;
+				row = row % this.height;
 				if (row < 0) {
-					row += this.h;
+					row += this.height;
 				}
 			}
 		}
-		let index = 3 * (row * this.w + fish) + unit;
+		let index = 3 * (row * this.width + fish) + unit;
 		if (this.emptyCells.has(index)) {
 			index = -1;
 		}
@@ -96,7 +100,8 @@ export class TrihexaGrid extends AbstractGrid {
 	which_tile_at(x, y) {
 		const row = Math.round(y);
 		const col = Math.round(x / XSTEP);
-		let fish = Math.floor(col / 2);
+		const col_offset = this.even ? 0 : Math.floor(row / this.height);
+		let fish = Math.floor((col + col_offset) / 2);
 		if ((row + col) % 2 === 0) {
 			// could only be a hexagon (or empty space)
 			return { index: this._fish_to_index(row, fish, 0), x: col * XSTEP, y: row };
@@ -133,15 +138,15 @@ export class TrihexaGrid extends AbstractGrid {
 					y: row + 2 * TRIANGLE_RADIUS_IN
 				};
 			} else if (elem === 'left') {
-				const f = row % 2 === 0 ? fish : fish - 1;
+				const f = (row + col_offset) % 2 === 0 ? fish : fish - 1;
 				return {
 					index: this._fish_to_index(row, f, 0),
 					x: col * XSTEP - XSTEP,
 					y: row
 				};
 			} else {
-				// elem === 'right
-				const f = row % 2 === 0 ? fish + 1 : fish;
+				// elem === 'right'
+				const f = (row + col_offset) % 2 === 0 ? fish + 1 : fish;
 				return {
 					index: this._fish_to_index(row, f, 0),
 					x: col * XSTEP + XSTEP,
@@ -163,8 +168,8 @@ export class TrihexaGrid extends AbstractGrid {
 		// }
 		const unitIndex = index % 3;
 		const fishIndex = (index - unitIndex) / 3;
-		const r = Math.floor(fishIndex / this.w);
-		const f = fishIndex % this.w;
+		const r = Math.floor(fishIndex / this.width);
+		const f = fishIndex % this.width;
 		const fishSwimsLeft = r % 2 === 0;
 		// neighbours within the same fish
 		if (unitIndex === 0) {
@@ -210,9 +215,15 @@ export class TrihexaGrid extends AbstractGrid {
 		let un = 0;
 		if (direction === NORTH) {
 			rn -= 1;
+			if (r === 0) {
+				fn -= this.even ? 0 : unitIndex === 0 ? 1 : 0;
+			}
 			un = unitIndex === 0 ? 2 : 0;
 		} else if (direction === SOUTH) {
 			rn += 1;
+			if (r === this.height - 1) {
+				fn += this.even ? 0 : unitIndex === 0 ? 0 : 1;
+			}
 			un = unitIndex === 0 ? 1 : 0;
 		} else if (direction === NORTHEAST || direction === SOUTHEAST) {
 			fn += 1;
@@ -259,16 +270,17 @@ export class TrihexaGrid extends AbstractGrid {
 		let rowmax = Math.ceil(box.ymin + box.height);
 		if (!this.wrap) {
 			colmin = Math.max(0, colmin);
-			colmax = Math.min(this.w * 2, colmax);
+			colmax = Math.min(this.width * 2, colmax);
 			rowmin = Math.max(0, rowmin);
-			rowmax = Math.min(this.h * 2, rowmax);
+			rowmax = Math.min(this.height, rowmax);
 		}
 		const visibleTiles = [];
 		for (let r = rowmin; r < rowmax; r++) {
+			const col_offset = this.even ? 0 : Math.floor(r / this.height);
 			for (let c = colmin; c < colmax; c++) {
 				if ((r + c) % 2 === 0) {
 					// hexagon
-					const index = this._fish_to_index(r, Math.floor(c / 2), 0);
+					const index = this._fish_to_index(r, Math.floor((c + col_offset) / 2), 0);
 					if (index !== -1) {
 						visibleTiles.push({
 							index,
@@ -278,9 +290,9 @@ export class TrihexaGrid extends AbstractGrid {
 						});
 					}
 				} else {
-					const c_hex = r % 2 === 0 ? c - 1 : c + 1;
+					const c_hex = (r + col_offset) % 2 === 0 ? c - 1 : c + 1;
 					// up triangle
-					const up = this._fish_to_index(r, Math.floor(c_hex / 2), 2);
+					const up = this._fish_to_index(r, Math.floor((c_hex + col_offset) / 2), 2);
 					if (up !== -1) {
 						visibleTiles.push({
 							index: up,
@@ -290,7 +302,7 @@ export class TrihexaGrid extends AbstractGrid {
 						});
 					}
 					// down triangle
-					const down = this._fish_to_index(r, Math.floor(c_hex / 2), 1);
+					const down = this._fish_to_index(r, Math.floor((c_hex + col_offset) / 2), 1);
 					if (down !== -1) {
 						visibleTiles.push({
 							index: down,
