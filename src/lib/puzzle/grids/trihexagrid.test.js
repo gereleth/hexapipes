@@ -3,7 +3,8 @@ import { TrihexaGrid } from './trihexagrid';
 
 describe('Test find neighbour', () => {
 	it('Find neighbours in a regular puzzle', () => {
-		const grid = new TrihexaGrid(4, 4, false);
+		// 7x7 is 4x4 in (hexagon + 2 triangles) units
+		const grid = new TrihexaGrid(7, 7, false);
 		const expected = new Map([
 			// up triangle odd row
 			[2, [3, 0, 12]],
@@ -35,7 +36,7 @@ describe('Test find neighbour', () => {
 	});
 
 	it('Find neighbours in an even-sized wrap puzzle', () => {
-		const grid = new TrihexaGrid(4, 4, true);
+		const grid = new TrihexaGrid(7, 7, true);
 		const expected = new Map([
 			// up triangle left edge
 			[14, [12, 21, 24]],
@@ -61,7 +62,7 @@ describe('Test find neighbour', () => {
 	});
 
 	it('Find neighbours in an odd-sized wrap puzzle', () => {
-		const grid = new TrihexaGrid(3, 3, true);
+		const grid = new TrihexaGrid(5, 5, true);
 		const expected = new Map([
 			// up triangles
 			[11, [9, 15, 18]], // left edge

@@ -101,9 +101,9 @@ export const gridInfo = {
 		title: 'Trihexagonal',
 		url: 'trihexagonal',
 		wrap: true,
-		exampleGrid: new TrihexaGrid(2, 2, false),
-		exampleTiles: [48, 2, 17, 28, 0, 16, 36, 34, 0, 24, 10, 16],
-		sizes: [3, 4, 6, 9, 12, 18, 24]
+		exampleGrid: new TrihexaGrid(3, 3, false),
+		exampleTiles: [33, 32, 1, 13, 0, 4, 37, 34, 0, 2, 10, 5],
+		sizes: [5, 7, 10, 15, 20, 30, 40]
 	}
 };
 
