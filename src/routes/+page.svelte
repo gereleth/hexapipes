@@ -125,6 +125,12 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2023-09-24</em> New grid! Try some <a href="/trihexagonal/5">trihexagonal puzzles</a>.
+			<ul>
+				<li>Regular puzzles aren't that difficult but the wraps are rather challenging.</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-08-20</em> Fixed a <a href="https://github.com/gereleth/hexapipes/issues/102">bug</a>
 			in calculating "Average of 12" statistic for daily puzzles.
 		</li>
