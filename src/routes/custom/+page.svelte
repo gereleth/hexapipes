@@ -2,7 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { createGrid, randomGrid } from '$lib/puzzle/grids/grids';
+	import { createGrid, randomGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
 	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
 	import Instructions from '$lib/Instructions.svelte';
 
@@ -169,21 +169,13 @@
 	<div style="margin-bottom: 0.5em">
 		<label>
 			Grid type
-			<label for="hexagonal">
-				<input type="radio" bind:group={gridKind} id="hexagonal" value="hexagonal" /> Hexagonal
-			</label>
-			<label for="square">
-				<input type="radio" bind:group={gridKind} id="square" value="square" /> Square
-			</label>
-			<label for="octagonal">
-				<input type="radio" bind:group={gridKind} id="octagonal" value="octagonal" /> Octagonal
-			</label>
-			<label for="etrat">
-				<input type="radio" bind:group={gridKind} id="etrat" value="etrat" /> Elongated triangular
-			</label>
-			<label for="cube">
-				<input type="radio" bind:group={gridKind} id="cube" value="cube" /> Cube
-			</label>
+			<select bind:value={gridKind}>
+				{#each gridKinds as item}
+					<option value={item}>
+						{gridInfo[item].title}
+					</option>
+				{/each}
+			</select>
 		</label>
 	</div>
 	<label for="width">

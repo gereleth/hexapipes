@@ -6,8 +6,8 @@
 
 <div class="grids">
 	{#each gridKinds as gridKind}
-		{@const { url, title, exampleGrid, exampleTiles } = gridInfo[gridKind]}
-		<a href="/{url}/5" class:active={$page.url.pathname.startsWith(`/${url}/`)}>
+		{@const { url, title, exampleGrid, exampleTiles, sizes } = gridInfo[gridKind]}
+		<a href="/{url}/{sizes[0]}" class:active={$page.url.pathname.startsWith(`/${url}/`)}>
 			{title}
 			<ExamplePuzzle grid={exampleGrid} tiles={exampleTiles} />
 		</a>
