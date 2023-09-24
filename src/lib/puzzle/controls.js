@@ -129,7 +129,7 @@ export function controls(node, game) {
 				// close to the edge, may be wanting an edge mark
 				edgeMarkTimer = setTimeout(() => {
 					const mark = mouseDownOrigin.button === 0 ? 'wall' : 'conn';
-					game.toggleEdgeMark(
+					game.doToggleEdgeMark(
 						mark,
 						mouseDownOrigin.tileIndex,
 						direction,
@@ -141,7 +141,7 @@ export function controls(node, game) {
 			} else {
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const locked = game.toggleLocked(
+					const locked = game.doToggleLocked(
 						mouseDownOrigin.tileIndex,
 						undefined,
 						currentSettings.assistant
@@ -180,7 +180,7 @@ export function controls(node, game) {
 				clearTimeout(edgeMarkTimer);
 				if (mouseDownOrigin.locking) {
 					lockingSet.add(mouseDownOrigin.tileIndex);
-					const locked = game.toggleLocked(
+					const locked = game.doToggleLocked(
 						mouseDownOrigin.tileIndex,
 						undefined,
 						currentSettings.assistant
@@ -197,7 +197,7 @@ export function controls(node, game) {
 			if (tile.index !== -1) {
 				if (!lockingSet.has(tile.index)) {
 					lockingSet.add(tile.index);
-					game.toggleLocked(tile.index, state === 'locking', currentSettings.assistant);
+					game.doToggleLocked(tile.index, state === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -232,7 +232,7 @@ export function controls(node, game) {
 				y
 			);
 			if (mark !== 'none') {
-				game.toggleEdgeMark(mark, tileIndex, direction, currentSettings.assistant);
+				game.doToggleEdgeMark(mark, tileIndex, direction, currentSettings.assistant);
 				save();
 				touchState = 'idle';
 			}
@@ -247,20 +247,20 @@ export function controls(node, game) {
 			if (currentSettings.controlMode === 'rotate_lock') {
 				let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
 				if (leftButton && !event.ctrlKey) {
-					game.rotateTile(tileIndex, rotationTimes);
+					game.doRotateTile(tileIndex, rotationTimes);
 				} else if (leftButton && event.ctrlKey) {
-					game.rotateTile(tileIndex, -rotationTimes);
+					game.doRotateTile(tileIndex, -rotationTimes);
 				} else if (rightButton) {
-					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+					game.doToggleLocked(tileIndex, undefined, currentSettings.assistant);
 				}
 			} else if (currentSettings.controlMode === 'rotate_rotate') {
 				let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
 				if (leftButton && event.ctrlKey) {
-					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+					game.doToggleLocked(tileIndex, undefined, currentSettings.assistant);
 				} else if (leftButton && !event.ctrlKey) {
-					game.rotateTile(tileIndex, rotationTimes);
+					game.doRotateTile(tileIndex, rotationTimes);
 				} else if (rightButton) {
-					game.rotateTile(tileIndex, -rotationTimes);
+					game.doRotateTile(tileIndex, -rotationTimes);
 				}
 			} else if (currentSettings.controlMode === 'orient_lock') {
 				if (leftButton) {
@@ -272,9 +272,9 @@ export function controls(node, game) {
 						y - tileY,
 						tileIndex
 					);
-					game.rotateTile(tileIndex, timesRotate);
+					game.doRotateTile(tileIndex, timesRotate);
 				} else if (rightButton) {
-					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+					game.doToggleLocked(tileIndex, undefined, currentSettings.assistant);
 				}
 			}
 			save();
@@ -402,13 +402,13 @@ export function controls(node, game) {
 						currentSettings.controlMode === 'rotate_lock' ||
 						currentSettings.controlMode === 'orient_lock'
 					) {
-						const locked = game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+						const locked = game.doToggleLocked(tileIndex, undefined, currentSettings.assistant);
 						save();
 						touchState = locked ? 'locking' : 'unlocking';
 						lockingSet.add(tileIndex);
 					} else if (currentSettings.controlMode === 'rotate_rotate') {
 						const rotationTimes = currentSettings.invertRotationDirection ? 1 : -1;
-						game.rotateTile(tileIndex, rotationTimes);
+						game.doRotateTile(tileIndex, rotationTimes);
 						save();
 						touchState = 'idle';
 						ongoingTouches = [];
@@ -488,7 +488,7 @@ export function controls(node, game) {
 			if (tile.index !== -1) {
 				if (!lockingSet.has(tile.index)) {
 					lockingSet.add(tile.index);
-					game.toggleLocked(tile.index, touchState === 'locking', currentSettings.assistant);
+					game.doToggleLocked(tile.index, touchState === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -539,7 +539,7 @@ export function controls(node, game) {
 					y
 				);
 				if (mark !== 'none') {
-					game.toggleEdgeMark(mark, t.tileIndex, direction, currentSettings.assistant);
+					game.doToggleEdgeMark(mark, t.tileIndex, direction, currentSettings.assistant);
 					save();
 					touchState = 'idle';
 				}
@@ -556,7 +556,7 @@ export function controls(node, game) {
 						currentSettings.controlMode === 'rotate_rotate'
 					) {
 						let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
-						game.rotateTile(tileIndex, rotationTimes);
+						game.doRotateTile(tileIndex, rotationTimes);
 						save();
 					} else if (currentSettings.controlMode === 'orient_lock') {
 						const { tileX, tileY } = t;
@@ -567,7 +567,7 @@ export function controls(node, game) {
 							y - tileY,
 							tileIndex
 						);
-						game.rotateTile(tileIndex, timesRotate);
+						game.doRotateTile(tileIndex, timesRotate);
 						save();
 					}
 				}
@@ -585,7 +585,15 @@ export function controls(node, game) {
 	 * Handle keydown events
 	 * @param {KeyboardEvent} event
 	 */
-	function handleKeyDown(event) {}
+	function handleKeyDown(event) {
+		if (event.code === 'KeyZ' && event.ctrlKey && !event.altKey) {
+			if (event.shiftKey) {
+				game.redo();
+			} else {
+				game.undo();
+			}
+		}
+	}
 
 	/**
 	 * Handle keyup events

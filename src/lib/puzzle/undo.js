@@ -35,20 +35,15 @@ export class UndoStack {
 	}
 
 	/**
-	 * Remember an action
-	 * @param {Action} action
-	 * @param {boolean} [new_batch = true]
+	 * Remember a batch of actions
+	 * @param {Action[]} actions
 	 */
-	add_action(action, new_batch = true) {
-		if (new_batch) {
-			if (this.index < this.actions.length - 1) {
-				this.actions.splice(this.index + 1, this.actions.length);
-			}
-			this.actions.push([]);
-			this.index += 1;
+	add_actions(...actions) {
+		if (this.index < this.actions.length - 1) {
+			this.actions.splice(this.index + 1, this.actions.length);
 		}
-		const batch = this.actions[this.index];
-		batch.push(action);
+		this.actions.push(actions);
+		this.index += 1;
 	}
 
 	/**

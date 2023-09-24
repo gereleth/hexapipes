@@ -1,6 +1,7 @@
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
 import { createViewBox } from './viewbox';
+import { UndoStack } from './undo';
 
 /**
  * An edge mark
@@ -125,6 +126,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self._solved = false;
 	self.solved = writable(false);
 	self.viewBox = createViewBox(grid);
+	self.undoStack = new UndoStack();
 
 	/**
 	 * @type {Map<Number, Set<Number>>} - a map of
@@ -284,6 +286,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			}
 		}
 		self.shareDisconnectedTiles.set(self.openEnds.size / totalTiles);
+		self.undoStack = new UndoStack();
 		self.initialized = true;
 	};
 
@@ -319,6 +322,18 @@ export function PipesGame(grid, tiles, savedProgress) {
 	};
 
 	/**
+	 * Rotate tile a certain number of times, add this action to undo stack
+	 * @param {Number} tileIndex
+	 * @param {Number} times
+	 */
+	self.doRotateTile = function (tileIndex, times) {
+		const action = self.rotateTile(tileIndex, times);
+		if (action) {
+			self.undoStack.add_actions(action);
+		}
+	};
+
+	/**
 	 * Rotate tile a certain number of times
 	 * @param {Number} tileIndex
 	 * @param {Number} times
@@ -331,6 +346,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		if (tileState === undefined || tileState.data.locked) {
 			return;
 		}
+		const oldRotations = tileState.data.rotations;
 		const oldDirections = self.grid.getDirections(
 			tileState.data.tile,
 			tileState.data.rotations,
@@ -342,6 +358,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			tileState.data.rotations,
 			tileIndex
 		);
+		const newRotations = tileState.data.rotations;
 
 		const dirOut = oldDirections.filter((direction) => !newDirections.some((d) => d === direction));
 		const dirIn = newDirections.filter((direction) => !oldDirections.some((d) => d === direction));
@@ -349,6 +366,13 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.handleConnections({
 			detail: { tileIndex, dirOut, dirIn }
 		});
+		return {
+			/** @type {'rotate'} */
+			kind: 'rotate',
+			index: tileIndex,
+			old: oldRotations,
+			new: newRotations
+		};
 	};
 
 	/**
@@ -383,32 +407,65 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * @param {Number} tileIndex
 	 * @param {Number} direction
 	 * @param {Boolean} assistant
+	 * @returns {import('$lib/puzzle/undo').Action[]}
 	 */
 	self.toggleEdgeMark = function (mark, tileIndex, direction, assistant = false) {
+		/** @type {import('$lib/puzzle/undo').Action[]} */
+		const actions = [];
 		const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
 		if (empty) {
 			// no edgemarks on outer borders
-			return;
+			return actions;
 		}
 		const index = self.grid.EDGEMARK_DIRECTIONS.indexOf(direction);
 		if (index === -1) {
 			// toggle mark on the neighbour instead
 			const opposite = self.grid.OPPOSITE.get(direction);
 			if (!empty && opposite) {
-				self.toggleEdgeMark(mark, neighbour, opposite, assistant);
+				return self.toggleEdgeMark(mark, neighbour, opposite, assistant);
 			}
-			return;
+			return actions;
 		}
 		const tileState = self.tileStates[tileIndex];
+		const oldMark = tileState.data.edgeMarks[index];
 		if (tileState.data.edgeMarks[index] === mark) {
 			tileState.data.edgeMarks[index] = 'empty';
 		} else if (tileState.data.edgeMarks[index] !== 'none') {
 			tileState.data.edgeMarks[index] = mark;
 		}
 		tileState.set(tileState.data);
+		const newMark = tileState.data.edgeMarks[index];
+		actions.push({
+			kind: 'mark',
+			index: tileIndex,
+			direction,
+			old: oldMark,
+			new: newMark
+		});
 		if (tileState.data.edgeMarks[index] !== 'empty' && assistant) {
-			self.rotateToMatchMarks(tileIndex);
-			self.rotateToMatchMarks(neighbour);
+			const action1 = self.rotateToMatchMarks(tileIndex);
+			if (action1) {
+				actions.push(action1);
+			}
+			const action2 = self.rotateToMatchMarks(neighbour);
+			if (action2) {
+				actions.push(action2);
+			}
+		}
+		return actions;
+	};
+
+	/**
+	 *
+	 * @param {EdgeMark} mark
+	 * @param {Number} tileIndex
+	 * @param {Number} direction
+	 * @param {Boolean} assistant
+	 */
+	self.doToggleEdgeMark = function (mark, tileIndex, direction, assistant = false) {
+		const actions = self.toggleEdgeMark(mark, tileIndex, direction, assistant);
+		if (actions.length > 0) {
+			self.undoStack.add_actions(...actions);
 		}
 	};
 
@@ -459,8 +516,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 			const rotations = tileState.data.rotations + r;
 			const rotated = polygon.rotate(tileState.data.tile, rotations);
 			if ((rotated & connections) === connections && (rotated & walls) === 0) {
-				self.rotateTile(tileIndex, r);
-				break;
+				const action = self.rotateTile(tileIndex, r);
+				return action;
 			}
 		}
 	};
@@ -719,7 +776,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 * @param {Number} tileIndex
 	 * @param {boolean|undefined} state
 	 * @param {boolean} assistant
-	 * @returns {boolean} - new locked value
+	 * @returns {import('$lib/puzzle/undo').Action[]}
 	 */
 	self.toggleLocked = function (tileIndex, state = undefined, assistant = false) {
 		const tileState = self.tileStates[tileIndex];
@@ -729,8 +786,18 @@ export function PipesGame(grid, tiles, savedProgress) {
 		} else {
 			targetState = state;
 		}
+		/** @type {import('$lib/puzzle/undo').Action[]} */
+		const actions = [];
 		if (tileState.data.locked !== targetState) {
+			const oldLocked = tileState.data.locked;
 			tileState.toggleLocked();
+			const newLocked = tileState.data.locked;
+			actions.push({
+				kind: 'lock',
+				index: tileIndex,
+				old: oldLocked,
+				new: newLocked
+			});
 		}
 		if (targetState && assistant) {
 			for (let direction of self.grid.polygon_at(tileIndex).directions) {
@@ -738,10 +805,28 @@ export function PipesGame(grid, tiles, savedProgress) {
 				if (empty) {
 					continue;
 				}
-				self.rotateToMatchMarks(neighbour);
+				const action = self.rotateToMatchMarks(neighbour);
+				if (action) {
+					actions.push(action);
+				}
 			}
 		}
-		return targetState;
+		return actions;
+	};
+
+	/**
+	 * Toggle tile's locked state, return new state
+	 * @param {Number} tileIndex
+	 * @param {boolean|undefined} state
+	 * @param {boolean} assistant
+	 * @returns {boolean} - new locked value
+	 */
+	self.doToggleLocked = function (tileIndex, state = undefined, assistant) {
+		const actions = self.toggleLocked(tileIndex, state, assistant);
+		if (actions.length > 0) {
+			self.undoStack.add_actions(...actions);
+		}
+		return self.tileStates[tileIndex].data.locked;
 	};
 
 	/**
@@ -993,5 +1078,35 @@ export function PipesGame(grid, tiles, savedProgress) {
 		return checked;
 	};
 
+	/**
+	 * Take action for undo/redo functionality
+	 * @param {import('$lib/puzzle/undo').Action} action
+	 * @param {boolean} undo
+	 */
+	self.takeAction = function (action, undo = true) {
+		const index = action.index;
+		const from = undo ? action.new : action.old;
+		const to = undo ? action.old : action.new;
+		if (action.kind === 'rotate') {
+			self.rotateTile(index, to - from);
+		} else if (action.kind === 'lock') {
+			self.toggleLocked(index, to, false);
+		} else if (action.kind === 'mark') {
+			self.toggleEdgeMark(to, index, action.direction, false);
+		}
+	};
+
+	self.undo = function () {
+		const actions = self.undoStack.undo();
+		for (let action of actions) {
+			self.takeAction(action, true);
+		}
+	};
+	self.redo = function () {
+		const actions = self.undoStack.redo();
+		for (let action of actions) {
+			self.takeAction(action, false);
+		}
+	};
 	return self;
 }
