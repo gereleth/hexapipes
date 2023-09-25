@@ -1098,7 +1098,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 
 	self.undo = function () {
 		const actions = self.undoStack.undo();
-		for (let action of actions) {
+		for (let action of [...actions].reverse()) {
 			self.takeAction(action, true);
 		}
 	};
