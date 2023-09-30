@@ -363,15 +363,40 @@ export function PipesGame(grid, tiles, savedProgress) {
 		const dirOut = oldDirections.filter((direction) => !newDirections.some((d) => d === direction));
 		const dirIn = newDirections.filter((direction) => !oldDirections.some((d) => d === direction));
 
+		/** @type {Map<Number,String>} */
+		const oldColors = new Map();
+		oldColors.set(tileIndex, tileState.data.color);
+		for (let direction of [...dirOut, ...dirIn]) {
+			const { neighbour, empty } = self.grid.find_neighbour(tileIndex, direction);
+			if (empty) {
+				continue;
+			}
+			oldColors.set(neighbour, self.tileStates[neighbour].data.color);
+		}
+
 		self.handleConnections({
 			detail: { tileIndex, dirOut, dirIn }
 		});
+
+		/** @type {Map<Number,String>} */
+		const newColors = new Map();
+		for (let neighbour of [...oldColors.keys()]) {
+			const color = self.tileStates[neighbour].data.color;
+			if (oldColors.get(neighbour) === color) {
+				oldColors.delete(neighbour);
+			} else {
+				newColors.set(neighbour, color);
+			}
+		}
+
 		return {
 			/** @type {'rotate'} */
 			kind: 'rotate',
 			index: tileIndex,
 			old: oldRotations,
-			new: newRotations
+			new: newRotations,
+			oldColors,
+			newColors
 		};
 	};
 
@@ -1089,6 +1114,17 @@ export function PipesGame(grid, tiles, savedProgress) {
 		const to = undo ? action.old : action.new;
 		if (action.kind === 'rotate') {
 			self.rotateTile(index, to - from);
+			const colorsTo = undo ? action.oldColors : action.newColors;
+			for (let [neighbour, color] of colorsTo.entries()) {
+				const component = self.components.get(neighbour);
+				if (component === undefined) {
+					continue;
+				}
+				component.color = color;
+				for (let i of component.tiles) {
+					self.tileStates[i].setColor(color);
+				}
+			}
 		} else if (action.kind === 'lock') {
 			self.toggleLocked(index, to, false);
 		} else if (action.kind === 'mark') {

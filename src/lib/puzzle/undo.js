@@ -4,6 +4,8 @@
  * @property {Number} index
  * @property {Number} old
  * @property {Number} new
+ * @property {Map<Number,String>} oldColors
+ * @property {Map<Number,String>} newColors
  */
 
 /**
@@ -19,8 +21,8 @@
  * @property {'mark'} kind
  * @property {Number} index
  * @property {Number} direction
- * @property {boolean} old
- * @property {boolean} new
+ * @property {String} old
+ * @property {String} new
  */
 
 /**
