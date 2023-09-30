@@ -130,7 +130,8 @@ export function randomGrid() {
 			'octagonal',
 			//'etrat',  // too hard
 			//'square', // too easy
-			'cube'
+			'cube',
+			'trihexagonal'
 		]);
 	}
 	if (kind === 'hexagonal') {
@@ -194,6 +195,16 @@ export function randomGrid() {
 		} else {
 			shape = randomChoice(['hexagon', 'triangle', 'hourglass', 'donut']);
 		}
+		grid.useShape(shape);
+		return grid;
+	} else if (kind === 'trihexagonal') {
+		const total = 1.4 * randomTotal();
+		let w = Math.floor(Math.sqrt(total / 9));
+		const wrap = false;
+		w += 1 - (w % 2);
+		const width = Math.round(w * Math.sqrt(3));
+		const grid = new TrihexaGrid(width, width, wrap);
+		let shape = randomChoice(['hexagon', 'triangle', 'hourglass', 'donut']);
 		grid.useShape(shape);
 		return grid;
 	} else {

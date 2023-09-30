@@ -48,7 +48,7 @@ export class TrihexaGrid extends AbstractGrid {
 		this.even = this.h % 2 === 0;
 
 		this.total = this.w * this.h * 3;
-		if (!wrap) {
+		if (!wrap && tiles.length === 0) {
 			if (this.even) {
 				this.makeEmpty((this.w - 1) * 3 + 1); // upper right corner triangle
 				this.makeEmpty((this.h - 1) * this.w * 3 + 2); // lower left corner triangle
@@ -317,5 +317,138 @@ export class TrihexaGrid extends AbstractGrid {
 			}
 		}
 		return visibleTiles;
+	}
+
+	/**
+	 * Shape the playing field by making some tiles empty
+	 * @param {'hexagon'|'triangle'|'hourglass'|'donut'|'round-hole'|'half-wrap-horizontal'|'half-wrap-vertical'} shape
+	 */
+	useShape(shape) {
+		if (shape === 'hexagon') {
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
+			const visible = this.getVisibleTiles({
+				xmin: this.XMIN,
+				ymin: this.YMIN,
+				width: this.XMAX - this.XMIN,
+				height: this.YMAX - this.YMIN
+			});
+			const ymiddle = Math.floor(this.h / 2);
+			const xleft = ymiddle % 2 === 0 ? -XSTEP : 0;
+			const xright = xleft + 2 * this.w * XSTEP;
+
+			/**
+			 *
+			 * @param {import('$lib/puzzle/viewbox').VisibleTile} visibleTile
+			 * @return {boolean}
+			 */
+			function shouldEmpty(visibleTile) {
+				const { x, y } = visibleTile;
+				const dy = ymiddle - y;
+				const dh1 = (x - xleft) * SQRT3;
+				const dh2 = (xright - x) * SQRT3;
+				const empty = dy > dh1 || dy < -dh1 || dy > dh2 || dy < -dh2;
+				return empty;
+			}
+
+			visible.forEach((tile) => {
+				if (shouldEmpty(tile)) {
+					this.makeEmpty(tile.index);
+				}
+			});
+
+			if (ymiddle % 2 === 0) {
+				this.XMAX -= XSTEP;
+			} else {
+				this.XMIN += XSTEP;
+			}
+			this.wrap = wrap;
+		} else if (shape === 'triangle') {
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
+			const visible = this.getVisibleTiles({
+				xmin: this.XMIN,
+				ymin: this.YMIN,
+				width: this.XMAX - this.XMIN,
+				height: this.YMAX - this.YMIN
+			});
+			const xleft = -XSTEP;
+			const xright = xleft + 2 * this.w * XSTEP;
+
+			/**
+			 *
+			 * @param {import('$lib/puzzle/viewbox').VisibleTile} visibleTile
+			 * @return {boolean}
+			 */
+			function shouldEmpty(visibleTile) {
+				const { x, y } = visibleTile;
+				const dy = y;
+				const dh1 = (x - xleft) * SQRT3;
+				const dh2 = (xright - x) * SQRT3;
+				const empty = dy > dh1 || dy > dh2;
+				return empty;
+			}
+
+			visible.forEach((tile) => {
+				if (shouldEmpty(tile)) {
+					this.makeEmpty(tile.index);
+				}
+			});
+			this.wrap = wrap;
+		} else if (shape === 'hourglass') {
+			let wrap = false;
+			if (this.wrap) {
+				this.wrap = false;
+				wrap = true;
+			}
+			this.emptyCells.clear();
+			const visible = this.getVisibleTiles({
+				xmin: this.XMIN,
+				ymin: this.YMIN,
+				width: this.XMAX - this.XMIN,
+				height: this.YMAX - this.YMIN
+			});
+			const ymiddle = Math.floor(this.h / 2);
+			const xleft = (ymiddle % 2 === 0 ? -XSTEP : 0) + (ymiddle - 1) * 2 * XSTEP;
+			const xright = (ymiddle % 2 === 0 ? -XSTEP : 0) + 2 * (this.w - ymiddle + 1) * XSTEP;
+			/**
+			 *
+			 * @param {import('$lib/puzzle/viewbox').VisibleTile} visibleTile
+			 * @return {boolean}
+			 */
+			function shouldEmpty(visibleTile) {
+				const { x, y } = visibleTile;
+				const dy = ymiddle - y;
+				const dh1 = (x - xleft) * SQRT3;
+				const dh2 = (xright - x) * SQRT3;
+				const empty = (dy < -dh1 && dy > dh1) || (dy < -dh2 && dy > dh2);
+				return empty;
+			}
+
+			visible.forEach((tile) => {
+				if (shouldEmpty(tile)) {
+					this.makeEmpty(tile.index);
+				}
+			});
+			this.wrap = wrap;
+		} else if (shape === 'round-hole') {
+			const middle_index = 3 * Math.floor((this.w * this.h) / 2);
+			this.emptyCells.add(middle_index);
+		} else if (shape === 'half-wrap-horizontal') {
+			for (let i = 0; i < 3 * this.w; i++) {
+				this.emptyCells.add(i);
+			}
+		} else if (shape === 'donut') {
+			this.useShape('hexagon');
+			this.useShape('round-hole');
+		} else {
+			throw 'unknown shape ' + shape;
+		}
 	}
 }
