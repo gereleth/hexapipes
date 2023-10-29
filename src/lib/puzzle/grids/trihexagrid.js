@@ -266,10 +266,10 @@ export class TrihexaGrid extends AbstractGrid {
 	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
-		let colmin = Math.floor(box.xmin / XSTEP);
+		let colmin = Math.floor(box.xmin / XSTEP) - 1;
 		let colmax = Math.ceil((box.xmin + box.width) / XSTEP) + 1;
-		let rowmin = Math.floor(box.ymin);
-		let rowmax = Math.ceil(box.ymin + box.height);
+		let rowmin = Math.floor(box.ymin) - 1;
+		let rowmax = Math.ceil(box.ymin + box.height) + 1;
 		if (!this.wrap) {
 			colmin = Math.max(0, colmin);
 			colmax = Math.min(this.w * 2, colmax);
