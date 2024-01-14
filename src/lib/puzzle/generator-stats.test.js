@@ -362,4 +362,43 @@ describe('Check difficulty', () => {
 			JSON.stringify(results, undefined, '\t')
 		);
 	});
+
+	it.skip('Check unwrap probability in square puzzles', () => {
+		const results = [];
+		const wrap = true;
+		const N = 10000;
+		for (let branchingAmount of [0.6]) {
+			for (let avoidObvious of [0.5]) {
+				for (let size of [4, 5, 7]) {
+					let unwrapPuzzles = 0;
+					const wrapGrid = new SquareGrid(size, size, true);
+					const nowrapGrid = new SquareGrid(size, size, false);
+					const gen = new Generator(wrapGrid);
+					for (let i = 1; i <= N; i++) {
+						const tiles = gen.generate(branchingAmount, avoidObvious, 0.5, 'whatever');
+						const solver = new Solver(tiles, nowrapGrid);
+						try {
+							for (let step of solver.solve(true)) {
+							}
+							if (solver.solutions.length > 0) {
+								unwrapPuzzles += 1;
+							}
+						} catch {}
+					}
+					results.push({
+						width: size,
+						height: size,
+						wrap,
+						branchingAmount,
+						avoidObvious,
+						unwrapShare: unwrapPuzzles / N
+					});
+				}
+			}
+		}
+		fs.writeFileSync(
+			'generator_stats/unwrap_counts.json',
+			JSON.stringify(results, undefined, '\t')
+		);
+	});
 });
