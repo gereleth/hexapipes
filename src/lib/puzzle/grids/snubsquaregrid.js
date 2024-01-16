@@ -74,6 +74,10 @@ export class SnubSquareGrid extends AbstractGrid {
 		this.h = Math.round(height / Math.sqrt(6));
 		this.squaregrid = new SquareGrid(this.w, this.h, wrap);
 
+		if (tiles.length === 0 && !this.wrap) {
+			this.emptyCells.add((this.w * this.h - this.w) * 6 + 5);
+		}
+
 		this.total = this.w * this.h * 6;
 
 		this.XMIN = STEP * this.squaregrid.XMIN;
