@@ -121,7 +121,7 @@ export const gridInfo = {
 		url: 'snubsquare',
 		wrap: true,
 		exampleGrid: new SnubSquareGrid(4, 4, false),
-		exampleTiles: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+		exampleTiles: [2, 4, 5, 12, 5, 4, 7, 5, 12, 5, 6, 4, 14, 7, 5, 5, 6, 0, 11, 5, 1, 9, 3, 1],
 		sizes: [5, 7, 10, 15, 20, 30, 40]
 	}
 };
