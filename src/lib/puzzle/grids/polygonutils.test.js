@@ -354,3 +354,32 @@ describe('Test triangle tile types', () => {
 		}
 	});
 });
+
+describe('Test is_inside check for square', () => {
+	const square = new RegularPolygonTile(4, 0, 0.5);
+
+	it('Correctly identifies inside points', () => {
+		const points = [
+			{ x: 0, y: 0, msg: 'center' },
+			{ x: 0.25, y: 0.25, msg: 'close to center' },
+			{ x: 0.49, y: 0.49, msg: 'corner' }
+		];
+		for (let point of points) {
+			const inside = square.is_inside(point.x, point.y);
+			expect(inside, point.msg).toBe(true);
+		}
+	});
+
+	it('Correctly identifies outside points', () => {
+		const points = [
+			{ x: 0.51, y: 0, msg: 'large x' },
+			{ x: -0.6, y: 0.25, msg: 'small x' },
+			{ x: 0.49, y: 0.6, msg: 'large y' },
+			{ x: 0.49, y: -0.6, msg: 'small y' }
+		];
+		for (let point of points) {
+			const inside = square.is_inside(point.x, point.y);
+			expect(inside, point.msg).toBe(false);
+		}
+	});
+});

@@ -95,9 +95,14 @@ export class RegularPolygonTile {
 		let angle = angle_offset - this.angle_unit / 2;
 		const r = this.radius_out - border_width;
 		this.contour_path = `m ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
+		this.vertices = [];
 		for (let i = 1; i <= this.num_directions; i++) {
 			angle += this.angle_unit;
 			this.contour_path += ` L ${r * Math.cos(angle)} ${-r * Math.sin(angle)}`;
+			this.vertices.push({
+				x: this.radius_out * Math.cos(angle),
+				y: -this.radius_out * Math.sin(angle)
+			});
 		}
 		this.contour_path += ' z';
 
@@ -401,6 +406,31 @@ export class RegularPolygonTile {
 			direction,
 			isClose: delta_radius <= 0.3 * this.radius_in && delta_angle <= 0.3 * this.angle_unit
 		};
+	}
+
+	/**
+	 * Tells if a point is inside the polygon
+	 * Input coordinates are relative to tile's center
+	 * @param {Number} x
+	 * @param {Number} y
+	 */
+	is_inside(x, y) {
+		const radius_sq = x ** 2 + y ** 2;
+		if (radius_sq <= this.radius_in ** 2) {
+			return true;
+		} else if (radius_sq >= this.radius_out ** 2) {
+			return false;
+		}
+		for (let i = 0; i < this.num_directions; i++) {
+			const A = this.vertices[i];
+			const B = this.vertices[(i + 1) % this.num_directions];
+			const P0 = -A.y * (B.x - A.x) + A.x * (B.y - A.y);
+			const P1 = (y - A.y) * (B.x - A.x) - (B.y - A.y) * (x - A.x);
+			if (P0 * P1 < 0) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
