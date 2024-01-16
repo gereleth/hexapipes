@@ -4,13 +4,14 @@ import { OctaGrid } from '$lib/puzzle/grids/octagrid';
 import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
 import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
 import { TrihexaGrid } from '$lib/puzzle/grids/trihexagrid';
+import { SnubSquareGrid } from './snubsquaregrid';
 
 /**
- * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'trihexagonal'} GridKind
+ * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'trihexagonal'|'snubsquare'} GridKind
  */
 
 /**
- * @typedef {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'|'etrat'|'etrat-wrap'|'cube'|'cube-wrap'|'trihexagonal'|'trihexagonal-wrap'} GridCategory
+ * @typedef {'hexagonal'|'hexagonal-wrap'|'square'|'square-wrap'|'octagonal'|'octagonal-wrap'|'etrat'|'etrat-wrap'|'cube'|'cube-wrap'|'trihexagonal'|'trihexagonal-wrap'|'snubsquare'|'snubsquare-wrap'} GridCategory
  */
 
 /**
@@ -45,6 +46,8 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 		grid = new CubeGrid(width, height, wrap, tiles);
 	} else if (kind === 'trihexagonal') {
 		grid = new TrihexaGrid(width, height, wrap, tiles);
+	} else if (kind === 'snubsquare') {
+		grid = new SnubSquareGrid(width, height, wrap, tiles);
 	} else {
 		throw `Unknown grid kind ${kind}`;
 	}
@@ -52,7 +55,15 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 }
 
 /** @type {GridKind[]} */
-export const gridKinds = ['hexagonal', 'square', 'octagonal', 'etrat', 'cube', 'trihexagonal'];
+export const gridKinds = [
+	'hexagonal',
+	'square',
+	'octagonal',
+	'etrat',
+	'cube',
+	'trihexagonal',
+	'snubsquare'
+];
 
 export const gridInfo = {
 	hexagonal: {
@@ -103,6 +114,14 @@ export const gridInfo = {
 		wrap: true,
 		exampleGrid: new TrihexaGrid(3, 3, false),
 		exampleTiles: [33, 32, 1, 13, 0, 4, 37, 34, 0, 2, 10, 5],
+		sizes: [5, 7, 10, 15, 20, 30, 40]
+	},
+	snubsquare: {
+		title: 'Snub Square',
+		url: 'snubsquare',
+		wrap: true,
+		exampleGrid: new SnubSquareGrid(4, 4, false),
+		exampleTiles: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 		sizes: [5, 7, 10, 15, 20, 30, 40]
 	}
 };
