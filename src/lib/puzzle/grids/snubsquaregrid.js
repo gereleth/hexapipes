@@ -97,54 +97,55 @@ export class SnubSquareGrid extends AbstractGrid {
 	which_tile_at(x, y) {
 		const c0 = Math.round(x / STEP);
 		const r0 = Math.round(y / STEP);
-		const sqIndex0 = this.squaregrid.rc_to_index(r0, c0);
-		if (sqIndex0 >= 0) {
-			const x0 = c0 * STEP;
-			const y0 = r0 * STEP;
-			const i0 = sqIndex0 * 6;
-			for (let i = 0; i < 6; i++) {
-				if (this.emptyCells.has(i0 + i)) {
-					continue;
-				}
-				const { dx, dy } = offsets[i];
-				const polygon = this.polygon_at(i0 + i);
-				const inside = polygon.is_inside(x - x0 - dx, y - y0 - dy);
-				if (inside) {
-					return { index: i0 + i, x: x0 + dx, y: y0 + dy };
-				}
+		const to_check = [];
+		const x0 = c0 * STEP;
+		const y0 = r0 * STEP;
+		// why are you guys so unaligned with the grid...
+		if (x >= x0) {
+			if (y >= y0) {
+				to_check.push(
+					{ r: r0, c: c0, i: 3 },
+					{ r: r0, c: c0, i: 2 },
+					{ r: r0, c: c0 + 1, i: 5 },
+					{ r: r0, c: c0 + 1, i: 0 }
+				);
+			} else {
+				to_check.push(
+					{ r: r0, c: c0, i: 1 },
+					{ r: r0, c: c0, i: 2 },
+					{ r: r0, c: c0 + 1, i: 0 },
+					{ r: r0 - 1, c: c0, i: 3 },
+					{ r: r0 - 1, c: c0 + 1, i: 5 }
+				);
+			}
+		} else {
+			if (y >= y0) {
+				to_check.push(
+					{ r: r0, c: c0, i: 4 },
+					{ r: r0, c: c0, i: 5 },
+					{ r: r0, c: c0, i: 0 },
+					{ r: r0, c: c0, i: 3 }
+				);
+			} else {
+				to_check.push({ r: r0, c: c0, i: 0 }, { r: r0, c: c0, i: 1 }, { r: r0 - 1, c: c0, i: 5 });
 			}
 		}
-		let r = r0;
-		let c = c0;
-		const dx = x - c0 * STEP;
-		if (dx >= 0.4 * STEP) {
-			c += 1;
-		} else if (dx <= -0.4 * STEP) {
-			c -= 1;
-		}
-		const dy = y - r0 * STEP;
-		if (dy >= 0.4 * STEP) {
-			r += 1;
-		} else if (dy <= -0.4 * STEP) {
-			r -= 1;
-		}
-		if (r == r0 && c == c0) {
-			return { index: -1, x: 0, y: 0 };
-		}
-		const sqIndex = this.squaregrid.rc_to_index(r, c);
-		if (sqIndex >= 0) {
+		for (const { r, c, i } of to_check) {
+			const sqIndex = this.squaregrid.rc_to_index(r, c);
+			if (sqIndex < 0) {
+				continue;
+			}
+			const index = sqIndex * 6 + i;
+			const polygon = this.polygon_at(index);
+			const { dx, dy } = offsets[i];
 			const x0 = c * STEP;
 			const y0 = r * STEP;
-			const i0 = sqIndex * 6;
-			for (let i = 0; i < 6; i++) {
-				if (this.emptyCells.has(i0 + i)) {
-					continue;
-				}
-				const { dx, dy } = offsets[i];
-				const polygon = this.polygon_at(i0 + i);
-				const inside = polygon.is_inside(x - x0 - dx, y - y0 - dy);
-				if (inside) {
-					return { index: i0 + i, x: x0 + dx, y: y0 + dy };
+			const inside = polygon.is_inside(x - x0 - dx, y - y0 - dy);
+			if (inside) {
+				if (this.emptyCells.has(index)) {
+					return { index: -1, x: 0, y: 0 };
+				} else {
+					return { index, x: x0 + dx, y: y0 + dy };
 				}
 			}
 		}
