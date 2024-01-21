@@ -125,6 +125,17 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2024-01-21</em> New grid! Try some <a href="/snubsquare/5">snub square puzzles</a>.
+			<ul>
+				<li>
+					This tiling resembles <a href="/etrat/5">etrat</a> because it has two squares and three
+					triangles meeting at every vertex. It's also a little like
+					<a href="/trihexagonal/5">trihexagonal</a> grid because a larger polygon is surrounded by triangles.
+				</li>
+				<li>Snub square puzzles are not quite etrat levels of evil but still pretty hard.</li>
+			</ul>
+		</li>
+		<li>
 			<em>2023-09-24</em> New grid! Try some <a href="/trihexagonal/5">trihexagonal puzzles</a>.
 			<ul>
 				<li>Regular puzzles aren't that difficult but the wraps are rather challenging.</li>
