@@ -3,6 +3,7 @@ import { Generator } from './generator';
 import { HexaGrid } from './grids/hexagrid';
 import { SquareGrid } from './grids/squaregrid';
 import { Solver } from './solver';
+import { SnubSquareGrid } from './grids/snubsquaregrid';
 
 describe('Test Prims pregeneration', () => {
 	const branchingAmount = 1;
@@ -173,4 +174,14 @@ describe('Test solution uniqueness', () => {
 		const grid = new SquareGrid(20, 20, true);
 		verifyUnique(grid);
 	});
+
+	// it('Generates a 10x10 snub square puzzle with a unique solution every time', () => {
+	// 	const grid = new SnubSquareGrid(10, 10, false);
+	// 	verifyUnique(grid);
+	// });
+
+	// it('Generates a 10x10 snub square wrap puzzle with a unique solution every time', () => {
+	// 	const grid = new SnubSquareGrid(10, 10, true);
+	// 	verifyUnique(grid);
+	// });
 });

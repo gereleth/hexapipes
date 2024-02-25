@@ -755,6 +755,7 @@ export function Solver(tiles, grid) {
 	 * @returns {boolean}
 	 */
 	self.doShortTrials = function (marked = []) {
+		const tested = new Set();
 		for (let i = this.shortTrialsIndex; i < this.shortTrialsIndex + this.grid.total; i++) {
 			const index = i % this.grid.total;
 			const cell = self.unsolved.get(index);
@@ -765,6 +766,10 @@ export function Solver(tiles, grid) {
 				continue;
 			}
 			for (let orientation of cell.possible) {
+				const key = `${index}_${orientation}`;
+				if (tested.has(key)) {
+					continue;
+				}
 				const clone = self.clone();
 				const cloneCell = clone.unsolved.get(index);
 				if (cloneCell === undefined) {
@@ -774,7 +779,10 @@ export function Solver(tiles, grid) {
 				clone.dirty.add(index);
 				try {
 					for (let step of clone.processDirtyCells()) {
-						// do nothing, hope for an error
+						if (step.final) {
+							const key = `${step.index}_${step.orientation}`;
+							tested.add(key);
+						}
 					}
 				} catch (e) {
 					cell.possible.delete(orientation);
