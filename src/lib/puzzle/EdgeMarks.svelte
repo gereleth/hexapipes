@@ -78,7 +78,7 @@
 <g class="edgemarks" style="transform: translate({cx}px,{cy}px) {tile_transform}">
 	{#each visibleEdgeMarks as { x1, y1, x2, y2, state, direction } (direction)}
 		<line
-			transition:fade|local={{ duration: 100 }}
+			transition:fade={{ duration: 100 }}
 			class="mark"
 			class:wall={state === 'wall'}
 			{x1}
@@ -94,7 +94,7 @@
 {#each reflectedEdgeMarks as { cx, cy, mark, transform } (mark.direction)}
 	<g class="edgemarks" style="transform: translate({cx}px,{cy}px) {transform}">
 		<line
-			transition:fade|local={{ duration: 100 }}
+			transition:fade={{ duration: 100 }}
 			class="mark"
 			class:wall={mark.state === 'wall'}
 			x1={mark.x1}

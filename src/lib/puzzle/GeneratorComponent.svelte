@@ -65,7 +65,7 @@
 </script>
 
 {#if showGenProgress}
-	<div class="progress" transition:slide|local>
+	<div class="progress" transition:slide>
 		<div
 			class="generator-progress"
 			style="background: linear-gradient(0deg, 
