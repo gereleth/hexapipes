@@ -16,7 +16,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "next",
-		"@sveltejs/adapter-static": "*",
+		"@sveltejs/adapter-static": "next",
 		"@sveltejs/adapter-vercel": "next",
 		"@sveltejs/kit": "^1.0.0",
 		"@testing-library/svelte": "^3.2.1",
