@@ -7,6 +7,9 @@ node_modules
 .env.*
 !.env.example
 .md
+/.vscode
+/coverage
+/generator_stats
 # Ignore files for PNPM, NPM and YARN
 pnpm-lock.yaml
 package-lock.json
