@@ -21,6 +21,6 @@ export async function load({ fetch }) {
 			comment: data.comment
 		};
 	} else {
-		throw error(response.status, '');
+		error(response.status, '');
 	}
 }

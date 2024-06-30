@@ -16,6 +16,6 @@ export async function load({ params, fetch }) {
 			tiles: data.tiles
 		};
 	} else {
-		throw error(response.status, '');
+		error(response.status, '');
 	}
 }
