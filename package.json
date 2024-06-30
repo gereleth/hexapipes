@@ -10,7 +10,8 @@
 		"check:watch": "svelte-check --tsconfig ./jsconfig.json --watch",
 		"lint": "prettier --check --plugin-search-dir=. .",
 		"format": "prettier --write --plugin-search-dir=. .",
-		"test": "vitest",
+		"test": "vitest --exclude **/dailies.test.js",
+		"daily": "vitest dailies",
 		"coverage": "vitest run --coverage",
 		"bench": "vitest bench"
 	},
