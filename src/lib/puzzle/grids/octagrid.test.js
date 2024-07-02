@@ -57,7 +57,9 @@ describe('Test which_tile_at', () => {
 			[[0.5, 0.8], 12],
 			[[0.2, 0.5], 12],
 			[[0.8, 0.5], 12],
-			[[0.8, 0.8], 5]
+			[[0.8, 0.8], 5],
+			[[1.49, 1], 5],
+			[[1, 0.49], 1]
 		]);
 		for (let [xy, index_expected] of expected.entries()) {
 			const index_actual = grid.which_tile_at(xy[0], xy[1]).index;

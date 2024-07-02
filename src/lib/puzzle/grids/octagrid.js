@@ -101,12 +101,12 @@ export class OctaGrid extends AbstractGrid {
 	 */
 	which_tile_at(x, y) {
 		const x1 = Math.floor(x);
-		const x2 = Math.ceil(x);
+		const x2 = Math.ceil(x) + (x === x1 ? 1 : 0);
 		const xm = (x1 + x2) * 0.5;
 		const x0 = Math.round(x);
 
 		const y1 = Math.floor(y);
-		const y2 = Math.ceil(y);
+		const y2 = Math.ceil(y) + (y === y1 ? 1 : 0);
 		const ym = (y1 + y2) * 0.5;
 		const y0 = Math.round(y);
 
