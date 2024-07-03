@@ -324,6 +324,7 @@
 <div class="puzzle animation-{$settings.animationSpeed}" class:solved={$solved}>
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	<svg
+		role="application"
 		width={svgWidth}
 		height={svgHeight}
 		viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
@@ -348,6 +349,14 @@
 		{/if}
 	</svg>
 </div>
+{#if !$solved}
+	<div class="undo-buttons">
+		<button on:click={game.undo}> ↶ Undo </button>
+		<button on:click={game.redo}> ↷ Redo </button>
+		<div>Checkpoints</div>
+		<button>+</button>
+	</div>
+{/if}
 
 <style>
 	svg {
@@ -384,5 +393,15 @@
 		color: var(--text-color);
 		display: inline-block;
 		min-height: 2em;
+		cursor: pointer;
+	}
+
+	.undo-buttons {
+		display: flex;
+		justify-content: center;
+		column-gap: 1em;
+		margin-bottom: 1em;
+		flex-wrap: wrap;
+		row-gap: 1em;
 	}
 </style>
