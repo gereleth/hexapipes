@@ -1,7 +1,7 @@
 import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
 import { createViewBox } from './viewbox';
-import { UndoStack } from './undo';
+import { createUndoStore } from './undo';
 
 /**
  * An edge mark
@@ -126,7 +126,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self._solved = false;
 	self.solved = writable(false);
 	self.viewBox = createViewBox(grid);
-	self.undoStack = new UndoStack();
+	self.undoStore = createUndoStore();
 
 	/**
 	 * @type {Map<Number, Set<Number>>} - a map of
@@ -286,7 +286,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			}
 		}
 		self.shareDisconnectedTiles.set(self.openEnds.size / totalTiles);
-		self.undoStack = new UndoStack();
+		self.undoStore.reset();
 		self.initialized = true;
 	};
 
@@ -329,7 +329,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.doRotateTile = function (tileIndex, times) {
 		const action = self.rotateTile(tileIndex, times);
 		if (action) {
-			self.undoStack.add_actions(action);
+			self.undoStore.add_actions(action);
 		}
 	};
 
@@ -490,7 +490,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.doToggleEdgeMark = function (mark, tileIndex, direction, assistant = false) {
 		const actions = self.toggleEdgeMark(mark, tileIndex, direction, assistant);
 		if (actions.length > 0) {
-			self.undoStack.add_actions(...actions);
+			self.undoStore.add_actions(...actions);
 		}
 	};
 
@@ -849,7 +849,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.doToggleLocked = function (tileIndex, state = undefined, assistant) {
 		const actions = self.toggleLocked(tileIndex, state, assistant);
 		if (actions.length > 0) {
-			self.undoStack.add_actions(...actions);
+			self.undoStore.add_actions(...actions);
 		}
 		return self.tileStates[tileIndex].data.locked;
 	};
@@ -1133,13 +1133,19 @@ export function PipesGame(grid, tiles, savedProgress) {
 	};
 
 	self.undo = function () {
-		const actions = self.undoStack.undo();
+		if (self._solved) {
+			return;
+		}
+		const actions = self.undoStore.undo();
 		for (let action of [...actions].reverse()) {
 			self.takeAction(action, true);
 		}
 	};
 	self.redo = function () {
-		const actions = self.undoStack.redo();
+		if (self._solved) {
+			return;
+		}
+		const actions = self.undoStore.redo();
 		for (let action of actions) {
 			self.takeAction(action, false);
 		}

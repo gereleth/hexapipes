@@ -29,50 +29,101 @@
  * @typedef {(RotateAction|LockAction|EdgemarkAction)} Action
  */
 
-export class UndoStack {
-	constructor() {
-		/** @type {Action[][]} */
-		this.actions = [];
-		this.index = -1;
-	}
+/**
+ * @typedef UndoStackData
+ * @property {Action[][]} actions
+ * @property {Number} index
+ * @property {Number[]} checkpoints
+ */
+
+import { writable } from 'svelte/store';
+
+export const createUndoStore = function () {
+	/** @type {UndoStackData} */
+	const data = {
+		actions: [],
+		index: -1,
+		checkpoints: []
+	};
+	const { set, subscribe, update } = writable(data);
 
 	/**
 	 * Remember a batch of actions
 	 * @param {Action[]} actions
 	 */
-	add_actions(...actions) {
-		if (this.index < this.actions.length - 1) {
-			this.actions.splice(this.index + 1, this.actions.length);
-		}
-		this.actions.push(actions);
-		this.index += 1;
+	function add_actions(...actions) {
+		update((data) => {
+			if (data.index < data.actions.length - 1) {
+				data.actions.splice(data.index + 1, data.actions.length);
+			}
+			data.actions.push(actions);
+			data.index += 1;
+			return data;
+		});
 	}
 
 	/**
 	 * Undo returns a list of actions to reverse
 	 * @returns {Action[]}
 	 */
-	undo() {
-		if (this.index >= 0) {
-			const batch = this.actions[this.index];
-			this.index -= 1;
-			return batch;
-		} else {
-			return [];
-		}
+	function undo() {
+		/** @type {Action[]} */
+		let batch = [];
+		update((data) => {
+			if (data.index >= 0) {
+				batch = data.actions[data.index];
+				data.index -= 1;
+			}
+			return data;
+		});
+		return batch;
 	}
 
 	/**
 	 * Redo returns a list of actions to repeat
 	 * @returns {Action[]}
 	 */
-	redo() {
-		if (this.index + 1 < this.actions.length) {
-			this.index += 1;
-			const batch = this.actions[this.index];
-			return batch;
-		} else {
-			return [];
-		}
+	function redo() {
+		/** @type {Action[]} */
+		let batch = [];
+		update((data) => {
+			if (data.index + 1 < data.actions.length) {
+				data.index += 1;
+				batch = data.actions[data.index];
+			}
+			return data;
+		});
+		return batch;
 	}
-}
+
+	function reset() {
+		set(data);
+	}
+
+	function add_checkpoint() {
+		update((data) => {
+			data.checkpoints.push(data.index);
+			return data;
+		});
+	}
+
+	/**
+	 * Redo returns a list of actions to repeat
+	 */
+	function remove_checkpoint(n) {
+		update((data) => {
+			data.checkpoints = data.checkpoints.filter((x) => x !== n);
+			return data;
+		});
+	}
+
+	return {
+		subscribe,
+		add_actions,
+		undo,
+		redo,
+		reset,
+		add_checkpoint,
+		remove_checkpoint
+	};
+};

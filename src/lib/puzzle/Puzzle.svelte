@@ -29,6 +29,7 @@
 
 	let game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
+	let undoStore = game.undoStore;
 
 	const dispatch = createEventDispatcher();
 
@@ -351,10 +352,31 @@
 </div>
 {#if !$solved}
 	<div class="undo-buttons">
-		<button on:click={game.undo}> ↶ Undo </button>
-		<button on:click={game.redo}> ↷ Redo </button>
+		<button on:click={game.undo} disabled={$undoStore.index === -1}> ↶ Undo </button>
+		<button on:click={game.redo} disabled={$undoStore.index === $undoStore.actions.length - 1}>
+			↷ Redo
+		</button>
 		<div>Checkpoints</div>
-		<button>+</button>
+		{#each $undoStore.checkpoints as checkpoint, index}
+			<button
+				on:click={() => {
+					console.log('return to', checkpoint);
+					const delta = $undoStore.index - checkpoint;
+					if (delta > 0) {
+						for (let i = 0; i < delta; i++) {
+							game.undo();
+						}
+					} else if (delta < 0) {
+						for (let i = 0; i < -delta; i++) {
+							game.redo();
+						}
+					} else if (delta === 0) {
+						undoStore.remove_checkpoint(checkpoint);
+					}
+				}}>{index + 1}</button
+			>
+		{/each}
+		<button on:click={undoStore.add_checkpoint}>+</button>
 	</div>
 {/if}
 
