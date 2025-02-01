@@ -2,7 +2,7 @@ name: Daily Puzzles
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight UTC
+    - cron: '0 6 * * 0' # Runs every Sunday at 6:00 UTC
   workflow_dispatch: # Allows manual triggering
 
 jobs:
