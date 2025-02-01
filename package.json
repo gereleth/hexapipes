@@ -11,7 +11,7 @@
 		"lint": "prettier --check --plugin-search-dir=. .",
 		"format": "prettier --write --plugin-search-dir=. .",
 		"test": "vitest --exclude **/dailies.test.js",
-		"daily": "vitest dailies",
+		"daily": "vitest run dailies",
 		"coverage": "vitest run --coverage",
 		"bench": "vitest bench"
 	},
