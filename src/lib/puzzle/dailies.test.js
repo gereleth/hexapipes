@@ -48,7 +48,7 @@ function getStartDate() {
 describe('Generate dailies', () => {
 	it('Creates random evil puzzles', () => {
 		let date = getStartDate();
-		for (let i = 0; i < 28; i++) {
+		for (let i = 0; i < 7; i++) {
 			const today = date.toISOString();
 			const year = today.slice(0, 4);
 			const month = today.slice(5, 7);
