@@ -351,7 +351,7 @@ export class RhombitrihexaGrid extends AbstractGrid {
 				}
 			}
 		}
-		console.log({ r0, c0, total_rows, total_cols, n: visibleTiles.length });
+		// console.log({ r0, c0, total_rows, total_cols, n: visibleTiles.length });
 		return visibleTiles;
 	}
 }
