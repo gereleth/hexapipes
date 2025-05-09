@@ -41,7 +41,7 @@ function randomRotate(tiles, grid) {
 			return 0;
 		}
 		const polygon = grid.polygon_at(index);
-		const numDirections = polygon.directions.length;
+		const numDirections = polygon.num_directions;
 		let rotated = polygon.rotate(tile, Math.floor(Math.random() * numDirections));
 		return rotated;
 	});
@@ -346,10 +346,13 @@ export class Generator {
 					visited.push(i);
 				}
 			}
+			// console.log({ fromNode, neighbour: toVisit.neighbour, direction: toVisit.direction });
 			tiles[toVisit.neighbour] += this.grid.OPPOSITE.get(toVisit.direction) || 0;
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
+			// console.log(tiles);
 		}
+		console.log(tiles);
 		return tiles;
 	}
 
