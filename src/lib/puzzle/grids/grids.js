@@ -6,9 +6,10 @@ import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
 import { TrihexaGrid } from '$lib/puzzle/grids/trihexagrid';
 import { SnubSquareGrid } from '$lib/puzzle/grids/snubsquaregrid';
 import { RhombitrihexaGrid } from '$lib/puzzle/grids/rhombitrihexagrid';
+import { TriangularGrid } from '$lib/puzzle/grids/triangulargrid';
 
 /**
- * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'trihexagonal'|'snubsquare'|'rhombitrihexagonal'} GridKind
+ * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'trihexagonal'|'snubsquare'|'rhombitrihexagonal'|'triangular'} GridKind
  */
 
 /**
@@ -19,7 +20,8 @@ import { RhombitrihexaGrid } from '$lib/puzzle/grids/rhombitrihexagrid';
  * 'cube'|'cube-wrap'|
  * 'trihexagonal'|'trihexagonal-wrap'|
  * 'snubsquare'|'snubsquare-wrap'|
- * 'rhombitrihexagonal'|'rhombitrihexagonal-wrap'
+ * 'rhombitrihexagonal'|'rhombitrihexagonal-wrap'|
+ * 'triangular'|'triangular-wrap'|
  * } GridCategory
  */
 
@@ -59,6 +61,8 @@ export function createGrid(kind, width, height, wrap, tiles = undefined) {
 		grid = new SnubSquareGrid(width, height, wrap, tiles);
 	} else if (kind === 'rhombitrihexagonal') {
 		grid = new RhombitrihexaGrid(width, height, wrap, tiles);
+	} else if (kind === 'triangular') {
+		grid = new TriangularGrid(width, height, wrap, tiles);
 	} else {
 		throw `Unknown grid kind ${kind}`;
 	}
@@ -74,7 +78,8 @@ export const gridKinds = [
 	'cube',
 	'trihexagonal',
 	'snubsquare',
-	'rhombitrihexagonal'
+	'rhombitrihexagonal',
+	'triangular'
 ];
 
 export const gridInfo = {
@@ -144,6 +149,14 @@ export const gridInfo = {
 		exampleTiles: [
 			0, 84, 2, 0, 0, 0, 137, 68, 66, 136, 4, 8, 0, 0, 8, 34, 36, 0, 0, 0, 0, 0, 36, 40
 		],
+		sizes: [5, 7, 10, 15, 20, 30, 40]
+	},
+	triangular: {
+		title: 'Triangular',
+		url: 'triangular',
+		wrap: true,
+		exampleGrid: new TriangularGrid(3, 3, false),
+		exampleTiles: [12, 0, 5, 5, 5, 5, 13, 3, 5, 5, 0, 4, 8, 0, 1, 7, 1, 6],
 		sizes: [5, 7, 10, 15, 20, 30, 40]
 	}
 };
