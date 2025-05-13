@@ -116,7 +116,11 @@ export class Generator {
 					// ambiguous tile, ignore it
 					continue;
 				}
-				if (this.grid.polygon_at(index).tileTypes.get(startTiles[index])?.isFullyConnected) {
+				const polygon = this.grid.polygon_at(index);
+				if (
+					polygon.num_directions > 3 &&
+					polygon.tileTypes.get(startTiles[index])?.isFullyConnected
+				) {
 					// fully connected tile, ignore it too
 					continue;
 				}
@@ -129,11 +133,13 @@ export class Generator {
 					component.add(i);
 					for (let direction of this.grid.getDirections(startTiles[i], 0, i)) {
 						const { neighbour, empty } = this.grid.find_neighbour(i, direction);
+						const npolygon = this.grid.polygon_at(neighbour);
 						if (
 							empty ||
 							startTiles[neighbour] < 0 ||
 							component.has(neighbour) ||
-							this.grid.polygon_at(neighbour).tileTypes.get(startTiles[neighbour])?.isFullyConnected
+							(npolygon.num_directions > 3 &&
+								npolygon.tileTypes.get(startTiles[neighbour])?.isFullyConnected)
 						) {
 							continue;
 						}
@@ -395,9 +401,14 @@ export class Generator {
 					if (this.solver_progress_callback) {
 						solver.progress_callback = this.solver_progress_callback;
 					}
-					const { marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
+					const { solvable, marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
 						Math.min(ambiguous, ambiguousLimit)
 					);
+					if (!solvable) {
+						console.log('unsolvable puzzle');
+						console.log(tiles);
+						throw 'Pregeneration returned an unsolvable puzzle';
+					}
 					if (unique) {
 						return randomRotate(marked, this.grid);
 					}
