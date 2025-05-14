@@ -102,6 +102,8 @@
 			branchingAmount = Math.random() * 0.5 + 0.5; // 0.5 to 1
 			avoidObvious = Math.random() * 0.5 + 0.1; // 0.1 to 0.6
 			avoidStraights = Math.random() * 0.5 + 0.25; // 0.25 to 0.75
+		} else if (gridKind === 'triangular') {
+			branchingAmount = 0;
 		}
 		generatorComponent.generate(
 			{
