@@ -103,6 +103,8 @@ export class Generator {
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
 		const lastResortNodes = [];
 
+		const non_triangular_grid = this.grid.KIND !== 'triangular';
+
 		/** @type {Map<Number, Set<Number>>} */
 		const startComponents = new Map();
 		// reuse non-ambiguous portions of startTiles
@@ -117,10 +119,7 @@ export class Generator {
 					continue;
 				}
 				const polygon = this.grid.polygon_at(index);
-				if (
-					polygon.num_directions > 3 &&
-					polygon.tileTypes.get(startTiles[index])?.isFullyConnected
-				) {
+				if (non_triangular_grid && polygon.tileTypes.get(startTiles[index])?.isFullyConnected) {
 					// fully connected tile, ignore it too
 					continue;
 				}
@@ -273,12 +272,13 @@ export class Generator {
 				}
 				// classify this neighbour by priority
 				if (
-					polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
-					(tiles[neighbour] > 0 &&
-						this.grid
-							.polygon_at(neighbour)
-							.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
-							?.isFullyConnected)
+					non_triangular_grid &&
+					(polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
+						(tiles[neighbour] > 0 &&
+							this.grid
+								.polygon_at(neighbour)
+								.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
+								?.isFullyConnected))
 				) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
