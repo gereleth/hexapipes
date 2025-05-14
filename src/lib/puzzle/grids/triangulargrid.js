@@ -67,7 +67,7 @@ export class TriangularGrid extends AbstractGrid {
 		}
 
 		if (!this.wrap) {
-			this.XMIN = 0;
+			this.XMIN = -COL_DX * 0.5;
 			this.XMAX = this.w * COL_DX;
 			this.YMIN = -ROW_DY;
 			this.YMAX = ROW_DY * this.h;
