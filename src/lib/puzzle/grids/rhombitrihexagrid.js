@@ -12,16 +12,16 @@ const SOUTHEAST = 128;
 
 const SQRT3 = Math.sqrt(3);
 const SQRT6 = Math.sqrt(6);
-const COL_DX = 1 + SQRT3 / 3;
+const COL_DX = 1 + SQRT3;
 const ROW_DX = COL_DX / 2;
-const ROW_DY = SQRT3 / 2 + 1 / 2;
+const ROW_DY = SQRT3 / 2 + 3 / 2;
 
-const HEXAGON = new RegularPolygonTile(6, 0, 0.5, [1, 2, 8, 16, 32, 128]);
-const SQUARE1 = new RegularPolygonTile(4, 0, SQRT3 / 6, [1, 4, 16, 64]);
-const SQUARE2 = new RegularPolygonTile(4, Math.PI / 3, SQRT3 / 6, [2, 8, 32, 128]);
-const SQUARE3 = new RegularPolygonTile(4, Math.PI / 6, SQRT3 / 6, [2, 8, 32, 128]);
-const TRIANGLE1 = new RegularPolygonTile(3, Math.PI / 6, 1 / 6, [2, 8, 64]);
-const TRIANGLE2 = new RegularPolygonTile(3, Math.PI / 2, 1 / 6, [4, 32, 128]);
+const HEXAGON = new RegularPolygonTile(6, 0, SQRT3 / 2, [1, 2, 8, 16, 32, 128]);
+const SQUARE1 = new RegularPolygonTile(4, 0, 0.5, [1, 4, 16, 64]);
+const SQUARE2 = new RegularPolygonTile(4, Math.PI / 3, 0.5, [2, 8, 32, 128]);
+const SQUARE3 = new RegularPolygonTile(4, Math.PI / 6, 0.5, [2, 8, 32, 128]);
+const TRIANGLE1 = new RegularPolygonTile(3, Math.PI / 6, SQRT3 / 6, [2, 8, 64]);
+const TRIANGLE2 = new RegularPolygonTile(3, Math.PI / 2, SQRT3 / 6, [4, 32, 128]);
 
 export class RhombitrihexaGrid extends AbstractGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTH, NORTHWEST, WEST, SOUTHWEST, SOUTH, SOUTHEAST];
@@ -38,23 +38,23 @@ export class RhombitrihexaGrid extends AbstractGrid {
 	]);
 	NUM_DIRECTIONS = 8;
 	KIND = 'rhombitrihexagonal';
-	PIPE_WIDTH = 0.1;
-	STROKE_WIDTH = 0.04;
+	PIPE_WIDTH = 0.15;
+	STROKE_WIDTH = 0.06;
 	PIPE_LENGTH = 0.5;
-	SINK_RADIUS = 0.12;
+	SINK_RADIUS = 0.18;
 	POLYGONS = [HEXAGON, SQUARE1, TRIANGLE1, SQUARE2, TRIANGLE2, SQUARE3];
 	OFFSETS = [
 		{ dx: 0, dy: 0 },
-		{ dx: 0.5 + SQRT3 / 6, dy: 0 },
-		{ dx: 0.5 + SQRT3 / 6, dy: -SQRT3 / 6 - 1 / 6 },
+		{ dx: 0.5 + SQRT3 / 2, dy: 0 },
+		{ dx: 0.5 + SQRT3 / 2, dy: -SQRT3 / 6 - 1 / 2 },
 		{
-			dx: 0.25 + SQRT3 / 12,
-			dy: -SQRT3 / 4 - 1 / 4
+			dx: 0.25 + SQRT3 / 4,
+			dy: -SQRT3 / 4 - 3 / 4
 		},
-		{ dx: 0, dy: -SQRT3 / 3 - 1 / 3 },
+		{ dx: 0, dy: -1 - SQRT3 / 3 },
 		{
-			dx: -0.25 - SQRT3 / 12,
-			dy: -SQRT3 / 4 - 1 / 4
+			dx: -0.25 - SQRT3 / 4,
+			dy: -SQRT3 / 4 - 3 / 4
 		}
 	];
 
