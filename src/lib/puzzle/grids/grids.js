@@ -156,7 +156,7 @@ export const gridInfo = {
 		url: 'triangular',
 		wrap: true,
 		exampleGrid: new TriangularGrid(3, 3, false),
-		exampleTiles: [12, 0, 5, 5, 5, 5, 13, 3, 5, 5, 0, 4, 8, 0, 1, 7, 1, 6],
+		exampleTiles: [9, 0, 9, 5, 9, 4, 4, 5, 13, 5, 0, 3, 1, 0, 12, 6, 8, 7],
 		sizes: [5, 7, 10, 15, 20, 30, 40]
 	}
 };
