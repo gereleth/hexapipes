@@ -100,6 +100,9 @@ export const createUndoStore = function () {
 		set(data);
 	}
 
+	/**
+	 * Create a checkpoint at current undostack index
+	 */
 	function add_checkpoint() {
 		update((data) => {
 			data.checkpoints.push(data.index);
@@ -108,11 +111,12 @@ export const createUndoStore = function () {
 	}
 
 	/**
-	 * Redo returns a list of actions to repeat
+	 * Remove a checkpoint at index
+	 * @param {number} index
 	 */
-	function remove_checkpoint(n) {
+	function remove_checkpoint(index) {
 		update((data) => {
-			data.checkpoints = data.checkpoints.filter((x) => x !== n);
+			data.checkpoints = data.checkpoints.filter((x) => x !== index);
 			return data;
 		});
 	}
