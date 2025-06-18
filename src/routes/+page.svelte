@@ -125,6 +125,12 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2025-06-18</em> Coming out of a long hiatus with a couple of new grids! Check out a mix of
+			hexagons, squares and triangles on a
+			<a href="/rhombitrihexagonal/5">rhombitrihexagonal grid</a>
+			or the pure minimalism of <a href="/triangular/5">triangular puzzles</a>.
+		</li>
+		<li>
 			<em>2024-01-21</em> New grid! Try some <a href="/snubsquare/5">snub square puzzles</a>.
 			<ul>
 				<li>
