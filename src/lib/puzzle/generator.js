@@ -358,7 +358,6 @@ export class Generator {
 			visited.push(toVisit.neighbour);
 			// console.log(tiles);
 		}
-		console.log(tiles);
 		return tiles;
 	}
 
