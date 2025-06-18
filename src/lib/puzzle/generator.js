@@ -41,7 +41,7 @@ function randomRotate(tiles, grid) {
 			return 0;
 		}
 		const polygon = grid.polygon_at(index);
-		const numDirections = polygon.directions.length;
+		const numDirections = polygon.num_directions;
 		let rotated = polygon.rotate(tile, Math.floor(Math.random() * numDirections));
 		return rotated;
 	});
@@ -103,6 +103,8 @@ export class Generator {
 		/** @type {Number[]} - visited tiles that will become fully connected if used again */
 		const lastResortNodes = [];
 
+		const non_triangular_grid = this.grid.KIND !== 'triangular';
+
 		/** @type {Map<Number, Set<Number>>} */
 		const startComponents = new Map();
 		// reuse non-ambiguous portions of startTiles
@@ -116,7 +118,8 @@ export class Generator {
 					// ambiguous tile, ignore it
 					continue;
 				}
-				if (this.grid.polygon_at(index).tileTypes.get(startTiles[index])?.isFullyConnected) {
+				const polygon = this.grid.polygon_at(index);
+				if (non_triangular_grid && polygon.tileTypes.get(startTiles[index])?.isFullyConnected) {
 					// fully connected tile, ignore it too
 					continue;
 				}
@@ -129,11 +132,13 @@ export class Generator {
 					component.add(i);
 					for (let direction of this.grid.getDirections(startTiles[i], 0, i)) {
 						const { neighbour, empty } = this.grid.find_neighbour(i, direction);
+						const npolygon = this.grid.polygon_at(neighbour);
 						if (
 							empty ||
 							startTiles[neighbour] < 0 ||
 							component.has(neighbour) ||
-							this.grid.polygon_at(neighbour).tileTypes.get(startTiles[neighbour])?.isFullyConnected
+							(npolygon.num_directions > 3 &&
+								npolygon.tileTypes.get(startTiles[neighbour])?.isFullyConnected)
 						) {
 							continue;
 						}
@@ -267,12 +272,13 @@ export class Generator {
 				}
 				// classify this neighbour by priority
 				if (
-					polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
-					(tiles[neighbour] > 0 &&
-						this.grid
-							.polygon_at(neighbour)
-							.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
-							?.isFullyConnected)
+					non_triangular_grid &&
+					(polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
+						(tiles[neighbour] > 0 &&
+							this.grid
+								.polygon_at(neighbour)
+								.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
+								?.isFullyConnected))
 				) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
@@ -346,9 +352,11 @@ export class Generator {
 					visited.push(i);
 				}
 			}
+			// console.log({ fromNode, neighbour: toVisit.neighbour, direction: toVisit.direction });
 			tiles[toVisit.neighbour] += this.grid.OPPOSITE.get(toVisit.direction) || 0;
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
+			// console.log(tiles);
 		}
 		return tiles;
 	}
@@ -392,9 +400,14 @@ export class Generator {
 					if (this.solver_progress_callback) {
 						solver.progress_callback = this.solver_progress_callback;
 					}
-					const { marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
+					const { solvable, marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
 						Math.min(ambiguous, ambiguousLimit)
 					);
+					if (!solvable) {
+						console.log('unsolvable puzzle');
+						console.log(tiles);
+						throw 'Pregeneration returned an unsolvable puzzle';
+					}
 					if (unique) {
 						return randomRotate(marked, this.grid);
 					}

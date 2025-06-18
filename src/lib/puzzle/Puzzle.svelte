@@ -322,6 +322,7 @@
 {/if}
 
 <div class="puzzle animation-{$settings.animationSpeed}" class:solved={$solved}>
+	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	<svg
 		width={svgWidth}
 		height={svgHeight}
