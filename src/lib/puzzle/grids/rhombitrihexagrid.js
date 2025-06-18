@@ -67,11 +67,14 @@ export class RhombitrihexaGrid extends AbstractGrid {
 	 */
 	constructor(width, height, wrap, tiles = []) {
 		super(width, height, wrap, tiles);
-		this.w = Math.round(width / SQRT6);
-		this.h = Math.round(height / SQRT6);
-		if (!this.wrap) {
-			this.w += 1;
-			this.h += 1;
+		if (this.wrap) {
+			this.w = Math.round(width / SQRT6);
+			this.h = Math.round(height / SQRT6);
+		} else {
+			const A = (width + height) / (4 * width * height);
+			const B = A + Math.sqrt(1 / 6 + A * A);
+			this.w = Math.ceil(width * B);
+			this.h = Math.ceil(height * B);
 		}
 
 		this.total = this.w * this.h * 6;
