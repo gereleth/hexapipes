@@ -1,4 +1,6 @@
 <script>
+	import { run } from 'svelte/legacy';
+
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
@@ -10,27 +12,33 @@
 	import { createGrid } from '$lib/puzzle/grids/grids';
 	import Instructions from '$lib/Instructions.svelte';
 
-	/** @type {import('./$types').PageData} */
-	export let data;
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('./$types').PageData} data
+	 */
+
+	/** @type {Props} */
+	let { data } = $props();
 
 	let grid = createGrid(data.grid || 'hexagonal', data.width, data.height, data.wrap, data.tiles);
 
-	let solve = {
+	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1
-	};
+	});
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
-	let puzzle;
-	let solved = false;
+	let puzzle = $state();
+	let solved = $state(false);
 	let progressStoreName = '/daily_progress';
 	let pathname = '/daily';
 
-	let solves;
-	let stats;
-	let savedProgress = undefined;
-	let shareText = '';
+	let solves = $state();
+	let stats = $state();
+	let savedProgress = $state(undefined);
+	let shareText = $state('');
 
 	const nextPuzzleAt = new Date(data.date).valueOf() + 24 * 60 * 60 * 1000;
 	function formatTimeLeft() {
@@ -49,7 +57,7 @@
 			return `${seconds} second` + (seconds > 1 ? 's' : '');
 		}
 	}
-	let timeTillNextPuzzle = formatTimeLeft();
+	let timeTillNextPuzzle = $state(formatTimeLeft());
 
 	if (browser) {
 		solves = getSolves(pathname);
@@ -104,7 +112,7 @@
 		};
 	});
 
-	let shareButtonIcon = '📋';
+	let shareButtonIcon = $state('📋');
 	function formatShareText(solve, showTimer) {
 		let streak = '';
 		if ($stats.streak > 1) {
@@ -120,9 +128,11 @@
 		}
 	}
 
-	$: if (browser) {
-		formatShareText(solve, $settings.showTimer);
-	}
+	run(() => {
+		if (browser) {
+			formatShareText(solve, $settings.showTimer);
+		}
+	});
 
 	function copyShareText() {
 		navigator.clipboard.writeText(shareText).then(
@@ -177,7 +187,7 @@
 	<div class="next">
 		{#if solve.elapsedTime !== -1}
 			{#if timeTillNextPuzzle === 'now'}
-				<a href="/daily" on:click={() => document.location.reload()}>Next puzzle</a>
+				<a href="/daily" onclick={() => document.location.reload()}>Next puzzle</a>
 			{:else}
 				Next daily puzzle in {timeTillNextPuzzle}.
 				<a href="/{data.grid}{data.wrap ? '-wrap' : ''}/5">Play some others for now</a>
@@ -195,9 +205,9 @@
 	<div class="container">
 		<div class="share">
 			<p>
-				Share your result: <button on:click={copyShareText}>{shareButtonIcon} Copy text</button>
+				Share your result: <button onclick={copyShareText}>{shareButtonIcon} Copy text</button>
 			</p>
-			<textarea cols="60" rows="3" bind:value={shareText} />
+			<textarea cols="60" rows="3" bind:value={shareText}></textarea>
 		</div>
 	</div>
 {/if}

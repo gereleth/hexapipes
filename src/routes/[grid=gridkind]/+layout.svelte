@@ -2,13 +2,20 @@
 	import { page } from '$app/stores';
 	import Instructions from '$lib/Instructions.svelte';
 	import { gridInfo } from '$lib/puzzle/grids/grids';
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('svelte').Snippet} [children]
+	 */
 
-	$: category = $page.params.grid;
-	$: gridKind = category.split('-')[0];
-	$: wrap = category.split('-')[1] === 'wrap';
-	$: info = gridInfo[gridKind];
-	$: title = `${info.title} ` + (wrap ? ' Wrap' : '') + ' Pipes';
-	$: sizes = info.sizes;
+	/** @type {Props} */
+	let { children } = $props();
+
+	let category = $derived($page.params.grid);
+	let gridKind = $derived(category.split('-')[0]);
+	let wrap = $derived(category.split('-')[1] === 'wrap');
+	let info = $derived(gridInfo[gridKind]);
+	let title = $derived(`${info.title} ` + (wrap ? ' Wrap' : '') + ' Pipes');
+	let sizes = $derived(info.sizes);
 </script>
 
 <svelte:head>
@@ -53,7 +60,7 @@
 	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
 
-<slot />
+{@render children?.()}
 
 <Instructions />
 

@@ -1,12 +1,24 @@
 <script>
-	/** @type {Number} i*/
-	export let i;
-	/** @type {Number} */
-	export let tile;
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} */
-	export let grid;
-	export let cx = 0;
-	export let cy = 0;
+	
+	
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {Number} i
+	 * @property {Number} tile
+	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @property {number} [cx]
+	 * @property {number} [cy]
+	 */
+
+	/** @type {Props} */
+	let {
+		i,
+		tile,
+		grid,
+		cx = 0,
+		cy = 0
+	} = $props();
 
 	const bgColor = '#ddd';
 

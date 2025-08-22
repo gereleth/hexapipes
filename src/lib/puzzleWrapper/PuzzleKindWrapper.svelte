@@ -6,29 +6,42 @@
 	import Stats from '$lib/Stats.svelte';
 	import PuzzleInstanceWrapper from './PuzzleInstanceWrapper.svelte';
 
-	/** @type {import('$lib/puzzle/grids/grids').GridCategory} */
-	export let category;
-	/** @type {Number} */
-	export let size;
-	/** @type {Number} */
-	export let puzzleId;
-	/** @type {Number} */
-	export let width;
-	/** @type {Number} */
-	export let height;
-	/** @type {Number[]} */
-	export let tiles = [];
+	
+	
+	
+	
+	
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('$lib/puzzle/grids/grids').GridCategory} category
+	 * @property {Number} size
+	 * @property {Number} puzzleId
+	 * @property {Number} width
+	 * @property {Number} height
+	 * @property {Number[]} [tiles]
+	 */
+
+	/** @type {Props} */
+	let {
+		category,
+		size,
+		puzzleId,
+		width,
+		height,
+		tiles = []
+	} = $props();
 
 	/** @type {import('$lib/stores').SolvesStore}*/
-	let solves;
+	let solves = $state();
 	/** @type {import('$lib/stores').StatsStore}*/
-	let stats;
+	let stats = $state();
 
-	$: pathname = `/${category}/${size}/${puzzleId}`;
-	$: progressStoreName = pathname + '_progress';
-	$: instanceStoreName = `/${category}/${size}` + '_instance';
-	$: wrap = category.endsWith('-wrap');
-	$: gridKind = category.split('-')[0];
+	let pathname = $derived(`/${category}/${size}/${puzzleId}`);
+	let progressStoreName = $derived(pathname + '_progress');
+	let instanceStoreName = $derived(`/${category}/${size}` + '_instance');
+	let wrap = $derived(category.endsWith('-wrap'));
+	let gridKind = $derived(category.split('-')[0]);
 
 	onMount(() => {
 		solves = getSolves(pathname);

@@ -1,18 +1,29 @@
 <script>
 	import ExampleTile from '$lib/header/ExampleTile.svelte';
 
-	export let grid;
-	/** @type {Number[]} */
-	export let tiles;
-	export let svgWidth = 200;
-	export let svgHeight = 200;
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {any} grid
+	 * @property {Number[]} tiles
+	 * @property {number} [svgWidth]
+	 * @property {number} [svgHeight]
+	 */
 
-	const viewBox = {
+	/** @type {Props} */
+	let {
+		grid,
+		tiles,
+		svgWidth = 200,
+		svgHeight = 200
+	} = $props();
+
+	const viewBox = $state({
 		xmin: grid.XMIN,
 		width: grid.XMAX - grid.XMIN,
 		ymin: grid.YMIN,
 		height: grid.YMAX - grid.YMIN
-	};
+	});
 
 	const wpx = svgWidth / viewBox.width;
 	const hpx = svgHeight / viewBox.height;

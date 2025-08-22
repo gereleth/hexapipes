@@ -8,10 +8,10 @@
 	let timer;
 	/** @type {Worker|null} */
 	let worker = null;
-	let showGenProgress = false;
+	let showGenProgress = $state(false);
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
 	/** @type {import('$lib/puzzle/solver').SolverProgress[]}*/
-	let solverProgressItems = [];
+	let solverProgressItems = $state([]);
 	const dispatch = createEventDispatcher();
 
 	/**
@@ -72,7 +72,7 @@
 			rgba(170,255,170,1) 0%, 
 			rgba(255,255,255,0) 100%);"
 		>
-			Generating a puzzle... <button on:click={cancel}>Cancel</button>
+			Generating a puzzle... <button onclick={cancel}>Cancel</button>
 		</div>
 		{#each solverProgressItems as solverProgress, i (solverProgressItems.length - i)}
 			<SolverProgress progress={solverProgress} />

@@ -1,14 +1,14 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import PuzzleKindWrapper from '$lib/puzzleWrapper/PuzzleKindWrapper.svelte';
 </script>
 
-{#key $page.url.pathname}
+{#key page.url.pathname}
 	<PuzzleKindWrapper
-		width={Number($page.params.size)}
-		height={Number($page.params.size)}
-		category={$page.params.grid}
-		size={Number($page.params.size)}
+		width={Number(page.params.size)}
+		height={Number(page.params.size)}
+		category={page.params.grid}
+		size={Number(page.params.size)}
 		puzzleId={-1}
 	/>
 {/key}

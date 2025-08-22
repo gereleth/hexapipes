@@ -2,8 +2,14 @@
 	import Settings from '$lib/settings/Settings.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let solved = false;
-	export let includeNewPuzzleButton = true;
+	/**
+	 * @typedef {Object} Props
+	 * @property {boolean} [solved]
+	 * @property {boolean} [includeNewPuzzleButton]
+	 */
+
+	/** @type {Props} */
+	let { solved = false, includeNewPuzzleButton = true } = $props();
 
 	const dispatch = createEventDispatcher();
 
@@ -18,22 +24,22 @@
 			dispatch('newPuzzle');
 		}
 	}
-	let showSettings = false;
+	let showSettings = $state(false);
 </script>
 
 <div class="buttons">
 	<!-- Start over button-->
-	<button on:click={startOver}> 🔁 Start over </button>
+	<button onclick={startOver}> 🔁 Start over </button>
 	<!-- Settings button -->
-	<button on:click={() => (showSettings = !showSettings)}> ⚙️ Settings </button>
+	<button onclick={() => (showSettings = !showSettings)}> ⚙️ Settings </button>
 	<!-- New puzzle button -->
 	{#if includeNewPuzzleButton}
-		<button on:click={newPuzzle}> ➡️ New puzzle </button>
+		<button onclick={newPuzzle}> ➡️ New puzzle </button>
 	{/if}
 </div>
 <div class="buttons secondary">
 	<!-- Download button -->
-	<button on:click={() => dispatch('download')}> ⬇️ Download this puzzle</button>
+	<button onclick={() => dispatch('download')}> ⬇️ Download this puzzle</button>
 </div>
 
 {#if showSettings}

@@ -9,49 +9,65 @@
 	import Timer from '$lib/Timer.svelte';
 	import { goto } from '$app/navigation';
 
-	/** @type {import('$lib/puzzle/grids/grids').GridKind} */
-	export let gridKind;
-	/** @type {Number} */
-	export let width;
-	/** @type {Number} */
-	export let height;
-	/** @type {Boolean} */
-	export let wrap;
-	/** @type {Number[]} */
-	export let tiles;
+	
+	
+	
+	
+	
 
-	export let puzzleId = -1;
-	/** @type {String}*/
-	export let progressStoreName;
-	/** @type {String}*/
-	export let instanceStoreName;
-	/** @type {import('$lib/stores').SolvesStore}*/
-	export let solves;
+	
+	
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('$lib/puzzle/grids/grids').GridKind} gridKind
+	 * @property {Number} width
+	 * @property {Number} height
+	 * @property {Boolean} wrap
+	 * @property {Number[]} tiles
+	 * @property {any} [puzzleId]
+	 * @property {String} progressStoreName
+	 * @property {String} instanceStoreName
+	 * @property {import('$lib/stores').SolvesStore} solves
+	 */
+
+	/** @type {Props} */
+	let {
+		gridKind,
+		width,
+		height,
+		wrap,
+		tiles = $bindable(),
+		puzzleId = -1,
+		progressStoreName,
+		instanceStoreName,
+		solves
+	} = $props();
 
 	/** @type {import('$lib/stores').Solve} */
-	let solve = {
+	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1,
 		error: undefined
-	};
+	});
 
-	let genId = 0;
+	let genId = $state(0);
 
 	/** @type {GeneratorComponent} */
-	let generatorComponent;
+	let generatorComponent = $state();
 	/** @type {Puzzle}*/
-	let puzzle;
+	let puzzle = $state();
 
 	let grid = createGrid(gridKind, width, height, wrap);
 
 	/** @type {import('$lib/puzzle/game').Progress|undefined} */
-	let savedProgress;
+	let savedProgress = $state();
 	/** @type {Number|undefined}*/
-	let pxPerCell;
-	let solved = false;
-	let mounted = false;
+	let pxPerCell = $state();
+	let solved = $state(false);
+	let mounted = $state(false);
 
 	/**
 	 * @param {{ detail: { data: any; name: String; }; }} event
@@ -224,7 +240,7 @@
 			<a
 				href="/{$page.params.grid}/{$page.params.size}"
 				data-sveltekit-noscroll
-				on:click={newPuzzle}>Next puzzle</a
+				onclick={newPuzzle}>Next puzzle</a
 			>
 		{/if}
 	</div>

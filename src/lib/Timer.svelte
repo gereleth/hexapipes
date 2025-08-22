@@ -1,4 +1,4 @@
-<script context="module">
+<script module>
 	/** Format duration in ms into "_d hh:mm:ss.sss"
 	 * @param {Number} time - duration in ms
 	 * @param {Boolean} includeMs - whether to include milliseconds in output
@@ -24,21 +24,29 @@
 </script>
 
 <script>
+	import { run } from 'svelte/legacy';
+
 	import { settings } from '$lib/stores';
-	/** @type {import('$lib/stores').Solve} */
-	export let solve = {
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('$lib/stores').Solve} [solve]
+	 */
+
+	/** @type {Props} */
+	let { solve = {
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1,
 		error: undefined
-	};
+	} } = $props();
 
 	/**
 	 * @type {NodeJS.Timer}
 	 */
 	let timerId;
-	let elapsed = 0;
+	let elapsed = $state(0);
 
 	/**
 	 * @param {import('$lib/stores').Solve} solve
@@ -59,7 +67,9 @@
 		}
 	}
 
-	$: toggleTimer(solve);
+	run(() => {
+		toggleTimer(solve);
+	});
 </script>
 
 <div class="timer">

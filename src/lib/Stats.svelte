@@ -1,7 +1,7 @@
 <script>
 	import { formatTime } from '$lib/Timer.svelte';
 	import { settings } from '$lib/stores';
-	export let stats; // a store of time and streak statistics
+	let { stats } = $props();
 </script>
 
 <div class="stats container">
@@ -82,7 +82,7 @@
 				<table>
 					<thead>
 						<tr>
-							<th />
+							<th></th>
 							<th>Current</th>
 							<th>Best</th>
 						</tr>

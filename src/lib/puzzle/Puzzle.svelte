@@ -1,4 +1,6 @@
 <script>
+	import { run, preventDefault } from 'svelte/legacy';
+
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
@@ -7,33 +9,47 @@
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
-	export let grid;
-	/** @type {Number[]} */
-	export let tiles = [];
-	/** @type {import('$lib/puzzle/game').Progress|undefined}*/
-	export let savedProgress = undefined;
-	export let progressStoreName = '';
-	/** @type {Number|undefined} */
-	export let preferredPxPerCell = undefined;
-	export let showSolveButton = false;
-	export let animate = false;
+	
+	
+	
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @property {Number[]} [tiles]
+	 * @property {import('$lib/puzzle/game').Progress|undefined} [savedProgress]
+	 * @property {string} [progressStoreName]
+	 * @property {Number|undefined} [preferredPxPerCell]
+	 * @property {boolean} [showSolveButton]
+	 * @property {boolean} [animate]
+	 */
+
+	/** @type {Props} */
+	let {
+		grid,
+		tiles = [],
+		savedProgress = undefined,
+		progressStoreName = '',
+		preferredPxPerCell = undefined,
+		showSolveButton = false,
+		animate = $bindable(false)
+	} = $props();
 
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
 	// if a user navigates between puzzles directly via back/forward buttons
 	const myProgressName = progressStoreName;
 
-	let svgWidth = 500;
-	let svgHeight = 500;
+	let svgWidth = $state(500);
+	let svgHeight = $state(500);
 
-	let game = new PipesGame(grid, tiles, savedProgress);
+	let game = $state(new PipesGame(grid, tiles, savedProgress));
 	let solved = game.solved;
 
 	const dispatch = createEventDispatcher();
 
-	let innerWidth = 500;
-	let innerHeight = 500;
+	let innerWidth = $state(500);
+	let innerHeight = $state(500);
 	const pxPerCell = 60;
 
 	const viewBox = game.viewBox;
@@ -184,8 +200,8 @@
 	/**
 	 * @type {import('$lib/puzzle/solver').Solver}
 	 */
-	let solver;
-	let numsol = 0;
+	let solver = $state();
+	let numsol = $state(0);
 	export async function unleashTheSolver() {
 		measureSolveTime();
 		if (!$solved) {
@@ -229,10 +245,10 @@
 		}
 	}
 
-	let steps = -1;
-	let ms = -1;
+	let steps = $state(-1);
+	let ms = $state(-1);
 	/** @type {Number[]}*/
-	let msStats = [];
+	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
 		const solver = new Solver(tiles, grid);
@@ -275,16 +291,18 @@
 		document.body.removeChild(element);
 	};
 
-	$: if ($solved) {
-		dispatch('solved');
-	}
+	run(() => {
+		if ($solved) {
+			dispatch('solved');
+		}
+	});
 </script>
 
-<svelte:window bind:innerWidth bind:innerHeight on:resize={resize} />
+<svelte:window bind:innerWidth bind:innerHeight onresize={resize} />
 
 {#if showSolveButton}
 	<div class="solve-button">
-		<button on:click={unleashTheSolver}>🧩 Solve it</button>
+		<button onclick={unleashTheSolver}>🧩 Solve it</button>
 		<label for="animate">
 			<input type="checkbox" bind:checked={animate} id="animate" />
 			Animate
@@ -304,7 +322,7 @@
 				<div>
 					{#each solver.solutions as solution, i}
 						<button
-							on:click={() => {
+							onclick={() => {
 								solution.forEach((orientation, index) => {
 									game.setTileOrientation(index, orientation);
 									game._solved = false;
@@ -322,14 +340,14 @@
 {/if}
 
 <div class="puzzle animation-{$settings.animationSpeed}" class:solved={$solved}>
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<svg
 		width={svgWidth}
 		height={svgHeight}
 		viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
 		use:controls={game}
-		on:contextmenu|preventDefault={() => {}}
-		on:save={save.soon}
+		oncontextmenu={preventDefault(() => {})}
+		onsave={save.soon}
 	>
 		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
 			<Tile

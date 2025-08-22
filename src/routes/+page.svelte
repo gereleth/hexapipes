@@ -7,8 +7,8 @@
 
 	const hexGrid = createGrid('hexagonal', 4, 4, false);
 	const hexWrapGrid = createGrid('hexagonal', 4, 4, true);
-	let hexSolved = false;
-	let hexWrapSolved = false;
+	let hexSolved = $state(false);
+	let hexWrapSolved = $state(false);
 
 	onMount(() => {
 		settings.loadFromLocalStorage();

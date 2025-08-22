@@ -1,19 +1,25 @@
 <script>
-	/** @type {import('$lib/puzzle/solver').SolverProgress} */
-	export let progress;
+	
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('$lib/puzzle/solver').SolverProgress} progress
+	 */
 
-	$: scale = 100 / progress.total;
-	$: ws = scale * progress.solved;
-	$: wg = scale * progress.guessed;
-	$: wa = scale * progress.ambiguous;
-	$: wu = scale * (progress.total - progress.solved - progress.guessed - progress.ambiguous);
+	/** @type {Props} */
+	let { progress } = $props();
+
+	let scale = $derived(100 / progress.total);
+	let ws = $derived(scale * progress.solved);
+	let wg = $derived(scale * progress.guessed);
+	let wa = $derived(scale * progress.ambiguous);
+	let wu = $derived(scale * (progress.total - progress.solved - progress.guessed - progress.ambiguous));
 </script>
 
 <div class="solver-progress">
-	<div class="solved" style="width: {ws}%" title="Number of solved tiles" />
-	<div class="guessed" style="width: {wg}%" title="Number of guesses" />
-	<div class="unsolved" style="width: {wu}%" title="Number of unsolved tiles" />
-	<div class="ambiguous" style="width: {wa}%" title="Number of ambiguous tiles" />
+	<div class="solved" style="width: {ws}%" title="Number of solved tiles"></div>
+	<div class="guessed" style="width: {wg}%" title="Number of guesses"></div>
+	<div class="unsolved" style="width: {wu}%" title="Number of unsolved tiles"></div>
+	<div class="ambiguous" style="width: {wa}%" title="Number of ambiguous tiles"></div>
 </div>
 
 <style>
