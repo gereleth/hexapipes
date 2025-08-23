@@ -1,6 +1,6 @@
 <script>
 	import { run, preventDefault } from 'svelte/legacy';
-
+	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
@@ -9,10 +9,6 @@
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
-	
-	
-	
-	
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
@@ -48,13 +44,11 @@
 
 	const dispatch = createEventDispatcher();
 
-	let innerWidth = $state(500);
-	let innerHeight = $state(500);
 	const pxPerCell = 60;
 
 	const viewBox = game.viewBox;
-	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, innerWidth / pxPerCell);
-	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, innerHeight / pxPerCell);
+	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, 500 / pxPerCell);
+	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, 500 / pxPerCell);
 	const visibleTiles = viewBox.visibleTiles;
 
 	export const startOver = function () {
@@ -66,15 +60,15 @@
 	};
 
 	/**
-	 * @param {Number} innerWidth
-	 * @param {Number} innerHeight
 	 * @returns {void}
 	 */
-	function initialResize(innerWidth, innerHeight) {
+	function initialResize() {
+		const iw = innerWidth.current || 500;
+		const ih = innerHeight.current || 500;
 		// take full width without scroll bar
-		const maxPixelWidth = innerWidth - 18;
+		const maxPixelWidth = iw - 18;
 		// take most height, leave some for scrolling the page on mobile
-		const maxPixelHeight = $settings.disableZoomPan ? innerHeight : Math.round(0.8 * innerHeight);
+		const maxPixelHeight = $settings.disableZoomPan ? ih : Math.round(0.8 * ih);
 
 		const maxGridWidth = grid.XMAX - grid.XMIN;
 		const maxGridHeight = grid.YMAX - grid.YMIN;
@@ -110,13 +104,18 @@
 			// do nothing to let browser zoom handle it all
 			return;
 		}
+		const iw = innerWidth.current || 500;
+		const ih = innerHeight.current || 500;
 		const pxPerCell = svgWidth / $viewBox.width;
 		// take full width without scroll bar
-		const maxPixelWidth = innerWidth - 18;
+		const maxPixelWidth = iw - 18;
 		// take most height, leave some for scrolling the page on mobile
-		const maxPixelHeight = Math.round(0.8 * innerHeight);
+		const maxPixelHeight = Math.round(0.8 * ih);
 		if (grid.wrap) {
-			svgWidth = Math.min(maxPixelWidth, pxPerCell * $viewBox.width);
+			svgWidth = Math.min(
+				maxPixelWidth,
+				pxPerCell * Math.max($viewBox.width, grid.XMAX - grid.XMIN)
+			);
 		} else {
 			svgWidth = maxPixelWidth;
 		}
@@ -134,7 +133,7 @@
 
 	onMount(() => {
 		game.initializeBoard();
-		initialResize(innerWidth, innerHeight);
+		initialResize();
 		dispatch('start');
 		// unleashTheSolver();
 	});
@@ -298,7 +297,7 @@
 	});
 </script>
 
-<svelte:window bind:innerWidth bind:innerHeight onresize={resize} />
+<svelte:window onresize={resize} />
 
 {#if showSolveButton}
 	<div class="solve-button">
