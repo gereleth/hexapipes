@@ -46,9 +46,9 @@
 
 	let genId = $state(0);
 
-	/** @type {GeneratorComponent} */
+	/** @type {GeneratorComponent|undefined} */
 	let generatorComponent = $state();
-	/** @type {Puzzle}*/
+	/** @type {Puzzle|undefined}*/
 	let puzzle = $state();
 
 	let grid = createGrid(gridKind, width, height, wrap);
@@ -61,17 +61,17 @@
 	let mounted = $state(false);
 
 	/**
-	 * @param {{ detail: { data: any; name: String; }; }} event
+	 * @param {{ data: any; name: String }} progressData
 	 */
-	function saveProgress(event) {
-		const { data, name } = event.detail;
+	function saveProgress(progressData) {
+		const { data, name } = progressData;
 		const dataStr = JSON.stringify(data);
 		window.localStorage.setItem(name, dataStr);
 	}
 
 	function startOver() {
 		solved = false;
-		puzzle.startOver();
+		puzzle?.startOver();
 	}
 
 	function start() {
@@ -112,7 +112,7 @@
 		} else if (gridKind === 'triangular') {
 			branchingAmount = 0;
 		}
-		generatorComponent.generate(
+		generatorComponent?.generate(
 			{
 				branchingAmount,
 				avoidObvious,
@@ -132,7 +132,7 @@
 		if (puzzleId !== -1) {
 			goto(`/${page.params.grid}/${page.params.size}`, { replaceState: true });
 		} else {
-			pxPerCell = puzzle.reportPxPerCell();
+			pxPerCell = puzzle?.reportPxPerCell();
 			generatePuzzle();
 		}
 	}
@@ -214,10 +214,10 @@
 			{progressStoreName}
 			preferredPxPerCell={pxPerCell}
 			bind:this={puzzle}
-			on:start={start}
-			on:solved={stop}
-			on:progress={saveProgress}
-			on:pause={pause}
+			started={start}
+			finished={stop}
+			progress={saveProgress}
+			paused={pause}
 		/>
 	{/key}
 {/if}
@@ -237,7 +237,7 @@
 		solved={solve.elapsedTime !== -1}
 		on:startOver={startOver}
 		on:newPuzzle={newPuzzle}
-		on:download={puzzle.download}
+		on:download={() => puzzle?.download()}
 	/>
 </div>
 

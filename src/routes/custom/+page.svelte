@@ -20,13 +20,13 @@
 	let solutionsNumber = $state('unique');
 	let errorMessage = $state('');
 
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
+	/** @type {import('$lib/puzzle/Puzzle.svelte').default|undefined}*/
 	let puzzle = $state();
-	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default}*/
+	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
 	let generatorComponent = $state();
 	let solved = $state(false);
 
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
+	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined}*/
 	let grid = $state();
 	/** @type {Number[]}*/
 	let tiles = $state([]);
@@ -43,7 +43,7 @@
 			width += 1;
 		}
 		grid = createGrid(gridKind, width, height, wrap);
-		generatorComponent.generate(
+		generatorComponent?.generate(
 			{
 				branchingAmount,
 				avoidObvious,
@@ -65,7 +65,7 @@
 		generatorState = 'idle';
 		if (autosolve) {
 			await tick();
-			puzzle.unleashTheSolver();
+			puzzle?.unleashTheSolver();
 		}
 	}
 	/**
@@ -147,7 +147,7 @@
 
 	function startOver() {
 		solved = false;
-		puzzle.startOver();
+		puzzle?.startOver();
 	}
 
 	onMount(() => {
@@ -260,13 +260,13 @@
 	{/if}
 </div>
 
-{#if id > 0}
+{#if id > 0 && grid !== undefined}
 	{#key id}
 		<Puzzle
 			{grid}
 			{tiles}
 			bind:this={puzzle}
-			on:solved={() => (solved = true)}
+			finished={() => (solved = true)}
 			showSolveButton={true}
 			bind:animate
 		/>
@@ -279,7 +279,9 @@
 		on:startOver={startOver}
 		includeNewPuzzleButton={true}
 		on:newPuzzle={generate}
-		on:download={puzzle.download}
+		on:download={() => {
+			puzzle?.download();
+		}}
 	/>
 </div>
 

@@ -82,7 +82,7 @@
 <Puzzle
 	grid={hexGrid}
 	tiles={[1, 57, 2, 24, 40, 25, 10, 2, 4, 49, 22, 8, 48, 32, 5, 4]}
-	on:solved={() => (hexSolved = true)}
+	finished={() => (hexSolved = true)}
 />
 <div class="container">
 	<p class="congrat" class:hidden={!hexSolved}>
@@ -114,7 +114,7 @@
 <Puzzle
 	grid={hexWrapGrid}
 	tiles={[2, 27, 18, 2, 34, 2, 8, 1, 8, 16, 45, 1, 6, 48, 53, 9]}
-	on:solved={() => (hexWrapSolved = true)}
+	finished={() => (hexWrapSolved = true)}
 />
 
 <p class="congrat" class:hidden={!hexWrapSolved}>

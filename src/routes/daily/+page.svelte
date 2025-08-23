@@ -12,7 +12,6 @@
 	import { createGrid } from '$lib/puzzle/grids/grids';
 	import Instructions from '$lib/Instructions.svelte';
 
-	
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('./$types').PageData} data
@@ -29,7 +28,7 @@
 		pausedAt: -1,
 		elapsedTime: -1
 	});
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
+	/** @type {import('$lib/puzzle/Puzzle.svelte').default|undefined}*/
 	let puzzle = $state();
 	let solved = $state(false);
 	let progressStoreName = '/daily_progress';
@@ -81,17 +80,21 @@
 		solve = solves.reportFinish(data.date);
 	}
 
-	function saveProgress(event) {
+	/**
+	 * @param {{name: string, data: any}} progressData
+	 */
+	function saveProgress(progressData) {
+		const { name, data } = progressData;
 		const dataStr = JSON.stringify({
 			date: data.date,
-			progress: event.detail.data
+			progress: data
 		});
-		window.localStorage.setItem(event.detail.name, dataStr);
+		window.localStorage.setItem(name, dataStr);
 	}
 
 	function startOver() {
 		solved = false;
-		puzzle.startOver();
+		puzzle?.startOver();
 	}
 
 	onMount(() => {
@@ -170,10 +173,10 @@
 	{savedProgress}
 	{progressStoreName}
 	bind:this={puzzle}
-	on:solved={stop}
-	on:start={start}
-	on:progress={saveProgress}
-	on:pause={() => solves.pause(data.date)}
+	finished={stop}
+	started={start}
+	progress={saveProgress}
+	paused={() => solves.pause(data.date)}
 />
 
 <div class="container">

@@ -4,7 +4,7 @@
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
-	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { PipesGame } from '$lib/puzzle/game.svelte.js';
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
@@ -18,6 +18,10 @@
 	 * @property {Number|undefined} [preferredPxPerCell]
 	 * @property {boolean} [showSolveButton]
 	 * @property {boolean} [animate]
+	 * @property {()=>void} [started]
+	 * @property {()=>void} finished
+	 * @property {(x:{name:string, data:any})=>void} [progress]
+	 * @property {()=>void} [paused]
 	 */
 
 	/** @type {Props} */
@@ -28,7 +32,11 @@
 		progressStoreName = '',
 		preferredPxPerCell = undefined,
 		showSolveButton = false,
-		animate = $bindable(false)
+		animate = $bindable(false),
+		started = () => {},
+		finished,
+		progress = () => {},
+		paused = () => {}
 	} = $props();
 
 	// Remember the name that the puzzle was created with
@@ -41,8 +49,6 @@
 
 	const game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
-
-	const dispatch = createEventDispatcher();
 
 	const pxPerCell = 60;
 
@@ -134,7 +140,7 @@
 	onMount(() => {
 		game.initializeBoard();
 		initialResize();
-		dispatch('start');
+		started();
 		// unleashTheSolver();
 	});
 
@@ -143,7 +149,7 @@
 		save.clear();
 		if (!$solved) {
 			save.now();
-			dispatch('pause');
+			paused();
 		}
 	});
 
@@ -181,7 +187,7 @@
 				edgeMarks: data.edgeMarks
 			};
 		});
-		dispatch('progress', {
+		progress({
 			name: myProgressName,
 			data: {
 				tiles: tileStates
@@ -196,7 +202,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {import('$lib/puzzle/solver').Solver}
+	 * @type {import('$lib/puzzle/solver').Solver|undefined}
 	 */
 	let solver = $state();
 	let numsol = $state(0);
@@ -289,7 +295,7 @@
 
 	run(() => {
 		if ($solved) {
-			dispatch('solved');
+			finished();
 		}
 	});
 
@@ -323,7 +329,7 @@
 			<div>Number of solutions: {numsol}</div>
 			{#if numsol > 1}
 				<div>
-					{#each solver.solutions as solution, i}
+					{#each solver?.solutions || [] as solution, i}
 						<button
 							onclick={() => {
 								solution.forEach((orientation, index) => {
