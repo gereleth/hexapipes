@@ -346,6 +346,7 @@ export class RegularPolygonTile {
 	 * @param {Number} x2
 	 * @param {Number} y1
 	 * @param {Number} y2
+	 * @returns {{mark:import('$lib/puzzle/game').EdgeMark, direction:number}}
 	 */
 	detect_edgemark_gesture(x1, x2, y1, y2) {
 		// find closest direction
@@ -353,6 +354,7 @@ export class RegularPolygonTile {
 		const xmid = (x1 + x2) / 2;
 		const ymid = (y1 + y2) / 2;
 		const direction = this.get_closest_direction(xmid, -ymid);
+		/** @type {{mark:import('$lib/puzzle/game').EdgeMark, direction:number}} */
 		const result = { mark: 'none', direction };
 		// find wall line in this direction
 		const wall = this.get_wall_line(direction);
@@ -542,12 +544,14 @@ export class TransformedPolygonTile extends RegularPolygonTile {
 	 * @param {Number} x2
 	 * @param {Number} y1
 	 * @param {Number} y2
+	 * @returns {{mark:import('$lib/puzzle/game').EdgeMark, direction:number}}
 	 */
 	detect_edgemark_gesture(x1, x2, y1, y2) {
 		// find closest direction
 		const xmid = (x1 + x2) / 2;
 		const ymid = (y1 + y2) / 2;
 		const direction = this.get_closest_direction(xmid, ymid);
+		/** @type {{mark:import('$lib/puzzle/game').EdgeMark, direction:number}}*/
 		const result = { mark: 'none', direction };
 		// find wall line in this direction
 		const wall = this.get_wall_line(direction);

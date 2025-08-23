@@ -36,6 +36,7 @@ export const puzzleCounts = writable({
  * @property {Boolean} showTimer
  * @property {Boolean} disableZoomPan
  * @property {Boolean} assistant
+ * @property {AnimationSpeed} animationSpeed
  */
 
 function createSettings() {

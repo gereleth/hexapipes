@@ -84,7 +84,7 @@ export function controls(node, game) {
 		node.dispatchEvent(new CustomEvent('save'));
 	}
 
-	/** @type {NodeJS.Timer|undefined} */
+	/** @type {ReturnType<typeof setTimeout>} */
 	let edgeMarkTimer;
 	/**
 	 *
@@ -354,7 +354,7 @@ export function controls(node, game) {
 	let ongoingTouches = [];
 	/**@type {'idle'|'touchdown'|'zoom_pan'|'panning'|'locking'|'unlocking'} */
 	let touchState = 'idle';
-	/** @type {NodeJS.Timer|undefined} */
+	/** @type {ReturnType<typeof setTimeout>} */
 	let touchTimer;
 	/**
 	 *

@@ -10,7 +10,7 @@ export const SOUTHEAST = 32;
 
 const YSTEP = Math.sqrt(3) / 2;
 
-const HEXAGON = new RegularPolygonTile(6, 0, 0.5);
+const HEXAGON = new RegularPolygonTile(6, 0, 0.45);
 
 /**
  * Hexagonal grid
@@ -108,11 +108,7 @@ export class HexaGrid extends AbstractGrid {
 		const y0 = r0 * YSTEP;
 		const distance0 = Math.sqrt((x - x0) ** 2 + (y - y0) ** 2);
 		if (distance0 <= 0.5) {
-			return {
-				index: this.rc_to_index(r0, c0),
-				x: x0,
-				y: y0
-			};
+			return { index: this.rc_to_index(r0, c0), x: x0, y: y0 };
 		} else {
 			let r1 = Math.floor(r);
 			if (r1 === r0) {
@@ -123,17 +119,9 @@ export class HexaGrid extends AbstractGrid {
 			const y1 = r1 * YSTEP;
 			const distance1 = Math.sqrt((x - x1) ** 2 + (y - y1) ** 2);
 			if (distance0 < distance1) {
-				return {
-					index: this.rc_to_index(r0, c0),
-					x: x0,
-					y: y0
-				};
+				return { index: this.rc_to_index(r0, c0), x: x0, y: y0 };
 			} else {
-				return {
-					index: this.rc_to_index(r1, c1),
-					x: x1,
-					y: y1
-				};
+				return { index: this.rc_to_index(r1, c1), x: x1, y: y1 };
 			}
 		}
 	}
@@ -250,12 +238,7 @@ export class HexaGrid extends AbstractGrid {
 				const x = c + (r % 2 === 0 ? 0.0 : 0.5);
 				const y = r * YSTEP;
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}`;
-				visibleTiles.push({
-					index,
-					x,
-					y,
-					key
-				});
+				visibleTiles.push({ index, x, y, key });
 			}
 		}
 		return visibleTiles;
