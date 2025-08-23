@@ -63,6 +63,9 @@ export class RegularPolygonTile {
 		const typeStrings = new Set(['1']);
 		while (typeStrings.size > 0) {
 			const currentTypeStr = typeStrings.values().next().value;
+			if (currentTypeStr === undefined) {
+				break;
+			}
 			typeStrings.delete(currentTypeStr);
 			if (currentTypeStr.endsWith('1')) {
 				/** @type {Number[]} */

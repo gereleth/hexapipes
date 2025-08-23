@@ -1,5 +1,3 @@
-<!-- @migration-task Error while migrating Svelte code: can't migrate `let state = 'idle';` to `$state` because there's a variable named state.
-     Rename the variable and try again or migrate by hand. -->
 <script>
 	import { onMount, tick } from 'svelte';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
@@ -8,33 +6,33 @@
 	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
 	import Instructions from '$lib/Instructions.svelte';
 
-	let state = 'idle';
+	let generatorState = $state('idle');
 	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
-	let gridKind = 'hexagonal';
-	let width = 5;
-	let height = 5;
-	let wrap = false;
-	let branchingAmount = 0.6;
-	let avoidObvious = 0.0;
-	let avoidStraights = 0.0;
-	let autosolve = false;
+	let gridKind = $state('hexagonal');
+	let width = $state(5);
+	let height = $state(5);
+	let wrap = $state(false);
+	let branchingAmount = $state(0.6);
+	let avoidObvious = $state(0.0);
+	let avoidStraights = $state(0.0);
+	let autosolve = $state(false);
 	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
-	let solutionsNumber = 'unique';
-	let errorMessage = '';
+	let solutionsNumber = $state('unique');
+	let errorMessage = $state('');
 
 	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
-	let puzzle;
+	let puzzle = $state();
 	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default}*/
-	let generatorComponent;
-	let solved = false;
+	let generatorComponent = $state();
+	let solved = $state(false);
 
 	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
-	let grid;
+	let grid = $state();
 	/** @type {Number[]}*/
-	let tiles = [];
+	let tiles = $state([]);
 
-	let id = 0;
-	let animate = false;
+	let id = $state(0);
+	let animate = $state(false);
 
 	function generate() {
 		// ensure valid sizes
@@ -54,7 +52,7 @@
 			},
 			grid
 		);
-		state = 'generating';
+		generatorState = 'generating';
 	}
 	/**
 	 *
@@ -64,7 +62,7 @@
 		id += 1;
 		tiles = event.detail.tiles;
 		errorMessage = '';
-		state = 'idle';
+		generatorState = 'idle';
 		if (autosolve) {
 			await tick();
 			puzzle.unleashTheSolver();
@@ -76,12 +74,12 @@
 	 */
 	function onError(event) {
 		errorMessage = event.detail;
-		state = 'idle';
+		generatorState = 'idle';
 	}
 
 	function onCancel() {
 		errorMessage = '';
-		state = 'idle';
+		generatorState = 'idle';
 	}
 
 	function importPuzzle(event) {
@@ -192,7 +190,7 @@
 		Wrap
 		<input type="checkbox" name="wrap" id="wrap" bind:checked={wrap} />
 	</label>
-	<button on:click={generate} disabled={state === 'generating'}>Generate</button>
+	<button onclick={generate} disabled={generatorState === 'generating'}>Generate</button>
 	<details>
 		<summary>More options</summary>
 		<label for="branching">
@@ -249,7 +247,7 @@
 	</details>
 
 	<label class="file-input" for="file-input"> Import from file </label>
-	<input class="file-input" id="file-input" type="file" on:change={importFromFile} />
+	<input class="file-input" id="file-input" type="file" onchange={importFromFile} />
 
 	<GeneratorComponent
 		bind:this={generatorComponent}

@@ -1,7 +1,7 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { gridInfo } from '$lib/puzzle/grids/grids';
-	let category = $derived($page.params.grid);
+	let category = $derived(page.params.grid);
 	let gridKind = $derived(category.split('-')[0]);
 	let wrap = $derived(category.split('-')[1] === 'wrap');
 	let info = $derived(gridInfo[gridKind]);

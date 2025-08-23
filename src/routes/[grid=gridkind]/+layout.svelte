@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import Instructions from '$lib/Instructions.svelte';
 	import { gridInfo } from '$lib/puzzle/grids/grids';
 	/**
@@ -10,7 +10,7 @@
 	/** @type {Props} */
 	let { children } = $props();
 
-	let category = $derived($page.params.grid);
+	let category = $derived(page.params.grid);
 	let gridKind = $derived(category.split('-')[0]);
 	let wrap = $derived(category.split('-')[1] === 'wrap');
 	let info = $derived(gridInfo[gridKind]);
@@ -20,7 +20,7 @@
 
 <svelte:head>
 	<title>
-		{$page.params.size}x{$page.params.size}
+		{page.params.size}x{page.params.size}
 		{title} Puzzle
 	</title>
 </svelte:head>
@@ -45,8 +45,8 @@
 		<span> Size:</span>
 		{#each sizes as size}
 			<a
-				href="/{$page.params.grid}/{size}"
-				class:active={$page.url.pathname.includes(`/${$page.params.grid}/${size}`)}
+				href="/{page.params.grid}/{size}"
+				class:active={page.url.pathname.includes(`/${page.params.grid}/${size}`)}
 			>
 				{size}x{size}
 			</a>
@@ -55,7 +55,7 @@
 </div>
 
 <div class="info container">
-	<h2>{$page.params.size}x{$page.params.size} {title} Puzzle</h2>
+	<h2>{page.params.size}x{page.params.size} {title} Puzzle</h2>
 
 	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>

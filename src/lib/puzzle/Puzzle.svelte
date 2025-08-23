@@ -5,7 +5,7 @@
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
 	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
-	import { PipesGame } from '$lib/puzzle/game';
+	import { PipesGame } from '$lib/puzzle/game.svelte.js';
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
@@ -13,7 +13,7 @@
 	 * @typedef {Object} Props
 	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
 	 * @property {Number[]} [tiles]
-	 * @property {import('$lib/puzzle/game').Progress|undefined} [savedProgress]
+	 * @property {import('$lib/puzzle/game.svelte').Progress|undefined} [savedProgress]
 	 * @property {string} [progressStoreName]
 	 * @property {Number|undefined} [preferredPxPerCell]
 	 * @property {boolean} [showSolveButton]
@@ -39,7 +39,7 @@
 	let svgWidth = $state(500);
 	let svgHeight = $state(500);
 
-	let game = $state(new PipesGame(grid, tiles, savedProgress));
+	const game = new PipesGame(grid, tiles, savedProgress);
 	let solved = game.solved;
 
 	const dispatch = createEventDispatcher();
@@ -173,8 +173,7 @@
 		if ($solved) {
 			return;
 		}
-		const tileStates = game.tileStates.map((tile) => {
-			const data = tile.data;
+		const tileStates = game.tileStates.map((data) => {
 			return {
 				rotations: data.rotations,
 				locked: data.locked,
@@ -206,9 +205,7 @@
 		if (!$solved) {
 			// unlock all tiles
 			for (let tileState of game.tileStates) {
-				if (tileState.data.locked) {
-					tileState.toggleLocked();
-				}
+				tileState.locked = false;
 			}
 			solver = new Solver(tiles, grid);
 			try {
@@ -233,7 +230,7 @@
 					game._solved = false;
 					for (let [i, tile] of solver.solutions[0].entries()) {
 						const isSame = solver.solutions.every((solution) => solution[i] === tile);
-						if (game.tileStates[i].data.locked !== isSame) {
+						if (game.tileStates[i].locked !== isSame) {
 							game.tileStates[i].toggleLocked();
 						}
 					}

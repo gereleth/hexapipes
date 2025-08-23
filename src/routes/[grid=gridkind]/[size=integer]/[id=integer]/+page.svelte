@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import PuzzleKindWrapper from '$lib/puzzleWrapper/PuzzleKindWrapper.svelte';
 
 	
@@ -14,7 +14,7 @@
 
 <svelte:head>
 	<title>
-		{$page.params.size}x{$page.params.size} Hexagonal Pipes Puzzle #{$page.params.id}
+		{page.params.size}x{page.params.size} Hexagonal Pipes Puzzle #{page.params.id}
 	</title>
 </svelte:head>
 
@@ -22,7 +22,7 @@
 	width={data.width}
 	height={data.height}
 	tiles={data.tiles}
-	category={$page.params.grid}
-	size={Number($page.params.size)}
-	puzzleId={Number($page.params.id)}
+	category={page.params.grid}
+	size={Number(page.params.size)}
+	puzzleId={Number(page.params.id)}
 />

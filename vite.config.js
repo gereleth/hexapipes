@@ -8,6 +8,11 @@ const config = {
 		globals: true,
 		environment: 'jsdom'
 	}
+	// resolve: process.env.VITEST
+	// 	? {
+	// 			conditions: ['browser']
+	// 		}
+	// 	: undefined
 };
 
 export default config;

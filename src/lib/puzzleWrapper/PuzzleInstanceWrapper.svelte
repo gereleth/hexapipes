@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	import { createGrid } from '$lib/puzzle/grids/grids';
 	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
@@ -9,15 +9,6 @@
 	import Timer from '$lib/Timer.svelte';
 	import { goto } from '$app/navigation';
 
-	
-	
-	
-	
-	
-
-	
-	
-	
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('$lib/puzzle/grids/grids').GridKind} gridKind
@@ -62,7 +53,7 @@
 
 	let grid = createGrid(gridKind, width, height, wrap);
 
-	/** @type {import('$lib/puzzle/game').Progress|undefined} */
+	/** @type {import('$lib/puzzle/game.svelte').Progress|undefined} */
 	let savedProgress = $state();
 	/** @type {Number|undefined}*/
 	let pxPerCell = $state();
@@ -139,7 +130,7 @@
 			window.localStorage.removeItem(instanceStoreName);
 		}
 		if (puzzleId !== -1) {
-			goto(`/${$page.params.grid}/${$page.params.size}`, { replaceState: true });
+			goto(`/${page.params.grid}/${page.params.size}`, { replaceState: true });
 		} else {
 			pxPerCell = puzzle.reportPxPerCell();
 			generatePuzzle();
@@ -237,10 +228,8 @@
 			{#if solved}
 				Solved!
 			{/if}
-			<a
-				href="/{$page.params.grid}/{$page.params.size}"
-				data-sveltekit-noscroll
-				onclick={newPuzzle}>Next puzzle</a
+			<a href="/{page.params.grid}/{page.params.size}" data-sveltekit-noscroll onclick={newPuzzle}
+				>Next puzzle</a
 			>
 		{/if}
 	</div>

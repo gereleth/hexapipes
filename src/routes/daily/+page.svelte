@@ -3,7 +3,7 @@
 
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import Puzzle from '$lib/puzzle/Puzzle.svelte';
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer, { formatTime } from '$lib/Timer.svelte';
@@ -122,9 +122,9 @@
 			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it in ${formatTime(
 				solve.elapsedTime,
 				false
-			)}${streak}!\n${$page.url}`;
+			)}${streak}!\n${page.url}`;
 		} else {
-			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it${streak}!\n${$page.url}`;
+			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it${streak}!\n${page.url}`;
 		}
 	}
 

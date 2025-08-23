@@ -15,7 +15,7 @@ import normalizeWheel from 'normalize-wheel';
 /**
  * Attaches mouse/touch controls to the game area
  * @param {HTMLElement} node
- * @param {import('$lib/puzzle/game').PipesGame} game
+ * @param {import('$lib/puzzle/game.svelte').PipesGame} game
  * @returns
  */
 export function controls(node, game) {
@@ -266,8 +266,8 @@ export function controls(node, game) {
 				if (leftButton) {
 					const { tileX, tileY } = mouseDownOrigin;
 					const timesRotate = game.grid.clickOrientTile(
-						tileState.data.tile,
-						tileState.data.rotations,
+						tileState.tile,
+						tileState.rotations,
 						x - tileX,
 						y - tileY,
 						tileIndex
@@ -561,8 +561,8 @@ export function controls(node, game) {
 					} else if (currentSettings.controlMode === 'orient_lock') {
 						const { tileX, tileY } = t;
 						const timesRotate = game.grid.clickOrientTile(
-							tileState.data.tile,
-							tileState.data.rotations,
+							tileState.tile,
+							tileState.rotations,
 							x - tileX,
 							y - tileY,
 							tileIndex

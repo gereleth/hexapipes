@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { HexaGrid } from './grids/hexagrid';
-import { PipesGame } from './game';
+import { PipesGame } from './game.svelte';
 
 describe('Test initialize board', () => {
 	const grid = new HexaGrid(3, 3, false);
 	const tiles = [1, 3, 3, 11, 11, 5, 1, 1, 1];
 
-	/** @type {import('./game').EdgeMark[]} */
+	/** @type {import('./game.svelte').EdgeMark[]} */
 	const edgeMarks = ['empty', 'empty', 'empty'];
 	const progressItem = {
 		color: 'white',
@@ -19,8 +19,7 @@ describe('Test initialize board', () => {
 		const game = new PipesGame(grid, tiles, undefined);
 		game.initializeBoard();
 		expect(game.initialized, 'sets initialized flag').toBe(true);
-		game.tileStates.forEach((stateStore, index) => {
-			const data = stateStore.data;
+		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(0);
 			expect(data.color).toBe('white');
 			expect(data.locked).toBe(false);
@@ -43,8 +42,7 @@ describe('Test initialize board', () => {
 		const game = new PipesGame(grid, myTiles, undefined);
 		game.initializeBoard();
 		expect(game.initialized, 'sets initialized flag').toBe(true);
-		game.tileStates.forEach((stateStore, index) => {
-			const data = stateStore.data;
+		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(0);
 			expect(data.color).toBe('white');
 			expect(data.locked).toBe(false);
@@ -77,8 +75,7 @@ describe('Test initialize board', () => {
 		const game = new PipesGame(grid, tiles, progress);
 		game.initializeBoard();
 		expect(game.initialized, 'sets initialized flag').toBe(true);
-		game.tileStates.forEach((stateStore, index) => {
-			const data = stateStore.data;
+		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
 			expect(data.color).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);
@@ -113,8 +110,7 @@ describe('Test initialize board', () => {
 		const game = new PipesGame(grid, tiles, progress);
 		game.initializeBoard();
 		expect(game.initialized, 'sets initialized flag').toBe(true);
-		game.tileStates.forEach((stateStore, index) => {
-			const data = stateStore.data;
+		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
 			expect(data.color).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);

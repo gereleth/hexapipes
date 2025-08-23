@@ -44,6 +44,45 @@ import { createViewBox } from './viewbox';
  * @property {SavedTileState[]} tiles
  */
 
+class NewTileState {
+	/** @type {number} */
+	tile;
+	color = $state('white');
+	locked = $state(false);
+	isPartOfLoop = $state(false);
+	isPartOfIsland = $state(false);
+	hasDisconnects = $state(false);
+	rotations = $state(0);
+	/** @type EdgeMark[] */
+	edgeMarks = $state([]);
+
+	/**
+	 *
+	 * @param {TileState} data
+	 */
+	constructor(data) {
+		this.tile = data.tile;
+		this.color = data.color;
+		this.locked = data.locked;
+		this.isPartOfLoop = data.isPartOfLoop;
+		this.isPartOfIsland = data.isPartOfIsland;
+		this.hasDisconnects = data.hasDisconnects;
+		this.rotations = data.rotations;
+		this.edgeMarks = data.edgeMarks;
+	}
+
+	/**
+	 * @param {number} times
+	 */
+	rotate(times) {
+		this.rotations += times;
+	}
+
+	toggleLocked() {
+		this.locked = !this.locked;
+	}
+}
+
 /**
  * @constructor
  * @param {TileState} initialState
@@ -132,7 +171,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.connections = new Map();
 
 	/**
-	 * @type {StateStore[]}
+	 * @type {NewTileState[]}
 	 */
 	self.tileStates = [];
 
@@ -166,7 +205,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	const defaultEdgeMarks = ['empty', 'empty', 'empty'];
 	if (savedProgress) {
 		self.tileStates = savedProgress.tiles.map((savedTile, index) => {
-			return new StateStore({
+			return new NewTileState({
 				tile: tiles[index],
 				rotations: savedTile.rotations,
 				color: savedTile.color,
@@ -189,7 +228,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 					}
 				});
 			}
-			return new StateStore({
+			return new NewTileState({
 				tile: tile,
 				rotations: 0,
 				color: 'white',
@@ -204,8 +243,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 
 	self.initializeBoard = function () {
 		// create components and fill in connections data
-		self.tileStates.forEach((tileState, index) => {
-			const state = tileState.data;
+		self.tileStates.forEach((state, index) => {
 			let directions = self.grid.getDirections(state.tile, state.rotations, index);
 			const connections = new Set();
 			for (let direction of directions) {
@@ -216,7 +254,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			}
 			if (connections.size < directions.length) {
 				// some connections point outside the grid
-				tileState.setHasDisconnects(true);
+				state.hasDisconnects = true;
 			}
 			self.connections.set(index, connections);
 		});
@@ -226,7 +264,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		const empty = new Set();
 		while (checked.size < self.tileStates.length) {
 			const toCheck = new Set([i]);
-			const state = self.tileStates[i].data;
+			const state = self.tileStates[i];
 			const component = {
 				color: state.color,
 				tiles: new Set([i]),
@@ -236,12 +274,15 @@ export function PipesGame(grid, tiles, savedProgress) {
 			let loop = false;
 			while (toCheck.size > 0) {
 				const index = toCheck.values().next().value;
+				if (index === undefined) {
+					throw Error('jsdoc, stop making this red');
+				}
 				const tileState = self.tileStates[index];
 				toCheck.delete(index);
 				checked.add(index);
 				self.components.set(index, component);
 				component.tiles.add(index);
-				if (tileState.data.hasDisconnects) {
+				if (tileState.hasDisconnects) {
 					component.openEnds.add(index);
 					self.openEnds.add(index);
 				}
@@ -261,7 +302,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 						toCheck.add(neighbour);
 						connectedThrough.set(neighbour, index);
 					} else {
-						tileState.setHasDisconnects(true);
+						tileState.hasDisconnects = true;
 						component.openEnds.add(index);
 						self.openEnds.add(index);
 					}
@@ -270,12 +311,12 @@ export function PipesGame(grid, tiles, savedProgress) {
 			if (loop) {
 				const loopTiles = self.detectLoops(component.tiles);
 				for (let loopTile of loopTiles) {
-					self.tileStates[loopTile].setPartOfLoop(true);
+					self.tileStates[loopTile].isPartOfLoop = true;
 				}
 			}
 			if (component.openEnds.size === 0) {
 				for (let islandTile of component.tiles) {
-					self.tileStates[islandTile].setPartOfIsland(true);
+					self.tileStates[islandTile].isPartOfIsland = true;
 				}
 			}
 
@@ -298,20 +339,16 @@ export function PipesGame(grid, tiles, savedProgress) {
 		self.disconnectStrokeColor.set('#888888');
 
 		self.tileStates.forEach((tileState, index) => {
-			tileState.set({
-				tile: tiles[index],
-				rotations: 0,
-				color: 'white',
-				isPartOfLoop: false,
-				isPartOfIsland: false,
-				hasDisconnects: false,
-				locked: false,
-				// some tiles could have set their edgemarks to none
-				// if they are on the outer border
-				// remember that and remove edgemarks otherwise
-				edgeMarks: tileState.data.edgeMarks.map((edgemark) => {
-					return edgemark === 'none' ? 'none' : 'empty';
-				})
+			tileState.rotations = 0;
+			tileState.color = 'white';
+			tileState.locked = false;
+			tileState.isPartOfIsland = false;
+			tileState.isPartOfLoop = false;
+			tileState.hasDisconnects = false;
+			// edgemarks on outer edges may be 'none'
+			// keep that info and discard other edgemarks
+			tileState.edgeMarks = tileState.edgeMarks.map((edgemark) => {
+				return edgemark === 'none' ? 'none' : 'empty';
 			});
 		});
 
@@ -328,20 +365,12 @@ export function PipesGame(grid, tiles, savedProgress) {
 			return;
 		}
 		const tileState = self.tileStates[tileIndex];
-		if (tileState === undefined || tileState.data.locked) {
+		if (tileState === undefined || tileState.locked) {
 			return;
 		}
-		const oldDirections = self.grid.getDirections(
-			tileState.data.tile,
-			tileState.data.rotations,
-			tileIndex
-		);
+		const oldDirections = self.grid.getDirections(tileState.tile, tileState.rotations, tileIndex);
 		tileState.rotate(times);
-		const newDirections = self.grid.getDirections(
-			tileState.data.tile,
-			tileState.data.rotations,
-			tileIndex
-		);
+		const newDirections = self.grid.getDirections(tileState.tile, tileState.rotations, tileIndex);
 
 		const dirOut = oldDirections.filter((direction) => !newDirections.some((d) => d === direction));
 		const dirIn = newDirections.filter((direction) => !oldDirections.some((d) => d === direction));
@@ -362,7 +391,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		if (tileState === undefined) {
 			return;
 		}
-		const initial = self.grid.rotate(self.tiles[tileIndex], tileState.data.rotations, tileIndex);
+		const initial = self.grid.rotate(self.tiles[tileIndex], tileState.rotations, tileIndex);
 		let newState = initial;
 		let rotations = 0;
 		while (newState !== orientation && rotations < polygon.directions.length) {
@@ -400,13 +429,12 @@ export function PipesGame(grid, tiles, savedProgress) {
 			return;
 		}
 		const tileState = self.tileStates[tileIndex];
-		if (tileState.data.edgeMarks[index] === mark) {
-			tileState.data.edgeMarks[index] = 'empty';
-		} else if (tileState.data.edgeMarks[index] !== 'none') {
-			tileState.data.edgeMarks[index] = mark;
+		if (tileState.edgeMarks[index] === mark) {
+			tileState.edgeMarks[index] = 'empty';
+		} else if (tileState.edgeMarks[index] !== 'none') {
+			tileState.edgeMarks[index] = mark;
 		}
-		tileState.set(tileState.data);
-		if (tileState.data.edgeMarks[index] !== 'empty' && assistant) {
+		if (tileState.edgeMarks[index] !== 'empty' && assistant) {
 			self.rotateToMatchMarks(tileIndex);
 			self.rotateToMatchMarks(neighbour);
 		}
@@ -418,7 +446,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 	 */
 	self.rotateToMatchMarks = function (tileIndex) {
 		const tileState = self.tileStates[tileIndex];
-		if (tileState.data.locked) {
+		if (tileState.locked) {
 			return;
 		}
 		let walls = 0;
@@ -430,7 +458,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				walls += direction;
 				continue;
 			}
-			if (self.tileStates[neighbour].data.locked) {
+			if (self.tileStates[neighbour].locked) {
 				if (self.connections.get(neighbour)?.has(tileIndex)) {
 					connections += direction;
 				} else {
@@ -445,9 +473,9 @@ export function PipesGame(grid, tiles, savedProgress) {
 				// neighbour state has info about this mark
 				const opposite = self.grid.OPPOSITE.get(direction) || 0;
 				const oppositeIndex = self.grid.EDGEMARK_DIRECTIONS.indexOf(opposite);
-				mark = self.tileStates[neighbour].data.edgeMarks[oppositeIndex];
+				mark = self.tileStates[neighbour].edgeMarks[oppositeIndex];
 			} else {
-				mark = tileState.data.edgeMarks[index];
+				mark = tileState.edgeMarks[index];
 			}
 			if (mark === 'conn') {
 				connections += direction;
@@ -456,8 +484,8 @@ export function PipesGame(grid, tiles, savedProgress) {
 			}
 		}
 		for (let r = 0; r < polygon.directions.length; r++) {
-			const rotations = tileState.data.rotations + r;
-			const rotated = polygon.rotate(tileState.data.tile, rotations);
+			const rotations = tileState.rotations + r;
+			const rotated = polygon.rotate(tileState.tile, rotations);
 			if ((rotated & connections) === connections && (rotated & walls) === 0) {
 				self.rotateTile(tileIndex, r);
 				break;
@@ -545,12 +573,11 @@ export function PipesGame(grid, tiles, savedProgress) {
 	self.setTileDisconnects = function (tileIndex, hasDisconnects = undefined) {
 		let newHasDisconnects = hasDisconnects || false;
 		if (hasDisconnects === undefined) {
-			const directions = self.grid.getDirections(
-				self.tileStates[tileIndex].data.tile,
-				0,
-				tileIndex
-			);
+			const directions = self.grid.getDirections(self.tileStates[tileIndex].tile, 0, tileIndex);
 			const connections = self.connections.get(tileIndex);
+			if (connections === undefined) {
+				throw `Connections data for tile ${tileIndex} not found`;
+			}
 			if (directions.length > connections.size) {
 				newHasDisconnects = true;
 			} else {
@@ -562,7 +589,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				}
 			}
 		}
-		self.tileStates[tileIndex].setHasDisconnects(newHasDisconnects);
+		self.tileStates[tileIndex].hasDisconnects = newHasDisconnects;
 		const component = self.components.get(tileIndex);
 		if (component === undefined) {
 			throw `Component open ends data for tile ${tileIndex} not found`;
@@ -570,7 +597,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		if (newHasDisconnects) {
 			if (component.openEnds.size === 0) {
 				for (let index of component.tiles) {
-					self.tileStates[index].setPartOfIsland(false);
+					self.tileStates[index].isPartOfIsland = false;
 				}
 			}
 			component.openEnds.add(tileIndex);
@@ -580,7 +607,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			self.openEnds.delete(tileIndex);
 			if (component.openEnds.size === 0 && component.tiles.size < totalTiles) {
 				for (let index of component.tiles) {
-					self.tileStates[index].setPartOfIsland(true);
+					self.tileStates[index].isPartOfIsland = true;
 				}
 			}
 		}
@@ -682,7 +709,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			// console.log('merge component to itself, its a loop', fromIndex, toIndex)
 			const loopTiles = self.detectLoops(fromComponent.tiles);
 			for (let tile of fromComponent.tiles) {
-				self.tileStates[tile].setPartOfLoop(loopTiles.has(tile));
+				self.tileStates[tile].isPartOfLoop = loopTiles.has(tile);
 			}
 			return;
 		}
@@ -699,7 +726,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			}
 			if (constantComponent.color !== newColor) {
 				constantComponent.tiles.forEach((tileIndex) => {
-					self.tileStates[tileIndex].setColor(newColor);
+					self.tileStates[tileIndex].color = newColor;
 				});
 			}
 			constantComponent.color = newColor;
@@ -707,7 +734,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		for (let changedTile of changedComponent.tiles) {
 			self.components.set(changedTile, constantComponent);
 			constantComponent.tiles.add(changedTile);
-			self.tileStates[changedTile].setColor(constantComponent.color);
+			self.tileStates[changedTile].color = constantComponent.color;
 		}
 		for (let changedTile of changedComponent.openEnds) {
 			constantComponent.openEnds.add(changedTile);
@@ -725,11 +752,11 @@ export function PipesGame(grid, tiles, savedProgress) {
 		const tileState = self.tileStates[tileIndex];
 		let targetState = false;
 		if (state === undefined) {
-			targetState = !tileState.data.locked;
+			targetState = !tileState.locked;
 		} else {
 			targetState = state;
 		}
-		if (tileState.data.locked !== targetState) {
+		if (tileState.locked !== targetState) {
 			tileState.toggleLocked();
 		}
 		if (targetState && assistant) {
@@ -761,7 +788,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			// console.log('not disconnecting because of other connection', fromIndex, toIndex)
 			const loopTiles = self.detectLoops(bigComponent.tiles);
 			for (let tile of bigComponent.tiles) {
-				self.tileStates[tile].setPartOfLoop(loopTiles.has(tile));
+				self.tileStates[tile].isPartOfLoop = loopTiles.has(tile);
 			}
 			return;
 		}
@@ -781,7 +808,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			if (bigComponent.openEnds.delete(tileIndex)) {
 				newComponent.openEnds.add(tileIndex);
 			}
-			self.tileStates[tileIndex].setColor(newComponent.color);
+			self.tileStates[tileIndex].color = newComponent.color;
 		}
 		// console.log('created new component', newComponent.id, 'with tiles', [...changeTiles])
 	};

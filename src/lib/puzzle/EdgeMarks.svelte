@@ -1,23 +1,21 @@
-<!-- @migration-task Error while migrating Svelte code: can't migrate `let visibleEdgeMarks = [];` to `$state` because there's a variable named state.
-     Rename the variable and try again or migrate by hand. -->
 <script>
 	import { fade } from 'svelte/transition';
 
-	/** @type {Number} i*/
-	export let i;
-	/**
-	 * @type {import('$lib/puzzle/game').PipesGame} game
+	/** @typedef {Object} Props
+	 * @property {number} i - tile index
+	 * @property {import('$lib/puzzle/game.svelte').PipesGame} game
+	 * @property {number} [cx]
+	 * @property {number} [cy]
 	 */
-	export let game;
-	export let cx = 0;
-	export let cy = 0;
+	/**@type {Props}*/
+	let { i, game, cx = 0, cy = 0 } = $props();
 
 	/** @typedef {Object} VisibleMark
 	 * @property {Number} x1
 	 * @property {Number} x2
 	 * @property {Number} y1
 	 * @property {Number} y2
-	 * @property {import('$lib/puzzle/game').EdgeMark} state
+	 * @property {import('$lib/puzzle/game.svelte').EdgeMark} edgemark
 	 * @property {Number} direction
 	 */
 
@@ -28,34 +26,32 @@
 	 * @property {VisibleMark} mark
 	 */
 
-	const state = game.tileStates[i];
+	const tileState = game.tileStates[i];
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 
-	/** @type {VisibleMark[]} */
-	let visibleEdgeMarks = [];
+	// /** @type {VisibleMark[]} */
+	// let visibleEdgeMarks = [];
 
-	/** @type {ReflectedMark[]} */
-	let reflectedEdgeMarks = [];
+	// /** @type {ReflectedMark[]} */
+	// let reflectedEdgeMarks = [];
 
 	const width = game.grid.EDGEMARK_WIDTH;
 
-	/**
-	 * Collect edgemarks that should be displayed
-	 * @param {import('$lib/puzzle/game').EdgeMark[]} marks
-	 */
-	function visibleMarks(marks) {
-		visibleEdgeMarks = [];
-		reflectedEdgeMarks = [];
-		marks.forEach((state, index) => {
-			if (state === 'none' || state === 'empty') {
+	let { visibleEdgeMarks, reflectedEdgeMarks } = $derived.by(() => {
+		/**@type {VisibleMark[]}*/
+		const visibleEdgeMarks = [];
+		/** @type {ReflectedMark[]} */
+		const reflectedEdgeMarks = [];
+		tileState.edgeMarks.forEach((edgemark, index) => {
+			if (edgemark === 'none' || edgemark === 'empty') {
 				return;
 			}
 			const direction = game.grid.EDGEMARK_DIRECTIONS[index];
-			const edgeMarkLine = game.grid.getEdgemarkLine(direction, state === 'wall', i);
+			const edgeMarkLine = game.grid.getEdgemarkLine(direction, edgemark === 'wall', i);
 			const { x1, y1, x2, y2 } = edgeMarkLine;
-			const mark = { x1, y1, x2, y2, state, direction };
+			const mark = { x1, y1, x2, y2, edgemark, direction };
 			visibleEdgeMarks.push(mark);
-			if (game.grid.BEND_EDGEMARKS && state === 'conn') {
+			if (game.grid.BEND_EDGEMARKS && edgemark === 'conn') {
 				const { neighbour } = game.grid.find_neighbour(i, direction);
 				const oppositeDirection = game.grid.OPPOSITE.get(direction) || 0;
 				const { x1, y1, x2, y2, grid_x2, grid_y2 } = game.grid.getEdgemarkLine(
@@ -67,22 +63,21 @@
 					cx: cx + (edgeMarkLine.grid_x2 - grid_x2),
 					cy: cy + (edgeMarkLine.grid_y2 - grid_y2),
 					transform: game.grid.getTileTransformCSS(neighbour) || '',
-					mark: { x1, x2, y1, y2, state, direction: oppositeDirection }
+					mark: { x1, x2, y1, y2, edgemark, direction: oppositeDirection }
 				};
 				reflectedEdgeMarks.push(oppositeMark);
 			}
 		});
-	}
-
-	$: visibleMarks($state.edgeMarks);
+		return { visibleEdgeMarks, reflectedEdgeMarks };
+	});
 </script>
 
 <g class="edgemarks" style="transform: translate({cx}px,{cy}px) {tile_transform}">
-	{#each visibleEdgeMarks as { x1, y1, x2, y2, state, direction } (direction)}
+	{#each visibleEdgeMarks as { x1, y1, x2, y2, edgemark, direction } (direction)}
 		<line
 			transition:fade={{ duration: 100 }}
 			class="mark"
-			class:wall={state === 'wall'}
+			class:wall={edgemark === 'wall'}
 			{x1}
 			{y1}
 			{x2}
@@ -98,7 +93,7 @@
 		<line
 			transition:fade={{ duration: 100 }}
 			class="mark"
-			class:wall={mark.state === 'wall'}
+			class:wall={mark.edgemark === 'wall'}
 			x1={mark.x1}
 			y1={mark.y1}
 			x2={mark.x2}
