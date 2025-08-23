@@ -235,9 +235,9 @@
 	</div>
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
-		on:startOver={startOver}
-		on:newPuzzle={newPuzzle}
-		on:download={() => puzzle?.download()}
+		{startOver}
+		{newPuzzle}
+		download={() => puzzle?.download()}
 	/>
 </div>
 

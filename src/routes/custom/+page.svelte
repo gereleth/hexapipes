@@ -276,10 +276,10 @@
 <div class="container buttons">
 	<PuzzleButtons
 		solved={true}
-		on:startOver={startOver}
+		{startOver}
 		includeNewPuzzleButton={true}
-		on:newPuzzle={generate}
-		on:download={() => {
+		newPuzzle={generate}
+		download={() => {
 			puzzle?.download();
 		}}
 	/>
