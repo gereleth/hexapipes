@@ -1,10 +1,13 @@
 <script>
-	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import Worker from '$lib/puzzle/worker.js?worker';
 	import SolverProgress from '$lib/puzzle/SolverProgress.svelte';
 
-	/**@type {NodeJS.Timeout|undefined}*/
+	// callbacks for different generation outcomes
+	let { canceled, generated, errored } = $props();
+
+	/** @type {ReturnType<typeof setTimeout>} */
 	let timer;
 	/** @type {Worker|null} */
 	let worker = null;
@@ -12,7 +15,6 @@
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
 	/** @type {import('$lib/puzzle/solver').SolverProgress[]}*/
 	let solverProgressItems = $state([]);
-	const dispatch = createEventDispatcher();
 
 	/**
 	 *
@@ -36,7 +38,7 @@
 	export function cancel() {
 		worker?.terminate();
 		showGenProgress = false;
-		dispatch('cancel');
+		canceled();
 	}
 
 	/**
@@ -45,11 +47,11 @@
 	 */
 	function onWorkerMessage(event) {
 		if (event.data.msg === 'generated') {
-			dispatch('generated', { tiles: event.data.tiles });
+			generated({ tiles: event.data.tiles });
 			showGenProgress = false;
 			clearTimeout(timer);
 		} else if (event.data.msg === 'error') {
-			dispatch('error', event.data.error);
+			errored(event.data.error);
 			showGenProgress = false;
 			clearTimeout(timer);
 		} else if (event.data.msg === 'generator_progress') {

@@ -138,12 +138,12 @@
 	}
 
 	/**
-	 * @param {{detail: {tiles: Number[]}}} event
+	 * @param {{tiles: Number[]}} data
 	 */
-	function onGenerated(event) {
-		tiles = event.detail.tiles;
+	function onGenerated(data) {
+		tiles = data.tiles;
 		genId += 1;
-		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles: tiles }));
+		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles }));
 	}
 
 	onMount(() => {
@@ -199,9 +199,9 @@
 <div class="container">
 	<GeneratorComponent
 		bind:this={generatorComponent}
-		on:generated={onGenerated}
-		on:error={() => {}}
-		on:cancel={() => {}}
+		generated={onGenerated}
+		errored={() => {}}
+		canceled={() => {}}
 	/>
 </div>
 

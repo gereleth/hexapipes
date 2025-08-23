@@ -56,11 +56,11 @@
 	}
 	/**
 	 *
-	 * @param {{detail: {tiles: Number[]}}} event
+	 * @param {{tiles: Number[]}} data
 	 */
-	async function onGenerated(event) {
+	async function onGenerated(data) {
 		id += 1;
-		tiles = event.detail.tiles;
+		tiles = data.tiles;
 		errorMessage = '';
 		generatorState = 'idle';
 		if (autosolve) {
@@ -70,10 +70,10 @@
 	}
 	/**
 	 *
-	 * @param {{detail: String}} event
+	 * @param {string} msg
 	 */
-	function onError(event) {
-		errorMessage = event.detail;
+	function onError(msg) {
+		errorMessage = msg;
 		generatorState = 'idle';
 	}
 
@@ -251,9 +251,9 @@
 
 	<GeneratorComponent
 		bind:this={generatorComponent}
-		on:generated={onGenerated}
-		on:error={onError}
-		on:cancel={onCancel}
+		generated={onGenerated}
+		errored={onError}
+		canceled={onCancel}
 	/>
 	{#if errorMessage !== ''}
 		<div class="error">{errorMessage}</div>
