@@ -1,5 +1,5 @@
 <script>
-	import { run, preventDefault } from 'svelte/legacy';
+	import { run } from 'svelte/legacy';
 	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
@@ -295,6 +295,13 @@
 			dispatch('solved');
 		}
 	});
+
+	/**
+	 * @param {Event} event
+	 */
+	function preventDefault(event) {
+		event.preventDefault();
+	}
 </script>
 
 <svelte:window onresize={resize} />
@@ -345,7 +352,7 @@
 		height={svgHeight}
 		viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
 		use:controls={game}
-		oncontextmenu={preventDefault(() => {})}
+		oncontextmenu={preventDefault}
 		onsave={save.soon}
 	>
 		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
