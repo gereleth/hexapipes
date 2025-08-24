@@ -10,7 +10,7 @@ export const SOUTHEAST = 32;
 
 const YSTEP = Math.sqrt(3) / 2;
 
-const HEXAGON = new RegularPolygonTile(6, 0, 0.45);
+const HEXAGON = new RegularPolygonTile(6, 0, 0.5);
 
 /**
  * Hexagonal grid
