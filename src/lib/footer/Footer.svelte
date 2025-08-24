@@ -6,6 +6,10 @@
 	><br />
 	Say hi to me on
 	<a target="_blank" rel="noreferrer" href="https://twitter.com/gereleth">Twitter</a>
+	or
+	<a target="_blank" rel="noreferrer" href="https://bsky.app/profile/gereleth.bsky.social">
+		Bluesky
+	</a>
 </div>
 
 <style>
