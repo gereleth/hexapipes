@@ -21,7 +21,7 @@ import { TriangularGrid } from '$lib/puzzle/grids/triangulargrid';
  * 'trihexagonal'|'trihexagonal-wrap'|
  * 'snubsquare'|'snubsquare-wrap'|
  * 'rhombitrihexagonal'|'rhombitrihexagonal-wrap'|
- * 'triangular'|'triangular-wrap'|
+ * 'triangular'|'triangular-wrap'
  * } GridCategory
  */
 
@@ -178,6 +178,7 @@ function randomTotal() {
  * @returns {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}
  */
 export function randomGrid() {
+	/**@type {GridKind} */
 	let kind = 'hexagonal';
 	if (Math.random() < 0.4) {
 		kind = randomChoice([
