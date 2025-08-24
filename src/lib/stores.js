@@ -116,7 +116,7 @@ export const settings = createSettings();
  * @property {Number} startedAt
  * @property {Number} elapsedTime
  * @property {Number} pausedAt
- * @property {String|undefined} error
+ * @property {String} [error]
  */
 
 /**
