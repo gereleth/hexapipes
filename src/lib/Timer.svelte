@@ -15,7 +15,7 @@
 		}
 		let timeStr = new Date(time).toISOString().substring(11, includeMs ? 23 : 19);
 		// cut off zero hours
-		if (timeStr.startsWith('00:')) {
+		if (days === 0 && timeStr.startsWith('00:')) {
 			timeStr = timeStr.slice(3);
 		}
 		result += timeStr;
@@ -24,26 +24,26 @@
 </script>
 
 <script>
-	import { run } from 'svelte/legacy';
-
 	import { settings } from '$lib/stores';
-	
+
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('$lib/stores').Solve} [solve]
 	 */
 
 	/** @type {Props} */
-	let { solve = {
-		puzzleId: -1,
-		startedAt: -1,
-		pausedAt: -1,
-		elapsedTime: -1,
-		error: undefined
-	} } = $props();
+	let {
+		solve = {
+			puzzleId: -1,
+			startedAt: -1,
+			pausedAt: -1,
+			elapsedTime: -1,
+			error: undefined
+		}
+	} = $props();
 
 	/**
-	 * @type {NodeJS.Timer}
+	 * @type {ReturnType<typeof setTimeout>}
 	 */
 	let timerId;
 	let elapsed = $state(0);
@@ -67,7 +67,7 @@
 		}
 	}
 
-	run(() => {
+	$effect(() => {
 		toggleTimer(solve);
 	});
 </script>
