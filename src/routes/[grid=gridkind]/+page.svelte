@@ -1,10 +1,10 @@
 <script>
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	onMount(async () => {
-		await goto(`/${$page.params.grid}/5`, { replaceState: true });
+		await goto(`/${page.params.grid}/5`, { replaceState: true });
 	});
 </script>
 
