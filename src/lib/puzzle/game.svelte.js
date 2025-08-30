@@ -53,7 +53,7 @@ class NewTileState {
 	isPartOfIsland = $state(false);
 	hasDisconnects = $state(false);
 	rotations = $state(0);
-	/** @type EdgeMark[] */
+	/** @type {EdgeMark[]} */
 	edgeMarks = $state([]);
 
 	/**
@@ -81,71 +81,6 @@ class NewTileState {
 	toggleLocked() {
 		this.locked = !this.locked;
 	}
-}
-
-/**
- * @constructor
- * @param {TileState} initialState
- */
-function StateStore(initialState) {
-	let self = this;
-
-	const { subscribe, set, update } = writable(initialState);
-	self.data = Object.assign({}, initialState);
-	self.subscribe = subscribe;
-
-	/**
-	 * @param {TileState} newValue
-	 */
-	self.set = function (newValue) {
-		self.data = newValue;
-		set(newValue);
-	};
-
-	/**
-	 * @param {String} color
-	 */
-	self.setColor = function (color) {
-		self.data.color = color;
-		set(self.data);
-	};
-
-	self.toggleLocked = function () {
-		self.data.locked = !self.data.locked;
-		set(self.data);
-	};
-
-	/**
-	 * @param {Boolean} isPartOfLoop
-	 */
-	self.setPartOfLoop = function (isPartOfLoop) {
-		self.data.isPartOfLoop = isPartOfLoop;
-		set(self.data);
-	};
-	/**
-	 * @param {Boolean} isPartOfIsland
-	 */
-	self.setPartOfIsland = function (isPartOfIsland) {
-		self.data.isPartOfIsland = isPartOfIsland;
-		set(self.data);
-	};
-	/**
-	 * @param {Boolean} hasDisconnects
-	 */
-	self.setHasDisconnects = function (hasDisconnects) {
-		self.data.hasDisconnects = hasDisconnects;
-		set(self.data);
-	};
-
-	/**
-	 * @param {Number} times
-	 */
-	self.rotate = function (times) {
-		self.data.rotations += times;
-		set(self.data);
-	};
-
-	return self;
 }
 
 /**
