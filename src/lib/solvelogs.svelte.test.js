@@ -1,7 +1,24 @@
-import { describe, expect, it } from 'vitest';
-import { _calculateStats } from './stores.js';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { _calculateStats, SolvesLog } from '$lib/solvelogs.svelte.js';
 
 describe('Calculate streaks and time stats in daily puzzles', () => {
+	it('Two days started, none finished', () => {
+		const solves = [
+			{ puzzleId: '2023-08-20', elapsedTime: -1 },
+			{ puzzleId: '2023-08-19', elapsedTime: -1 }
+		];
+		const stats = _calculateStats(solves, true);
+		expect(stats.streak).toBe(0);
+		expect(stats.totalSolved).toBe(0);
+		expect(stats.currentTime).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestTime).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.meanOf3).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestMeanOf3).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.averageOf5).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestAverageOf5).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.averageOf12).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestAverageOf12).toBe(Number.POSITIVE_INFINITY);
+	});
 	it('One day solved', () => {
 		const solves = [{ puzzleId: '2023-08-20', elapsedTime: 1 }];
 		const stats = _calculateStats(solves, true);
@@ -125,6 +142,20 @@ describe('Calculate streaks and time stats in daily puzzles', () => {
 });
 
 describe('Calculate streaks and time stats in regular puzzles', () => {
+	it('One puzzle just started', () => {
+		const solves = [{ puzzleId: -1, elapsedTime: -1 }];
+		const stats = _calculateStats(solves, false);
+		expect(stats.streak).toBe(0);
+		expect(stats.totalSolved).toBe(0);
+		expect(stats.currentTime).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestTime).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.meanOf3).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestMeanOf3).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.averageOf5).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestAverageOf5).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.averageOf12).toBe(Number.POSITIVE_INFINITY);
+		expect(stats.bestAverageOf12).toBe(Number.POSITIVE_INFINITY);
+	});
 	it('One puzzle solved', () => {
 		const solves = [{ puzzleId: -1, elapsedTime: 1 }];
 		const stats = _calculateStats(solves, false);
@@ -278,5 +309,179 @@ describe('Calculate streaks and time stats in regular puzzles', () => {
 		expect(stats.bestAverageOf5).toBe(1);
 		expect(stats.averageOf12).toBe(Number.POSITIVE_INFINITY);
 		expect(stats.bestAverageOf12).toBe(1);
+	});
+});
+
+describe('Check solves log functioning', () => {
+	beforeEach(() => {
+		localStorage.clear();
+	});
+
+	it('Creates a solves log', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			expect(log.solves.length).toBe(0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Starts a random puzzle solve', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			const t = new Date().valueOf();
+			const s = log.reportStart(-1);
+			expect(log.solves.length).toBe(1);
+			expect(s.puzzleId).toBe(-1);
+			expect(s.elapsedTime).toBe(-1);
+			expect(s.pausedAt).toBe(-1);
+			expect((s.startedAt - t) / 10000).toBeCloseTo(0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Pauses a random puzzle solve', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			log.reportStart(-1);
+			const t = new Date().valueOf();
+			const s = log.pause(-1);
+			expect(log.solves.length).toBe(1);
+			expect(s.puzzleId).toBe(-1);
+			expect(s.elapsedTime).toBe(-1);
+			expect((s.pausedAt - t) / 10000).toBeCloseTo(0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Restarts a random puzzle solve after pause', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			log.reportStart(-1);
+			log.pause(-1);
+			const t = new Date().valueOf();
+			const s = log.reportStart(-1);
+			expect(log.solves.length).toBe(1);
+			expect(s.puzzleId).toBe(-1);
+			expect(s.elapsedTime).toBe(-1);
+			expect(s.pausedAt).toBe(-1);
+			expect((s.startedAt - t) / 10000).toBeCloseTo(0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Starts a random puzzle solve after finishing one', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			log.reportStart(-1);
+			log.reportFinish(-1);
+			const t = new Date().valueOf();
+			const s = log.reportStart(-1);
+			expect(log.solves.length).toBe(2);
+			expect(s.puzzleId).toBe(-1);
+			expect(s.elapsedTime).toBe(-1);
+			expect(s.pausedAt).toBe(-1);
+			expect((s.startedAt - t) / 10000).toBeCloseTo(0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Restarts a finished non-random puzzle solve', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			const t0 = new Date().valueOf();
+			log.reportStart(1);
+			log.reportFinish(1);
+			log.reportStart(-1);
+			log.reportFinish(-1);
+			const t = new Date().valueOf();
+			const s = log.reportStart(1);
+			expect(log.solves.length).toBe(2);
+			expect(s.puzzleId).toBe(1);
+			expect(s.elapsedTime / 10000).toBeCloseTo(0);
+			expect(s.pausedAt).toBe(-1);
+			expect((s.startedAt - t0) / 10000).toBeCloseTo(0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Restarts a skipped non-random puzzle solve', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			const t0 = log.reportStart(1).startedAt;
+			log.reportStart(-1);
+			log.reportFinish(-1);
+			const s = log.reportStart(1);
+			expect(log.solves.length).toBe(3);
+			expect(s.puzzleId).toBe(1);
+			expect(s.elapsedTime).toBe(-1);
+			expect(s.pausedAt).toBe(-1);
+			expect(s.startedAt).toBe(t0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Reacts to a storage event - loads solves data', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			window.dispatchEvent(
+				new StorageEvent('storage', {
+					key: log.name,
+					newValue: JSON.stringify([
+						{
+							startedAt: new Date().valueOf(),
+							elapsedTime: -1,
+							pausedAt: -1,
+							puzzleId: -1
+						}
+					]),
+					oldValue: null, // or previous value if applicable
+					//   url: window.location.href,
+					storageArea: localStorage
+				})
+			);
+			expect(log.solves.length).toBe(1);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Loads initial solves data from localStorage', (context) => {
+		const cleanup = $effect.root(() => {
+			localStorage.setItem(
+				'/hexagonal/5_solves',
+				JSON.stringify([
+					{
+						startedAt: new Date().valueOf(),
+						elapsedTime: -1,
+						pausedAt: -1,
+						puzzleId: -1
+					}
+				])
+			);
+			const log = new SolvesLog('/hexagonal/5', false);
+			expect(log.solves.length).toBe(1);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Ignores the second finish of the same non-random puzzle', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			const t0 = log.reportStart(1).startedAt;
+			const s = log.reportFinish(1);
+			log.reportStart(-1);
+			log.reportStart(1);
+			const s1 = log.reportFinish(1);
+			expect(log.solves.length).toBe(2);
+			expect(s1.puzzleId).toBe(1);
+			expect(s1.elapsedTime).toBe(s.elapsedTime);
+			expect(s1.pausedAt).toBe(-1);
+			expect(s1.startedAt).toBe(t0);
+		});
+		context.onTestFinished(() => cleanup());
+	});
+	it('Skips a puzzle', (context) => {
+		const cleanup = $effect.root(() => {
+			const log = new SolvesLog('/hexagonal/5', false);
+			log.reportStart(-1);
+			log.reportFinish(-1);
+			const s = log.reportStart(-1);
+			log.skip();
+			const s1 = log.reportStart(-1);
+			expect(log.solves.length).toBe(3);
+			expect(log.stats.streak).toBe(0);
+			expect(s.elapsedTime).toBe(-1);
+		});
+		context.onTestFinished(() => cleanup());
 	});
 });

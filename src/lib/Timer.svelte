@@ -28,7 +28,7 @@
 
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('$lib/stores').Solve} [solve]
+	 * @property {import('$lib/solvelogs.svelte').Solve} [solve]
 	 */
 
 	/** @type {Props} */
@@ -49,7 +49,7 @@
 	let elapsed = $state(0);
 
 	/**
-	 * @param {import('$lib/stores').Solve} solve
+	 * @param {import('$lib/solvelogs.svelte').Solve} solve
 	 */
 	function toggleTimer(solve) {
 		clearInterval(timerId);

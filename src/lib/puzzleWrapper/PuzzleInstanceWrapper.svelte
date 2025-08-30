@@ -19,7 +19,7 @@
 	 * @property {any} [puzzleId]
 	 * @property {String} progressStoreName
 	 * @property {String} instanceStoreName
-	 * @property {import('$lib/stores').SolvesStore} solves
+	 * @property {import('$lib/solvelogs.svelte').SolvesLog} solvesLog
 	 */
 
 	/** @type {Props} */
@@ -32,16 +32,15 @@
 		puzzleId = -1,
 		progressStoreName,
 		instanceStoreName,
-		solves
+		solvesLog
 	} = $props();
 
-	/** @type {import('$lib/stores').Solve} */
+	/** @type {import('$lib/solvelogs.svelte').Solve} */
 	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
-		elapsedTime: -1,
-		error: undefined
+		elapsedTime: -1
 	});
 
 	let genId = $state(0);
@@ -75,12 +74,12 @@
 	}
 
 	function start() {
-		solve = solves.reportStart(puzzleId);
+		solve = solvesLog.reportStart(puzzleId);
 	}
 
 	function stop() {
 		solved = true;
-		solve = solves.reportFinish(puzzleId);
+		solve = solvesLog.reportFinish(puzzleId);
 		window.localStorage.removeItem(progressStoreName);
 		if (puzzleId === -1) {
 			window.localStorage.removeItem(instanceStoreName);
@@ -88,7 +87,7 @@
 	}
 
 	function pause() {
-		solves.pause(puzzleId);
+		solvesLog.pause(puzzleId);
 	}
 
 	function generatePuzzle() {
@@ -125,7 +124,7 @@
 
 	function newPuzzle() {
 		if (!solved) {
-			solves.skip();
+			solvesLog.skip();
 			window.localStorage.removeItem(progressStoreName);
 			window.localStorage.removeItem(instanceStoreName);
 		}
@@ -178,12 +177,12 @@
 
 		function handleVisibilityChange() {
 			if (document.visibilityState === 'visible') {
-				const result = solves.unpause(puzzleId);
+				const result = solvesLog.unpause(puzzleId);
 				if (result !== undefined) {
 					solve = result;
 				}
 			} else {
-				const result = solves.pause(puzzleId);
+				const result = solvesLog.pause(puzzleId);
 				if (result !== undefined) {
 					solve = result;
 				}

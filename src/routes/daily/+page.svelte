@@ -8,7 +8,8 @@
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import Timer, { formatTime } from '$lib/Timer.svelte';
 	import Stats from '$lib/Stats.svelte';
-	import { getSolves, getStats, settings } from '$lib/stores';
+	import { settings } from '$lib/stores';
+	import { getSolves } from '$lib/solvelogs.svelte';
 	import { createGrid } from '$lib/puzzle/grids/grids';
 	import Instructions from '$lib/Instructions.svelte';
 
@@ -22,6 +23,7 @@
 
 	let grid = createGrid(data.grid || 'hexagonal', data.width, data.height, data.wrap, data.tiles);
 
+	/** @type {import('$lib/solvelogs.svelte').Solve}*/
 	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
@@ -34,7 +36,8 @@
 	let progressStoreName = '/daily_progress';
 	let pathname = '/daily';
 
-	let solves = $state();
+	/** @type {import('$lib/solvelogs.svelte').SolvesLog|undefined}*/
+	let solvesLog = $state();
 	let stats = $state();
 	let savedProgress = $state(undefined);
 	let shareText = $state('');
@@ -59,8 +62,7 @@
 	let timeTillNextPuzzle = $state(formatTimeLeft());
 
 	if (browser) {
-		solves = getSolves(pathname);
-		stats = getStats(pathname);
+		solvesLog = getSolves(pathname);
 
 		const progress = window.localStorage.getItem(progressStoreName);
 		if (progress !== null) {
@@ -72,24 +74,30 @@
 	}
 
 	function start() {
-		solve = solves.reportStart(data.date);
+		if (solvesLog) {
+			solve = solvesLog.reportStart(data.date);
+		}
 	}
 
 	function stop() {
 		solved = true;
-		solve = solves.reportFinish(data.date);
+		if (solvesLog) {
+			solve = solvesLog.reportFinish(data.date);
+		}
 	}
 
 	/**
 	 * @param {{name: string, data: any}} progressData
 	 */
 	function saveProgress(progressData) {
-		const { name, data } = progressData;
-		const dataStr = JSON.stringify({
-			date: data.date,
-			progress: data
-		});
-		window.localStorage.setItem(name, dataStr);
+		if (browser) {
+			const { name, data } = progressData;
+			const dataStr = JSON.stringify({
+				date: data.date,
+				progress: data
+			});
+			window.localStorage.setItem(name, dataStr);
+		}
 	}
 
 	function startOver() {
@@ -99,10 +107,13 @@
 
 	onMount(() => {
 		function handleVisibilityChange() {
+			if (solvesLog === undefined) {
+				return;
+			}
 			if (document.visibilityState === 'visible') {
-				solve = solves.unpause(data.date);
+				solve = solvesLog.unpause(data.date);
 			} else {
-				solve = solves.pause(data.date);
+				solve = solvesLog.pause(data.date);
 			}
 		}
 		document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -116,10 +127,18 @@
 	});
 
 	let shareButtonIcon = $state('📋');
+	/**
+	 *
+	 * @param {import('$lib/solvelogs.svelte').Solve} solve
+	 * @param {boolean} showTimer
+	 */
 	function formatShareText(solve, showTimer) {
+		if (!solvesLog) {
+			return;
+		}
 		let streak = '';
-		if ($stats.streak > 1) {
-			streak = ` - ${$stats.streak} days streak`;
+		if (solvesLog.stats.streak > 1) {
+			streak = ` - ${solvesLog.stats.streak} days streak`;
 		}
 		if (showTimer) {
 			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it in ${formatTime(
@@ -176,7 +195,7 @@
 	finished={stop}
 	started={start}
 	progress={saveProgress}
-	paused={() => solves.pause(data.date)}
+	paused={() => solvesLog?.pause(data.date)}
 />
 
 <div class="container">
@@ -200,7 +219,7 @@
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
 		{startOver}
-		download={puzzle.download}
+		download={() => puzzle?.download()}
 		includeNewPuzzleButton={false}
 	/>
 </div>
@@ -217,9 +236,9 @@
 <div class="timings">
 	<Timer {solve} />
 </div>
-{#if stats}
+{#if solvesLog}
 	<div class="stats">
-		<Stats {stats} />
+		<Stats stats={solvesLog.stats} previousStats={solvesLog.previousStats} />
 	</div>
 {/if}
 
