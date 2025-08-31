@@ -91,10 +91,10 @@
 	 */
 	function saveProgress(progressData) {
 		if (browser) {
-			const { name, data } = progressData;
+			const { name, data: progress } = progressData;
 			const dataStr = JSON.stringify({
 				date: data.date,
-				progress: data
+				progress
 			});
 			window.localStorage.setItem(name, dataStr);
 		}
