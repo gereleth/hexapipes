@@ -451,7 +451,7 @@ export function Solver(tiles, grid) {
 	self.processDirtyCells = function* () {
 		while (self.dirty.size > 0) {
 			// get a dirty cell
-			const index = self.dirty.keys().next().value;
+			const [index] = self.dirty;
 			const cell = self.getCell(index);
 			if (cell === undefined) {
 				continue;
@@ -536,7 +536,7 @@ export function Solver(tiles, grid) {
 			if (component.size > 1) {
 				continue;
 			}
-			const index = component.values().next().value;
+			const [index] = component;
 			const cell = self.getCell(index);
 			const remainingConnections = cell.possible.values().next().value - cell.connections;
 			const tileType = self.grid.polygon_at(index).tileTypes.get(remainingConnections);

@@ -215,10 +215,7 @@ export class PipesGame {
 			const connectedThrough = new Map();
 			let loop = false;
 			while (toCheck.size > 0) {
-				const index = toCheck.values().next().value;
-				if (index === undefined) {
-					throw Error('jsdoc, stop making this red');
-				}
+				const [index] = toCheck;
 				const tileState = this.tileStates[index];
 				toCheck.delete(index);
 				checked.add(index);
@@ -809,7 +806,7 @@ export class PipesGame {
 
 		function pruneDeadEnds() {
 			while (toPrune.size > 0) {
-				const tile = toPrune.values().next().value;
+				const [tile] = toPrune;
 				toPrune.delete(tile);
 				const changedNeighbours = pruneTile(tile);
 				changedNeighbours.forEach((n) => toPrune.add(n));
@@ -875,10 +872,7 @@ export class PipesGame {
 			if (neighbours === undefined) {
 				throw `Could not find connections data for tile ${tileToCheck}`;
 			}
-			const neighbour = neighbours.values().next().value;
-			if (neighbour === undefined) {
-				throw `Neighbour of ${tileToCheck} is undefined`;
-			}
+			const [neighbour] = neighbours;
 			// console.log('checking neighbour', neighbour)
 			const loop = traceLoopPath(tileToCheck, neighbour);
 			// console.log('found loop', loop)
