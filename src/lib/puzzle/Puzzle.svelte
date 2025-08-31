@@ -1,5 +1,4 @@
 <script>
-	import { run } from 'svelte/legacy';
 	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
@@ -48,7 +47,6 @@
 	let svgHeight = $state(500);
 
 	const game = new PipesGame(grid, tiles, savedProgress);
-	let solved = game.solved;
 
 	const pxPerCell = 60;
 
@@ -147,13 +145,19 @@
 	onDestroy(() => {
 		// save progress immediately if navigating away (?)
 		save.clear();
-		if (!$solved) {
+		if (!game.solved) {
 			save.now();
 			paused();
 		}
 	});
 
+	/**
+	 *
+	 * @param {()=>void} callback
+	 * @param {number} timeout ms
+	 */
 	function createThrottle(callback, timeout) {
+		/** @type {number|null}*/
 		let throttleTimer = null;
 		const throttle = (callback, timeout) => {
 			if (throttleTimer !== null) return;
@@ -176,7 +180,7 @@
 	}
 
 	function saveProgress() {
-		if ($solved) {
+		if (game.solved) {
 			return;
 		}
 		const tileStates = game.tileStates.map((data) => {
@@ -204,11 +208,14 @@
 	/**
 	 * @type {import('$lib/puzzle/solver').Solver|undefined}
 	 */
-	let solver = $state();
-	let numsol = $state(0);
+	let solver;
+	/**
+	 * @type {number[][]}
+	 */
+	let solutions = $state([]);
 	export async function unleashTheSolver() {
 		measureSolveTime();
-		if (!$solved) {
+		if (!game.solved) {
 			// unlock all tiles
 			for (let tileState of game.tileStates) {
 				tileState.locked = false;
@@ -226,14 +233,13 @@
 						game.toggleLocked(step.index, true);
 					}
 					if (animate) {
-						await sleep(200);
+						await sleep(100);
 					}
 				}
 				if (solver.solutions.length > 1) {
 					// unlock tiles that are different between solutions
 					// and lock those that are the same
-					game.solved.set(false);
-					game._solved = false;
+					game.solved = false;
 					for (let [i, tile] of solver.solutions[0].entries()) {
 						const isSame = solver.solutions.every((solution) => solution[i] === tile);
 						if (game.tileStates[i].locked !== isSame) {
@@ -241,6 +247,7 @@
 						}
 					}
 				}
+				solutions = solver.solutions;
 			} catch (error) {
 				console.error(error);
 			}
@@ -266,7 +273,7 @@
 		ms = t1 - t0;
 		msStats.push(ms);
 		msStats = msStats.sort((a, b) => a - b);
-		numsol = solver.solutions.length;
+		solutions = solver.solutions;
 	}
 
 	const save = createThrottle(saveProgress, 3000);
@@ -293,8 +300,8 @@
 		document.body.removeChild(element);
 	};
 
-	run(() => {
-		if ($solved) {
+	$effect(() => {
+		if (game.solved) {
 			finished();
 		}
 	});
@@ -326,18 +333,17 @@
 					10 * msStats[msStats.length - 1]
 				) / 10} ms).
 			</div>
-			<div>Number of solutions: {numsol}</div>
-			{#if numsol > 1}
+			<div>Number of solutions: {solutions.length}</div>
+			{#if solutions.length > 1}
 				<div>
-					{#each solver?.solutions || [] as solution, i}
+					{#each solutions as solution, i}
 						<button
 							onclick={() => {
 								solution.forEach((orientation, index) => {
 									game.setTileOrientation(index, orientation);
-									game._solved = false;
+									game.solved = false;
 								});
-								game.solved.set(false);
-								game._solved = false;
+								game.solved = false;
 							}}
 							>Solution {i + 1}
 						</button>
@@ -348,7 +354,7 @@
 	</div>
 {/if}
 
-<div class="puzzle animation-{$settings.animationSpeed}" class:solved={$solved}>
+<div class="puzzle animation-{$settings.animationSpeed}" class:solved={game.solved}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<svg
 		width={svgWidth}
@@ -361,14 +367,14 @@
 		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
 			<Tile
 				i={visibleTile.index}
-				solved={$solved}
+				solved={game.solved}
 				{game}
 				cx={visibleTile.x}
 				cy={visibleTile.y}
 				controlMode={$settings.controlMode}
 			/>
 		{/each}
-		{#if !$solved}
+		{#if !game.solved}
 			{#each $visibleTiles as visibleTile, i (visibleTile.key)}
 				<EdgeMarks i={visibleTile.index} {game} cx={visibleTile.x} cy={visibleTile.y} />
 			{/each}

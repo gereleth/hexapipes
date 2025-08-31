@@ -1,6 +1,4 @@
 <script>
-	import { gridInfo } from './grids/grids';
-
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('$lib/puzzle/game.svelte').PipesGame} game
@@ -15,8 +13,6 @@
 	let { i, game, cx = 0, cy = 0, solved = false, controlMode = 'rotate_lock' } = $props();
 
 	let data = game.tileStates[i];
-	const disconnectStrokeWidthScale = game.disconnectStrokeWidthScale;
-	const disconnectStrokeColor = game.disconnectStrokeColor;
 	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
 
 	const myDirections = game.grid.getDirections(data.tile, 0, i);
@@ -41,8 +37,8 @@
 	let { strokeColor, strokeWidth } = $derived.by(() => {
 		if (data.hasDisconnects) {
 			return {
-				strokeColor: $disconnectStrokeColor,
-				strokeWidth: game.grid.STROKE_WIDTH * $disconnectStrokeWidthScale
+				strokeColor: game.disconnectStrokeColor,
+				strokeWidth: game.grid.STROKE_WIDTH * game.disconnectStrokeWidthScale
 			};
 		} else if (data.isPartOfIsland) {
 			return {
