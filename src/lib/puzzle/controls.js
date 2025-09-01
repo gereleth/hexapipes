@@ -1,4 +1,5 @@
 import { settings } from '$lib/stores';
+import { get } from 'svelte/store';
 import normalizeWheel from 'normalize-wheel';
 
 /**
@@ -33,8 +34,8 @@ export function controls(node, game) {
 	/**
 	 * @type {import('$lib/stores').Settings}
 	 */
-	let currentSettings;
 	settings.loadFromLocalStorage();
+	let currentSettings = get(settings);
 	const unsubscribeSettings = settings.subscribe((s) => {
 		currentSettings = s;
 	});
