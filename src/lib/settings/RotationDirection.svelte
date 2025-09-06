@@ -1,6 +1,4 @@
 <script>
-	import { run } from 'svelte/legacy';
-
 	import { settings } from '$lib/stores';
 	/**
 	 * @typedef {Object} Props
@@ -11,11 +9,7 @@
 	/** @type {Props} */
 	let { clockwise = true, text = true } = $props();
 
-	let actuallyClockwise = $state(clockwise);
-
-	run(() => {
-		actuallyClockwise = $settings.invertRotationDirection ? !clockwise : clockwise;
-	});
+	let actuallyClockwise = $derived($settings.invertRotationDirection ? !clockwise : clockwise);
 </script>
 
 {#if text}
