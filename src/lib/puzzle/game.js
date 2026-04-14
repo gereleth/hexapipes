@@ -1,6 +1,7 @@
-import randomColor from 'randomcolor';
 import { writable } from 'svelte/store';
 import { createViewBox } from './viewbox';
+
+const PIPE_COLOR = 'hsl(195,85%,72%)';
 
 /**
  * An edge mark
@@ -169,7 +170,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 			return new StateStore({
 				tile: tiles[index],
 				rotations: savedTile.rotations,
-				color: savedTile.color,
+				color: savedTile.color === 'white' ? 'white' : PIPE_COLOR,
 				isPartOfLoop: false,
 				isPartOfIsland: false,
 				hasDisconnects: false,
@@ -695,7 +696,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 				newColor = changedComponent.color;
 			}
 			if (newColor === 'white') {
-				newColor = randomColor({ luminosity: 'light' });
+				newColor = PIPE_COLOR;
 			}
 			if (constantComponent.color !== newColor) {
 				constantComponent.tiles.forEach((tileIndex) => {
@@ -769,7 +770,7 @@ export function PipesGame(grid, tiles, savedProgress) {
 		// const leaveTiles = fromIsBigger ? fromTiles : toTiles
 		const changeTiles = fromIsBigger ? toTiles : fromTiles;
 		const newComponent = {
-			color: randomColor({ luminosity: 'light' }),
+			color: 'white',
 			tiles: changeTiles,
 			/** @type {Set<Number>}*/
 			openEnds: new Set([])
@@ -782,6 +783,14 @@ export function PipesGame(grid, tiles, savedProgress) {
 				newComponent.openEnds.add(tileIndex);
 			}
 			self.tileStates[tileIndex].setColor(newComponent.color);
+		}
+
+		// Reset remaining component to white if it's now isolated (1 tile)
+		if (bigComponent.tiles.size <= 1) {
+			bigComponent.color = 'white';
+			for (let tileIndex of bigComponent.tiles) {
+				self.tileStates[tileIndex].setColor('white');
+			}
 		}
 		// console.log('created new component', newComponent.id, 'with tiles', [...changeTiles])
 	};
