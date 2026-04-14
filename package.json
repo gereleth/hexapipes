@@ -35,9 +35,11 @@
 	"type": "module",
 	"dependencies": {
 		"@fontsource/fira-mono": "^4.5.0",
+		"@tailwindcss/vite": "^4.2.2",
 		"cookie": "^0.4.1",
 		"normalize-wheel": "^1.0.1",
 		"randomcolor": "0.6.2",
+		"tailwindcss": "^4.2.2",
 		"transformation-matrix": "^2.15.0"
 	}
 }
