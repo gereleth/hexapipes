@@ -150,6 +150,24 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 }
 
 /**
+ * Randomize rotations of layered tiles,
+ * all layers of a cell rotate by the same random amount
+ * @param {LayeredTiles} layers
+ * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @returns {LayeredTiles}
+ */
+export function randomRotate(layers, grid) {
+	return layers.map((cellLayers, index) => {
+		if (cellLayers.length === 0) {
+			return [];
+		}
+		const polygon = grid.polygon_at(index);
+		const rotations = Math.floor(Math.random() * polygon.num_directions);
+		return cellLayers.map((layer) => polygon.rotate(layer, rotations));
+	});
+}
+
+/**
  * Checks that layered tiles form a valid layered puzzle network
  * Throws an Error when a rule is broken
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid

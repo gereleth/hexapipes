@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { pregenerate_layers, validateLayers } from './generator-layers';
+import { pregenerate_layers, randomRotate, validateLayers } from './generator-layers';
 import { SquareGrid } from './grids/squaregrid';
+import { LayeredPipesGame } from './game-layers.svelte';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
@@ -57,5 +58,60 @@ describe('Test layered pregeneration', () => {
 			}
 			console.log(`Row ${r}: ${cells.join('  ')}`);
 		}
+	});
+});
+
+describe('Test layered scrambling', () => {
+	it('Scrambled boards keep their shape', () => {
+		for (let i = 0; i < 10; i++) {
+			const grid = new SquareGrid(5, 5, false);
+			const solved = pregenerate_layers(grid, 0.5);
+			const scrambled = randomRotate(solved, grid);
+			expect(scrambled.length).toBe(grid.total);
+			scrambled.forEach((cellLayers, index) => {
+				expect(cellLayers.length).toBe(solved[index].length);
+				const polygon = grid.polygon_at(index);
+				let used = 0;
+				let xored = 0;
+				cellLayers.forEach((layer) => {
+					expect(layer).toBeGreaterThan(0);
+					expect((layer | polygon.fully_connected) === polygon.fully_connected).toBe(true);
+					used |= layer;
+					xored ^= layer;
+				});
+				// layers of a cell still don't share directions
+				expect(used).toBe(xored);
+			});
+		}
+	});
+
+	it('Scrambling actually scrambles', () => {
+		const grid = new SquareGrid(5, 5, false);
+		const solved = pregenerate_layers(grid, 0.5);
+		const scrambled = randomRotate(solved, grid);
+		const changed = scrambled.filter((cellLayers, index) =>
+			cellLayers.some((layer, layerIndex) => layer !== solved[index][layerIndex])
+		);
+		expect(changed.length).toBeGreaterThan(0);
+	});
+
+	it('Scrambled board can be solved by rotating cells back', () => {
+		const grid = new SquareGrid(4, 4, false);
+		const solved = pregenerate_layers(grid, 0.5);
+		const scrambled = randomRotate(solved, grid);
+		const game = new LayeredPipesGame(grid, scrambled, undefined);
+		expect(game.isSolved()).toBe(false);
+		// find the rotation that solves every cell
+		game.tileStates.forEach((state, index) => {
+			for (let rotations = 0; rotations < 4; rotations++) {
+				const rotatedLayers = state.layers.map((layer) => grid.rotate(layer, rotations, index));
+				const target = solved[index];
+				if (rotatedLayers.every((layer, layerIndex) => layer === target[layerIndex])) {
+					game.rotateTile(index, rotations);
+					break;
+				}
+			}
+		});
+		expect(game.solved).toBe(true);
 	});
 });

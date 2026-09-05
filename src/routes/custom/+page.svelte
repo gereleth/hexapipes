@@ -5,10 +5,12 @@
 	import { createGrid, randomGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
 	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
 	import Instructions from '$lib/Instructions.svelte';
+	import { pregenerate_layers, randomRotate } from '$lib/puzzle/generator-layers';
 
 	let generatorState = $state('idle');
 	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
-	let gridKind = $state('hexagonal');
+	let gridKind = $state('square');
+	let layered = $state(true);
 	let width = $state(5);
 	let height = $state(5);
 	let wrap = $state(false);
@@ -28,7 +30,7 @@
 
 	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined}*/
 	let grid = $state();
-	/** @type {Number[]}*/
+	/** @type {Number[]|Number[][]}*/
 	let tiles = $state([]);
 
 	let id = $state(0);
@@ -43,20 +45,25 @@
 			width += 1;
 		}
 		grid = createGrid(gridKind, width, height, wrap);
-		generatorComponent?.generate(
-			{
-				branchingAmount,
-				avoidObvious,
-				avoidStraights,
-				solutionsNumber
-			},
-			grid
-		);
-		generatorState = 'generating';
+		if (layered) {
+			const tt = randomRotate(pregenerate_layers(grid, branchingAmount), grid);
+			onGenerated({ tiles: tt });
+		} else {
+			generatorComponent?.generate(
+				{
+					branchingAmount,
+					avoidObvious,
+					avoidStraights,
+					solutionsNumber
+				},
+				grid
+			);
+			generatorState = 'generating';
+		}
 	}
 	/**
 	 *
-	 * @param {{tiles: Number[]}} data
+	 * @param {{tiles: Number[]|Number[][]}} data
 	 */
 	async function onGenerated(data) {
 		id += 1;
@@ -176,6 +183,12 @@
 					</option>
 				{/each}
 			</select>
+		</label>
+	</div>
+	<div style="margin-bottom: 0.5em">
+		<label for="layered">
+			Layered
+			<input type="checkbox" name="layered" id="layered" bind:checked={layered} />
 		</label>
 	</div>
 	<label for="width">
