@@ -263,26 +263,6 @@ export class LayeredPipesGame {
 	}
 
 	/**
-	 * Tells if layers of two cells have a mutual connection
-	 * @param {Number} cellA
-	 * @param {Number} cellB
-	 * @returns {Boolean}
-	 */
-	areCellsConnected(cellA, cellB) {
-		const layersA = this.tileStates[cellA].layers.length;
-		const layersB = this.tileStates[cellB].layers.length;
-		for (let layerA = 0; layerA < layersA; layerA++) {
-			const connections = this.connections.get(this.idOf(cellA, layerA));
-			for (let layerB = 0; layerB < layersB; layerB++) {
-				if (connections?.has(this.idOf(cellB, layerB))) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * Tells if any layer of a cell has disconnects
 	 * @param {Number} cell
 	 * @returns {Boolean}
@@ -769,7 +749,8 @@ export class LayeredPipesGame {
 				continue;
 			}
 			if (this.tileStates[neighbour].locked) {
-				if (this.areCellsConnected(cell, neighbour)) {
+				// one-sided check: does the locked neighbour point at this cell?
+				if (this.findBackLayer(neighbour, direction) !== -1) {
 					connections += direction;
 				} else {
 					walls += direction;

@@ -116,6 +116,18 @@ describe('Test layered game', () => {
 		expect(game.solved).toBe(false);
 	});
 
+	it('Rotates to match a locked neighbour pointing at the cell', () => {
+		const grid = new SquareGrid(2, 2, false);
+		const tiles = [[2], [4], [1], [4]];
+		const game = new LayeredPipesGame(grid, tiles, undefined);
+		// cell 1 is locked and points at cell 0,
+		// cell 0 must rotate to connect back to it
+		game.toggleLocked(1, true);
+		game.rotateToMatchMarks(0);
+		expect(game.layerDirections(0, 0).includes(1)).toBe(true);
+		expect(game.tileStates[0].rotations).toBe(1);
+	});
+
 	it('Restores state from saved progress', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [6]];
