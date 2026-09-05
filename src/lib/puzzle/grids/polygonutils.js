@@ -115,7 +115,8 @@ export class RegularPolygonTile {
 			pipes_path: new Map(),
 			guide_dot_position: new Map(),
 			edgemark_line: new Map(),
-			wall_line: new Map()
+			wall_line: new Map(),
+			layer_center: new Map()
 		};
 	}
 
@@ -193,17 +194,59 @@ export class RegularPolygonTile {
 		if (cached !== undefined) {
 			return cached;
 		}
-		let path = `M 0 0`;
+		if (tile >= 0) {
+			// classic case
+			let path = `M 0 0`;
+			this.directions.forEach((direction, index) => {
+				if ((direction & tile) > 0) {
+					const angle = this.angle_offset + this.angle_unit * index;
+					const dx = this.radius_in * Math.cos(angle);
+					const dy = this.radius_in * Math.sin(angle);
+					path += ` l ${dx} ${-dy} L 0 0`;
+				}
+			});
+			this.cache.pipes_path.set(tile, path);
+			return path;
+		} else {
+			// layered case
+			const actualTile = -tile;
+			const { cx, cy } = this.get_layer_center(actualTile);
+			let path = `M ${cx} ${-cy}`;
+			this.directions.forEach((direction, index) => {
+				if ((direction & actualTile) > 0) {
+					const angle = this.angle_offset + this.angle_unit * index;
+					const dx = this.radius_in * Math.cos(angle);
+					const dy = this.radius_in * Math.sin(angle);
+					path += ` L ${dx} ${-dy} L ${cx} ${-cy}`;
+				}
+			});
+			this.cache.pipes_path.set(tile, path);
+			return path;
+		}
+	}
+	/**
+	 * Slightly offset tile centers in layered case
+	 * @param {Number} tile
+	 */
+	get_layer_center(tile) {
+		const cached = this.cache.layer_center.get(tile);
+		if (cached !== undefined) {
+			return cached;
+		}
+		let dx = 0,
+			dy = 0,
+			n = 0;
 		this.directions.forEach((direction, index) => {
 			if ((direction & tile) > 0) {
 				const angle = this.angle_offset + this.angle_unit * index;
-				const dx = this.radius_in * Math.cos(angle);
-				const dy = this.radius_in * Math.sin(angle);
-				path += ` l ${dx} ${-dy} L 0 0`;
+				dx += this.radius_in * Math.cos(angle);
+				dy += this.radius_in * Math.sin(angle);
+				n += 1;
 			}
 		});
-		this.cache.pipes_path.set(tile, path);
-		return path;
+		const center = { cx: dx / (2 * n - 0.5), cy: dy / (2 * n - 0.5) };
+		this.cache.layer_center.set(tile, center);
+		return center;
 	}
 
 	/**

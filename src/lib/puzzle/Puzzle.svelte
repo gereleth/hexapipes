@@ -3,15 +3,17 @@
 	import { settings } from '$lib/stores';
 	import { controls } from '$lib/puzzle/controls';
 	import Tile from '$lib/puzzle/Tile.svelte';
+	import LayeredTile from '$lib/puzzle/LayeredTile.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { PipesGame } from '$lib/puzzle/game.svelte.js';
+	import { LayeredPipesGame } from './game-layers.svelte';
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
-	 * @property {Number[]} [tiles]
+	 * @property {Number[]|Number[][]} [tiles]
 	 * @property {import('$lib/puzzle/game.svelte').Progress|undefined} [savedProgress]
 	 * @property {string} [progressStoreName]
 	 * @property {Number|undefined} [preferredPxPerCell]
@@ -46,7 +48,19 @@
 	let svgWidth = $state(500);
 	let svgHeight = $state(500);
 
-	const game = new PipesGame(grid, tiles, savedProgress);
+	/** @type {PipesGame|LayeredPipesGame}*/
+	let game;
+	if (Number.isInteger(tiles[0])) {
+		game = new PipesGame(grid, /** @type {Number[]} */ (tiles), savedProgress);
+	} else {
+		game = new LayeredPipesGame(
+			grid,
+			/** @type {Number[][]} */ (tiles),
+			/** @type {import('$lib/puzzle/game-layers.svelte').LayeredProgress|undefined} */ (
+				savedProgress
+			)
+		);
+	}
 
 	const pxPerCell = 60;
 
@@ -183,14 +197,27 @@
 		if (game.solved) {
 			return;
 		}
-		const tileStates = game.tileStates.map((data) => {
-			return {
-				rotations: data.rotations,
-				locked: data.locked,
-				color: data.color,
-				edgeMarks: data.edgeMarks
-			};
-		});
+		/** @type {Array<Record<String, any>>}*/
+		let tileStates;
+		if (game instanceof LayeredPipesGame) {
+			tileStates = game.tileStates.map((data) => {
+				return {
+					rotations: data.rotations,
+					locked: data.locked,
+					colors: data.colors,
+					edgeMarks: data.edgeMarks
+				};
+			});
+		} else {
+			tileStates = game.tileStates.map((data) => {
+				return {
+					rotations: data.rotations,
+					locked: data.locked,
+					color: data.color,
+					edgeMarks: data.edgeMarks
+				};
+			});
+		}
 		progress({
 			name: myProgressName,
 			data: {
@@ -214,13 +241,17 @@
 	 */
 	let solutions = $state([]);
 	export async function unleashTheSolver() {
+		if (game instanceof LayeredPipesGame) {
+			// solver does not support layered puzzles yet
+			return;
+		}
 		measureSolveTime();
 		if (!game.solved) {
 			// unlock all tiles
 			for (let tileState of game.tileStates) {
 				tileState.locked = false;
 			}
-			solver = new Solver(tiles, grid);
+			solver = new Solver(/** @type {Number[]} */ (tiles), grid);
 			try {
 				for (let { stage, step } of solver.solve(true)) {
 					if (stage === 'aftercheck') {
@@ -260,7 +291,7 @@
 	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
-		const solver = new Solver(tiles, grid);
+		const solver = new Solver(/** @type {Number[]} */ (tiles), grid);
 		steps = 0;
 		try {
 			for (let _ of solver.solve(true)) {
@@ -339,8 +370,9 @@
 					{#each solutions as solution, i}
 						<button
 							onclick={() => {
+								const classicGame = /** @type {PipesGame} */ (game);
 								solution.forEach((orientation, index) => {
-									game.setTileOrientation(index, orientation);
+									classicGame.setTileOrientation(index, orientation);
 									game.solved = false;
 								});
 								game.solved = false;
@@ -365,14 +397,25 @@
 		onsave={save.soon}
 	>
 		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
-			<Tile
-				i={visibleTile.index}
-				solved={game.solved}
-				{game}
-				cx={visibleTile.x}
-				cy={visibleTile.y}
-				controlMode={$settings.controlMode}
-			/>
+			{#if game instanceof LayeredPipesGame}
+				<LayeredTile
+					i={visibleTile.index}
+					solved={game.solved}
+					{game}
+					cx={visibleTile.x}
+					cy={visibleTile.y}
+					controlMode={$settings.controlMode}
+				/>
+			{:else if !(game instanceof LayeredPipesGame)}
+				<Tile
+					i={visibleTile.index}
+					solved={game.solved}
+					{game}
+					cx={visibleTile.x}
+					cy={visibleTile.y}
+					controlMode={$settings.controlMode}
+				/>
+			{/if}
 		{/each}
 		{#if !game.solved}
 			{#each $visibleTiles as visibleTile, i (visibleTile.key)}

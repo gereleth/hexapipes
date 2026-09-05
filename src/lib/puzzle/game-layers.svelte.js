@@ -76,6 +76,14 @@ class LayeredTileState {
 	}
 
 	/**
+	 * Union of all layer bitmasks
+	 * @returns {Number}
+	 */
+	get tile() {
+		return this.layers.reduce((a, b) => a | b, 0);
+	}
+
+	/**
 	 * @param {number} times
 	 */
 	rotate(times) {
