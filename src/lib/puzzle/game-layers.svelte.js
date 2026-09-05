@@ -774,19 +774,12 @@ export class LayeredPipesGame {
 				walls += direction;
 			}
 		}
+		// merge all layers to check if walls/connections fit
+		const tile = tileState.tile;
 		for (let r = 0; r < polygon.directions.length; r++) {
 			const rotations = tileState.rotations + r;
-			let union = 0;
-			let fitsWalls = true;
-			for (let layer = 0; layer < tileState.layers.length; layer++) {
-				const rotated = polygon.rotate(tileState.layers[layer], rotations);
-				if ((rotated & walls) > 0) {
-					fitsWalls = false;
-					break;
-				}
-				union |= rotated;
-			}
-			if (fitsWalls && (union & connections) === connections) {
+			const rotated = polygon.rotate(tile, rotations);
+			if ((rotated & connections) === connections && (rotated & walls) === 0) {
 				this.rotateTile(cell, r);
 				break;
 			}
