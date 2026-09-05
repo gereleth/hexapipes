@@ -225,16 +225,6 @@ export class LayeredPipesGame {
 	}
 
 	/**
-	 * Tells if the sub-cell id points to an actual layer of a non-empty cell
-	 * @param {Number} id
-	 * @returns {Boolean}
-	 */
-	isValidId(id) {
-		const cellLayers = this.tileStates[this.cellOf(id)]?.layers;
-		return cellLayers !== undefined && this.layerOf(id) < cellLayers.length;
-	}
-
-	/**
 	 * Directions the layer of a cell is currently pointing to
 	 * @param {Number} cell
 	 * @param {Number} layer
@@ -313,59 +303,61 @@ export class LayeredPipesGame {
 		});
 		// merge initial components of connected layers
 		const checked = new Set();
-		let i = 0;
-		while (checked.size < this.totalSubCells) {
-			while (!this.isValidId(i) || checked.has(i)) {
-				i += 1;
-			}
-			const toCheck = new Set([i]);
-			const cell = this.cellOf(i);
-			const layer = this.layerOf(i);
-			const component = {
-				color: this.tileStates[cell].colors[layer],
-				tiles: new Set([i]),
-				openEnds: new Set()
-			};
-			const connectedThrough = new Map();
-			let loop = false;
-			while (toCheck.size > 0) {
-				const [index] = toCheck;
-				const tileCell = this.cellOf(index);
-				const tileLayer = this.layerOf(index);
-				const tileState = this.tileStates[tileCell];
-				toCheck.delete(index);
-				checked.add(index);
-				this.components.set(index, component);
-				component.tiles.add(index);
-				if (tileState.hasDisconnects[tileLayer]) {
-					component.openEnds.add(index);
-					this.openEnds.add(index);
+		for (let cell = 0; cell < this.total; cell++) {
+			const state = this.tileStates[cell];
+			for (let layer = 0; layer < state.layers.length; layer++) {
+				const id = this.idOf(cell, layer);
+				if (checked.has(id)) {
+					continue;
 				}
-				const connected = this.connections.get(index) || new Set();
-				for (let neighbour of connected) {
-					const through = connectedThrough.get(neighbour) || -1;
-					if (through === index) {
-						// seen this connection before
-						continue;
+				const toCheck = new Set([id]);
+				const component = {
+					color: state.colors[layer],
+					tiles: new Set([id]),
+					openEnds: new Set()
+				};
+				const connectedThrough = new Map();
+				let loop = false;
+				while (toCheck.size > 0) {
+					const [index] = toCheck;
+					const tileCell = this.cellOf(index);
+					const tileLayer = this.layerOf(index);
+					const tileState = this.tileStates[tileCell];
+					toCheck.delete(index);
+					checked.add(index);
+					this.components.set(index, component);
+					component.tiles.add(index);
+					if (tileState.hasDisconnects[tileLayer]) {
+						component.openEnds.add(index);
+						this.openEnds.add(index);
 					}
-					if (through !== -1) {
-						// connected to the same component through some other layer
-						loop = true;
-						continue;
+					const connected = this.connections.get(index) || new Set();
+					for (let neighbour of connected) {
+						const through = connectedThrough.get(neighbour) || -1;
+						if (through === index) {
+							// seen this connection before
+							continue;
+						}
+						if (through !== -1) {
+							// connected to the same component through some other layer
+							loop = true;
+							continue;
+						}
+						toCheck.add(neighbour);
+						connectedThrough.set(neighbour, index);
 					}
-					toCheck.add(neighbour);
-					connectedThrough.set(neighbour, index);
 				}
-			}
-			if (loop) {
-				const loopTiles = this.detectLoops(component.tiles);
-				for (let loopTile of loopTiles) {
-					this.tileStates[this.cellOf(loopTile)].isPartOfLoop[this.layerOf(loopTile)] = true;
+				if (loop) {
+					const loopTiles = this.detectLoops(component.tiles);
+					for (let loopTile of loopTiles) {
+						this.tileStates[this.cellOf(loopTile)].isPartOfLoop[this.layerOf(loopTile)] = true;
+					}
 				}
-			}
-			if (component.openEnds.size === 0) {
-				for (let islandTile of component.tiles) {
-					this.tileStates[this.cellOf(islandTile)].isPartOfIsland[this.layerOf(islandTile)] = true;
+				if (component.openEnds.size === 0) {
+					for (let islandTile of component.tiles) {
+						this.tileStates[this.cellOf(islandTile)].isPartOfIsland[this.layerOf(islandTile)] =
+							true;
+					}
 				}
 			}
 		}
@@ -840,16 +832,8 @@ export class LayeredPipesGame {
 			if (tileConnections === undefined) {
 				throw `Could not find connections data for tile ${tile}`;
 			}
-			const inComponent = new Set(
-				[...tileConnections].filter((x) => {
-					// return true for connections that are
-					// part of this component
-					if (!tilesSet.has(x)) {
-						return false;
-					}
-					return true;
-				})
-			);
+			// keep only connections that are part of this component
+			const inComponent = new Set([...tileConnections].filter((x) => tilesSet.has(x)));
 			myConnections.set(tile, inComponent);
 			if (inComponent.size === 1) {
 				toPrune.add(tile);
