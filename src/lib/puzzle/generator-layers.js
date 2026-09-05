@@ -64,6 +64,8 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 	const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
 	visited.push(startIndex);
 	unvisited.delete(startIndex);
+	// create the first layer on starting tile
+	layers[startIndex].push(0);
 
 	const checkFullyConnected = grid.KIND !== 'triangular';
 
@@ -93,7 +95,7 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 		const moves = [];
 		/** @type {{layerIndex: Number, direction: Number, neighbour: Number}[]} */
 		const fullyConnectedMoves = [];
-		const numLayers = cellLayers.length === 0 ? 1 : cellLayers.length;
+		const numLayers = cellLayers.length;
 		for (let direction of polygon.directions) {
 			if ((used & direction) > 0) {
 				continue;
@@ -106,7 +108,7 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 				throw 'Error in layered pregeneration: neighbour already connects back';
 			}
 			for (let layerIndex = 0; layerIndex < numLayers; layerIndex++) {
-				const layer = layerIndex < cellLayers.length ? cellLayers[layerIndex] : 0;
+				const layer = cellLayers[layerIndex];
 				const move = { layerIndex, direction, neighbour };
 				if (checkFullyConnected && (layer | direction) === polygon.fully_connected) {
 					fullyConnectedMoves.push(move);
@@ -137,9 +139,6 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 		}
 
 		const { layerIndex, direction, neighbour } = getRandomElement(bestMoves);
-		if (cellLayers.length === 0) {
-			cellLayers.push(0);
-		}
 		cellLayers[layerIndex] |= direction;
 		layers[neighbour].push(opposite.get(direction) || 0);
 		if (unvisited.has(neighbour)) {
