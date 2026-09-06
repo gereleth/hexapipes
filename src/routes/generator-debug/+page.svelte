@@ -431,14 +431,14 @@
 										cx={center.cx}
 										cy={-center.cy}
 										r={runGrid.SINK_RADIUS * 0.7}
-										fill="#666"
+										fill="#fff"
 										stroke="#888"
 										stroke-width={runGrid.STROKE_WIDTH}
 									/>
 								{/if}
 								<path
 									d={path}
-									stroke="#666"
+									stroke="#fff"
 									stroke-width={pipeWidth}
 									stroke-linejoin={runGrid.LINE_JOIN}
 									stroke-linecap="round"
