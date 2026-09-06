@@ -2,21 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { HexaGrid } from './grids/hexagrid';
 import { SquareGrid } from './grids/squaregrid';
 import { LayeredCell, LayeredSolver } from './solver-layers';
-import { pregenerate_layers, randomRotate, validateLayers } from './generator-layers';
-
-/**
- * Applies solved rotations to scrambled layered tiles
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
- * @param {Number[][]} tiles
- * @param {Number[]} marked - rotation per cell
- * @returns {Number[][]}
- */
-function applyRotations(grid, tiles, marked) {
-	return tiles.map((cellLayers, index) => {
-		const polygon = grid.polygon_at(index);
-		return cellLayers.map((layer) => polygon.rotate(layer, marked[index]));
-	});
-}
+import {
+	applyRotations,
+	pregenerate_layers,
+	randomRotate,
+	validateLayers
+} from './generator-layers';
 
 describe('Test hexagrid layered cell constraints', () => {
 	const grid = new HexaGrid(3, 3, false);
