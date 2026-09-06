@@ -328,12 +328,15 @@
 			<!-- status overlay goes ON TOP of the tiles:
 				LayeredTile paints its own opaque tile background -->
 			{#each visibleCells as cell (cell.key)}
-				<path
-					d={runGrid.getTilePath(cell.index)}
-					fill={statusFill(cell.index)}
-					opacity={changedCells.has(cell.index) ? 1 : 0.6}
-					style="pointer-events: none"
-				/>
+				<g transform="translate({cell.x},{cell.y})">
+					<path
+						d={runGrid.getTilePath(cell.index)}
+						fill={statusFill(cell.index)}
+						opacity={changedCells.has(cell.index) ? 1 : 0.6}
+						style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}
+							; pointer-events: none"
+					/>
+				</g>
 			{/each}
 		</svg>
 	{/if}
