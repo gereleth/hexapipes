@@ -40,8 +40,8 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
   - `pregenerate_layers(grid, branchingAmount)`: GrowingTree maze (Prim↔backtracker mix) over
     cells; moves are `(existing layer, free direction)` pairs; growing into an already visited
     cell pushes a **new layer** there (merging would close a cycle); moves that would complete a
-    fully connected layer are a last resort (frontier demotion, mirrors classic
-    `fullyConnectedNeighbours`). Not yet wired: startTiles reuse, avoidObvious/avoidStraights.
+    fully connected union are a last resort (frontier demotion, mirrors classic
+    `fullyConnectedNeighbours`, checked for both the source cell and the neighbour). Not yet wired: startTiles reuse, avoidObvious/avoidStraights.
   - `validateLayers(grid, layers)`: throws on broken invariants — coverage, per-cell disjointness
     (OR == XOR of layers), edge matching, single tree (`connectionEnds === 2 * (subCells - 1)`
     plus BFS reachability).

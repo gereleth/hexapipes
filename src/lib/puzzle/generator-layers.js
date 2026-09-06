@@ -33,7 +33,7 @@ function usedDirections(cellLayers) {
  * A direction can be used by at most one layer of a cell.
  * Growing into an already visited cell adds a new layer there,
  * so the graph of sub-cells (cell + layer) always stays a tree.
- * Moves that would make a layer fully connected are a last resort.
+ * Moves that would make any tile's layers union fully connected are a last resort.
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {Number} branchingAmount - value in range [0, 1],
  * 0 is like recursive backtracking, 1 is like Prim's algorithm
@@ -59,7 +59,7 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 
 	/** @type {Number[]} cells that still have free directions */
 	const visited = [];
-	/** @type {Number[]} cells whose only remaining moves create a fully connected layer */
+	/** @type {Number[]} cells whose only remaining moves make some tile's layers union fully connected */
 	const lastResort = [];
 	const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
 	visited.push(startIndex);
@@ -104,13 +104,18 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 			if (empty) {
 				continue;
 			}
-			if ((usedDirections(layers[neighbour]) & (opposite.get(direction) || 0)) > 0) {
+			const backDirection = opposite.get(direction) || 0;
+			const neighbourUsed = usedDirections(layers[neighbour]);
+			if ((neighbourUsed & backDirection) > 0) {
 				throw 'Error in layered pregeneration: neighbour already connects back';
 			}
+			const fullyConnected =
+				checkFullyConnected &&
+				((used | direction) === polygon.fully_connected ||
+					(neighbourUsed | backDirection) === polygon.fully_connected);
 			for (let layerIndex = 0; layerIndex < numLayers; layerIndex++) {
-				const layer = cellLayers[layerIndex];
 				const move = { layerIndex, direction, neighbour };
-				if (checkFullyConnected && (layer | direction) === polygon.fully_connected) {
+				if (fullyConnected) {
 					fullyConnectedMoves.push(move);
 				} else {
 					moves.push(move);
@@ -129,7 +134,7 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 			continue;
 		}
 		if (bestMoves === fullyConnectedMoves && visited.length > 0) {
-			// wants to make a fully connected layer, try other cells first
+			// wants to make a fully connected union, try other cells first
 			const index = visited.indexOf(fromNode);
 			if (index >= 0) {
 				visited.splice(index, 1);
