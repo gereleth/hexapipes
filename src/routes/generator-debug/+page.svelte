@@ -280,10 +280,12 @@
 <div class="container">
 	<h1>Layered Generator Debug</h1>
 	<p>
-		Steps the uniqueness loop one solver iteration at a time. Green cells were reused from the
-		previous iteration, red cells are ambiguous, gray cells unresolved, blue cells are newly
-		certified. Full-opacity cells changed their status vs the previous iteration, faded cells kept
-		it.
+		Steps the uniqueness loop one solver iteration at a time.<br />
+		Solved view: green cells were reused from the previous iteration, red cells are ambiguous, gray cells
+		unresolved, blue cells are newly certified; full-opacity cells changed their status vs the previous
+		iteration, faded cells kept it.<br />
+		Reused (erased) view: green tiles are surviving cells with their layers (one color per independent
+		layer, layers never interconnect; circles mark deadend sinks), red tiles are erased and will be regenerated.
 	</p>
 
 	<div class="params">
@@ -377,13 +379,6 @@
 				</button>
 			</span>
 		</div>
-	{/if}
-
-	{#if boardMode === 'reused'}
-		<p class="hint">
-			What the next iteration receives: surviving cells with their layers, edges towards erased
-			neighbours pruned (small-component and claim-rule dissolutions not shown).
-		</p>
 	{/if}
 
 	{#if viewSnapshot && game && runGrid && boardMode === 'solved'}
@@ -555,10 +550,6 @@
 	.mode button.active {
 		background: rgba(120, 255, 120, 0.4);
 		font-weight: bold;
-	}
-	.hint {
-		font-size: 0.85em;
-		color: #777;
 	}
 	.board {
 		width: min(90vw, 700px);
