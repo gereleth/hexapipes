@@ -271,6 +271,18 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 }
 
 /**
+ * A pregeneration growth event, see pregenerate_layers.
+ * seed/erase/move/absorb mirror the board mutations exactly,
+ * demote/pop are frontier bookkeeping without board effects
+ * @typedef {{type: 'seed', cell: Number, role: String, layers: Number[]}|
+ * {type: 'erase', cell: Number}|
+ * {type: 'move', fromNode: Number, layerIndex: Number, direction: Number, neighbour: Number}|
+ * {type: 'absorb', fromNode: Number, layerIndex: Number, direction: Number, neighbour: Number, islandCells: Number[]}|
+ * {type: 'demote', fromNode: Number, tier: String}|
+ * {type: 'pop', fromNode: Number}} GrowthMove
+ */
+
+/**
  * Fills a grid with layered tiles using GrowingTree algorithm
  * Every cell can hold several independent layers (up to one per direction),
  * layers within a cell never connect to each other.
@@ -292,6 +304,8 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
  * @param {StartLayers} startLayers - solved layers of non-ambiguous cells, null for cells to regenerate
  * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant when erasing ambiguities
+ * @param {(move: GrowthMove) => void} [onMove] - reports growth events for animations,
+ * each board mutation is mirrored by an event
  * @returns {LayeredTiles} - unrandomized layered tiles
  */
 export function pregenerate_layers(
@@ -299,7 +313,8 @@ export function pregenerate_layers(
 	branchingAmount = 0.5,
 	avoidObvious = 0,
 	startLayers = [],
-	reuseMinCount = 3
+	reuseMinCount = 3,
+	onMove = undefined
 ) {
 	const total = grid.total;
 
@@ -317,6 +332,8 @@ export function pregenerate_layers(
 	if (unvisited.size === 0) {
 		return layers;
 	}
+
+	const emit = /** @param {GrowthMove} move */ (move) => onMove?.(move);
 
 	/** @type {Number[]} cells that still have free directions */
 	const visited = [];
@@ -336,6 +353,7 @@ export function pregenerate_layers(
 				continue;
 			}
 			layers[cell] = cellPlan.layers;
+			emit({ type: 'seed', cell, role: cellPlan.role, layers: cellPlan.layers });
 			if (cellPlan.role === 'live') {
 				visited.push(cell);
 				unvisited.delete(cell);
@@ -404,6 +422,7 @@ export function pregenerate_layers(
 			// nothing to grow from: dissolve the dormant islands and start fresh
 			for (let cell of islands.keys()) {
 				layers[cell] = [];
+				emit({ type: 'erase', cell });
 			}
 			islands.clear();
 			candidates = [...unvisited];
@@ -413,6 +432,7 @@ export function pregenerate_layers(
 		unvisited.delete(startIndex);
 		// create the first layer on starting tile
 		layers[startIndex].push(0);
+		emit({ type: 'seed', cell: startIndex, role: 'start', layers: [0] });
 	}
 
 	const checkFullyConnected = grid.KIND !== 'triangular';
@@ -492,6 +512,7 @@ export function pregenerate_layers(
 			moves.length > 0 ? moves : obviousMoves.length > 0 ? obviousMoves : fullyConnectedMoves;
 		if (bestMoves.length === 0) {
 			// all directions of this cell are used up, remove it from the frontier
+			emit({ type: 'pop', fromNode });
 			if (usePrims) {
 				sourceList.splice(sourceList.indexOf(fromNode), 1);
 			} else {
@@ -501,6 +522,7 @@ export function pregenerate_layers(
 		}
 		if (bestMoves === fullyConnectedMoves && visited.length > 0) {
 			// wants to make a fully connected union, try other cells first
+			emit({ type: 'demote', fromNode, tier: 'lastResort' });
 			const index = visited.indexOf(fromNode);
 			if (index >= 0) {
 				visited.splice(index, 1);
@@ -510,6 +532,7 @@ export function pregenerate_layers(
 		}
 		if (bestMoves === obviousMoves && visited.length > 0) {
 			// wants to make an obvious tile, try other cells first
+			emit({ type: 'demote', fromNode, tier: 'avoiding' });
 			const index = visited.indexOf(fromNode);
 			if (index >= 0) {
 				visited.splice(index, 1);
@@ -531,12 +554,21 @@ export function pregenerate_layers(
 				unvisited.delete(cell);
 				visited.push(cell);
 			}
+			emit({
+				type: 'absorb',
+				fromNode,
+				layerIndex,
+				direction,
+				neighbour,
+				islandCells: [...island]
+			});
 		} else {
 			layers[neighbour].push(opposite.get(direction) || 0);
 			if (unvisited.has(neighbour)) {
 				unvisited.delete(neighbour);
 				visited.push(neighbour);
 			}
+			emit({ type: 'move', fromNode, layerIndex, direction, neighbour });
 		}
 	}
 	return layers;

@@ -206,14 +206,24 @@ numAmbiguous, unique, complete, keptCount, elapsedMs`); stops after the unique y
 - `worker-layers.js` debug commands: `debug-start` (grid + options → iterator),
   `debug-step` (one `iterator.next()` → `iteration {...}` message, followed by
   `debug-done` when the run finished/unique), `debug-true-count` (unlimited
-  `markAmbiguousTiles()` on the last stepped board → `true-count` message), `debug-stop`.
+  `markAmbiguousTiles()` on the last stepped board → `true-count` message), `debug-stop`,
+  and `growth-start` (one `pregenerate_layers` run with `options.startLayers`/`reuseMinCount`,
+  streaming a `growth-move` message per `GrowthMove` event followed by `growth-done`).
+  `pregenerate_layers` takes an optional `onMove` callback emitting `GrowthMove` events
+  (`seed`/`erase`/`move`/`absorb` mirror every board mutation exactly, `demote`/`pop` are
+  frontier bookkeeping) — the `/generator-debug` page replays them for the animated Growth
+  view; event-mirroring fidelity is asserted by tests (apply events == returned tiles).
   The plain `generate` command is unchanged.
 - `/generator-debug` route (no nav link): steps the loop, shows the solved board
   (`LayeredPipesGame` at rotation 0 + `LayeredTile`) with a per-cell status underlay
   (green = reused from previous iteration, red = ambiguous, gray = unresolved, blue =
   newly certified; changed-vs-previous cells are full-opacity), a live solver progress row
-  with elapsed timer, an iteration history (ambiguous/kept bars + ms), a snapshot carousel
-  and the true-count button.
+  with elapsed timer, an iteration history (ambiguous/kept bars + ms), a snapshot carousel,
+  the true-count button, a **Reused (erased)** view (exact `planReuse` roles: green = live
+  seed, blue = dormant islands, red = dissolved/erased, white pipes) and an animated
+  **Growth** view (replays `GrowthMove` events with play/pause/step + moves/tick speed;
+  green = visited cells, blue outline = latest move; optional seeding from the viewed
+  iteration's `startLayers`).
 - **Known problem this tooling targets**: 20×20 layered unique generation barely converges
   (one run took ~1 hour). `numAmbiguous` sits pinned at `ambiguousLimit`
   (`max(100, 0.1*total)`) every iteration, so progress is invisible and patience never

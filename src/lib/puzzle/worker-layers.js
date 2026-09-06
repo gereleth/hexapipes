@@ -1,4 +1,4 @@
-import { LayeredGenerator } from '$lib/puzzle/generator-layers';
+import { LayeredGenerator, pregenerate_layers } from '$lib/puzzle/generator-layers';
 import { LayeredSolver } from '$lib/puzzle/solver-layers';
 import { createGrid } from '$lib/puzzle/grids/grids';
 
@@ -110,6 +110,31 @@ function debugStop() {
 	debugTiles = undefined;
 }
 
+/**
+ * Runs one pregeneration and streams its growth events for animation
+ * @param {import('$lib/puzzle/grids/grids').GridOptions} grid
+ * @param {Object} options
+ * @param {Number} [options.branchingAmount]
+ * @param {Number} [options.avoidObvious]
+ * @param {(Number[]|null)[]} [options.startLayers]
+ * @param {Number} [options.reuseMinCount]
+ */
+function growthStart(grid, options) {
+	const { kind, width, height, wrap, tiles } = grid;
+	const grid_ = createGrid(kind, width, height, wrap, tiles);
+	/** @param {import('$lib/puzzle/generator-layers').GrowthMove} move */
+	const onMove = (move) => postMessage({ msg: 'growth-move', move });
+	const grownTiles = pregenerate_layers(
+		grid_,
+		options.branchingAmount ?? 0.5,
+		options.avoidObvious ?? 0,
+		options.startLayers || [],
+		options.reuseMinCount ?? 3,
+		onMove
+	);
+	postMessage({ msg: 'growth-done', tiles: grownTiles });
+}
+
 onmessage = (e) => {
 	if (e.data.command === 'generate') {
 		generate(e.data.grid, e.data.options);
@@ -121,5 +146,7 @@ onmessage = (e) => {
 		debugTrueCount();
 	} else if (e.data.command === 'debug-stop') {
 		debugStop();
+	} else if (e.data.command === 'growth-start') {
+		growthStart(e.data.grid, e.data.options);
 	}
 };

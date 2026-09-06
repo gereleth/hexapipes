@@ -16,6 +16,30 @@ import { LayeredSolver } from './solver-layers';
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
 /**
+ * Applies growth events to a layers board, mirroring the page's animation
+ * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {Number[][]} board
+ * @param {import('./generator-layers').GrowthMove[]} moves
+ */
+function applyGrowthMoves(grid, board, moves) {
+	for (const move of moves) {
+		if (move.type === 'seed') {
+			board[move.cell] = [...move.layers];
+		} else if (move.type === 'erase') {
+			board[move.cell] = [];
+		} else if (move.type === 'move') {
+			const back = grid.OPPOSITE.get(move.direction) || 0;
+			board[move.fromNode][move.layerIndex] |= move.direction;
+			board[move.neighbour].push(back);
+		} else if (move.type === 'absorb') {
+			const back = grid.OPPOSITE.get(move.direction) || 0;
+			board[move.fromNode][move.layerIndex] |= move.direction;
+			board[move.neighbour][0] |= back;
+		}
+	}
+}
+
+/**
  * Renders layer bitmasks as direction letters, e.g. 13 -> "EW"
  * @param {Number} layer
  */
@@ -513,6 +537,74 @@ describe('Test layered generation worker', () => {
 		globalAny.onmessage({ data: { command: 'debug-true-count' } });
 		expect(messages.at(-1)?.msg).toBe('true-count');
 		expect(messages.at(-1)?.numAmbiguous).toBeGreaterThanOrEqual(0);
+	});
+
+	it('Streams growth events on growth-start', async () => {
+		/** @type {{msg: string, move?: any, tiles?: Number[][]}[]} */
+		const messages = [];
+		/** @type {any} */
+		const globalAny = globalThis;
+		globalAny.postMessage = (/** @type {any} */ message) => messages.push(message);
+		await import('./worker-layers.js');
+
+		const grid = new SquareGrid(3, 3, false);
+		globalAny.onmessage({
+			data: {
+				command: 'growth-start',
+				grid: grid.export(),
+				options: { branchingAmount: 0.5, avoidObvious: 0 }
+			}
+		});
+		const moveMessages = messages.filter((message) => message.msg === 'growth-move');
+		expect(moveMessages.length).toBeGreaterThan(0);
+		const done = /** @type {{msg: string, tiles?: Number[][]}|undefined} */ (
+			messages.find((message) => message.msg === 'growth-done')
+		);
+		expect(done?.tiles?.length).toBe(grid.total);
+		// applying the streamed events reproduces the grown board exactly
+		/** @type {Number[][]} */
+		const board = Array.from({ length: grid.total }, () => []);
+		applyGrowthMoves(
+			grid,
+			board,
+			moveMessages.map((message) => message.move)
+		);
+		expect(board).toStrictEqual(done?.tiles);
+	});
+});
+
+describe('Test layered growth events', () => {
+	it('Mirrors board mutations in growth events', () => {
+		for (let i = 0; i < 10; i++) {
+			const grid = new SquareGrid(4, 4, false);
+			/** @type {import('./generator-layers').GrowthMove[]} */
+			const moves = [];
+			const tiles = pregenerate_layers(grid, Math.random(), 0, [], 3, (move) => moves.push(move));
+			expect(moves.length).toBeGreaterThan(0);
+			/** @type {Number[][]} */
+			const board = Array.from({ length: grid.total }, () => []);
+			applyGrowthMoves(grid, board, moves);
+			expect(board).toStrictEqual(tiles);
+		}
+	});
+
+	it('Mirrors growth events with startLayers reuse', () => {
+		const grid = new SquareGrid(4, 4, false);
+		const tiles0 = pregenerate_layers(grid, 0.5);
+		const solver = new LayeredSolver(tiles0, grid);
+		const { marked } = solver.markAmbiguousTiles();
+		const startLayers = buildStartLayers(grid, tiles0, marked);
+		for (let i = 0; i < 10; i++) {
+			/** @type {import('./generator-layers').GrowthMove[]} */
+			const moves = [];
+			const tiles = pregenerate_layers(grid, Math.random(), 0, startLayers, 3, (move) =>
+				moves.push(move)
+			);
+			/** @type {Number[][]} */
+			const board = Array.from({ length: grid.total }, () => []);
+			applyGrowthMoves(grid, board, moves);
+			expect(board).toStrictEqual(tiles);
+		}
 	});
 });
 

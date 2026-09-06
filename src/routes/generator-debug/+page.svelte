@@ -28,9 +28,29 @@
 	let generatorState = $state('idle'); // idle | starting | stepping | done
 	let auto = $state(false);
 	let highlightChanges = $state(true);
-	/** @type {'solved'|'reused'} */
+	/** @type {'solved'|'reused'|'growth'} */
 	let boardMode = $state('solved');
 	let errorMessage = $state('');
+
+	// growth animation state
+	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined} */
+	let growthGrid = $state();
+	/** @type {import('$lib/puzzle/generator-layers').GrowthMove[]} */
+	let growthMoves = $state([]);
+	let growthApplied = $state(0);
+	/** @type {Number[][]} */
+	let growthLayers = $state([]);
+	/** @type {import('svelte/reactivity').SvelteSet<Number>} */
+	let growthVisited = new SvelteSet();
+	/** @type {import('$lib/puzzle/generator-layers').GrowthMove|null} */
+	let growthLastMove = $state(null);
+	/** @type {Number[]} */
+	let growthHighlightCells = $state([]);
+	let growthPlaying = $state(false);
+	let growthSpeed = $state(4);
+	let growthSeedFromSnapshot = $state(false);
+	/** @type {ReturnType<typeof setInterval>|undefined} */
+	let growthTimer;
 
 	/** @type {Worker|null} */
 	let worker = null;
@@ -60,6 +80,16 @@
 					ymin: runGrid.YMIN,
 					width: runGrid.XMAX - runGrid.XMIN,
 					height: runGrid.YMAX - runGrid.YMIN
+				})
+			: []
+	);
+	const growthVisibleCells = $derived(
+		growthGrid
+			? growthGrid.getVisibleTiles({
+					xmin: growthGrid.XMIN,
+					ymin: growthGrid.YMIN,
+					width: growthGrid.XMAX - growthGrid.XMIN,
+					height: growthGrid.YMAX - growthGrid.YMIN
 				})
 			: []
 	);
@@ -220,6 +250,13 @@
 				elapsedMs: event.data.elapsedMs
 			};
 			trueCountRunning = false;
+		} else if (event.data.msg === 'growth-move') {
+			growthMoves.push(event.data.move);
+		} else if (event.data.msg === 'growth-done') {
+			growthApplied = 0;
+			growthLastMove = null;
+			growthPlaying = true;
+			startGrowthTimer();
 		} else if (event.data.msg === 'error') {
 			errorMessage = '' + event.data.error;
 			generatorState = 'idle';
@@ -257,7 +294,139 @@
 		worker.postMessage({ command: 'debug-true-count' });
 	}
 
+	function ensureWorker() {
+		if (worker === null) {
+			worker = new Worker();
+			worker.onmessage = onWorkerMessage;
+			hasWorker = true;
+		}
+		return worker;
+	}
+
+	function grow() {
+		const w = ensureWorker();
+		// ensure valid sizes
+		width = Math.max(width, wrap ? 3 : 1);
+		height = Math.max(height, wrap ? 3 : 1);
+		errorMessage = '';
+		pauseGrowth();
+		growthGrid = createGrid(gridKind, width, height, wrap);
+		growthMoves = [];
+		growthApplied = 0;
+		growthLayers = Array.from({ length: growthGrid.total }, () => []);
+		growthVisited.clear();
+		growthLastMove = null;
+		growthHighlightCells = [];
+		/** @type {(Number[]|null)[]} */
+		let startLayers = [];
+		if (growthSeedFromSnapshot && viewSnapshot) {
+			startLayers = buildStartLayers(growthGrid, viewSnapshot.tiles, viewSnapshot.marked);
+		}
+		w.postMessage({
+			command: 'growth-start',
+			grid: growthGrid.export(),
+			options: { branchingAmount, avoidObvious, startLayers, reuseMinCount: 3 }
+		});
+		boardMode = 'growth';
+	}
+
+	/**
+	 *
+	 * @param {import('$lib/puzzle/generator-layers').GrowthMove} move
+	 */
+	function applyGrowthMove(move) {
+		if (move.type === 'seed') {
+			growthLayers[move.cell] = [...move.layers];
+			growthVisited.add(move.cell);
+		} else if (move.type === 'erase') {
+			growthLayers[move.cell] = [];
+			growthVisited.delete(move.cell);
+		} else if (move.type === 'move') {
+			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
+			growthLayers[move.fromNode][move.layerIndex] |= move.direction;
+			growthLayers[move.neighbour].push(backDirection);
+			growthVisited.add(move.neighbour);
+			growthHighlightCells = [move.fromNode, move.neighbour];
+		} else if (move.type === 'absorb') {
+			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
+			growthLayers[move.fromNode][move.layerIndex] |= move.direction;
+			growthLayers[move.neighbour][0] |= backDirection;
+			for (let cell of move.islandCells) {
+				growthVisited.add(cell);
+			}
+			growthHighlightCells = [move.fromNode, move.neighbour];
+		} else {
+			growthHighlightCells = [];
+		}
+		growthLastMove = move;
+		growthApplied += 1;
+	}
+
+	function growthTick() {
+		const chunk = Math.max(1, Math.round(Number(growthSpeed) || 1));
+		for (let i = 0; i < chunk && growthApplied < growthMoves.length; i++) {
+			applyGrowthMove(growthMoves[growthApplied]);
+		}
+		if (growthApplied >= growthMoves.length) {
+			pauseGrowth();
+		}
+	}
+
+	function startGrowthTimer() {
+		if (growthTimer === undefined) {
+			growthTimer = setInterval(growthTick, 30);
+		}
+	}
+
+	function pauseGrowth() {
+		if (growthTimer !== undefined) {
+			clearInterval(growthTimer);
+			growthTimer = undefined;
+		}
+		growthPlaying = false;
+	}
+
+	function toggleGrowthPlayback() {
+		if (growthPlaying) {
+			pauseGrowth();
+		} else if (growthApplied < growthMoves.length) {
+			growthPlaying = true;
+			startGrowthTimer();
+		}
+	}
+
+	function growthStepOnce() {
+		pauseGrowth();
+		if (growthApplied < growthMoves.length) {
+			applyGrowthMove(growthMoves[growthApplied]);
+		}
+	}
+
+	/**
+	 *
+	 * @param {import('$lib/puzzle/generator-layers').GrowthMove} move
+	 */
+	function describeGrowthMove(move) {
+		if (move.type === 'seed') {
+			return `seed ${move.cell} (${move.role})`;
+		}
+		if (move.type === 'erase') {
+			return `erase ${move.cell}`;
+		}
+		if (move.type === 'move') {
+			return `grow ${move.fromNode} → ${move.neighbour}`;
+		}
+		if (move.type === 'absorb') {
+			return `absorb island at ${move.neighbour} (${move.islandCells.length} cells)`;
+		}
+		if (move.type === 'demote') {
+			return `demote ${move.fromNode} → ${move.tier}`;
+		}
+		return `pop ${move.fromNode}`;
+	}
+
 	onDestroy(() => {
+		pauseGrowth();
 		stop();
 	});
 </script>
@@ -276,7 +445,9 @@
 		Reused (erased) view — exactly what the next iteration receives: green tiles are the largest reused
 		component (it seeds the growing tree), blue tiles are dormant islands (reused when the tree grows
 		into them), red tiles are erased (ambiguous cells and dissolved components); circles mark deadend
-		sinks.
+		sinks.<br />
+		Growth view: the tree being grown move by move (press Grow); green cells are visited, faint cells
+		are not yet reached, blue outlines mark the latest move's cells.
 	</p>
 
 	<div class="params">
@@ -330,6 +501,10 @@
 		<label>
 			<input type="checkbox" bind:checked={highlightChanges} /> highlight changes
 		</label>
+		<button onclick={grow} disabled={generatorState === 'stepping'}>Grow</button>
+		<label>
+			<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's survivors
+		</label>
 	</div>
 
 	{#if errorMessage !== ''}
@@ -343,24 +518,26 @@
 			<SolverProgress progress={liveProgress} />
 		</div>
 	{/if}
-	{#if snapshots.length > 0}
+	{#if snapshots.length > 0 || growthMoves.length > 0}
 		<div class="view">
-			<button onclick={() => (viewIndex = Math.max(0, viewIndex - 1))} disabled={viewIndex <= 0}>
-				◀
-			</button>
-			<span>
-				iteration {viewIndex + 1} / {snapshots.length}: attempt
-				{viewSnapshot?.attempt}.{viewSnapshot?.iteration}, ambiguous {viewSnapshot?.numAmbiguous},
-				kept {viewSnapshot?.keptCount},
-				{Math.round(viewSnapshot?.elapsedMs ?? 0)}ms
-				{viewSnapshot?.unique ? '— UNIQUE!' : ''}
-			</span>
-			<button
-				onclick={() => (viewIndex = Math.min(snapshots.length - 1, viewIndex + 1))}
-				disabled={viewIndex >= snapshots.length - 1}
-			>
-				▶
-			</button>
+			{#if snapshots.length > 0}
+				<button onclick={() => (viewIndex = Math.max(0, viewIndex - 1))} disabled={viewIndex <= 0}>
+					◀
+				</button>
+				<span>
+					iteration {viewIndex + 1} / {snapshots.length}: attempt
+					{viewSnapshot?.attempt}.{viewSnapshot?.iteration}, ambiguous
+					{viewSnapshot?.numAmbiguous}, kept {viewSnapshot?.keptCount},
+					{Math.round(viewSnapshot?.elapsedMs ?? 0)}ms
+					{viewSnapshot?.unique ? '— UNIQUE!' : ''}
+				</span>
+				<button
+					onclick={() => (viewIndex = Math.min(snapshots.length - 1, viewIndex + 1))}
+					disabled={viewIndex >= snapshots.length - 1}
+				>
+					▶
+				</button>
+			{/if}
 			<span class="mode">
 				<button class:active={boardMode === 'solved'} onclick={() => (boardMode = 'solved')}>
 					Solved
@@ -368,6 +545,34 @@
 				<button class:active={boardMode === 'reused'} onclick={() => (boardMode = 'reused')}>
 					Reused (erased)
 				</button>
+				<button
+					class:active={boardMode === 'growth'}
+					onclick={() => (boardMode = growthMoves.length > 0 ? 'growth' : boardMode)}
+				>
+					Growth
+				</button>
+			</span>
+		</div>
+	{/if}
+
+	{#if boardMode === 'growth' && growthGrid}
+		<div class="view">
+			<button onclick={toggleGrowthPlayback} disabled={growthMoves.length === 0}>
+				{growthPlaying ? 'Pause' : 'Play'}
+			</button>
+			<button
+				onclick={growthStepOnce}
+				disabled={growthPlaying || growthApplied >= growthMoves.length}
+			>
+				Step
+			</button>
+			<label>
+				moves/tick
+				<input type="number" min="1" max="200" bind:value={growthSpeed} />
+			</label>
+			<span>
+				move {growthApplied} / {growthMoves.length}
+				{growthLastMove ? '· ' + describeGrowthMove(growthLastMove) : ''}
 			</span>
 		</div>
 	{/if}
@@ -441,6 +646,60 @@
 									stroke="#fff"
 									stroke-width={pipeWidth}
 									stroke-linejoin={runGrid.LINE_JOIN}
+									stroke-linecap="round"
+								/>
+							{/each}
+						</g>
+					{/if}
+				</g>
+			{/each}
+		</svg>
+	{:else if boardMode === 'growth' && growthGrid}
+		<svg
+			class="board"
+			viewBox="{growthGrid.XMIN} {growthGrid.YMIN} {growthGrid.XMAX -
+				growthGrid.XMIN} {growthGrid.YMAX - growthGrid.YMIN}"
+		>
+			{#each growthVisibleCells as cell (cell.key)}
+				{@const cellLayers = growthLayers[cell.index] || []}
+				{@const highlight = growthHighlightCells.includes(cell.index)}
+				<g transform="translate({cell.x},{cell.y})">
+					<path
+						d={growthGrid.getTilePath(cell.index)}
+						fill={growthVisited.has(cell.index) ? '#dfeadf' : '#f6f6f6'}
+						stroke={highlight ? '#3d7ab8' : '#ccc'}
+						stroke-width={highlight ? '0.08' : '0.02'}
+						style="transform: {growthGrid.getTileTransformCSS(cell.index) || ''}"
+					/>
+					{#if cellLayers.length > 0}
+						<g style="transform: {growthGrid.getTileTransformCSS(cell.index) || ''}">
+							{#each cellLayers as layer, layerIndex (layerIndex)}
+								{@const path = growthGrid.getPipesPath(-layer, cell.index)}
+								{@const pipeWidth = growthGrid.PIPE_WIDTH * 0.7}
+								{@const isDeadend = (layer & (layer - 1)) === 0 && layer > 0}
+								<path
+									d={path}
+									stroke="#888"
+									stroke-width={2 * growthGrid.STROKE_WIDTH + pipeWidth}
+									stroke-linejoin="bevel"
+									stroke-linecap="round"
+								/>
+								{#if isDeadend}
+									{@const center = growthGrid.polygon_at(cell.index).get_layer_center(layer)}
+									<circle
+										cx={center.cx}
+										cy={-center.cy}
+										r={growthGrid.SINK_RADIUS * 0.7}
+										fill="#fff"
+										stroke="#888"
+										stroke-width={growthGrid.STROKE_WIDTH}
+									/>
+								{/if}
+								<path
+									d={path}
+									stroke="#fff"
+									stroke-width={pipeWidth}
+									stroke-linejoin={growthGrid.LINE_JOIN}
 									stroke-linecap="round"
 								/>
 							{/each}
