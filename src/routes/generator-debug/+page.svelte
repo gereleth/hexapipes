@@ -28,6 +28,8 @@
 	let generatorState = $state('idle'); // idle | starting | stepping | done
 	let auto = $state(false);
 	let highlightChanges = $state(true);
+	/** @type {'solved'|'reused'} */
+	let boardMode = $state('solved');
 	let errorMessage = $state('');
 
 	/** @type {Worker|null} */
@@ -86,6 +88,48 @@
 		}
 		return changed;
 	});
+
+	/**
+	 * Layers per cell as the NEXT iteration would receive them:
+	 * kept cells (non-sentinel marked) with their layers rotated to the
+	 * solver frame and pruned of edges towards erased neighbours,
+	 * empty lists for erased cells. Approximates the pregenerate seeding
+	 * (small-component and claim-rule dissolutions not included).
+	 */
+	const reusedTiles = $derived.by(() => {
+		if (!viewSnapshot || !runGrid) {
+			return null;
+		}
+		const grid = runGrid;
+		return viewSnapshot.tiles.map((cellLayers, i) => {
+			const rotation = viewSnapshot.marked[i];
+			if (typeof rotation !== 'number' || rotation < 0 || cellLayers.length === 0) {
+				return [];
+			}
+			const polygon = grid.polygon_at(i);
+			/** @type {Number[]} */
+			const result = [];
+			for (const layer of cellLayers) {
+				let pruned = polygon.rotate(layer, rotation);
+				let bits = pruned;
+				while (bits > 0) {
+					const direction = bits & -bits;
+					bits ^= direction;
+					const { neighbour, empty } = grid.find_neighbour(i, direction);
+					const marked = empty ? -2 : viewSnapshot.marked[neighbour];
+					if (typeof marked !== 'number' || marked < 0) {
+						pruned ^= direction;
+					}
+				}
+				if (pruned > 0) {
+					result.push(pruned);
+				}
+			}
+			return result;
+		});
+	});
+
+	const layerPalette = ['#3d7ab8', '#b83d3d', '#3db85a', '#b8863d', '#7a3db8', '#3db8b0'];
 
 	/**
 	 * @param {Number} index
@@ -306,7 +350,6 @@
 			<SolverProgress progress={liveProgress} />
 		</div>
 	{/if}
-
 	{#if snapshots.length > 0}
 		<div class="view">
 			<button onclick={() => (viewIndex = Math.max(0, viewIndex - 1))} disabled={viewIndex <= 0}>
@@ -325,11 +368,25 @@
 			>
 				▶
 			</button>
+			<span class="mode">
+				<button class:active={boardMode === 'solved'} onclick={() => (boardMode = 'solved')}>
+					Solved
+				</button>
+				<button class:active={boardMode === 'reused'} onclick={() => (boardMode = 'reused')}>
+					Reused (erased)
+				</button>
+			</span>
 		</div>
 	{/if}
 
-	{#if viewSnapshot && game && runGrid}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
+	{#if boardMode === 'reused'}
+		<p class="hint">
+			What the next iteration receives: surviving cells with their layers, edges towards erased
+			neighbours pruned (small-component and claim-rule dissolutions not shown).
+		</p>
+	{/if}
+
+	{#if viewSnapshot && game && runGrid && boardMode === 'solved'}
 		<svg
 			class="board"
 			viewBox="{runGrid.XMIN} {runGrid.YMIN} {runGrid.XMAX - runGrid.XMIN} {runGrid.YMAX -
@@ -349,6 +406,59 @@
 						style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}
 							; pointer-events: none"
 					/>
+				</g>
+			{/each}
+		</svg>
+	{:else if viewSnapshot && runGrid && reusedTiles && boardMode === 'reused'}
+		<svg
+			class="board"
+			viewBox="{runGrid.XMIN} {runGrid.YMIN} {runGrid.XMAX - runGrid.XMIN} {runGrid.YMAX -
+				runGrid.YMIN}"
+		>
+			{#each visibleCells as cell (cell.key)}
+				{@const cellLayers = reusedTiles[cell.index]}
+				<g transform="translate({cell.x},{cell.y})">
+					<path
+						d={runGrid.getTilePath(cell.index)}
+						fill={cellLayers.length > 0 ? '#dfeadf' : '#f2dede'}
+						stroke="#ccc"
+						stroke-width="0.02"
+						style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}"
+					/>
+					{#if cellLayers.length > 0}
+						<g style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}">
+							{#each cellLayers as layer, layerIndex (layerIndex)}
+								{@const path = runGrid.getPipesPath(-layer, cell.index)}
+								{@const pipeWidth = runGrid.PIPE_WIDTH * 0.7}
+								{@const isDeadend = (layer & (layer - 1)) === 0 && layer > 0}
+								<path
+									d={path}
+									stroke="#888"
+									stroke-width={2 * runGrid.STROKE_WIDTH + pipeWidth}
+									stroke-linejoin="bevel"
+									stroke-linecap="round"
+								/>
+								{#if isDeadend}
+									{@const center = runGrid.polygon_at(cell.index).get_layer_center(layer)}
+									<circle
+										cx={center.cx}
+										cy={-center.cy}
+										r={runGrid.SINK_RADIUS * 0.7}
+										fill={layerPalette[layerIndex % layerPalette.length]}
+										stroke="#888"
+										stroke-width={runGrid.STROKE_WIDTH}
+									/>
+								{/if}
+								<path
+									d={path}
+									stroke={layerPalette[layerIndex % layerPalette.length]}
+									stroke-width={pipeWidth}
+									stroke-linejoin={runGrid.LINE_JOIN}
+									stroke-linecap="round"
+								/>
+							{/each}
+						</g>
+					{/if}
 				</g>
 			{/each}
 		</svg>
@@ -441,6 +551,14 @@
 		justify-content: center;
 		align-items: center;
 		margin: 0.5em 0;
+	}
+	.mode button.active {
+		background: rgba(120, 255, 120, 0.4);
+		font-weight: bold;
+	}
+	.hint {
+		font-size: 0.85em;
+		color: #777;
 	}
 	.board {
 		width: min(90vw, 700px);
