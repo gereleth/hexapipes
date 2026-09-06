@@ -404,4 +404,120 @@ describe('Test layered generation worker', () => {
 		globalAny.onmessage(event);
 		expect(messages.some((message) => message.msg === 'error')).toBe(true);
 	});
+
+	it('Rejects debug-step before debug-start', async () => {
+		/** @type {{msg: string}[]} */
+		const messages = [];
+		/** @type {any} */
+		const globalAny = globalThis;
+		globalAny.postMessage = (/** @type {any} */ message) => messages.push(message);
+		await import('./worker-layers.js');
+
+		globalAny.onmessage({ data: { command: 'debug-step' } });
+		expect(messages.at(-1)?.msg).toBe('error');
+	});
+
+	it('Steps through debug iterations until done', async () => {
+		/** @type {{msg: string, tiles?: Number[][], marked?: Number[], unique?: boolean}[]} */
+		const messages = [];
+		/** @type {any} */
+		const globalAny = globalThis;
+		globalAny.postMessage = (/** @type {any} */ message) => messages.push(message);
+		await import('./worker-layers.js');
+
+		const grid = new SquareGrid(4, 4, false);
+		globalAny.onmessage({
+			data: {
+				command: 'debug-start',
+				grid: grid.export(),
+				options: { branchingAmount: 0.5, avoidObvious: 0, solutionsNumber: 'unique' }
+			}
+		});
+		expect(messages.at(-1)?.msg).toBe('debug-ready');
+
+		let iterations = 0;
+		let sawUnique = false;
+		while (iterations < 500) {
+			const producedFrom = messages.length;
+			globalAny.onmessage({ data: { command: 'debug-step' } });
+			const produced = messages.slice(producedFrom);
+			expect(
+				produced.some((message) => ['iteration', 'debug-done', 'error'].includes(message.msg))
+			).toBe(true);
+			const iteration = produced.find((message) => message.msg === 'iteration');
+			if (iteration) {
+				iterations += 1;
+				expect(iteration.tiles?.length).toBe(grid.total);
+				expect(iteration.marked?.length).toBe(grid.total);
+				sawUnique = sawUnique || iteration.unique === true;
+			}
+			if (produced.some((message) => message.msg === 'debug-done')) {
+				break;
+			}
+		}
+		expect(iterations).toBeGreaterThan(0);
+		// the loop stops right after a unique iteration
+		expect(sawUnique).toBe(true);
+		expect(messages.at(-1)?.msg).toBe('debug-done');
+	});
+
+	it('Reports the true ambiguity count for the last debug board', async () => {
+		/** @type {{msg: string, numAmbiguous?: Number}[]} */
+		const messages = [];
+		/** @type {any} */
+		const globalAny = globalThis;
+		globalAny.postMessage = (/** @type {any} */ message) => messages.push(message);
+		await import('./worker-layers.js');
+
+		const grid = new SquareGrid(4, 4, false);
+		globalAny.onmessage({
+			data: {
+				command: 'debug-start',
+				grid: grid.export(),
+				options: { branchingAmount: 0.5, avoidObvious: 0, solutionsNumber: 'unique' }
+			}
+		});
+		globalAny.onmessage({ data: { command: 'debug-step' } });
+		const iteration = /** @type {{msg: string, tiles?: Number[][]}} */ (
+			messages.find((message) => message.msg === 'iteration')
+		);
+		expect(iteration?.tiles?.length).toBe(grid.total);
+		globalAny.onmessage({ data: { command: 'debug-true-count' } });
+		expect(messages.at(-1)?.msg).toBe('true-count');
+		expect(messages.at(-1)?.numAmbiguous).toBeGreaterThanOrEqual(0);
+	});
+});
+
+describe('Test layered uniqueIterations', () => {
+	it('Yields valid iteration snapshots and stops after a unique one', () => {
+		const grid = new SquareGrid(4, 4, false);
+		const generator = new LayeredGenerator(grid, 3, 2, 5, 10);
+		let steps = 0;
+		for (const step of generator.uniqueIterations(0.5, 0)) {
+			steps += 1;
+			expect(step.attempt).toBeGreaterThan(0);
+			expect(step.iteration).toBeGreaterThan(0);
+			validateLayers(grid, step.tiles);
+			expect(step.marked.length).toBe(grid.total);
+			expect(step.numAmbiguous).toBeGreaterThanOrEqual(0);
+			expect(step.keptCount).toBeGreaterThanOrEqual(0);
+			expect(step.elapsedMs).toBeGreaterThanOrEqual(0);
+			if (steps === 1) {
+				expect(step.keptCount).toBe(0);
+			}
+			if (step.unique) {
+				const solver = new LayeredSolver(step.tiles, grid);
+				expect(solver.markAmbiguousTiles().unique).toBe(true);
+			}
+			expect(steps).toBeLessThan(500);
+		}
+		expect(steps).toBeGreaterThan(0);
+	});
+
+	it('Ends without yields when uniqueness iterations are disabled', () => {
+		const grid = new SquareGrid(3, 3, false);
+		const generator = new LayeredGenerator(grid, 3, 5, 3, 0);
+		const steps = [...generator.uniqueIterations(0.5, 0)];
+		expect(steps.length).toBe(0);
+	});
 });

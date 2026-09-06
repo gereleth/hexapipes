@@ -538,6 +538,20 @@ export function buildStartLayers(grid, layers, marked) {
 const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
 
 /**
+ * Snapshot of one uniqueness iteration, see LayeredGenerator.uniqueIterations
+ * @typedef {object} IterationSnapshot
+ * @property {Number} attempt
+ * @property {Number} iteration
+ * @property {LayeredTiles} tiles - the freshly generated (unscrambled) board
+ * @property {Number[]} marked - solver-frame rotations per cell, AMBIGUOUS/UNSOLVED sentinels for bad cells
+ * @property {Number} numAmbiguous
+ * @property {boolean} unique - the search finished and found a unique solution
+ * @property {boolean} complete - the solver search was not cut short by the iteration cap
+ * @property {Number} keptCount - cells this board reused from the previous iteration
+ * @property {Number} elapsedMs - time spent in the solver for this iteration
+ */
+
+/**
  * Generates layered puzzles. Mirrors the classic Generator:
  * for a unique solution it repeatedly re-pregenerates the board while
  * reusing non-ambiguous portions of the previous attempt
@@ -576,6 +590,100 @@ export class LayeredGenerator {
 	}
 
 	/**
+	 * Runs the uniqueness generation loop step by step,
+	 * yielding a snapshot of every solver iteration.
+	 * The snapshot describes the freshly generated (unscrambled) board:
+	 * non-sentinel `marked` cells are the ones the solver certified,
+	 * they feed the next iteration as reused `startLayers` (and are
+	 * reported as this board's `keptCount`).
+	 * Stops after yielding a unique snapshot, or when the attempts
+	 * are exhausted.
+	 * @param {Number} branchingAmount - value in range [0, 1]
+	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
+	 * @returns {Generator<IterationSnapshot, void, void>}
+	 */
+	*uniqueIterations(branchingAmount = 0.6, avoidObvious = 0.0) {
+		/** @type {StartLayers} */
+		let startLayers = [];
+		let attempt = 0;
+		const ambiguousLimit = Math.max(100, 0.1 * this.grid.total); // don't look for more ambiguous tiles than this
+		while (attempt < this.max_attempts) {
+			attempt += 1;
+			let tiles = pregenerate_layers(
+				this.grid,
+				branchingAmount,
+				avoidObvious,
+				startLayers,
+				this.reuse_tiles_min_count
+			);
+			let iteration = 0;
+			let patienceLeft = this.uniqueness_patience;
+			let ambiguous = this.grid.total;
+			while (iteration < this.max_uniqueness_iterations) {
+				iteration += 1;
+				const started = performance.now();
+				this.generator_progress_callback({ attempt, iteration });
+				const solver = new LayeredSolver(tiles, this.grid);
+				if (this.solver_progress_callback) {
+					solver.progress_callback = this.solver_progress_callback;
+				}
+				const { solvable, marked, unique, numAmbiguous, complete } = solver.markAmbiguousTiles(
+					Math.min(ambiguous, ambiguousLimit),
+					this.max_solver_iterations
+				);
+				const elapsedMs = performance.now() - started;
+				if (!solvable) {
+					throw 'Pregeneration returned an unsolvable puzzle';
+				}
+				const keptCount = startLayers.reduce((n, cellLayers) => (cellLayers ? n + 1 : n), 0);
+				/** @type {IterationSnapshot} */
+				const snapshot = {
+					attempt,
+					iteration,
+					tiles,
+					marked,
+					numAmbiguous,
+					unique: unique && complete,
+					complete,
+					keptCount,
+					elapsedMs
+				};
+				if (snapshot.unique) {
+					yield snapshot;
+					return;
+				}
+				if (!complete) {
+					// the solver hit its iteration cap,
+					// these results can not be trusted.
+					// keep startLayers and retry with a fresh board
+					yield snapshot;
+					break;
+				}
+				if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {
+					startLayers = buildStartLayers(this.grid, tiles, marked);
+				} else if (numAmbiguous >= ambiguous) {
+					patienceLeft -= 1;
+				} else {
+					ambiguous = numAmbiguous;
+					patienceLeft = this.uniqueness_patience;
+					startLayers = buildStartLayers(this.grid, tiles, marked);
+				}
+				yield snapshot;
+				if (patienceLeft === 0) {
+					break;
+				}
+				tiles = pregenerate_layers(
+					this.grid,
+					branchingAmount,
+					avoidObvious,
+					startLayers,
+					this.reuse_tiles_min_count
+				);
+			}
+		}
+	}
+
+	/**
 	 * Generate a puzzle according to settings
 	 * @param {Number} branchingAmount - value in range [0, 1]
 	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
@@ -584,64 +692,9 @@ export class LayeredGenerator {
 	 */
 	generate(branchingAmount = 0.6, avoidObvious = 0.0, solutionsNumber = 'unique') {
 		if (solutionsNumber === 'unique') {
-			/** @type {StartLayers} */
-			let startLayers = [];
-			let attempt = 0;
-			const ambiguousLimit = Math.max(100, 0.1 * this.grid.total); // don't look for more ambiguous tiles than this
-			while (attempt < this.max_attempts) {
-				attempt += 1;
-				let tiles = pregenerate_layers(
-					this.grid,
-					branchingAmount,
-					avoidObvious,
-					startLayers,
-					this.reuse_tiles_min_count
-				);
-				let iteration = 0;
-				let patienceLeft = this.uniqueness_patience;
-				let ambiguous = this.grid.total;
-				while (iteration < this.max_uniqueness_iterations) {
-					iteration += 1;
-					this.generator_progress_callback({ attempt, iteration });
-					const solver = new LayeredSolver(tiles, this.grid);
-					if (this.solver_progress_callback) {
-						solver.progress_callback = this.solver_progress_callback;
-					}
-					const { solvable, marked, unique, numAmbiguous, complete } = solver.markAmbiguousTiles(
-						Math.min(ambiguous, ambiguousLimit),
-						this.max_solver_iterations
-					);
-					if (!solvable) {
-						throw 'Pregeneration returned an unsolvable puzzle';
-					}
-					if (unique && complete) {
-						return randomRotate(applyRotations(this.grid, tiles, marked), this.grid);
-					}
-					if (!complete) {
-						// the solver hit its iteration cap,
-						// these results can not be trusted.
-						// keep startLayers and retry with a fresh board
-						break;
-					}
-					if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {
-						startLayers = buildStartLayers(this.grid, tiles, marked);
-					} else if (numAmbiguous >= ambiguous) {
-						patienceLeft -= 1;
-					} else {
-						ambiguous = numAmbiguous;
-						patienceLeft = this.uniqueness_patience;
-						startLayers = buildStartLayers(this.grid, tiles, marked);
-					}
-					if (patienceLeft === 0) {
-						break;
-					}
-					tiles = pregenerate_layers(
-						this.grid,
-						branchingAmount,
-						avoidObvious,
-						startLayers,
-						this.reuse_tiles_min_count
-					);
+			for (const step of this.uniqueIterations(branchingAmount, avoidObvious)) {
+				if (step.unique) {
+					return randomRotate(applyRotations(this.grid, step.tiles, step.marked), this.grid);
 				}
 			}
 			throw 'Could not generate a layered puzzle with a unique solution. Maybe try again.';

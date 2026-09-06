@@ -192,6 +192,32 @@ avoidObvious, solutionsNumber)`; results arrive as `{msg: 'generated', tiles}` (
 - UI wiring done: `unleashTheSolver` layered branch applies steps as absolute rotations and the
   "Solution k" buttons replay rotation arrays; custom page generation goes through the
   uniqueness loop via `worker-layers.js` + `LayeredGeneratorComponent.svelte` (see above).
+
+## Generator debug tooling (for convergence research)
+
+- `LayeredGenerator.uniqueIterations(branchingAmount, avoidObvious)`: generator method that
+  yields an `IterationSnapshot` per solver iteration (`attempt, iteration, tiles, marked,
+numAmbiguous, unique, complete, keptCount, elapsedMs`); stops after the unique yield or
+  when attempts are exhausted. `generate('unique')` consumes it (behavior identical).
+- `worker-layers.js` debug commands: `debug-start` (grid + options → iterator),
+  `debug-step` (one `iterator.next()` → `iteration {...}` message, followed by
+  `debug-done` when the run finished/unique), `debug-true-count` (unlimited
+  `markAmbiguousTiles()` on the last stepped board → `true-count` message), `debug-stop`.
+  The plain `generate` command is unchanged.
+- `/generator-debug` route (no nav link): steps the loop, shows the solved board
+  (`LayeredPipesGame` at rotation 0 + `LayeredTile`) with a per-cell status underlay
+  (green = reused from previous iteration, red = ambiguous, gray = unresolved, blue =
+  newly certified; changed-vs-previous cells are full-opacity), a live solver progress row
+  with elapsed timer, an iteration history (ambiguous/kept bars + ms), a snapshot carousel
+  and the true-count button.
+- **Known problem this tooling targets**: 20×20 layered unique generation barely converges
+  (one run took ~1 hour). `numAmbiguous` sits pinned at `ambiguousLimit`
+  (`max(100, 0.1*total)`) every iteration, so progress is invisible and patience never
+  fires; solver trial stacks (blue in the progress bars) are very deep. Hypotheses to
+  discriminate with the page: (H1) the limit-cap masks the true ambiguity count;
+  (H2) rerolled regions regenerate dense ambiguity (base ambiguity density of layered
+  boards ≫ classic, from parallel pipes / multi-layer rearrangements); (H3) reuse is not
+  engaging (keptCount small / islands dissolving); (H4) solver backtracking explosion.
 - Consider porting classic's merge-time loop-avoidance pruning for speed, but note parallel
   pipes make naive cell-level rules unsound (two edges between the same cell pair are legal);
   only same-layer double connections into one component are definite cycles.
