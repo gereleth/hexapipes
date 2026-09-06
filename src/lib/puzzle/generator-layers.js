@@ -21,6 +21,8 @@ import { LayeredSolver } from '$lib/puzzle/solver-layers';
  * @property {Number} branchingAmount
  * @property {Number} avoidObvious
  * @property {SolutionsNumber} solutionsNumber
+ * @property {Number} [maxAmbiguousTiles] - cap on ambiguities searched per iteration,
+ * 0 or undefined means the default max(100, 0.1 * total)
  */
 
 /**
@@ -600,13 +602,17 @@ export class LayeredGenerator {
 	 * are exhausted.
 	 * @param {Number} branchingAmount - value in range [0, 1]
 	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
+	 * @param {Number} [ambiguousLimitOverride = 0] - cap on ambiguities searched per iteration,
+	 * 0 means the default max(100, 0.1 * total). A limit >= total marks every ambiguity
+	 * and lets the patience tracking work on the true counts.
 	 * @returns {Generator<IterationSnapshot, void, void>}
 	 */
-	*uniqueIterations(branchingAmount = 0.6, avoidObvious = 0.0) {
+	*uniqueIterations(branchingAmount = 0.6, avoidObvious = 0.0, ambiguousLimitOverride = 0) {
 		/** @type {StartLayers} */
 		let startLayers = [];
 		let attempt = 0;
-		const ambiguousLimit = Math.max(100, 0.1 * this.grid.total); // don't look for more ambiguous tiles than this
+		const ambiguousLimit =
+			ambiguousLimitOverride > 0 ? ambiguousLimitOverride : Math.max(100, 0.1 * this.grid.total); // don't look for more ambiguous tiles than this
 		while (attempt < this.max_attempts) {
 			attempt += 1;
 			let tiles = pregenerate_layers(

@@ -22,6 +22,8 @@
 	let wrap = $state(false);
 	let branchingAmount = $state(0.5);
 	let avoidObvious = $state(0.0);
+	/** 0 means the default max(100, 0.1 * total) */
+	let maxAmbiguousTiles = $state(0);
 
 	let generatorState = $state('idle'); // idle | starting | stepping | done
 	let auto = $state(false);
@@ -124,6 +126,7 @@
 			options: {
 				branchingAmount,
 				avoidObvious,
+				maxAmbiguousTiles: Number(maxAmbiguousTiles) || 0,
 				solutionsNumber: 'unique'
 			}
 		});
@@ -264,6 +267,11 @@
 		<label>
 			Avoid obvious
 			<input type="range" min="0" max="1" step="0.05" bind:value={avoidObvious} />
+		</label>
+		<label>
+			Max ambiguous tiles
+			<input type="number" bind:value={maxAmbiguousTiles} min="0" step="10" max={width * height} />
+			(0 = auto {Math.max(100, Math.round(0.1 * width * height))})
 		</label>
 		<button onclick={start} disabled={generatorState === 'stepping'}>Start</button>
 		<button onclick={step} disabled={generatorState === 'stepping' || !hasWorker}> Step </button>

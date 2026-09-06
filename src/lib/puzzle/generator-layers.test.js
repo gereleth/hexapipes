@@ -520,4 +520,16 @@ describe('Test layered uniqueIterations', () => {
 		const steps = [...generator.uniqueIterations(0.5, 0)];
 		expect(steps.length).toBe(0);
 	});
+
+	it('Honors a custom ambiguity limit', () => {
+		const grid = new SquareGrid(4, 4, false);
+		const generator = new LayeredGenerator(grid, 3, 2, 5, 10);
+		for (const step of generator.uniqueIterations(0.5, 0, 1)) {
+			// marking stops as soon as one ambiguity is found (or the board is unique)
+			expect(step.numAmbiguous).toBeLessThanOrEqual(1);
+			if (step.unique) {
+				break;
+			}
+		}
+	});
 });

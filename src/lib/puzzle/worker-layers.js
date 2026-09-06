@@ -54,7 +54,11 @@ function debugStart(grid, options) {
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
-	debugIterator = gen.uniqueIterations(options.branchingAmount, options.avoidObvious);
+	debugIterator = gen.uniqueIterations(
+		options.branchingAmount,
+		options.avoidObvious,
+		options.maxAmbiguousTiles || 0
+	);
 	postMessage({ msg: 'debug-ready' });
 }
 
