@@ -8,6 +8,7 @@
 	import { PipesGame } from '$lib/puzzle/game.svelte.js';
 	import { LayeredPipesGame } from './game-layers.svelte';
 	import { Solver } from './solver';
+	import { LayeredSolver } from './solver-layers';
 	import EdgeMarks from './EdgeMarks.svelte';
 
 	/**
@@ -233,7 +234,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {import('$lib/puzzle/solver').Solver|undefined}
+	 * @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver|undefined}
 	 */
 	let solver;
 	/**
@@ -241,46 +242,82 @@
 	 */
 	let solutions = $state([]);
 	export async function unleashTheSolver() {
-		if (game instanceof LayeredPipesGame) {
-			// solver does not support layered puzzles yet
-			return;
-		}
 		measureSolveTime();
 		if (!game.solved) {
 			// unlock all tiles
 			for (let tileState of game.tileStates) {
 				tileState.locked = false;
 			}
-			solver = new Solver(/** @type {Number[]} */ (tiles), grid);
-			try {
-				for (let { stage, step } of solver.solve(true)) {
-					if (stage === 'aftercheck') {
-						continue;
-					}
-					game.toggleLocked(step.index, false);
-					const shouldLock = step.final && stage === 'initial';
-					game.setTileOrientation(step.index, step.orientation, !shouldLock);
-					if (shouldLock) {
-						game.toggleLocked(step.index, true);
-					}
-					if (animate) {
-						await sleep(100);
-					}
-				}
-				if (solver.solutions.length > 1) {
-					// unlock tiles that are different between solutions
-					// and lock those that are the same
-					game.solved = false;
-					for (let [i, tile] of solver.solutions[0].entries()) {
-						const isSame = solver.solutions.every((solution) => solution[i] === tile);
-						if (game.tileStates[i].locked !== isSame) {
-							game.tileStates[i].toggleLocked();
+			if (game instanceof LayeredPipesGame) {
+				const layeredGame = game;
+				/** @type {import('$lib/puzzle/solver-layers').LayeredSolver} */
+				const layeredSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
+				solver = layeredSolver;
+				try {
+					for (let { stage, step } of layeredSolver.solve(true)) {
+						if (stage === 'aftercheck') {
+							continue;
+						}
+						game.toggleLocked(step.cell, false);
+						const shouldLock = step.final && stage === 'initial';
+						layeredGame.setTileOrientation(step.cell, step.rotation, !shouldLock);
+						if (shouldLock) {
+							game.toggleLocked(step.cell, true);
+						}
+						if (animate) {
+							await sleep(100);
 						}
 					}
+					if (layeredSolver.solutions.length > 1) {
+						// unlock cells that are different between solutions
+						// and lock those that are the same
+						game.solved = false;
+						for (let [i, id] of layeredSolver.solutions[0].entries()) {
+							const isSame = layeredSolver.solutions.every((solution) => solution[i] === id);
+							if (game.tileStates[i].locked !== isSame) {
+								game.tileStates[i].toggleLocked();
+							}
+						}
+					}
+					// store rotations instead of picture ids for the solution buttons
+					solutions = layeredSolver.solutions.map((solution) =>
+						solution.map((id, cell) => layeredSolver.pictureTable[cell].get(/** @type {String} */ (id)) || 0)
+					);
+				} catch (error) {
+					console.error(error);
 				}
-				solutions = solver.solutions;
-			} catch (error) {
-				console.error(error);
+			} else {
+				solver = new Solver(/** @type {Number[]} */ (tiles), grid);
+				try {
+					for (let { stage, step } of solver.solve(true)) {
+						if (stage === 'aftercheck') {
+							continue;
+						}
+						game.toggleLocked(step.index, false);
+						const shouldLock = step.final && stage === 'initial';
+						game.setTileOrientation(step.index, step.orientation, !shouldLock);
+						if (shouldLock) {
+							game.toggleLocked(step.index, true);
+						}
+						if (animate) {
+							await sleep(100);
+						}
+					}
+					if (solver.solutions.length > 1) {
+						// unlock tiles that are different between solutions
+						// and lock those that are the same
+						game.solved = false;
+						for (let [i, tile] of solver.solutions[0].entries()) {
+							const isSame = solver.solutions.every((solution) => solution[i] === tile);
+							if (game.tileStates[i].locked !== isSame) {
+								game.tileStates[i].toggleLocked();
+							}
+						}
+					}
+					solutions = solver.solutions;
+				} catch (error) {
+					console.error(error);
+				}
 			}
 		}
 	}
@@ -291,10 +328,16 @@
 	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
-		const solver = new Solver(/** @type {Number[]} */ (tiles), grid);
+		/** @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver} */
+		let measureSolver;
+		if (game instanceof LayeredPipesGame) {
+			measureSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
+		} else {
+			measureSolver = new Solver(/** @type {Number[]} */ (tiles), grid);
+		}
 		steps = 0;
 		try {
-			for (let _ of solver.solve(true)) {
+			for (let _ of measureSolver.solve(true)) {
 				steps += 1;
 			}
 		} catch (error) {
@@ -304,7 +347,9 @@
 		ms = t1 - t0;
 		msStats.push(ms);
 		msStats = msStats.sort((a, b) => a - b);
-		solutions = solver.solutions;
+		// for layered puzzles these are picture ids, only the count is displayed
+		// until unleashTheSolver replaces them with rotations
+		solutions = /** @type {number[][]} */ (measureSolver.solutions);
 	}
 
 	const save = createThrottle(saveProgress, 3000);
@@ -367,18 +412,26 @@
 			<div>Number of solutions: {solutions.length}</div>
 			{#if solutions.length > 1}
 				<div>
-					{#each solutions as solution, i}
+					{#each solutions as solution, i (i)}
 						<button
 							onclick={() => {
-								const classicGame = /** @type {PipesGame} */ (game);
-								solution.forEach((orientation, index) => {
-									classicGame.setTileOrientation(index, orientation);
-									game.solved = false;
-								});
+								if (game instanceof LayeredPipesGame) {
+									const layeredGame = game;
+									solution.forEach((rotation, index) => {
+										layeredGame.setTileOrientation(index, rotation);
+										game.solved = false;
+									});
+								} else {
+									const classicGame = /** @type {PipesGame} */ (game);
+									solution.forEach((orientation, index) => {
+										classicGame.setTileOrientation(index, orientation);
+										game.solved = false;
+									});
+								}
 								game.solved = false;
 							}}
-							>Solution {i + 1}
-						</button>
+							>Solution {i + 1}</button
+						>
 					{/each}
 				</div>
 			{/if}

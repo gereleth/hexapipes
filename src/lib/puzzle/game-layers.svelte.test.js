@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LayeredPipesGame } from './game-layers.svelte';
 import { SquareGrid } from './grids/squaregrid';
-import { pregenerate_layers } from './generator-layers';
+import { pregenerate_layers, randomRotate } from './generator-layers';
+import { LayeredSolver } from './solver-layers';
 
 describe('Test layered game', () => {
 	it('Tracks connections and solved state on a simple chain', () => {
@@ -167,6 +168,43 @@ describe('Test layered game', () => {
 		game.tileStates.forEach((state, index) => {
 			game.rotateTile(index, (4 - scrambles[index]) % 4);
 		});
+		expect(game.solved).toBe(true);
+	});
+});
+
+describe('Test layered solver wiring', () => {
+	it('Rotates to absolute rotations with setTileOrientation', () => {
+		const grid = new SquareGrid(2, 2, false);
+		const tiles = [[1], [4], [1], [4]];
+		const game = new LayeredPipesGame(grid, tiles, undefined);
+		game.rotateTile(0, 3);
+		game.setTileOrientation(0, 1);
+		expect(((game.tileStates[0].rotations % 4) + 4) % 4).toBe(1);
+		// animate does a full turn when already at the target
+		const before = game.tileStates[1].rotations;
+		game.setTileOrientation(1, 0, true);
+		expect(game.tileStates[1].rotations - before).toBe(4);
+		// no-op without animate when already at the target
+		const before2 = game.tileStates[2].rotations;
+		game.setTileOrientation(2, 0);
+		expect(game.tileStates[2].rotations).toBe(before2);
+	});
+
+	it('Applies solver solution rotations to solve the game', () => {
+		const grid = new SquareGrid(4, 4, false);
+		const solvedTiles = pregenerate_layers(grid, 0.5);
+		const scrambled = randomRotate(solvedTiles, grid);
+		const game = new LayeredPipesGame(grid, scrambled, undefined);
+		expect(game.isSolved()).toBe(false);
+		const solver = new LayeredSolver(scrambled, grid);
+		for (const _ of solver.solve(false)) {
+			// find the first solution
+		}
+		const rotations = solver.solution.map(
+			(id, cell) => solver.pictureTable[cell].get(/** @type {String} */ (id)) || 0
+		);
+		// the same way Puzzle.svelte applies solver steps
+		rotations.forEach((rotation, cell) => game.setTileOrientation(cell, rotation));
 		expect(game.solved).toBe(true);
 	});
 });

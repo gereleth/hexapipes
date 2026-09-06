@@ -426,6 +426,30 @@ export class LayeredPipesGame {
 	}
 
 	/**
+	 * Rotate tile to a certain rotation, all layers at once.
+	 * The rotation is relative to the tile's base layers (the state
+	 * the solver works on), not to the current accumulated rotations
+	 * @param {Number} cell
+	 * @param {Number} rotation - target rotation count
+	 * @param {Boolean} [animate=false] - do a full turn if already at target
+	 */
+	setTileOrientation(cell, rotation, animate = false) {
+		const tileState = this.tileStates[cell];
+		if (tileState === undefined || tileState.layers.length === 0) {
+			return;
+		}
+		const numDirections = this.grid.polygon_at(cell).num_directions;
+		const current = ((tileState.rotations % numDirections) + numDirections) % numDirections;
+		let delta = (rotation - current) % numDirections;
+		if (delta < 0) {
+			delta += numDirections;
+		}
+		if (delta !== 0 || animate) {
+			this.rotateTile(cell, delta === 0 ? numDirections : delta);
+		}
+	}
+
+	/**
 	 *
 	 * @param {Number} cell
 	 * @param {{layer: Number, direction: Number}[]} dirIn
