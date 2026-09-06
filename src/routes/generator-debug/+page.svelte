@@ -323,14 +323,17 @@
 				runGrid.YMIN}"
 		>
 			{#each visibleCells as cell (cell.key)}
+				<LayeredTile {game} i={cell.index} cx={cell.x} cy={cell.y} />
+			{/each}
+			<!-- status overlay goes ON TOP of the tiles:
+				LayeredTile paints its own opaque tile background -->
+			{#each visibleCells as cell (cell.key)}
 				<path
 					d={runGrid.getTilePath(cell.index)}
 					fill={statusFill(cell.index)}
 					opacity={changedCells.has(cell.index) ? 1 : 0.6}
+					style="pointer-events: none"
 				/>
-			{/each}
-			{#each visibleCells as cell (cell.key)}
-				<LayeredTile {game} i={cell.index} cx={cell.x} cy={cell.y} />
 			{/each}
 		</svg>
 	{/if}
