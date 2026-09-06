@@ -4,8 +4,8 @@
 	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { createGrid, randomGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
 	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
+	import LayeredGeneratorComponent from '$lib/puzzle/LayeredGeneratorComponent.svelte';
 	import Instructions from '$lib/Instructions.svelte';
-	import { pregenerate_layers, randomRotate } from '$lib/puzzle/generator-layers';
 
 	let generatorState = $state('idle');
 	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
@@ -26,6 +26,8 @@
 	let puzzle = $state();
 	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
 	let generatorComponent = $state();
+	/** @type {import('$lib/puzzle/LayeredGeneratorComponent.svelte').default|undefined}*/
+	let layeredGeneratorComponent = $state();
 	let solved = $state(false);
 
 	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined}*/
@@ -46,8 +48,14 @@
 		}
 		grid = createGrid(gridKind, width, height, wrap);
 		if (layered) {
-			const tt = randomRotate(pregenerate_layers(grid, branchingAmount, avoidObvious), grid);
-			onGenerated({ tiles: tt });
+			layeredGeneratorComponent?.generate(
+				{
+					branchingAmount,
+					avoidObvious,
+					solutionsNumber
+				},
+				grid
+			);
 		} else {
 			generatorComponent?.generate(
 				{
@@ -58,8 +66,8 @@
 				},
 				grid
 			);
-			generatorState = 'generating';
 		}
+		generatorState = 'generating';
 	}
 	/**
 	 *
@@ -177,7 +185,7 @@
 		<label>
 			Grid type
 			<select bind:value={gridKind}>
-				{#each gridKinds as item}
+				{#each gridKinds as item (item)}
 					<option value={item}>
 						{gridInfo[item].title}
 					</option>
@@ -264,6 +272,12 @@
 
 	<GeneratorComponent
 		bind:this={generatorComponent}
+		generated={onGenerated}
+		errored={onError}
+		canceled={onCancel}
+	/>
+	<LayeredGeneratorComponent
+		bind:this={layeredGeneratorComponent}
 		generated={onGenerated}
 		errored={onError}
 		canceled={onCancel}

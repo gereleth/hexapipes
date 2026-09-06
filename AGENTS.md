@@ -48,7 +48,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
     str-groups; frontier tier `visited > avoiding > lastResort`; no-op on wrapped boards).
     `startLayers` reuse is wired (see below). Not yet wired: avoidStraights.
   - **startLayers reuse** (`pregenerate_layers(grid, branchingAmount, avoidObvious,
-    startLayers = [], reuseMinCount = 3)`): mirrors classic `pregenerate_growingtree`
+startLayers = [], reuseMinCount = 3)`): mirrors classic `pregenerate_growingtree`
     (generator.js:111-176) for uniqueness generation. `startLayers` (`StartLayers` typedef) =
     per-cell solved layers rotated to the solver's representative rotation, `null` for
     cells to regenerate; wrong-length array ⇒ ignored (fresh board). Keepability is per cell
@@ -64,8 +64,8 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
     preserve — and would seed empty layer lists, crashing absorption); bigger ones → dormant
     islands under the **claim rule**: any cell conflict with live or a bigger island dissolves
     the whole island (multi-island cells would strand one island under per-cell visited).
-    **Absorption deviates from classic**: entering an unvisited island cell must *extend one
-    of the island's existing layers* with the back direction (`layers[neighbour][0] |= back`)
+    **Absorption deviates from classic**: entering an unvisited island cell must _extend one
+    of the island's existing layers_ with the back direction (`layers[neighbour][0] |= back`)
     — pushing a fresh layer would NOT connect to the island (layers never interconnect within
     a cell). Legal because the neighbour-connects-back assertion guarantees the direction is
     free in every layer, and move classification already evaluated that exact union. By loop
@@ -85,7 +85,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
     `generate(branchingAmount, avoidObvious, solutionsNumber)`:
     `'unique'` = attempt loop with `startLayers` declared OUTSIDE it (classic's carryover);
     per iteration solve → `markAmbiguousTiles(min(ambiguous, max(100, 0.1*total)),
-    maxSolverIterations)` → patience tracking; `complete: false` (solver iteration cap hit)
+maxSolverIterations)` → patience tracking; `complete: false` (solver iteration cap hit)
     ⇒ trust nothing, break to next attempt KEEPING startLayers; success returns
     `randomRotate(applyRotations(tiles, marked))`. `'multiple'` requires `complete` before
     returning (`!unique && complete`). Perf: 4×4/5×5 ~3ms, 5×5 wrap ~230ms, hexa 4×6 ~8ms.
@@ -155,8 +155,13 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
   arrays for the "Solution k" buttons (which branch classic-vs-layered in the template).
   `measureSolveTime` instantiates the matching solver for the stats readout (full `solve(true)`,
   so heavy boards freeze the UI before animating — same exposure as classic).
-- `src/routes/custom/+page.svelte` — "Layered" checkbox generates via
-  `randomRotate(pregenerate_layers(grid, branchingAmount), grid)` and plays in the browser.
+- `src/routes/custom/+page.svelte` — "Layered" checkbox generates through the uniqueness loop:
+  `LayeredGeneratorComponent` (mirror of `GeneratorComponent`) spawns `worker-layers.js`
+  (mirror of classic `worker.js`) running `LayeredGenerator.generate(branchingAmount,
+avoidObvious, solutionsNumber)`; results arrive as `{msg: 'generated', tiles}` (already
+  scrambled) or `{msg: 'error', error}`, progress as solver/generator progress messages.
+  Worker smoke tests shim `globalThis.postMessage`/`onmessage` and import the worker module
+  directly (module cache means the handler from the first import persists across tests).
 - Tests: `generator-layers.test.js` (pregeneration + scrambling + startLayers reuse: fuzz over
   nulled startLayers topologies, verbatim all-keepable reproduction, island absorption /
   dissolution / conflict fixtures, `LayeredGenerator` unique/whatever/multiple + progress
@@ -177,7 +182,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
   only worry about new ones in touched files. `npm run lint` has 2 pre-existing warnings
   (`src/app.html`, `src/routes/app.css`).
 
-## Done: uniqueness generation (this session); remaining: UI wiring
+## Done: uniqueness generation + UI wiring
 
 - Uniqueness generation is implemented: `LayeredGenerator.generate('unique')` +
   `startLayers` reuse in `pregenerate_layers` (both documented above). The uniqueness verdict
@@ -185,9 +190,8 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
   rotations are always solved-equivalent — no fairness check needed, proven by the
   picture-isomorphism argument).
 - UI wiring done: `unleashTheSolver` layered branch applies steps as absolute rotations and the
-  "Solution k" buttons replay rotation arrays. Remaining: custom page generation through the
-  uniqueness loop (web worker, like classic `worker.js` — `LayeredGenerator` API is ready,
-  mirrors classic `Generator`).
+  "Solution k" buttons replay rotation arrays; custom page generation goes through the
+  uniqueness loop via `worker-layers.js` + `LayeredGeneratorComponent.svelte` (see above).
 - Consider porting classic's merge-time loop-avoidance pruning for speed, but note parallel
   pipes make naive cell-level rules unsound (two edges between the same cell pair are legal);
   only same-layer double connections into one component are definite cycles.

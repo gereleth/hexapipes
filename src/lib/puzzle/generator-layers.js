@@ -17,6 +17,13 @@ import { LayeredSolver } from '$lib/puzzle/solver-layers';
  */
 
 /**
+ * @typedef {object} GeneratorOptions
+ * @property {Number} branchingAmount
+ * @property {Number} avoidObvious
+ * @property {SolutionsNumber} solutionsNumber
+ */
+
+/**
  * Returns a random element from an array
  * @param {Array<any>} array
  */

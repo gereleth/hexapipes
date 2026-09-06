@@ -349,3 +349,59 @@ describe('Test layered generator', () => {
 		);
 	});
 });
+
+describe('Test layered generation worker', () => {
+	it('Answers a generate command with generated tiles', async () => {
+		// shim the web worker globals before importing the worker module
+		/** @type {{msg: string, tiles?: Number[][]}[]} */
+		const messages = [];
+		/** @type {any} */
+		const globalAny = globalThis;
+		globalAny.postMessage = (/** @type {any} */ message) => messages.push(message);
+		globalAny.onmessage = null;
+		await import('./worker-layers.js');
+
+		const grid = new SquareGrid(4, 4, false);
+		/** @type {any} */
+		const event = {
+			data: {
+				command: 'generate',
+				grid: grid.export(),
+				options: { branchingAmount: 0.5, avoidObvious: 0, solutionsNumber: 'unique' }
+			}
+		};
+		globalAny.onmessage(event);
+		expect(messages.length).toBeGreaterThan(0);
+		const generated = messages.find((message) => message.msg === 'generated');
+		expect(generated?.tiles?.length).toBe(grid.total);
+		// the board is scrambled: solve it back to verify uniqueness
+		const tiles = /** @type {Number[][]} */ (generated?.tiles);
+		const solver = new LayeredSolver(tiles, grid);
+		expect(solver.markAmbiguousTiles().unique).toBe(true);
+	});
+
+	it('Answers an unknown solutionsNumber with an error message', async () => {
+		/** @type {{msg: string, error?: any}[]} */
+		const messages = [];
+		/** @type {any} */
+		const globalAny = globalThis;
+		globalAny.postMessage = (/** @type {any} */ message) => messages.push(message);
+		await import('./worker-layers.js');
+
+		const grid = new SquareGrid(3, 3, false);
+		/** @type {any} */
+		const event = {
+			data: {
+				command: 'generate',
+				grid: grid.export(),
+				options: {
+					branchingAmount: 0.5,
+					avoidObvious: 0,
+					solutionsNumber: /** @type {any} */ ('bogus')
+				}
+			}
+		};
+		globalAny.onmessage(event);
+		expect(messages.some((message) => message.msg === 'error')).toBe(true);
+	});
+});
