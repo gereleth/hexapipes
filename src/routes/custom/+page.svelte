@@ -46,7 +46,7 @@
 		}
 		grid = createGrid(gridKind, width, height, wrap);
 		if (layered) {
-			const tt = randomRotate(pregenerate_layers(grid, branchingAmount), grid);
+			const tt = randomRotate(pregenerate_layers(grid, branchingAmount, avoidObvious), grid);
 			onGenerated({ tiles: tt });
 		} else {
 			generatorComponent?.generate(

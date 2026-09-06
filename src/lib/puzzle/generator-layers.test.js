@@ -29,14 +29,20 @@ describe('Test layered pregeneration', () => {
 
 	for (let [width, height, wrap] of boards) {
 		for (let branchingAmount of [0, 0.5, 1]) {
-			it(`Pregenerates a valid layered puzzle ${width}x${height} wrap=${wrap} branching=${branchingAmount}`, () => {
-				for (let i = 0; i < 10; i++) {
-					const grid = new SquareGrid(width, height, wrap);
-					const layers = pregenerate_layers(grid, branchingAmount);
-					validateLayers(grid, layers);
-					expect(layers.length).toBe(grid.total);
-				}
-			});
+			for (let avoidObvious of [0, 0.5, 1]) {
+				it(
+					`Pregenerates a valid layered puzzle ${width}x${height} wrap=${wrap} ` +
+						`branching=${branchingAmount} avoidObvious=${avoidObvious}`,
+					() => {
+						for (let i = 0; i < 10; i++) {
+							const grid = new SquareGrid(width, height, wrap);
+							const layers = pregenerate_layers(grid, branchingAmount, avoidObvious);
+							validateLayers(grid, layers);
+							expect(layers.length).toBe(grid.total);
+						}
+					}
+				);
+			}
 		}
 	}
 

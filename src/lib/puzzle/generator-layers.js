@@ -34,12 +34,15 @@ function usedDirections(cellLayers) {
  * Growing into an already visited cell adds a new layer there,
  * so the graph of sub-cells (cell + layer) always stays a tree.
  * Moves that would make any tile's layers union fully connected are a last resort.
+ * Moves that would make a border tile's layers union an obvious
+ * (orientation forced by the border walls) shape are demoted too.
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {Number} branchingAmount - value in range [0, 1],
  * 0 is like recursive backtracking, 1 is like Prim's algorithm
+ * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
  * @returns {LayeredTiles} - unrandomized layered tiles
  */
-export function pregenerate_layers(grid, branchingAmount = 0.5) {
+export function pregenerate_layers(grid, branchingAmount = 0.5, avoidObvious = 0) {
 	const total = grid.total;
 
 	/** @type {LayeredTiles} */
@@ -57,8 +60,61 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 		return layers;
 	}
 
+	/** @type {Map<Number, Set<Number>>} tile index => forbidden union masks */
+	const tileForbidden = new Map();
+	if (avoidObvious > 0) {
+		/** @type {Map<import('$lib/puzzle/grids/polygonutils').RegularPolygonTile, Map<Number, Set<Number>>>}
+		 * polygon => (tile walls => set of forbidden types-orientations) */
+		const polygonForbidden = new Map();
+		for (let tileIndex of unvisited) {
+			const polygon = grid.polygon_at(tileIndex);
+			let walls = 0;
+			for (let direction of polygon.directions) {
+				const { empty } = grid.find_neighbour(tileIndex, direction);
+				if (empty) {
+					walls += direction;
+				}
+			}
+			if (walls === 0) {
+				continue;
+			}
+			const forbidden = polygonForbidden.get(polygon) || new Map();
+			if (!polygonForbidden.has(polygon)) {
+				polygonForbidden.set(polygon, forbidden);
+			}
+			let wallForbidden = forbidden.get(walls);
+			if (!wallForbidden) {
+				wallForbidden = new Set();
+				forbidden.set(walls, wallForbidden);
+				/** @type {Map<String, Number[]>} shape string => orientations respecting the walls */
+				const orientationsByShape = new Map();
+				for (let orientation of polygon.tileTypes.keys()) {
+					if ((orientation & walls) > 0) {
+						continue;
+					}
+					const str = polygon.tileTypes.get(orientation)?.str || '';
+					const orientations = orientationsByShape.get(str) || [];
+					if (orientations.length === 0) {
+						orientationsByShape.set(str, orientations);
+					}
+					orientations.push(orientation);
+				}
+				for (let orientations of orientationsByShape.values()) {
+					if (orientations.length === 1) {
+						wallForbidden.add(orientations[0]);
+					}
+				}
+			}
+			if (wallForbidden.size > 0) {
+				tileForbidden.set(tileIndex, wallForbidden);
+			}
+		}
+	}
+
 	/** @type {Number[]} cells that still have free directions */
 	const visited = [];
+	/** @type {Number[]} cells whose only remaining moves make some tile's layers union an obvious shape */
+	const avoiding = [];
 	/** @type {Number[]} cells whose only remaining moves make some tile's layers union fully connected */
 	const lastResort = [];
 	const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
@@ -74,7 +130,7 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 		/** @type {Number[]} */
 		let sourceList = visited;
 		let fromNode = -1;
-		for (let nodes of [visited, lastResort]) {
+		for (let nodes of [visited, avoiding, lastResort]) {
 			if (nodes.length === 0) {
 				continue;
 			}
@@ -93,6 +149,8 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 
 		/** @type {{layerIndex: Number, direction: Number, neighbour: Number}[]} */
 		const moves = [];
+		/** @type {{layerIndex: Number, direction: Number, neighbour: Number}[]} */
+		const obviousMoves = [];
 		/** @type {{layerIndex: Number, direction: Number, neighbour: Number}[]} */
 		const fullyConnectedMoves = [];
 		const numLayers = cellLayers.length;
@@ -113,17 +171,33 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 				checkFullyConnected &&
 				((used | direction) === polygon.fully_connected ||
 					(neighbourUsed | backDirection) === polygon.fully_connected);
+			let obvious = false;
+			if (
+				!fullyConnected &&
+				(tileForbidden.has(fromNode) || tileForbidden.has(neighbour)) &&
+				Math.random() < avoidObvious
+			) {
+				const nogo = tileForbidden.get(fromNode);
+				const neighbourNogo = tileForbidden.get(neighbour);
+				obvious = Boolean(
+					(nogo && nogo.has(used | direction)) ||
+						(neighbourNogo && neighbourNogo.has(neighbourUsed | backDirection))
+				);
+			}
 			for (let layerIndex = 0; layerIndex < numLayers; layerIndex++) {
 				const move = { layerIndex, direction, neighbour };
 				if (fullyConnected) {
 					fullyConnectedMoves.push(move);
+				} else if (obvious) {
+					obviousMoves.push(move);
 				} else {
 					moves.push(move);
 				}
 			}
 		}
 
-		const bestMoves = moves.length > 0 ? moves : fullyConnectedMoves;
+		const bestMoves =
+			moves.length > 0 ? moves : obviousMoves.length > 0 ? obviousMoves : fullyConnectedMoves;
 		if (bestMoves.length === 0) {
 			// all directions of this cell are used up, remove it from the frontier
 			if (usePrims) {
@@ -140,6 +214,15 @@ export function pregenerate_layers(grid, branchingAmount = 0.5) {
 				visited.splice(index, 1);
 			}
 			lastResort.push(fromNode);
+			continue;
+		}
+		if (bestMoves === obviousMoves && visited.length > 0) {
+			// wants to make an obvious tile, try other cells first
+			const index = visited.indexOf(fromNode);
+			if (index >= 0) {
+				visited.splice(index, 1);
+			}
+			avoiding.push(fromNode);
 			continue;
 		}
 

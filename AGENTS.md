@@ -37,11 +37,16 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 ## Implemented so far (branch `layers`)
 
 - `src/lib/puzzle/generator-layers.js`
-  - `pregenerate_layers(grid, branchingAmount)`: GrowingTree maze (Prim↔backtracker mix) over
-    cells; moves are `(existing layer, free direction)` pairs; growing into an already visited
-    cell pushes a **new layer** there (merging would close a cycle); moves that would complete a
-    fully connected union are a last resort (frontier demotion, mirrors classic
-    `fullyConnectedNeighbours`, checked for both the source cell and the neighbour). Not yet wired: startTiles reuse, avoidObvious/avoidStraights.
+  - `pregenerate_layers(grid, branchingAmount, avoidObvious = 0)`: GrowingTree maze
+    (Prim↔backtracker mix) over cells; moves are `(existing layer, free direction)` pairs;
+    growing into an already visited cell pushes a **new layer** there (merging would close a
+    cycle); moves that would complete a fully connected union are a last resort (frontier
+    demotion, mirrors classic `fullyConnectedNeighbours`, checked for both the source cell and
+    the neighbour). `avoidObvious` demotes moves whose resulting **union** is a border cell
+    shape forced by that cell's walls, checked for both the source cell and the neighbour
+    (forbidden sets computed inline from `polygon.tileTypes`
+    str-groups; frontier tier `visited > avoiding > lastResort`; no-op on wrapped boards).
+    Not yet wired: startTiles reuse, avoidStraights.
   - `validateLayers(grid, layers)`: throws on broken invariants — coverage, per-cell disjointness
     (OR == XOR of layers), edge matching, single tree (`connectionEnds === 2 * (subCells - 1)`
     plus BFS reachability).
