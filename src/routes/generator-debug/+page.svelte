@@ -5,7 +5,7 @@
 	import SolverProgress from '$lib/puzzle/SolverProgress.svelte';
 	import LayeredTile from '$lib/puzzle/LayeredTile.svelte';
 	import { LayeredPipesGame } from '$lib/puzzle/game-layers.svelte';
-	import { applyRotations } from '$lib/puzzle/generator-layers';
+	import { applyRotations, buildStartLayers, planReuse } from '$lib/puzzle/generator-layers';
 	import { createGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
 
 	/**
@@ -90,46 +90,35 @@
 	});
 
 	/**
-	 * Layers per cell as the NEXT iteration would receive them:
-	 * kept cells (non-sentinel marked) with their layers rotated to the
-	 * solver frame and pruned of edges towards erased neighbours,
-	 * empty lists for erased cells. Approximates the pregenerate seeding
-	 * (small-component and claim-rule dissolutions not included).
+	 * Exact reuse plan of the viewed snapshot: what the NEXT iteration
+	 * receives. Roles: live = the largest component (seeds the tree),
+	 * island = dormant islands, dissolved = dropped (too small, conflicting,
+	 * or only connected to erased cells). Cells absent from the plan were
+	 * ambiguous in this iteration. Layer masks are pruned to
+	 * intra-component edges.
 	 */
-	const reusedTiles = $derived.by(() => {
+	const reusePlan = $derived.by(() => {
 		if (!viewSnapshot || !runGrid) {
 			return null;
 		}
-		const grid = runGrid;
-		return viewSnapshot.tiles.map((cellLayers, i) => {
-			const rotation = viewSnapshot.marked[i];
-			if (typeof rotation !== 'number' || rotation < 0 || cellLayers.length === 0) {
-				return [];
-			}
-			const polygon = grid.polygon_at(i);
-			/** @type {Number[]} */
-			const result = [];
-			for (const layer of cellLayers) {
-				let pruned = polygon.rotate(layer, rotation);
-				let bits = pruned;
-				while (bits > 0) {
-					const direction = bits & -bits;
-					bits ^= direction;
-					const { neighbour, empty } = grid.find_neighbour(i, direction);
-					const marked = empty ? -2 : viewSnapshot.marked[neighbour];
-					if (typeof marked !== 'number' || marked < 0) {
-						pruned ^= direction;
-					}
-				}
-				if (pruned > 0) {
-					result.push(pruned);
-				}
-			}
-			return result;
-		});
+		return planReuse(
+			runGrid,
+			buildStartLayers(runGrid, viewSnapshot.tiles, viewSnapshot.marked),
+			3
+		);
 	});
 
-	const layerPalette = ['#3d7ab8', '#b83d3d', '#3db85a', '#b8863d', '#7a3db8', '#3db8b0'];
+	/**
+	 * @param {Number} index
+	 * @returns {'live'|'island'|'dissolved'|'erased'}
+	 */
+	function reuseRole(index) {
+		const cellPlan = reusePlan?.cells.get(index);
+		if (!cellPlan) {
+			return 'erased';
+		}
+		return cellPlan.layers.length > 0 ? cellPlan.role : 'dissolved';
+	}
 
 	/**
 	 * @param {Number} index
@@ -284,8 +273,10 @@
 		Solved view: green cells were reused from the previous iteration, red cells are ambiguous, gray cells
 		unresolved, blue cells are newly certified; full-opacity cells changed their status vs the previous
 		iteration, faded cells kept it.<br />
-		Reused (erased) view: green tiles are surviving cells with their layers (one color per independent
-		layer, layers never interconnect; circles mark deadend sinks), red tiles are erased and will be regenerated.
+		Reused (erased) view — exactly what the next iteration receives: green tiles are the largest reused
+		component (it seeds the growing tree), blue tiles are dormant islands (reused when the tree grows
+		into them), red tiles are erased (ambiguous cells and dissolved components); circles mark deadend
+		sinks.
 	</p>
 
 	<div class="params">
@@ -404,18 +395,19 @@
 				</g>
 			{/each}
 		</svg>
-	{:else if viewSnapshot && runGrid && reusedTiles && boardMode === 'reused'}
+	{:else if viewSnapshot && runGrid && reusePlan && boardMode === 'reused'}
 		<svg
 			class="board"
 			viewBox="{runGrid.XMIN} {runGrid.YMIN} {runGrid.XMAX - runGrid.XMIN} {runGrid.YMAX -
 				runGrid.YMIN}"
 		>
 			{#each visibleCells as cell (cell.key)}
-				{@const cellLayers = reusedTiles[cell.index]}
+				{@const role = reuseRole(cell.index)}
+				{@const cellLayers = reusePlan.cells.get(cell.index)?.layers || []}
 				<g transform="translate({cell.x},{cell.y})">
 					<path
 						d={runGrid.getTilePath(cell.index)}
-						fill={cellLayers.length > 0 ? '#dfeadf' : '#f2dede'}
+						fill={role === 'live' ? '#dfeadf' : role === 'island' ? '#dbe4f4' : '#f2dede'}
 						stroke="#ccc"
 						stroke-width="0.02"
 						style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}"
@@ -439,14 +431,14 @@
 										cx={center.cx}
 										cy={-center.cy}
 										r={runGrid.SINK_RADIUS * 0.7}
-										fill={layerPalette[layerIndex % layerPalette.length]}
+										fill="#666"
 										stroke="#888"
 										stroke-width={runGrid.STROKE_WIDTH}
 									/>
 								{/if}
 								<path
 									d={path}
-									stroke={layerPalette[layerIndex % layerPalette.length]}
+									stroke="#666"
 									stroke-width={pipeWidth}
 									stroke-linejoin={runGrid.LINE_JOIN}
 									stroke-linecap="round"

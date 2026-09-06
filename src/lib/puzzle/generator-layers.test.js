@@ -3,6 +3,7 @@ import {
 	LayeredGenerator,
 	applyRotations,
 	buildStartLayers,
+	planReuse,
 	pregenerate_layers,
 	randomRotate,
 	validateLayers
@@ -260,6 +261,33 @@ describe('Test layered startLayers reuse', () => {
 		}
 		// wrong length is ignored entirely
 		validateLayers(grid, pregenerate_layers(grid, 0.5, 0, [null]));
+	});
+
+	it('Plans live, island and dissolved roles', () => {
+		const grid = new SquareGrid(3, 3, false);
+		// live region 0-1-4; island {4/L1, 5} shares cell 4 with live and
+		// dissolves; island {6, 7, 8} is conflict-free
+		const startLayers = [[1], [12], null, null, [2, 1], [4], [1], [5], [4]];
+		const plan = planReuse(grid, startLayers);
+		expect(plan.cells.get(0)?.role).toBe('live');
+		expect(plan.cells.get(1)?.role).toBe('live');
+		expect(plan.cells.get(4)?.role).toBe('live');
+		expect(plan.cells.get(5)?.role).toBe('dissolved');
+		expect(plan.cells.get(6)?.role).toBe('island');
+		expect(plan.cells.get(7)?.role).toBe('island');
+		expect(plan.cells.get(8)?.role).toBe('island');
+		expect(plan.cells.get(2)).toBeUndefined();
+		// live layers are pruned to the component's edges
+		expect(plan.cells.get(0)?.layers).toStrictEqual([1]);
+		expect(plan.cells.get(1)?.layers).toStrictEqual([12]);
+		expect(plan.cells.get(4)?.layers).toStrictEqual([2]);
+		// the surviving island keeps its internal skeleton
+		expect(plan.cells.get(7)?.layers).toStrictEqual([5]);
+		// all island cells map to the same island
+		const island = plan.islands.get(6);
+		expect(island).toBeDefined();
+		expect([...(island || [])]).toStrictEqual([6, 7, 8]);
+		expect(plan.islands.get(8)).toBe(island);
 	});
 });
 

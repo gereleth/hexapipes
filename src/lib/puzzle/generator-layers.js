@@ -76,6 +76,201 @@ function findBackSubCell(grid, startLayers, cell, backDirection) {
 }
 
 /**
+ * Reuse fate of one keepable cell, see planReuse
+ * @typedef {object} ReusePlanCell
+ * @property {'live'|'island'|'dissolved'} role
+ * @property {Number[]} layers - pruned layer masks to seed (empty when dissolved)
+ */
+
+/**
+ * The reuse plan computed from startLayers, see planReuse
+ * @typedef {object} ReusePlan
+ * @property {Map<Number, ReusePlanCell>} cells - keepable cells only
+ * @property {Map<Number, Set<Number>>} islands - dormant island cell => all cells of the island
+ */
+
+/**
+ * Computes which parts of startLayers survive into the next generation:
+ * the largest keepable sub-cell component seeds the growing tree ('live'),
+ * smaller ones become dormant 'island's unless they share a cell with a
+ * claimed component (then they dissolve entirely), everything else
+ * 'dissolves' (too small, or only connected to erased cells).
+ * Layer masks are pruned to edges staying within their component.
+ * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {StartLayers} startLayers
+ * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant
+ * @returns {ReusePlan}
+ */
+export function planReuse(grid, startLayers, reuseMinCount = 3) {
+	const total = grid.total;
+	/** @type {Map<Number, ReusePlanCell>} */
+	const cells = new Map();
+	/** @type {Map<Number, Set<Number>>} cell index => cells of the dormant island containing it */
+	const islands = new Map();
+
+	/** @type {Set<Number>} playable cells worth keeping */
+	const keepable = new Set();
+	for (let index = 0; index < total; index++) {
+		if (!grid.emptyCells.has(index) && startLayers[index]) {
+			keepable.add(index);
+		}
+	}
+	// find connected components of keepable sub-cells.
+	// layers within a cell never connect to each other,
+	// so one cell can host sub-cells of several different components
+	/** @type {Set<Number>[]} sets of sub-cell ids (cell + layer * total) */
+	const components = [];
+	/** @type {Set<Number>} sub-cells already assigned to a component */
+	const seen = new Set();
+	for (let cell of keepable) {
+		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
+		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
+			const id = cell + layerIndex * total;
+			if (seen.has(id)) {
+				continue;
+			}
+			const component = new Set([id]);
+			seen.add(id);
+			const queue = [id];
+			while (queue.length > 0) {
+				const current = /** @type {Number} */ (queue.pop());
+				const currentCell = current % total;
+				const layerMask = /** @type {Number[]} */ (startLayers[currentCell])[
+					Math.floor(current / total)
+				];
+				let bits = layerMask;
+				while (bits > 0) {
+					const direction = bits & -bits;
+					bits ^= direction;
+					const { neighbour, empty } = grid.find_neighbour(currentCell, direction);
+					if (empty || !keepable.has(neighbour)) {
+						continue;
+					}
+					const backId = findBackSubCell(
+						grid,
+						startLayers,
+						neighbour,
+						grid.OPPOSITE.get(direction) || 0
+					);
+					if (backId < 0 || component.has(backId)) {
+						continue;
+					}
+					component.add(backId);
+					seen.add(backId);
+					queue.push(backId);
+				}
+			}
+			components.push(component);
+		}
+	}
+	components.sort((a, b) => -(a.size - b.size));
+
+	/**
+	 * Builds the layer list of one reused cell: only layers belonging to
+	 * the component, each pruned to edges staying within the component.
+	 * Layers that lose all connections this way are dropped.
+	 * @param {Number} cell
+	 * @param {Set<Number>} component
+	 * @returns {Number[]}
+	 */
+	const pruneCellLayers = (cell, component) => {
+		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
+		const result = [];
+		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
+			if (!component.has(cell + layerIndex * total)) {
+				continue;
+			}
+			let mask = cellLayers[layerIndex];
+			let bits = mask;
+			while (bits > 0) {
+				const direction = bits & -bits;
+				bits ^= direction;
+				const { neighbour, empty } = grid.find_neighbour(cell, direction);
+				const backId = empty
+					? -1
+					: findBackSubCell(grid, startLayers, neighbour, grid.OPPOSITE.get(direction) || 0);
+				if (backId < 0 || !component.has(backId)) {
+					mask ^= direction;
+				}
+			}
+			if (mask > 0) {
+				result.push(mask);
+			}
+		}
+		return result;
+	};
+
+	/** @type {Set<Number>} cells already claimed by a reused component */
+	const claimed = new Set();
+	// the largest component seeds the growing tree
+	const live = components[0];
+	if (live) {
+		/** @type {Set<Number>} cells hosting live sub-cells */
+		const liveCells = new Set();
+		for (let id of live) {
+			liveCells.add(id % total);
+		}
+		for (let cell of liveCells) {
+			const pruned = pruneCellLayers(cell, live);
+			if (pruned.length > 0) {
+				claimed.add(cell);
+				cells.set(cell, { role: 'live', layers: pruned });
+			} else {
+				cells.set(cell, { role: 'dissolved', layers: [] });
+			}
+		}
+	}
+	// reuse good smaller regions too, they stay dormant
+	// until the growing tree touches them
+	// (islands smaller than 2 sub-cells have no internal edges
+	// to preserve, so they are never worth registering)
+	const minIslandSize = Math.max(2, reuseMinCount);
+	for (let index = 1; index < components.length; index++) {
+		const component = components[index];
+		if (component.size < minIslandSize) {
+			// this and all smaller components are too small to reuse
+			for (let rest = index; rest < components.length; rest++) {
+				for (let id of components[rest]) {
+					const cell = id % total;
+					if (!cells.has(cell)) {
+						cells.set(cell, { role: 'dissolved', layers: [] });
+					}
+				}
+			}
+			break;
+		}
+		/** @type {Set<Number>} cells hosting this island's sub-cells */
+		const islandCells = new Set();
+		for (let id of component) {
+			islandCells.add(id % total);
+		}
+		let conflict = false;
+		for (let cell of islandCells) {
+			if (claimed.has(cell)) {
+				// the island would mix with another reused component
+				// at this cell, dissolve it entirely
+				conflict = true;
+				break;
+			}
+		}
+		if (conflict) {
+			for (let cell of islandCells) {
+				if (!cells.has(cell)) {
+					cells.set(cell, { role: 'dissolved', layers: [] });
+				}
+			}
+			continue;
+		}
+		for (let cell of islandCells) {
+			claimed.add(cell);
+			cells.set(cell, { role: 'island', layers: pruneCellLayers(cell, component) });
+			islands.set(cell, islandCells);
+		}
+	}
+	return { cells, islands };
+}
+
+/**
  * Fills a grid with layered tiles using GrowingTree algorithm
  * Every cell can hold several independent layers (up to one per direction),
  * layers within a cell never connect to each other.
@@ -135,148 +330,17 @@ export function pregenerate_layers(
 
 	// reuse non-ambiguous portions of startLayers
 	if (startLayers.length === total) {
-		/** @type {Set<Number>} playable cells worth keeping */
-		const keepable = new Set();
-		for (let index of unvisited) {
-			if (startLayers[index]) {
-				keepable.add(index);
-			}
-		}
-		// find connected components of keepable sub-cells.
-		// layers within a cell never connect to each other,
-		// so one cell can host sub-cells of several different components
-		/** @type {Set<Number>[]} sets of sub-cell ids (cell + layer * total) */
-		const components = [];
-		/** @type {Set<Number>} sub-cells already assigned to a component */
-		const seen = new Set();
-		for (let cell of keepable) {
-			const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
-			for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-				const id = cell + layerIndex * total;
-				if (seen.has(id)) {
-					continue;
-				}
-				const component = new Set([id]);
-				seen.add(id);
-				const queue = [id];
-				while (queue.length > 0) {
-					const current = /** @type {Number} */ (queue.pop());
-					const currentCell = current % total;
-					const layerMask = /** @type {Number[]} */ (startLayers[currentCell])[
-						Math.floor(current / total)
-					];
-					let bits = layerMask;
-					while (bits > 0) {
-						const direction = bits & -bits;
-						bits ^= direction;
-						const { neighbour, empty } = grid.find_neighbour(currentCell, direction);
-						if (empty || !keepable.has(neighbour)) {
-							continue;
-						}
-						const backId = findBackSubCell(
-							grid,
-							startLayers,
-							neighbour,
-							grid.OPPOSITE.get(direction) || 0
-						);
-						if (backId < 0 || component.has(backId)) {
-							continue;
-						}
-						component.add(backId);
-						seen.add(backId);
-						queue.push(backId);
-					}
-				}
-				components.push(component);
-			}
-		}
-		components.sort((a, b) => -(a.size - b.size));
-
-		/**
-		 * Builds the layer list of one reused cell: only layers belonging to
-		 * the component, each pruned to edges staying within the component.
-		 * Layers that lose all connections this way are dropped.
-		 * @param {Number} cell
-		 * @param {Set<Number>} component
-		 * @returns {Number[]}
-		 */
-		const pruneCellLayers = (cell, component) => {
-			const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
-			const result = [];
-			for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-				if (!component.has(cell + layerIndex * total)) {
-					continue;
-				}
-				let mask = cellLayers[layerIndex];
-				let bits = mask;
-				while (bits > 0) {
-					const direction = bits & -bits;
-					bits ^= direction;
-					const { neighbour, empty } = grid.find_neighbour(cell, direction);
-					const backId = empty
-						? -1
-						: findBackSubCell(grid, startLayers, neighbour, grid.OPPOSITE.get(direction) || 0);
-					if (backId < 0 || !component.has(backId)) {
-						mask ^= direction;
-					}
-				}
-				if (mask > 0) {
-					result.push(mask);
-				}
-			}
-			return result;
-		};
-
-		/** @type {Set<Number>} cells already claimed by a reused component */
-		const claimed = new Set();
-		// the largest component seeds the growing tree
-		const live = components[0];
-		if (live) {
-			/** @type {Set<Number>} cells hosting live sub-cells */
-			const liveCells = new Set();
-			for (let id of live) {
-				liveCells.add(id % total);
-			}
-			for (let cell of liveCells) {
-				const pruned = pruneCellLayers(cell, live);
-				if (pruned.length > 0) {
-					claimed.add(cell);
-					layers[cell] = pruned;
-					visited.push(cell);
-					unvisited.delete(cell);
-				}
-			}
-		}
-		// reuse good smaller regions too, they stay dormant
-		// until the growing tree touches them
-		// (islands smaller than 2 sub-cells have no internal edges
-		// to preserve, so they are never worth registering)
-		const minIslandSize = Math.max(2, reuseMinCount);
-		for (let component of components.slice(1)) {
-			if (component.size < minIslandSize) {
-				break;
-			}
-			/** @type {Set<Number>} cells hosting this island's sub-cells */
-			const islandCells = new Set();
-			for (let id of component) {
-				islandCells.add(id % total);
-			}
-			let conflict = false;
-			for (let cell of islandCells) {
-				if (claimed.has(cell)) {
-					// the island would mix with another reused component
-					// at this cell, dissolve it entirely
-					conflict = true;
-					break;
-				}
-			}
-			if (conflict) {
+		const plan = planReuse(grid, startLayers, reuseMinCount);
+		for (let [cell, cellPlan] of plan.cells) {
+			if (cellPlan.layers.length === 0) {
 				continue;
 			}
-			for (let cell of islandCells) {
-				claimed.add(cell);
-				layers[cell] = pruneCellLayers(cell, component);
-				islands.set(cell, islandCells);
+			layers[cell] = cellPlan.layers;
+			if (cellPlan.role === 'live') {
+				visited.push(cell);
+				unvisited.delete(cell);
+			} else if (cellPlan.role === 'island') {
+				islands.set(cell, /** @type {Set<Number>} */ (plan.islands.get(cell)));
 			}
 		}
 	}

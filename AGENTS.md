@@ -64,6 +64,10 @@ startLayers = [], reuseMinCount = 3)`): mirrors classic `pregenerate_growingtree
     preserve — and would seed empty layer lists, crashing absorption); bigger ones → dormant
     islands under the **claim rule**: any cell conflict with live or a bigger island dissolves
     the whole island (multi-island cells would strand one island under per-cell visited).
+    The discovery lives in the exported **`planReuse(grid, startLayers, reuseMinCount)`** →
+    `ReusePlan` ({cells: Map<cell, {role: 'live'|'island'|'dissolved', layers}>, islands}):
+    pregenerate consumes it, and the `/generator-debug` page's Reused view renders the exact
+    plan (green = live seed, blue = dormant islands, red = dissolved/erased).
     **Absorption deviates from classic**: entering an unvisited island cell must _extend one
     of the island's existing layers_ with the back direction (`layers[neighbour][0] |= back`)
     — pushing a fresh layer would NOT connect to the island (layers never interconnect within
