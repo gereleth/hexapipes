@@ -25,6 +25,7 @@
 
 	let generatorState = $state('idle'); // idle | starting | stepping | done
 	let auto = $state(false);
+	let highlightChanges = $state(true);
 	let errorMessage = $state('');
 
 	/** @type {Worker|null} */
@@ -234,7 +235,8 @@
 	<p>
 		Steps the uniqueness loop one solver iteration at a time. Green cells were reused from the
 		previous iteration, red cells are ambiguous, gray cells unresolved, blue cells are newly
-		certified.
+		certified. Full-opacity cells changed their status vs the previous iteration, faded cells kept
+		it.
 	</p>
 
 	<div class="params">
@@ -279,6 +281,9 @@
 		<button onclick={() => stop()} disabled={!hasWorker}>Stop</button>
 		<label>
 			<input type="checkbox" bind:checked={auto} disabled={!hasWorker} /> auto-run
+		</label>
+		<label>
+			<input type="checkbox" bind:checked={highlightChanges} /> highlight changes
 		</label>
 	</div>
 
@@ -332,7 +337,7 @@
 					<path
 						d={runGrid.getTilePath(cell.index)}
 						fill={statusFill(cell.index)}
-						opacity={changedCells.has(cell.index) ? 1 : 0.6}
+						opacity={changedCells.has(cell.index) || !highlightChanges ? 1 : 0.6}
 						style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}
 							; pointer-events: none"
 					/>
