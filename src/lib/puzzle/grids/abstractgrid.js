@@ -40,7 +40,8 @@ export class AbstractGrid {
 	 * @param {Number} width
 	 * @param {Number} height
 	 * @param {Boolean} wrap
-	 * @param {Number[]} tiles
+	 * @param {Number[]|Number[][]} tiles - classic bitmask per cell or a layered list of
+	 * layers per cell; classic 0 cells and layered [] cells are empty
 	 */
 	constructor(width, height, wrap, tiles = []) {
 		this.width = width;
@@ -49,7 +50,7 @@ export class AbstractGrid {
 
 		this.emptyCells = new Set();
 		tiles.forEach((tile, index) => {
-			if (tile === 0) {
+			if (tile === 0 || (Array.isArray(tile) && tile.length === 0)) {
 				this.emptyCells.add(index);
 			}
 		});

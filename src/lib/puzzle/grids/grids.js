@@ -40,7 +40,7 @@ import { TriangularGrid } from '$lib/puzzle/grids/triangulargrid';
  * @param {Number} width
  * @param {Number} height
  * @param {boolean} wrap
- * @param {Number[]|undefined} tiles
+ * @param {Number[]|Number[][]|undefined} tiles
  * @returns {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}
  */
 export function createGrid(kind, width, height, wrap, tiles = undefined) {
