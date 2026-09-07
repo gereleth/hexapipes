@@ -79,26 +79,6 @@ describe('Test layered pregeneration', () => {
 			}
 		}
 	}
-
-	it('Prints a small layered puzzle', () => {
-		const grid = new SquareGrid(5, 5, false);
-		const layers = pregenerate_layers(grid, 0.5);
-		validateLayers(grid, layers);
-		expect(layers.length).toBe(grid.total);
-		console.log('tiles array:', JSON.stringify(layers));
-		for (let r = 0; r < grid.height; r++) {
-			const cells = [];
-			for (let c = 0; c < grid.width; c++) {
-				const cellLayers = layers[r * grid.width + c];
-				if (cellLayers.length === 0) {
-					cells.push('.');
-				} else {
-					cells.push(cellLayers.map((layer) => `${layer}(${decode(layer)})`).join('/'));
-				}
-			}
-			console.log(`Row ${r}: ${cells.join('  ')}`);
-		}
-	});
 });
 
 describe('Test layered scrambling', () => {
