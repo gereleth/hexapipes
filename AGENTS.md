@@ -3,7 +3,7 @@
 Web-based logic puzzle game (pipes/Net variant), SvelteKit + Svelte 5 (repo is mid Svelte 3 → 5
 migration, runes are used in `.svelte.js` files). Prettier with tabs, JSDoc types everywhere,
 vitest for tests (`npm run test`, excludes dailies). The `layers` branch hosts an experimental
-puzzle variant developed across several sessions — this file summarizes it.
+puzzle variant developed across several sessions — detailed docs live in `agent-doc/`.
 
 ## The "layers" variant
 
@@ -34,231 +34,23 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 - `validateLayers` applies to **solved** boards only — scrambled boards intentionally break
   mutual edge matching (that is the puzzle).
 
-## Implemented so far (branch `layers`)
+## Detailed docs (`agent-doc/`)
 
-- `src/lib/puzzle/generator-layers.js`
-  - `pregenerate_layers(grid, branchingAmount, avoidObvious = 0)`: GrowingTree maze
-    (Prim↔backtracker mix) over cells; moves are `(existing layer, free direction)` pairs;
-    growing into an already visited cell pushes a **new layer** there (merging would close a
-    cycle); moves that would complete a fully connected union are a last resort (frontier
-    demotion, mirrors classic `fullyConnectedNeighbours`, checked for both the source cell and
-    the neighbour). `avoidObvious` demotes moves whose resulting **union** is a border cell
-    shape forced by that cell's walls, checked for both the source cell and the neighbour
-    (forbidden sets computed inline from `polygon.tileTypes`
-    str-groups; frontier tier `visited > avoiding > lastResort`; no-op on wrapped boards).
-    `startLayers` reuse is wired (see below). Not yet wired: avoidStraights.
-  - **startLayers reuse** (`pregenerate_layers(grid, branchingAmount, avoidObvious,
-startLayers = [], reuseMinCount = 3)`): mirrors classic `pregenerate_growingtree`
-    (generator.js:111-176) for uniqueness generation. `startLayers` (`StartLayers` typedef) =
-    per-cell solved layers rotated to the solver's representative rotation, `null` for
-    cells to regenerate; wrong-length array ⇒ ignored (fresh board). Keepability is per cell
-    (non-null); **no fully-connected exclusion** (user preference — in classic it is aesthetic
-    only; structurally unnecessary because pruning dissolves any boundary cell's full usage:
-    a kept component where every cell stayed fully-used would be adjacency-closed, impossible
-    for a proper subset of a connected playable region). Discovery floods **sub-cell
-    components** (`cell + layer*total`); layers within a cell never interconnect, so one cell
-    can host sub-cells of several components (a "column" of cells is several components —
-    a path through a cell enters/exits via different layers!). Largest component → live seed
-    (layers pruned to intra-component edges, empty-mask layers dropped, cells claimed +
-    visited); components < `max(2, reuseMinCount)` dissolve (size < 2 have no edges to
-    preserve — and would seed empty layer lists, crashing absorption); bigger ones → dormant
-    islands under the **claim rule**: any cell conflict with live or a bigger island dissolves
-    the whole island (multi-island cells would strand one island under per-cell visited).
-    The discovery lives in the exported **`planReuse(grid, startLayers, reuseMinCount)`** →
-    `ReusePlan` ({cells: Map<cell, {role: 'live'|'island'|'dissolved', layers}>, islands}):
-    pregenerate consumes it, and the `/generator-debug` page's Reused view renders the exact
-    plan (green = live seed, blue = dormant islands, red = dissolved/erased).
-    **Absorption deviates from classic**: entering an unvisited island cell must _extend one
-    of the island's existing layers_ with the back direction (`layers[neighbour][0] |= back`)
-    — pushing a fresh layer would NOT connect to the island (layers never interconnect within
-    a cell). Legal because the neighbour-connects-back assertion guarantees the direction is
-    free in every layer, and move classification already evaluated that exact union. By loop
-    termination every registered island MUST have been absorbed (island cells leave
-    `unvisited` only via absorption) — deterministic assertion for tests. The random start
-    cell never picks an island cell (spurious zero layer would strand it); if that leaves no
-    candidates, islands dissolve and generation restarts fresh.
-  - `validateLayers(grid, layers)`: throws on broken invariants — coverage, per-cell disjointness
-    (OR == XOR of layers), edge matching, single tree (`connectionEnds === 2 * (subCells - 1)`
-    plus BFS reachability).
-  - `randomRotate(layers, grid)`: scramble; one random rotation per cell applied to all layers.
-  - `applyRotations(grid, layers, rotations)`: rotate each cell's layers (sentinels = no-op);
-    shared with solver-layers.test.js.
-  - `buildStartLayers(grid, layers, marked)`: solved board + marked rotations → `StartLayers`
-    (`null` for `AMBIGUOUS`/`UNSOLVED`).
-  - `LayeredGenerator` class: mirrors classic `Generator` (generator.js:372-434).
-    `generate(branchingAmount, avoidObvious, solutionsNumber)`:
-    `'unique'` = attempt loop with `startLayers` declared OUTSIDE it (classic's carryover);
-    per iteration solve → `markAmbiguousTiles(min(ambiguous, max(100, 0.1*total)),
-maxSolverIterations)` → patience tracking; `complete: false` (solver iteration cap hit)
-    ⇒ trust nothing, break to next attempt KEEPING startLayers; success returns
-    `randomRotate(applyRotations(tiles, marked))`. `'multiple'` requires `complete` before
-    returning (`!unique && complete`). Perf: 4×4/5×5 ~3ms, 5×5 wrap ~230ms, hexa 4×6 ~8ms.
-- `src/lib/puzzle/game-layers.svelte.js` — `LayeredPipesGame`
-  - `connections: Map<subCellId, Set<subCellId>>` stores **mutual edges only** (deviation from
-    classic, which stored one-sided pointing links). Non-mutual-ness is derived on demand via
-    `findBackLayer(cell, direction)` — the neighbour's rotation never changes during my rotation,
-    so resolution is stable. Don't reintroduce one-sided links.
-  - `LayeredTileState` per cell: static `layers: Number[]`; reactive `rotations`, `locked`,
-    `edgeMarks`; per-layer arrays `colors`, `hasDisconnects`, `isPartOfLoop`, `isPartOfIsland`;
-    `tile` getter = union of layer masks (used by controls' orient mode).
-  - Mutual-only storage gotcha: any "does the neighbour point at me?" query must be one-sided
-    via `findBackLayer(neighbour, direction)` — do not test mutuality there. This bit
-    `rotateToMatchMarks` once: a locked neighbour's extended connection is precisely a link
-    the rotating cell does not (yet) point back at, so a mutual check classified it as a wall.
-  - `setTileOrientation(cell, rotation, animate)`: rotates a cell to an absolute rotation
-    relative to its base layers (the solver's frame), independent of accumulated player rotations;
-    `animate` spins a full turn when already at the target (classic parity).
-- `src/lib/puzzle/solver-layers.js` — `LayeredCell` + `LayeredSolver` (port of classic `Solver`)
-  - **Decision variable is the cell rotation**, represented as **pictures**: equivalence
-    classes of rotations with the same multiset of rotated layer masks (`sorted masks.join('-')`,
-    `'0'` for empty cells). Same-picture rotations are provably solved-equivalent (the induced
-    sub-cell relabeling is a graph isomorphism), so classic's mask-dedupe carries over soundly;
-    `marked`/solutions are compared by picture id. `LayeredCell.pictures: Map<id, repRotation>`,
-    plus classic-style `walls`/`connections` direction bitmasks (`applyConstraints` intersects
-    unions over surviving pictures). Multi-layer cells are `[5, 10]` (plain masks), NOT `[[5],[10]]`
-    — the latter only passes tests via array→number coercion.
-  - **Tree constraint**: sub-cell union-find + pending links, pinned cells only. `pinCell`
-    (called after the cell leaves `unsolved` — ordering matters, the island check depends on it)
-    resolves pendings from earlier-pinned neighbours (missing back-layer ⇒ throw), stores new
-    pendings under unpinned neighbours, then runs the edge-budget check
-    (`internalEdges + pendingCount > totalEdges ⇒ throw`; `totalEdges = ½ Σ popcount` is
-    rotation-invariant, so the budget fires only for already-doomed branches) and
-    `checkForIslands` (a component with no pending links while unsolved cells remain can never
-    connect). Each edge is stored exactly once (at the later-pinning endpoint).
-  - **Propagation order gotcha that once broke correctness**: prune/shrink of the picture set can
-    imply NEW walls/connections; `processDirtyCells` therefore loops
-    apply → propagate → `pruneContradictoryPictures` until stable and only then considers
-    pinning. Without the loop, a pinned cell's full union never reached neighbours as facts and
-    they pinned to wrong rotations (rare, random-boards-only, found by a 450-board stress loop).
-  - `pruneContradictoryPictures`: deletes pictures where a layer points at a pinned cell with no
-    back-layer, or where one layer would connect into the same pinned component twice (definite
-    cycle). After each pin, unpinned neighbours are re-dirtied so prune-only (fact-less)
-    eliminations propagate. Propagation into pinned neighbours never resurrects them (classic
-    silently re-creates solved cells via `getCell`); instead consistency is checked and
-    contradictions thrown.
-  - Guessing: MRV over picture counts, tie-break "most pinned neighbours", value order "picture
-    with most pinned connections" (greedy tree-growing; safe for completeness — all values are
-    tried on backtrack). This + the pruners took 10×10 from ~75% timeouts to ≤1.1 s.
-  - `markAmbiguousTiles(limit, maxIterations)` mirrors classic (marked by picture id, converted
-    to representative rotations in the result; ambiguous per CELL). Returns an extra
-    `complete: false` when the iteration cap fires (capped runs then also report
-    `unique: false` and optimistic `solvable: true` so callers retry instead of trusting it).
-  - Perf: fine ≤10×10 and hexa 7×6; **12×12 wrap still has a heavy tail** (most runs seconds,
-    some >>20 s) — wrong-branch detection is fundamentally weaker than classic's cell-level
-    component walls (parallel pipes make cell-level loop pruning unsound). The future generator
-    should pass `maxIterations` and rely on a classic-style patience/regenerate loop.
-- `src/lib/puzzle/LayeredTile.svelte` — per-layer pipe paths, sinks on deadend layers positioned
-  at the layer junction, per-layer stroke states. `getPipesPath(-layer)` (negative mask) selects
-  the "layered case" in `polygonutils.js` `get_pipes_path` where the path starts at a per-layer
-  offset center (`get_layer_center`) instead of the cell center.
-- `src/lib/puzzle/Puzzle.svelte` — instantiates `LayeredPipesGame` when `tiles[0]` is not an
-  integer; renders `LayeredTile` vs `Tile`; `saveProgress` stores `colors` array for layered.
-  `unleashTheSolver` has a layered branch: runs `LayeredSolver.solve(true)` and applies steps as
-  absolute rotations via `setTileOrientation` (locking `final`+`initial` steps like classic);
-  multi-solution lock/unlock compares picture ids, and `solutions` is converted to rotation
-  arrays for the "Solution k" buttons (which branch classic-vs-layered in the template).
-  `measureSolveTime` instantiates the matching solver for the stats readout (full `solve(true)`,
-  so heavy boards freeze the UI before animating — same exposure as classic).
-- `src/routes/custom/+page.svelte` — "Layered" checkbox generates through the uniqueness loop:
-  `LayeredGeneratorComponent` (mirror of `GeneratorComponent`) spawns `worker-layers.js`
-  (mirror of classic `worker.js`) running `LayeredGenerator.generate(branchingAmount,
-avoidObvious, solutionsNumber)`; results arrive as `{msg: 'generated', tiles}` (already
-  scrambled) or `{msg: 'error', error}`, progress as solver/generator progress messages.
-  Worker smoke tests shim `globalThis.postMessage`/`onmessage` and import the worker module
-  directly (module cache means the handler from the first import persists across tests).
-- Tests: `generator-layers.test.js` (pregeneration + scrambling + startLayers reuse: fuzz over
-  nulled startLayers topologies, verbatim all-keepable reproduction, island absorption /
-  dissolution / conflict fixtures, `LayeredGenerator` unique/whatever/multiple + progress
-  callbacks),
-  `game-layers.svelte.test.js` (components, merge/split, loops, progress, scramble→solve e2e,
-  solver wiring: `setTileOrientation` + apply solution rotations → solved)
-  and `solver-layers.test.js` (cell constraints mirroring `solver.test.js`, border/deduction
-  parity on single-layer boards, unsolvable/unique/multiple/wrap/empty-cell boards, picture
-  dedupe, cap behavior). Run:
-  `npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers.test.js`.
+- [layers-game.md](agent-doc/layers-game.md) — `LayeredPipesGame` + `LayeredTile.svelte` +
+  `Puzzle.svelte` wiring: state model, rendering, user input, solved checking; differences vs
+  classic `PipesGame`.
+- [layers-solver.md](agent-doc/layers-solver.md) — `LayeredSolver`: picture equivalence
+  classes, sub-cell tree constraint, propagation, search, `markAmbiguousTiles`; differences vs
+  classic `Solver`.
+- [layers-generator.md](agent-doc/layers-generator.md) — `pregenerate_layers`, startLayers
+  reuse via `planReuse`, `LayeredGenerator` uniqueness loop, worker + `/generator-debug`
+  tooling, convergence research; differences vs classic generator.
+
+Layered test suite:
+`npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers.test.js`
 
 ## Known quirks
 
-- 1×1 board is degenerate (start cell keeps a zero layer; `validateLayers` would reject it) —
-  irrelevant, not a playable board.
-- Edge marks array length = `EDGEMARK_DIRECTIONS.length` (classic Tile.svelte hardcodes 3).
 - Repo-wide `npm run check` reports ~42 pre-existing svelte-check errors from the migration;
   only worry about new ones in touched files. `npm run lint` has 2 pre-existing warnings
   (`src/app.html`, `src/routes/app.css`).
-
-## Done: uniqueness generation + UI wiring
-
-- Uniqueness generation is implemented: `LayeredGenerator.generate('unique')` +
-  `startLayers` reuse in `pregenerate_layers` (both documented above). The uniqueness verdict
-  is per cell by picture id; symmetric twins collapse like classic straights (same-picture
-  rotations are always solved-equivalent — no fairness check needed, proven by the
-  picture-isomorphism argument).
-- UI wiring done: `unleashTheSolver` layered branch applies steps as absolute rotations and the
-  "Solution k" buttons replay rotation arrays; custom page generation goes through the
-  uniqueness loop via `worker-layers.js` + `LayeredGeneratorComponent.svelte` (see above).
-
-## Generator debug tooling (for convergence research)
-
-- `LayeredGenerator.uniqueIterations(branchingAmount, avoidObvious)`: generator method that
-  yields an `IterationSnapshot` per solver iteration (`attempt, iteration, tiles, marked,
-numAmbiguous, unique, complete, keptCount, elapsedMs`); stops after the unique yield or
-  when attempts are exhausted. `generate('unique')` consumes it (behavior identical).
-- `worker-layers.js` debug commands: `debug-start` (grid + options → iterator),
-  `debug-step` (one `iterator.next()` → `iteration {...}` message, followed by
-  `debug-done` when the run finished/unique), `debug-true-count` (unlimited
-  `markAmbiguousTiles()` on the last stepped board → `true-count` message), `debug-stop`,
-  and `growth-start` (one `pregenerate_layers` run with `options.startLayers`/`reuseMinCount`,
-  streaming a `growth-move` message per `GrowthMove` event followed by `growth-done`).
-  `pregenerate_layers` takes an optional `onMove` callback emitting `GrowthMove` events
-  (`seed`/`erase`/`move`/`absorb` mirror every board mutation exactly, `demote`/`pop` are
-  frontier bookkeeping) — the `/generator-debug` page replays them for the animated Growth
-  view; event-mirroring fidelity is asserted by tests (apply events == returned tiles).
-  The plain `generate` command is unchanged.
-- `/generator-debug` route (no nav link): steps the loop, shows the solved board
-  (`LayeredPipesGame` at rotation 0 + `LayeredTile`) with a per-cell status underlay
-  (green = reused from previous iteration, red = ambiguous, gray = unresolved, blue =
-  newly certified; changed-vs-previous cells are full-opacity), a live solver progress row
-  with elapsed timer, an iteration history (ambiguous/kept bars + ms), a snapshot carousel,
-  the true-count button, a **Reused (erased)** view (exact `planReuse` roles: green = live
-  seed, blue = dormant islands, red = dissolved/erased, white pipes) and an animated
-  **Growth** view (replays `GrowthMove` events with play/pause/step + moves/tick speed;
-  green = visited cells, blue outline = latest move; optional seeding from the viewed
-  iteration's `startLayers`).
-- **Known problem this tooling targets**: 20×20 layered unique generation barely converges
-  (one run took ~1 hour). `numAmbiguous` sits pinned at `ambiguousLimit`
-  (`max(100, 0.1*total)`) every iteration, so progress is invisible and patience never
-  fires; solver trial stacks (blue in the progress bars) are very deep. Hypotheses to
-  discriminate with the page: (H1) the limit-cap masks the true ambiguity count;
-  (H2) rerolled regions regenerate dense ambiguity (base ambiguity density of layered
-  boards ≫ classic, from parallel pipes / multi-layer rearrangements); (H3) reuse is not
-  engaging (keptCount small / islands dissolving); (H4) solver backtracking explosion.
-- **Demotion tiers ignore the neighbour's visited status** (observed in the Growth view):
-  a demoted move (fully-connected / obvious) into an _unvisited_ cell is the only kind that
-  makes progress (finishes the board), while a demoted move into a _visited_ cell is a pure
-  revisit — yet both land in the same tier and are picked uniformly. With one unvisited tile
-  left, many fully-connected revisit moves across different cells happen before the final
-  growth is found (expensive: revisits create layers and can trigger further demotions).
-  Fix direction: sub-tier demoted moves by `unvisited.has(neighbour)`, or prefer
-  unvisited-target moves when picking from `avoiding`/`lastResort`.
-- Consider porting classic's merge-time loop-avoidance pruning for speed, but note parallel
-  pipes make naive cell-level rules unsound (two edges between the same cell pair are legal);
-  only same-layer double connections into one component are definite cycles.
-
-## Pending idea (discussed, not applied): simplify layered `isSolved()`
-
-The BFS tree check in `LayeredPipesGame.isSolved()` is redundant for generator-shaped boards:
-
-- Layer popcounts are rotation-invariant, and `pregenerate_layers` produces a tree over
-  sub-cells, so `Σ popcount(layers) === 2 * (totalSubCells - 1)` holds at all times.
-- If `openEnds` is empty, every set bit is mutual, so `edges = Σbits / 2 = subCells - 1`.
-- A connected graph with V-1 edges is automatically a tree — the BFS loop check can never fire.
-  Corollary: on generator-valid boards loops can only coexist with stubs; a fully mutual state
-  is always acyclic.
-
-If applied: add a cheap constructor assertion `Σ popcount(layers) === 2 * (totalSubCells - 1)`
-(throw otherwise) so the invariant is enforced, then reduce `isSolved()` to
-`openEnds empty && components.get(firstValidId).tiles.size === totalSubCells`.
-Gotcha: hand-made fixtures that are not generator-shaped (e.g. the 4-cycle `[[9],[12],[3],[6]]`
-loop fixture in `game-layers.svelte.test.js`) violate the invariant and would false-positive;
-that fixture needs reworking (e.g. build a loop-with-stubs state by rotating a valid tree board).
-The same math applies to classic `PipesGame`, left untouched on purpose.
