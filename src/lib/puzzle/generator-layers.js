@@ -306,6 +306,8 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant when erasing ambiguities
  * @param {(move: GrowthMove) => void} [onMove] - reports growth events for animations,
  * each board mutation is mirrored by an event
+ * @param {Number} layeringAmount - probability of growing into a visited cell again, values in range [0,1]
+ * 0 produces classic puzzles.
  * @returns {LayeredTiles} - unrandomized layered tiles
  */
 export function pregenerate_layers(
@@ -314,7 +316,8 @@ export function pregenerate_layers(
 	avoidObvious = 0,
 	startLayers = [],
 	reuseMinCount = 3,
-	onMove = undefined
+	onMove = undefined,
+	layeringAmount = 0.6
 ) {
 	const total = grid.total;
 
@@ -464,6 +467,9 @@ export function pregenerate_layers(
 			}
 			const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
 			if (empty) {
+				continue;
+			}
+			if (!unvisited.has(neighbour) && Math.random() > layeringAmount) {
 				continue;
 			}
 			if (liveFromBefore.has(fromNode) && liveFromBefore.has(neighbour)) {
