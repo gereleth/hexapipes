@@ -244,7 +244,7 @@ export class RegularPolygonTile {
 				n += 1;
 			}
 		});
-		const center = { cx: dx / (2 * n - 0.5), cy: dy / (2 * n - 0.5) };
+		const center = { cx: dx / (n + 1), cy: dy / (n + 1) };
 		this.cache.layer_center.set(tile, center);
 		return center;
 	}

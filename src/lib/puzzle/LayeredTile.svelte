@@ -19,14 +19,14 @@
 
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 
-	const paths = data.layers.map((layer) => game.grid.getPipesPath(-layer, i));
+	const paths = data.layers.map((layer) => polygon.get_pipes_path(-layer));
 
 	const [guideX, guideY] = game.grid.getGuideDotPosition(data.tile, i);
 
 	// sinks mark deadend layers, drawn on the pipe stub away from the center
 	const sinks = data.layers.map((layer, layerIndex) => {
 		if (game.grid.getDirections(layer, 0, i).length === 1) {
-			const { cx, cy } = game.grid.polygon_at(i).get_layer_center(layer);
+			const { cx, cy } = polygon.get_layer_center(layer);
 			return {
 				layerIndex,
 				x: cx,
