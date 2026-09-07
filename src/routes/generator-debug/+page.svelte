@@ -555,25 +555,31 @@
 		</div>
 	{/if}
 
-	{#if boardMode === 'growth' && growthGrid}
-		<div class="view">
-			<button onclick={toggleGrowthPlayback} disabled={growthMoves.length === 0}>
-				{growthPlaying ? 'Pause' : 'Play'}
-			</button>
-			<button
-				onclick={growthStepOnce}
-				disabled={growthPlaying || growthApplied >= growthMoves.length}
-			>
-				Step
-			</button>
-			<label>
-				moves/tick
-				<input type="number" min="1" max="200" bind:value={growthSpeed} />
-			</label>
-			<span>
-				move {growthApplied} / {growthMoves.length}
-				{growthLastMove ? '· ' + describeGrowthMove(growthLastMove) : ''}
-			</span>
+	{#if snapshots.length > 0 || growthMoves.length > 0}
+		<!-- the growth bar always occupies its row so the board
+			does not jump when switching between views -->
+		<div class="view growth-bar">
+			{#if boardMode === 'growth' && growthGrid}
+				<span class="growth-status">
+					move {growthApplied} / {growthMoves.length}
+					{growthLastMove ? '· ' + describeGrowthMove(growthLastMove) : ''}
+				</span>
+				<span class="growth-controls">
+					<button onclick={toggleGrowthPlayback} disabled={growthMoves.length === 0}>
+						{growthPlaying ? 'Pause' : 'Play'}
+					</button>
+					<button
+						onclick={growthStepOnce}
+						disabled={growthPlaying || growthApplied >= growthMoves.length}
+					>
+						Step
+					</button>
+					<label>
+						moves/tick
+						<input type="number" min="1" max="200" bind:value={growthSpeed} />
+					</label>
+				</span>
+			{/if}
 		</div>
 	{/if}
 
@@ -797,6 +803,19 @@
 		justify-content: center;
 		align-items: center;
 		margin: 0.5em 0;
+	}
+	.growth-bar {
+		justify-content: space-between;
+		min-height: 2em;
+	}
+	.growth-status {
+		text-align: left;
+	}
+	.growth-controls {
+		display: inline-flex;
+		gap: 0.7em;
+		align-items: center;
+		white-space: nowrap;
 	}
 	.mode button.active {
 		background: rgba(120, 255, 120, 0.4);

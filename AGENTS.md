@@ -232,6 +232,14 @@ numAmbiguous, unique, complete, keptCount, elapsedMs`); stops after the unique y
   (H2) rerolled regions regenerate dense ambiguity (base ambiguity density of layered
   boards ≫ classic, from parallel pipes / multi-layer rearrangements); (H3) reuse is not
   engaging (keptCount small / islands dissolving); (H4) solver backtracking explosion.
+- **Demotion tiers ignore the neighbour's visited status** (observed in the Growth view):
+  a demoted move (fully-connected / obvious) into an _unvisited_ cell is the only kind that
+  makes progress (finishes the board), while a demoted move into a _visited_ cell is a pure
+  revisit — yet both land in the same tier and are picked uniformly. With one unvisited tile
+  left, many fully-connected revisit moves across different cells happen before the final
+  growth is found (expensive: revisits create layers and can trigger further demotions).
+  Fix direction: sub-tier demoted moves by `unvisited.has(neighbour)`, or prefer
+  unvisited-target moves when picking from `avoiding`/`lastResort`.
 - Consider porting classic's merge-time loop-avoidance pruning for speed, but note parallel
   pipes make naive cell-level rules unsound (two edges between the same cell pair are legal);
   only same-layer double connections into one component are definite cycles.
