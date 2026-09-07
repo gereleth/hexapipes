@@ -471,6 +471,11 @@ export function pregenerate_layers(
 				checkFullyConnected &&
 				((used | direction) === polygon.fully_connected ||
 					(neighbourUsed | backDirection) === polygon.fully_connected);
+			if (fullyConnected && !unvisited.has(neighbour)) {
+				// completely disregard moves that make a tile fully connected
+				// without reaching unvisited places
+				continue;
+			}
 			let obvious = false;
 			if (
 				!fullyConnected &&
@@ -483,6 +488,11 @@ export function pregenerate_layers(
 					(nogo && nogo.has(used | direction)) ||
 						(neighbourNogo && neighbourNogo.has(neighbourUsed | backDirection))
 				);
+				if (obvious && !unvisited.has(neighbour)) {
+					// completely disregard moves that make a tile obvious
+					// without reaching unvisited places
+					continue;
+				}
 			}
 			for (let layerIndex = 0; layerIndex < numLayers; layerIndex++) {
 				const move = { layerIndex, direction, neighbour };
