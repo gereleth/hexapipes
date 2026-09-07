@@ -415,19 +415,7 @@ export function pregenerate_layers(
 	}
 
 	if (visited.length === 0) {
-		// the start cell must not be a dormant island cell:
-		// seeding a zero layer there would leave the island stranded
-		let candidates = [...unvisited].filter((cell) => !islands.has(cell));
-		if (candidates.length === 0) {
-			// nothing to grow from: dissolve the dormant islands and start fresh
-			for (let cell of islands.keys()) {
-				layers[cell] = [];
-				emit({ type: 'erase', cell });
-			}
-			islands.clear();
-			candidates = [...unvisited];
-		}
-		const startIndex = candidates[Math.floor(Math.random() * candidates.length)];
+		const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
 		visited.push(startIndex);
 		unvisited.delete(startIndex);
 		// create the first layer on starting tile
