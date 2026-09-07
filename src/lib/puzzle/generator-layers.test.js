@@ -70,7 +70,7 @@ describe('Test layered pregeneration', () => {
 					() => {
 						for (let i = 0; i < 10; i++) {
 							const grid = new SquareGrid(width, height, wrap);
-							const layers = pregenerate_layers(grid, branchingAmount, avoidObvious);
+							const layers = pregenerate_layers(grid, 1.0, branchingAmount, avoidObvious);
 							validateLayers(grid, layers);
 							expect(layers.length).toBe(grid.total);
 						}
@@ -85,7 +85,7 @@ describe('Test layered scrambling', () => {
 	it('Scrambled boards keep their shape', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(5, 5, false);
-			const solved = pregenerate_layers(grid, 0.5);
+			const solved = pregenerate_layers(grid, 1.0, 0.5);
 			const scrambled = randomRotate(solved, grid);
 			expect(scrambled.length).toBe(grid.total);
 			scrambled.forEach((cellLayers, index) => {
@@ -107,7 +107,7 @@ describe('Test layered scrambling', () => {
 
 	it('Scrambling actually scrambles', () => {
 		const grid = new SquareGrid(5, 5, false);
-		const solved = pregenerate_layers(grid, 0.5);
+		const solved = pregenerate_layers(grid, 1.0, 0.5);
 		const scrambled = randomRotate(solved, grid);
 		const changed = scrambled.filter((cellLayers, index) =>
 			cellLayers.some((layer, layerIndex) => layer !== solved[index][layerIndex])
@@ -117,7 +117,7 @@ describe('Test layered scrambling', () => {
 
 	it('Scrambled board can be solved by rotating cells back', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const solved = pregenerate_layers(grid, 0.5);
+		const solved = pregenerate_layers(grid, 1.0, 0.5);
 		const scrambled = randomRotate(solved, grid);
 		const game = new LayeredPipesGame(grid, scrambled, undefined);
 		expect(game.isSolved()).toBe(false);
@@ -133,6 +133,30 @@ describe('Test layered scrambling', () => {
 			}
 		});
 		expect(game.solved).toBe(true);
+	});
+
+	it('Produces single-layer classic boards with layeringAmount 0', () => {
+		for (let i = 0; i < 20; i++) {
+			const grid = i % 2 === 0 ? new SquareGrid(5, 4, i % 4 === 0) : new HexaGrid(4, 3, false);
+			const tiles = pregenerate_layers(grid, 0, Math.random());
+			for (let cell = 0; cell < grid.total; cell++) {
+				if (grid.emptyCells.has(cell)) {
+					continue;
+				}
+				expect(tiles[cell].length, `cell ${cell} layer count`).toBe(1);
+			}
+			validateLayers(grid, tiles);
+		}
+	});
+
+	it('Produces multi-layer boards with layeringAmount 1', () => {
+		const grid = new SquareGrid(5, 5, false);
+		let multiLayerSeen = false;
+		for (let i = 0; i < 10 && !multiLayerSeen; i++) {
+			const tiles = pregenerate_layers(grid, 1, Math.random());
+			multiLayerSeen = tiles.some((cellLayers) => cellLayers.length > 1);
+		}
+		expect(multiLayerSeen).toBe(true);
 	});
 });
 
@@ -153,7 +177,7 @@ describe('Test layered startLayers reuse', () => {
 		for (let i = 0; i < 150; i++) {
 			const wrap = i % 3 === 0;
 			const grid = i % 5 === 0 ? new HexaGrid(3, 4, wrap) : new SquareGrid(4, 4, wrap);
-			const tiles = pregenerate_layers(grid, Math.random());
+			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
 			const solver = new LayeredSolver(tiles, grid);
 			const { marked } = solver.markAmbiguousTiles();
 			const startLayers = buildStartLayers(grid, tiles, marked);
@@ -164,20 +188,30 @@ describe('Test layered startLayers reuse', () => {
 			}
 			const regenerated = pregenerate_layers(
 				grid,
+				1 - Math.random(),
 				Math.random(),
 				0,
 				startLayers,
 				[1, 2, 3, 5][i % 4]
 			);
 			validateLayers(grid, regenerated);
+			// fate accounting: every keepable sub-cell ends up in exactly one bucket
+			const { stats: s } = planReuse(grid, startLayers, [1, 2, 3, 5][i % 4]);
+			expect(
+				s.liveSubCells +
+					s.islandSubCells +
+					s.conflictLostSubCells +
+					s.fragmentLostSubCells +
+					s.tooSmallLostSubCells
+			).toBe(s.keepableSubCells);
 		}
 	});
 
 	it('Reproduces a fully keepable board verbatim', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(5, 5, false);
-			const tiles = pregenerate_layers(grid, Math.random());
-			const regenerated = pregenerate_layers(grid, 0.5, 0, tiles);
+			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
+			const regenerated = pregenerate_layers(grid, 1.0, 0.5, 0, tiles);
 			validateLayers(grid, regenerated);
 			expect(regenerated).toStrictEqual(tiles);
 		}
@@ -186,11 +220,11 @@ describe('Test layered startLayers reuse', () => {
 	it('Reproduces the rotated solution when no cell is ambiguous', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(4, 4, false);
-			const tiles = pregenerate_layers(grid, Math.random());
+			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
 			const solver = new LayeredSolver(tiles, grid);
 			const { marked, numAmbiguous } = solver.markAmbiguousTiles();
 			const startLayers = buildStartLayers(grid, tiles, marked);
-			const regenerated = pregenerate_layers(grid, 0.5, 0, startLayers);
+			const regenerated = pregenerate_layers(grid, 1.0, 0.5, 0, startLayers);
 			validateLayers(grid, regenerated);
 			if (numAmbiguous === 0) {
 				expect(regenerated).toStrictEqual(applyRotations(grid, tiles, marked));
@@ -204,7 +238,13 @@ describe('Test layered startLayers reuse', () => {
 		// dormant island: bottom row; middle row is ambiguous
 		const startLayers = [[1], [5], [4], null, null, null, [1], [5], [4]];
 		for (let i = 0; i < 20; i++) {
-			const regenerated = pregenerate_layers(grid, Math.random(), 0, startLayers);
+			const regenerated = pregenerate_layers(
+				grid,
+				1 - Math.random(),
+				Math.random(),
+				0,
+				startLayers
+			);
 			validateLayers(grid, regenerated);
 			for (let [cell, bits] of [
 				[0, 1],
@@ -225,7 +265,13 @@ describe('Test layered startLayers reuse', () => {
 		// (dissolves) and [8] pointing at keepable cell 3 (live seed)
 		const startLayers = [[1, 8], null, null, [2], null, null, null, null, null];
 		for (let i = 0; i < 20; i++) {
-			const regenerated = pregenerate_layers(grid, Math.random(), 0, startLayers);
+			const regenerated = pregenerate_layers(
+				grid,
+				1 - Math.random(),
+				Math.random(),
+				0,
+				startLayers
+			);
 			validateLayers(grid, regenerated);
 			expect(hasLayerWithBits(regenerated[0], 8)).toBe(true);
 			expect(hasLayerWithBits(regenerated[3], 2)).toBe(true);
@@ -239,7 +285,13 @@ describe('Test layered startLayers reuse', () => {
 		// island {6, 7, 8} is conflict-free and gets absorbed
 		const startLayers = [[1], [12], null, null, [2, 1], [4], [1], [5], [4]];
 		for (let i = 0; i < 20; i++) {
-			const regenerated = pregenerate_layers(grid, Math.random(), 0, startLayers);
+			const regenerated = pregenerate_layers(
+				grid,
+				1 - Math.random(),
+				Math.random(),
+				0,
+				startLayers
+			);
 			validateLayers(grid, regenerated);
 			for (let [cell, bits] of [
 				[0, 1],
@@ -253,7 +305,7 @@ describe('Test layered startLayers reuse', () => {
 			}
 		}
 		// with a higher minimum size the bottom island dissolves too
-		const regenerated = pregenerate_layers(grid, 0.5, 0, startLayers, 4);
+		const regenerated = pregenerate_layers(grid, 1.0, 0.5, 0, startLayers, 4);
 		validateLayers(grid, regenerated);
 	});
 
@@ -261,10 +313,10 @@ describe('Test layered startLayers reuse', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const allNull = Array.from({ length: grid.total }, () => null);
 		for (let i = 0; i < 5; i++) {
-			validateLayers(grid, pregenerate_layers(grid, 0.5, 0, allNull));
+			validateLayers(grid, pregenerate_layers(grid, 1.0, 0.5, 0, allNull));
 		}
 		// wrong length is ignored entirely
-		validateLayers(grid, pregenerate_layers(grid, 0.5, 0, [null]));
+		validateLayers(grid, pregenerate_layers(grid, 1.0, 0.5, 0, [null]));
 	});
 
 	it('Plans live, island and dissolved roles', () => {
@@ -293,6 +345,166 @@ describe('Test layered startLayers reuse', () => {
 		expect([...(island || [])]).toStrictEqual([6, 7, 8]);
 		expect(plan.islands.get(8)).toBe(island);
 	});
+
+	it('Reports reuse statistics', () => {
+		const grid = new SquareGrid(3, 3, false);
+		// live region 0-1-4; conflict-free island 6-7-8
+		const noConflict = [[1], [5], [4], null, null, null, [1], [5], [4]];
+		expect(planReuse(grid, noConflict).stats).toStrictEqual({
+			keepableCells: 6,
+			keepableSubCells: 6,
+			liveCells: 3,
+			liveSubCells: 3,
+			islandCells: 3,
+			islandSubCells: 3,
+			conflictIslands: 0,
+			conflictWithLive: 0,
+			conflictWithIsland: 0,
+			conflictLostSubCells: 0,
+			conflictMaxIslandSize: 0,
+			fragmentLostSubCells: 0,
+			tooSmallLostSubCells: 0
+		});
+		// island {4/L1, 5, 8} shares cell 4 with live and is carved to {5, 8};
+		// that piece is too small to keep, so only the shared sub-cell 4/L1
+		// counts as conflict loss, the rest as fragment loss
+		const conflict = [[1], [12], null, null, [2, 1], [12], null, null, [2]];
+		expect(planReuse(grid, conflict).stats).toStrictEqual({
+			keepableCells: 5,
+			keepableSubCells: 6,
+			liveCells: 3,
+			liveSubCells: 3,
+			islandCells: 0,
+			islandSubCells: 0,
+			conflictIslands: 1,
+			conflictWithLive: 1,
+			conflictWithIsland: 0,
+			conflictLostSubCells: 1,
+			conflictMaxIslandSize: 3,
+			fragmentLostSubCells: 2,
+			tooSmallLostSubCells: 0
+		});
+	});
+
+	it('Carves conflicting islands around claimed cells', () => {
+		const grid = new SquareGrid(5, 3, false);
+		// live region: top row 0-4;
+		// island A {2/L1, 7/L0, 11, 12, 13} passes through live cell 2,
+		// is carved to {7, 11, 12, 13} and survives as one piece;
+		// island B {5, 6, 7/L1, 8, 9} passes through island A's cell 7
+		// and splits into pieces {5, 6} and {8, 9}
+		const startLayers = [
+			[1],
+			[5],
+			[5, 8],
+			[5],
+			[4],
+			[1],
+			[5],
+			[10, 5],
+			[5],
+			[4],
+			null,
+			[1],
+			[7],
+			[4],
+			null
+		];
+		const plan = planReuse(grid, startLayers, 2);
+		expect(plan.cells.get(0)?.role).toBe('live');
+		// cell 2 keeps only its live layer
+		expect(plan.cells.get(2)?.role).toBe('live');
+		expect(plan.cells.get(2)?.layers).toStrictEqual([5]);
+		// island A keeps its internal skeleton, the carved edge to 2 is pruned
+		expect(plan.cells.get(7)?.role).toBe('island');
+		expect(plan.cells.get(7)?.layers).toStrictEqual([8]);
+		expect(plan.cells.get(11)?.role).toBe('island');
+		expect(plan.cells.get(12)?.layers).toStrictEqual([7]);
+		expect(plan.cells.get(13)?.role).toBe('island');
+		// island B survives as two pieces around cell 7
+		expect(plan.cells.get(5)?.role).toBe('island');
+		expect(plan.cells.get(6)?.role).toBe('island');
+		expect(plan.cells.get(8)?.role).toBe('island');
+		expect(plan.cells.get(9)?.role).toBe('island');
+		// island membership: A's cells vs the two B pieces
+		const pieceA = plan.islands.get(11);
+		expect([...(pieceA || [])].sort((a, b) => a - b)).toStrictEqual([7, 11, 12, 13]);
+		const pieceB1 = plan.islands.get(5);
+		const pieceB2 = plan.islands.get(8);
+		expect([...(pieceB1 || [])]).toStrictEqual([5, 6]);
+		expect([...(pieceB2 || [])]).toStrictEqual([8, 9]);
+		expect(plan.islands.get(6)).toBe(pieceB1);
+		expect(plan.islands.get(9)).toBe(pieceB2);
+		expect(plan.islands.get(7)).toBe(pieceA);
+		expect(plan.stats).toStrictEqual({
+			keepableCells: 13,
+			keepableSubCells: 15,
+			liveCells: 5,
+			liveSubCells: 5,
+			islandCells: 8,
+			islandSubCells: 8,
+			conflictIslands: 2,
+			conflictWithLive: 1,
+			conflictWithIsland: 1,
+			conflictLostSubCells: 2,
+			conflictMaxIslandSize: 5,
+			fragmentLostSubCells: 0,
+			tooSmallLostSubCells: 0
+		});
+		// carved islands still absorb and produce valid boards
+		for (let i = 0; i < 20; i++) {
+			validateLayers(
+				grid,
+				pregenerate_layers(grid, 1 - Math.random(), Math.random(), 0, startLayers, 2)
+			);
+		}
+	});
+
+	it('Keeps carved pieces at cell granularity (regression)', () => {
+		// a component can hold several sub-cells of one cell (paths through
+		// the cell); carving must assign whole cells to pieces, else two
+		// pieces share a cell and the second seed overwrites the first
+		const grid = new HexaGrid(3, 4, false);
+		// island {7/L0, 8, 10/L0, 10/L1, 11/L0, 11/L1} passes through live
+		// cell 7; cells 10 and 11 both host two of its sub-cells
+		const startLayers = [
+			[1],
+			[24],
+			[32],
+			[3],
+			[25],
+			[12],
+			[1],
+			[33, 26],
+			[56],
+			null,
+			[13, 2],
+			[8, 4]
+		];
+		const plan = planReuse(grid, startLayers);
+		expect(plan.cells.get(7)?.role).toBe('live');
+		expect(plan.cells.get(8)?.role).toBe('island');
+		expect(plan.cells.get(10)?.role).toBe('island');
+		expect(plan.cells.get(11)?.role).toBe('island');
+		// the carve splits the island into two sub-cell pieces that would
+		// share cells 10 and 11; only the bigger one survives, the smaller
+		// one dissolves (it cannot own the cells exclusively)
+		const piece = plan.islands.get(8);
+		expect(plan.islands.get(10)).toBe(piece);
+		expect(plan.islands.get(11)).toBe(piece);
+		expect(plan.stats.islandCells).toBe(3);
+		expect(plan.stats.islandSubCells).toBe(3);
+		expect(plan.stats.conflictIslands).toBe(1);
+		expect(plan.stats.conflictWithLive).toBe(1);
+		expect(plan.stats.conflictLostSubCells).toBe(1);
+		expect(plan.stats.fragmentLostSubCells).toBe(2);
+		for (let i = 0; i < 20; i++) {
+			validateLayers(
+				grid,
+				pregenerate_layers(grid, 1 - Math.random(), Math.random(), 0, startLayers)
+			);
+		}
+	});
 });
 
 describe('Test layered generator', () => {
@@ -300,7 +512,7 @@ describe('Test layered generator', () => {
 		const grid = new SquareGrid(4, 4, false);
 		for (let i = 0; i < 10; i++) {
 			const generator = new LayeredGenerator(grid);
-			const tiles = generator.generate(0.5, 0, 'unique');
+			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
 			const solver = new LayeredSolver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
 		}
@@ -310,7 +522,7 @@ describe('Test layered generator', () => {
 		const grid = new SquareGrid(5, 5, true);
 		for (let i = 0; i < 3; i++) {
 			const generator = new LayeredGenerator(grid);
-			const tiles = generator.generate(0.5, 0, 'unique');
+			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
 			const solver = new LayeredSolver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
 		}
@@ -320,7 +532,7 @@ describe('Test layered generator', () => {
 		const grid = new HexaGrid(4, 6, false);
 		for (let i = 0; i < 5; i++) {
 			const generator = new LayeredGenerator(grid);
-			const tiles = generator.generate(0.5, 0, 'unique');
+			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
 			const solver = new LayeredSolver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
 		}
@@ -329,7 +541,7 @@ describe('Test layered generator', () => {
 	it('Generates a puzzle without uniqueness check', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const generator = new LayeredGenerator(grid);
-		const tiles = generator.generate(0.5, 0, 'whatever');
+		const tiles = generator.generate(1.0, 0.5, 0, 'whatever');
 		tiles.forEach((cellLayers) => {
 			expect(cellLayers.length).toBeGreaterThan(0);
 		});
@@ -342,7 +554,7 @@ describe('Test layered generator', () => {
 		let tiles = null;
 		for (let attempt = 0; attempt < 5 && tiles === null; attempt++) {
 			try {
-				tiles = generator.generate(0.5, 0, 'multiple');
+				tiles = generator.generate(1.0, 0.5, 0, 'multiple');
 			} catch {
 				// occasionally no multiple-solution board is found, retry
 			}
@@ -373,10 +585,10 @@ describe('Test layered generator', () => {
 			onSolverProgress,
 			onGeneratorProgress
 		);
-		generator.generate(0.5, 0, 'unique');
+		generator.generate(1.0, 0.5, 0, 'unique');
 		expect(generatorProgress.length).toBeGreaterThan(0);
 		expect(solverProgress.length).toBeGreaterThan(0);
-		expect(() => generator.generate(0.5, 0, /** @type {any} */ ('bogus'))).toThrow(
+		expect(() => generator.generate(1.0, 0.5, 0, /** @type {any} */ ('bogus'))).toThrow(
 			'Unknown setting for solutionsNumber'
 		);
 	});
@@ -559,7 +771,9 @@ describe('Test layered growth events', () => {
 			const grid = new SquareGrid(4, 4, false);
 			/** @type {import('./generator-layers').GrowthMove[]} */
 			const moves = [];
-			const tiles = pregenerate_layers(grid, Math.random(), 0, [], 3, (move) => moves.push(move));
+			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random(), 0, [], 3, (move) =>
+				moves.push(move)
+			);
 			expect(moves.length).toBeGreaterThan(0);
 			/** @type {Number[][]} */
 			const board = Array.from({ length: grid.total }, () => []);
@@ -570,15 +784,21 @@ describe('Test layered growth events', () => {
 
 	it('Mirrors growth events with startLayers reuse', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const tiles0 = pregenerate_layers(grid, 0.5);
+		const tiles0 = pregenerate_layers(grid, 1.0, 0.5);
 		const solver = new LayeredSolver(tiles0, grid);
 		const { marked } = solver.markAmbiguousTiles();
 		const startLayers = buildStartLayers(grid, tiles0, marked);
 		for (let i = 0; i < 10; i++) {
 			/** @type {import('./generator-layers').GrowthMove[]} */
 			const moves = [];
-			const tiles = pregenerate_layers(grid, Math.random(), 0, startLayers, 3, (move) =>
-				moves.push(move)
+			const tiles = pregenerate_layers(
+				grid,
+				1 - Math.random(),
+				Math.random(),
+				0,
+				startLayers,
+				3,
+				(move) => moves.push(move)
 			);
 			/** @type {Number[][]} */
 			const board = Array.from({ length: grid.total }, () => []);
@@ -593,7 +813,7 @@ describe('Test layered uniqueIterations', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const generator = new LayeredGenerator(grid, 3, 2, 5, 10);
 		let steps = 0;
-		for (const step of generator.uniqueIterations(0.5, 0)) {
+		for (const step of generator.uniqueIterations(1.0, 0.5, 0)) {
 			steps += 1;
 			expect(step.attempt).toBeGreaterThan(0);
 			expect(step.iteration).toBeGreaterThan(0);
@@ -617,14 +837,14 @@ describe('Test layered uniqueIterations', () => {
 	it('Ends without yields when uniqueness iterations are disabled', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const generator = new LayeredGenerator(grid, 3, 5, 3, 0);
-		const steps = [...generator.uniqueIterations(0.5, 0)];
+		const steps = [...generator.uniqueIterations(1.0, 0.5, 0)];
 		expect(steps.length).toBe(0);
 	});
 
 	it('Honors a custom ambiguity limit', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const generator = new LayeredGenerator(grid, 3, 2, 5, 10);
-		for (const step of generator.uniqueIterations(0.5, 0, 1)) {
+		for (const step of generator.uniqueIterations(1.0, 0.5, 0, 1)) {
 			// marking stops as soon as one ambiguity is found (or the board is unique)
 			expect(step.numAmbiguous).toBeLessThanOrEqual(1);
 			if (step.unique) {

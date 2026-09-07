@@ -22,6 +22,7 @@
 	let wrap = $state(false);
 	let branchingAmount = $state(0.5);
 	let avoidObvious = $state(0.0);
+	let layeringAmount = $state(0.6);
 	/** 0 means the default max(100, 0.1 * total) */
 	let maxAmbiguousTiles = $state(0);
 
@@ -187,6 +188,7 @@
 			command: 'debug-start',
 			grid: runGrid.export(),
 			options: {
+				layeringAmount,
 				branchingAmount,
 				avoidObvious,
 				maxAmbiguousTiles: Number(maxAmbiguousTiles) || 0,
@@ -325,7 +327,7 @@
 		w.postMessage({
 			command: 'growth-start',
 			grid: growthGrid.export(),
-			options: { branchingAmount, avoidObvious, startLayers, reuseMinCount: 3 }
+			options: { layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount: 3 }
 		});
 		boardMode = 'growth';
 	}
@@ -445,7 +447,8 @@
 		Reused (erased) view — exactly what the next iteration receives: green tiles are the largest reused
 		component (it seeds the growing tree), blue tiles are dormant islands (reused when the tree grows
 		into them), red tiles are erased (ambiguous cells and dissolved components); circles mark deadend
-		sinks.<br />
+		sinks. The stats line under the board accounts cells and sub-cells per fate (live / islands / carved
+		around claimed cells / too small).<br />
 		Growth view: the tree being grown move by move (press Grow); green cells are visited, faint cells
 		are not yet reached, blue outlines mark the latest move's cells.
 	</p>
@@ -471,6 +474,10 @@
 		<label>
 			Branching
 			<input type="range" min="0" max="1" step="0.05" bind:value={branchingAmount} />
+		</label>
+		<label>
+			Layering
+			<input type="range" min="0" max="1" step="0.05" bind:value={layeringAmount} />
 		</label>
 		<label>
 			Avoid obvious
@@ -716,6 +723,17 @@
 		</svg>
 	{/if}
 
+	{#if boardMode === 'reused' && viewSnapshot && reusePlan}
+		{@const s = reusePlan.stats}
+		<p class="reuse-stats">
+			keepable {s.keepableCells} cells / {s.keepableSubCells} sub-cells · live {s.liveCells}/
+			{s.liveSubCells} · islands {s.islandCells}/{s.islandSubCells} · carved {s.conflictIslands}
+			islands ({s.conflictWithLive} with live, {s.conflictWithIsland} with island, max
+			{s.conflictMaxIslandSize}): {s.conflictLostSubCells} sub-cells at claimed cells +
+			{s.fragmentLostSubCells} in fragments · too small {s.tooSmallLostSubCells}
+		</p>
+	{/if}
+
 	{#if runGrid && !viewSnapshot}
 		<p>Press Start to begin a run.</p>
 	{/if}
@@ -867,5 +885,10 @@
 	}
 	.true-count {
 		margin: 1em 0;
+	}
+	.reuse-stats {
+		font-size: 0.85em;
+		opacity: 0.8;
+		margin: 0.3em 0;
 	}
 </style>

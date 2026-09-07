@@ -8,7 +8,7 @@ scrambling, startLayers reuse, `LayeredGenerator` modes, worker smoke tests, gro
 mirroring, `uniqueIterations`). Run:
 `npx vitest run src/lib/puzzle/generator-layers.test.js`.
 
-## `pregenerate_layers(grid, branchingAmount, avoidObvious, startLayers, reuseMinCount, onMove, layeringAmount)`
+## `pregenerate_layers(grid, layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount, onMove)`
 
 GrowingTree maze growth over cells (Prim↔backtracker mix: `usePrims = Math.random() <
 branchingAmount` picks a random frontier cell, else the newest one). Layers variant twists:
@@ -18,10 +18,12 @@ branchingAmount` picks a random frontier cell, else the newest one). Layers vari
   cell adds a _new layer_ to it — revisiting is how the board becomes layered (merging would
   close a cycle).
 - `layeringAmount` (default `0.6`): per-direction probability of _allowing_ a move into an
-  already-visited cell. `0` ⇒ every move reaches a fresh cell ⇒ a classic single-layer tree.
-  **Plumbing planned**: only `pregenerate_layers` takes it today — `LayeredGenerator`,
-  `worker-layers.js` and the UI always run the default `0.6`, and `GeneratorOptions` does not
-  expose it yet.
+  already-visited cell. `0` ⇒ every move reaches a fresh cell ⇒ a classic single-layer tree
+  (exactly one layer per playable cell). Fully plumbed: `LayeredGenerator.generate` /
+  `uniqueIterations` take it as their **first** parameter, `GeneratorOptions.layeringAmount`
+  (optional, default 0.6) flows through `worker-layers.js` (`generate`, `debug-start`,
+  `growth-start`), and both UIs expose a slider (custom puzzle page — shown only when the
+  Layered checkbox is on — and `/generator-debug`).
 - Frontier tiers, picked in order `visited > avoiding > lastResort`:
   - fully-connected moves (source or neighbour union would become `polygon.fully_connected`;
     skipped on triangular grids) and obvious moves (below) are demoted: the cell is moved out of
@@ -61,13 +63,35 @@ enters/exits via different layers!). Then:
   dropped), cells claimed + marked visited;
 - components `< max(2, reuseMinCount)` dissolve (size < 2 has no edges to preserve — and would
   seed empty layer lists, crashing absorption);
-- bigger ones → dormant **islands**, under the claim rule: any cell conflict with live or a
-  bigger island dissolves the whole island (multi-island cells would strand one island under
-  per-cell visited);
+- bigger ones → dormant **islands**, **carved around cells already claimed by bigger
+  components** instead of dissolving entirely: the remaining sub-cells re-flood into connected
+  pieces, pieces ≥ `minIslandSize` register (descending, bigger wins shared cells), everything
+  else dissolves as fragments;
 - everything else → dissolved/erased.
 
+Historical note: originally any cell conflict dissolved the whole island ("claim rule"). On
+large dense boards this discarded huge certified regions (measured: 45% of keepable sub-cells
+in one 20×20 iteration, the biggest single loss an island of 184 sub-cells, all 5 conflicts
+with live) — see H5 below. The invariants the claim rule protected still hold under carving:
+every registered component owns its cells exclusively (pieces conflicting over a cell dissolve
+into fragments), so per-cell seeding and island absorption stay correct. Two subtleties:
+components can hold several sub-cells of one cell (through-paths), so carved pieces can share
+cells even when sub-cell-disjoint — the descending registration dissolves the losers; and
+piece masks are pruned to intra-piece edges, so carved-off edges vanish cleanly.
+This fix was the dominant convergence bottleneck: 20×20 squares dropped from 10–50 iterations
+to **3–5 iterations**; typical first-iteration accounting is ~79% of keepable sub-cells
+registered (islands now carry the bulk of reused material), with small losses at claimed
+cells, in fragments and in too-small components.
+
+`planReuse` also returns `stats` (fate accounting for research): cells/sub-cells per role
+(live, islands) and sub-cell losses per cause (carving at claimed cells, fragment pieces,
+too-small components). This measured how much certified material the claim rule threw away and
+now tracks the carve losses. `liveSubCells` counts actually seeded sub-cells, so
+`liveSubCells + islandSubCells + conflictLostSubCells + fragmentLostSubCells +
+tooSmallLostSubCells === keepableSubCells` always (asserted by the fuzz test).
+
 The `/generator-debug` page's Reused view renders this exact plan (green = live, blue =
-islands, red = dissolved).
+islands, red = dissolved) plus a stats line with the same accounting.
 
 During growth: entering an unvisited island cell **absorbs** the whole island by _extending one
 of the island's existing layers_ with the back direction (`layers[neighbour][0] |= back`) —
@@ -98,7 +122,7 @@ Mirrors classic `Generator`. Constructor knobs: `reuse_tiles_min_count = 3`,
 `max_solver_iterations = 0` (solver search cap, see the solver doc — a crutch to be removed),
 plus solver/generator progress callbacks (forwarded as worker messages).
 
-`generate(branchingAmount, avoidObvious, solutionsNumber)`:
+`generate(layeringAmount, branchingAmount, avoidObvious, solutionsNumber)`:
 
 - `'unique'`: consumes `uniqueIterations`, returns
   `randomRotate(applyRotations(tiles, marked))` of the unique snapshot; throws when attempts
@@ -107,7 +131,7 @@ plus solver/generator progress callbacks (forwarded as worker messages).
 - `'multiple'`: requires `complete && !unique` from `markAmbiguousTiles(1, maxSolverIterations)`,
   retries up to `max_attempts`.
 
-`uniqueIterations(branchingAmount, avoidObvious, ambiguousLimitOverride)` yields an
+`uniqueIterations(layeringAmount, branchingAmount, avoidObvious, ambiguousLimitOverride)` yields an
 `IterationSnapshot` per solver iteration (`attempt, iteration, tiles, marked, numAmbiguous,
 unique, complete, keptCount, elapsedMs`); `marked` holds solver-frame rotations with
 `AMBIGUOUS`/`UNSOLVED` sentinels, and non-sentinel cells feed the next iteration as
@@ -172,8 +196,12 @@ deep. Three growth-side fixes landed:
    certified shape;
 3. `layeringAmount` gates revisits probabilistically (default 0.6).
 
-Empirically a 20×20 square now converges to unique in **10–50 iterations**. The problem is
-considered partially understood — research continues on the `/generator-debug` page:
+4. `planReuse` carves conflicting islands around claimed cells instead of dissolving them
+   (the H5 fix, see `planReuse` above).
+
+Empirically a 20×20 square now converges to unique in **3–5 iterations** (was 10–50 before the
+carve fix, ~1 h of pinned iterations before the earlier growth-side fixes). Research continues
+on the `/generator-debug` page:
 
 - **H1**: the `ambiguousLimit` cap masks the true ambiguity count (progress invisible, patience
   blind). The page's max-ambiguous control exists to investigate; the cap-saturation rule in
@@ -181,6 +209,13 @@ considered partially understood — research continues on the `/generator-debug`
 - **H2**: rerolled regions regenerate dense ambiguity (layered boards are intrinsically more
   ambiguous than classic — parallel pipes, multi-layer rearrangements). Partially mitigated by
   the revisit gating.
+- **H5 (confirmed, fixed, converged)**: the planReuse claim rule dissolved whole islands for
+  sharing a single cell with live or a bigger island. Measured on a 20×20 iteration: 235 of 526
+  keepable sub-cells (45%) conflict-dissolved, all 5 conflicts with live, biggest island 184
+  sub-cells — while registered islands totalled just 9. Fixed by carving conflicting islands
+  around claimed cells (see `planReuse` above); post-fix 20×20 squares converge in 3–5
+  iterations, islands carry most of the reused material, and remaining losses (claimed cells,
+  fragments, too-small) are minor.
 - **H4**: solver backtracking tail (heavy on large wrapped boards) — see the solver doc; this
   is the `max_solver_iterations` crutch.
 - ~~H3 (reuse not engaging)~~: the `liveFromBefore` rule and reuse role visualization address

@@ -390,7 +390,7 @@ describe('Test multi-layer boards', () => {
 			new SquareGrid(3, 4, true)
 		];
 		for (const grid of grids) {
-			const layers = pregenerate_layers(grid, 0.5);
+			const layers = pregenerate_layers(grid, 1.0, 0.5);
 			expect(() => validateLayers(grid, layers)).not.toThrow();
 			const scrambled = randomRotate(layers, grid);
 			const solver = new LayeredSolver(scrambled, grid);

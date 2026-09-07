@@ -17,6 +17,7 @@
 	let branchingAmount = $state(0.6);
 	let avoidObvious = $state(0.0);
 	let avoidStraights = $state(0.0);
+	let layeringAmount = $state(0.6);
 	let autosolve = $state(false);
 	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
 	let solutionsNumber = $state('unique');
@@ -50,6 +51,7 @@
 		if (layered) {
 			layeredGeneratorComponent?.generate(
 				{
+					layeringAmount,
 					branchingAmount,
 					avoidObvious,
 					solutionsNumber
@@ -226,6 +228,20 @@
 				bind:value={branchingAmount}
 			/>
 		</label>
+		{#if layered}
+			<label for="layering">
+				Layering amount (0 = classic)
+				<input
+					type="range"
+					min="0"
+					max="1"
+					step="0.05"
+					name="layering"
+					id="layering"
+					bind:value={layeringAmount}
+				/>
+			</label>
+		{/if}
 		<label for="avoidStraights">
 			Avoid straight tiles
 			<input

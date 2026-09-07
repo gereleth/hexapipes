@@ -154,7 +154,7 @@ describe('Test layered game', () => {
 
 	it('Solves a scrambled generated board', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const solvedTiles = pregenerate_layers(grid, 0.5);
+		const solvedTiles = pregenerate_layers(grid, 1.0, 0.5);
 		// rotate every cell by a random amount to scramble the board,
 		// all layers of a cell rotate together
 		const scrambles = solvedTiles.map(() => Math.floor(Math.random() * 4));
@@ -192,7 +192,7 @@ describe('Test layered solver wiring', () => {
 
 	it('Applies solver solution rotations to solve the game', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const solvedTiles = pregenerate_layers(grid, 0.5);
+		const solvedTiles = pregenerate_layers(grid, 1.0, 0.5);
 		const scrambled = randomRotate(solvedTiles, grid);
 		const game = new LayeredPipesGame(grid, scrambled, undefined);
 		expect(game.isSolved()).toBe(false);

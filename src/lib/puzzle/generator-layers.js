@@ -21,6 +21,9 @@ import { LayeredSolver } from '$lib/puzzle/solver-layers';
  * @property {Number} branchingAmount
  * @property {Number} avoidObvious
  * @property {SolutionsNumber} solutionsNumber
+ * @property {Number} [layeringAmount] - probability of growing into a visited
+ * cell again, values in range [0,1], 0 produces classic puzzles,
+ * 0 or undefined means the default 0.6
  * @property {Number} [maxAmbiguousTiles] - cap on ambiguities searched per iteration,
  * 0 or undefined means the default max(100, 0.1 * total)
  */
@@ -87,14 +90,40 @@ function findBackSubCell(grid, startLayers, cell, backDirection) {
  * @typedef {object} ReusePlan
  * @property {Map<Number, ReusePlanCell>} cells - keepable cells only
  * @property {Map<Number, Set<Number>>} islands - dormant island cell => all cells of the island
+ * @property {ReusePlanStats} stats - fate accounting for research
+ */
+
+/**
+ * Fate accounting of one reuse plan, see planReuse.
+ * Cell and sub-cell counts per role; losses are sub-cell counts because
+ * dissolved material is sub-cell components.
+ * @typedef {object} ReusePlanStats
+ * @property {Number} keepableCells - playable cells with non-null startLayers
+ * @property {Number} keepableSubCells - sub-cells hosted by keepable cells
+ * @property {Number} liveCells - cells hosting the live seed component
+ * @property {Number} liveSubCells - sub-cells actually seeded with the live component
+ * @property {Number} islandCells - cells hosting dormant islands
+ * @property {Number} islandSubCells - sub-cells registered as dormant islands
+ * @property {Number} conflictIslands - islands that needed carving around claimed cells
+ * @property {Number} conflictWithLive - of these, sharing cells with the live seed
+ * @property {Number} conflictWithIsland - sharing cells with a bigger island
+ *  (an island can count in both, so the sum can exceed conflictIslands)
+ * @property {Number} conflictLostSubCells - sub-cells given up at claimed cells while carving
+ * @property {Number} conflictMaxIslandSize - size of the biggest island that needed carving
+ * @property {Number} fragmentLostSubCells - sub-cells in carve pieces below the minimum island size
+ * @property {Number} tooSmallLostSubCells - sub-cells in whole components below the minimum island size
  */
 
 /**
  * Computes which parts of startLayers survive into the next generation:
  * the largest keepable sub-cell component seeds the growing tree ('live'),
- * smaller ones become dormant 'island's unless they share a cell with a
- * claimed component (then they dissolve entirely), everything else
- * 'dissolves' (too small, or only connected to erased cells).
+ * smaller ones become dormant 'island's, carved around cells already
+ * claimed by bigger components instead of dissolving entirely (bigger
+ * components win the shared cells; surviving pieces of at least
+ * minIslandSize sub-cells register as their own islands), everything
+ * else 'dissolves' (too small, or only connected to erased cells).
+ * Every registered component owns its cells exclusively, which keeps
+ * the per-cell seeding and island absorption machinery correct.
  * Layer masks are pruned to edges staying within their component.
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {StartLayers} startLayers
@@ -110,58 +139,81 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 
 	/** @type {Set<Number>} playable cells worth keeping */
 	const keepable = new Set();
+	let keepableSubCells = 0;
 	for (let index = 0; index < total; index++) {
 		if (!grid.emptyCells.has(index) && startLayers[index]) {
 			keepable.add(index);
+			keepableSubCells += /** @type {Number[]} */ (startLayers[index]).length;
 		}
 	}
+
+	/**
+	 * Floods the sub-cell component containing startId over mutual edges,
+	 * visiting only sub-cells from the allowed set (which also excludes
+	 * empty and non-keepable neighbours: their layers are null so
+	 * findBackSubCell returns -1).
+	 * @param {Number} startId - sub-cell id (cell + layer * total)
+	 * @param {Set<Number>} allowed - sub-cells that may join the component
+	 * @param {Set<Number>} seen - sub-cells already assigned; the new component is added
+	 * @returns {Set<Number>}
+	 */
+	const collectComponent = (startId, allowed, seen) => {
+		const component = new Set([startId]);
+		seen.add(startId);
+		const queue = [startId];
+		while (queue.length > 0) {
+			const current = /** @type {Number} */ (queue.pop());
+			const currentCell = current % total;
+			const layerMask = /** @type {Number[]} */ (startLayers[currentCell])[
+				Math.floor(current / total)
+			];
+			let bits = layerMask;
+			while (bits > 0) {
+				const direction = bits & -bits;
+				bits ^= direction;
+				const { neighbour, empty } = grid.find_neighbour(currentCell, direction);
+				if (empty) {
+					continue;
+				}
+				const backId = findBackSubCell(
+					grid,
+					startLayers,
+					neighbour,
+					grid.OPPOSITE.get(direction) || 0
+				);
+				if (backId < 0 || !allowed.has(backId) || component.has(backId)) {
+					continue;
+				}
+				component.add(backId);
+				seen.add(backId);
+				queue.push(backId);
+			}
+		}
+		return component;
+	};
+
 	// find connected components of keepable sub-cells.
 	// layers within a cell never connect to each other,
-	// so one cell can host sub-cells of several different components
+	// so one cell can host sub-cells of several different components.
+	// A component can also hold several sub-cells of one cell
+	// (a path through the cell enters/exits via different layers)
+	/** @type {Set<Number>} all sub-cells of keepable cells */
+	const allSubCells = new Set();
+	for (let cell of keepable) {
+		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
+		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
+			allSubCells.add(cell + layerIndex * total);
+		}
+	}
 	/** @type {Set<Number>[]} sets of sub-cell ids (cell + layer * total) */
 	const components = [];
 	/** @type {Set<Number>} sub-cells already assigned to a component */
 	const seen = new Set();
-	for (let cell of keepable) {
-		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
-		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-			const id = cell + layerIndex * total;
-			if (seen.has(id)) {
-				continue;
-			}
-			const component = new Set([id]);
-			seen.add(id);
-			const queue = [id];
-			while (queue.length > 0) {
-				const current = /** @type {Number} */ (queue.pop());
-				const currentCell = current % total;
-				const layerMask = /** @type {Number[]} */ (startLayers[currentCell])[
-					Math.floor(current / total)
-				];
-				let bits = layerMask;
-				while (bits > 0) {
-					const direction = bits & -bits;
-					bits ^= direction;
-					const { neighbour, empty } = grid.find_neighbour(currentCell, direction);
-					if (empty || !keepable.has(neighbour)) {
-						continue;
-					}
-					const backId = findBackSubCell(
-						grid,
-						startLayers,
-						neighbour,
-						grid.OPPOSITE.get(direction) || 0
-					);
-					if (backId < 0 || component.has(backId)) {
-						continue;
-					}
-					component.add(backId);
-					seen.add(backId);
-					queue.push(backId);
-				}
-			}
-			components.push(component);
+	for (let id of allSubCells) {
+		if (seen.has(id)) {
+			continue;
 		}
+		components.push(collectComponent(id, allSubCells, seen));
 	}
 	components.sort((a, b) => -(a.size - b.size));
 
@@ -202,8 +254,26 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 
 	/** @type {Set<Number>} cells already claimed by a reused component */
 	const claimed = new Set();
+	/** @type {Set<Number>} cells claimed by the live component */
+	const liveClaimed = new Set();
 	// the largest component seeds the growing tree
 	const live = components[0];
+	/** @type {ReusePlanStats} */
+	const stats = {
+		keepableCells: keepable.size,
+		keepableSubCells,
+		liveCells: 0,
+		liveSubCells: 0,
+		islandCells: 0,
+		islandSubCells: 0,
+		conflictIslands: 0,
+		conflictWithLive: 0,
+		conflictWithIsland: 0,
+		conflictLostSubCells: 0,
+		conflictMaxIslandSize: 0,
+		fragmentLostSubCells: 0,
+		tooSmallLostSubCells: 0
+	};
 	if (live) {
 		/** @type {Set<Number>} cells hosting live sub-cells */
 		const liveCells = new Set();
@@ -214,11 +284,16 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			const pruned = pruneCellLayers(cell, live);
 			if (pruned.length > 0) {
 				claimed.add(cell);
+				liveClaimed.add(cell);
 				cells.set(cell, { role: 'live', layers: pruned });
+				stats.liveCells += 1;
+				stats.liveSubCells += pruned.length;
 			} else {
 				cells.set(cell, { role: 'dissolved', layers: [] });
 			}
 		}
+		// a single-sub-cell live component has no internal edges to seed
+		stats.tooSmallLostSubCells += live.size - stats.liveSubCells;
 	}
 	// reuse good smaller regions too, they stay dormant
 	// until the growing tree touches them
@@ -230,6 +305,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		if (component.size < minIslandSize) {
 			// this and all smaller components are too small to reuse
 			for (let rest = index; rest < components.length; rest++) {
+				stats.tooSmallLostSubCells += components[rest].size;
 				for (let id of components[rest]) {
 					const cell = id % total;
 					if (!cells.has(cell)) {
@@ -244,30 +320,101 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		for (let id of component) {
 			islandCells.add(id % total);
 		}
-		let conflict = false;
+		// carve the island around cells already claimed by bigger
+		// components instead of dissolving it: bigger components win
+		// the shared cells, the rest re-floods into smaller islands
+		let withLive = false;
+		let withIsland = false;
 		for (let cell of islandCells) {
-			if (claimed.has(cell)) {
-				// the island would mix with another reused component
-				// at this cell, dissolve it entirely
-				conflict = true;
-				break;
+			if (!claimed.has(cell)) {
+				continue;
+			}
+			if (liveClaimed.has(cell)) {
+				withLive = true;
+			} else {
+				withIsland = true;
 			}
 		}
-		if (conflict) {
-			for (let cell of islandCells) {
-				if (!cells.has(cell)) {
-					cells.set(cell, { role: 'dissolved', layers: [] });
+		/** @type {Set<Number>[]} */
+		let pieces = [component];
+		if (withLive || withIsland) {
+			stats.conflictIslands += 1;
+			if (withLive) {
+				stats.conflictWithLive += 1;
+			}
+			if (withIsland) {
+				stats.conflictWithIsland += 1;
+			}
+			stats.conflictMaxIslandSize = Math.max(stats.conflictMaxIslandSize, component.size);
+			/** @type {Set<Number>} sub-cells of this island not at claimed cells */
+			const carved = new Set();
+			for (let id of component) {
+				if (!claimed.has(id % total)) {
+					carved.add(id);
 				}
 			}
-			continue;
+			stats.conflictLostSubCells += component.size - carved.size;
+			pieces = [];
+			/** @type {Set<Number>} sub-cells already assigned to a piece */
+			const piecesSeen = new Set();
+			for (let id of carved) {
+				if (!piecesSeen.has(id)) {
+					pieces.push(collectComponent(id, carved, piecesSeen));
+				}
+			}
+			// pieces are sub-cell connected, but one component can hold
+			// several sub-cells of one cell (paths through the cell), so
+			// pieces can share cells. Registered pieces must own cells
+			// exclusively: a piece sharing a cell with an already
+			// registered (bigger) piece dissolves into fragments
+			pieces.sort((a, b) => -(a.size - b.size));
 		}
-		for (let cell of islandCells) {
-			claimed.add(cell);
-			cells.set(cell, { role: 'island', layers: pruneCellLayers(cell, component) });
-			islands.set(cell, islandCells);
+		/** @type {Set<Number>} cells claimed by this component's registered pieces */
+		const pieceClaims = new Set();
+		for (let piece of pieces) {
+			if (piece.size < minIslandSize) {
+				stats.fragmentLostSubCells += piece.size;
+				for (let id of piece) {
+					const cell = id % total;
+					if (!cells.has(cell)) {
+						cells.set(cell, { role: 'dissolved', layers: [] });
+					}
+				}
+				continue;
+			}
+			/** @type {Set<Number>} cells hosting this piece's sub-cells */
+			const pieceCells = new Set();
+			for (let id of piece) {
+				pieceCells.add(id % total);
+			}
+			let pieceConflict = false;
+			for (let cell of pieceCells) {
+				if (pieceClaims.has(cell)) {
+					pieceConflict = true;
+					break;
+				}
+			}
+			if (pieceConflict) {
+				stats.fragmentLostSubCells += piece.size;
+				for (let id of piece) {
+					const cell = id % total;
+					if (!cells.has(cell)) {
+						cells.set(cell, { role: 'dissolved', layers: [] });
+					}
+				}
+				continue;
+			}
+			stats.islandCells += pieceCells.size;
+			stats.islandSubCells += piece.size;
+			for (let cell of pieceCells) {
+				pieceClaims.add(cell);
+				claimed.add(cell);
+				cells.set(cell, { role: 'island', layers: pruneCellLayers(cell, piece) });
+				islands.set(cell, pieceCells);
+			}
 		}
 	}
-	return { cells, islands };
+	return { cells, islands, stats };
 }
 
 /**
@@ -299,6 +446,8 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * components that end up without connections (e.g. they only connected
  * to ambiguous cells) are dropped.
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {Number} layeringAmount - probability of growing into a visited cell again, values in range [0,1]
+ * 0 produces classic puzzles.
  * @param {Number} branchingAmount - value in range [0, 1],
  * 0 is like recursive backtracking, 1 is like Prim's algorithm
  * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
@@ -306,18 +455,16 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant when erasing ambiguities
  * @param {(move: GrowthMove) => void} [onMove] - reports growth events for animations,
  * each board mutation is mirrored by an event
- * @param {Number} layeringAmount - probability of growing into a visited cell again, values in range [0,1]
- * 0 produces classic puzzles.
  * @returns {LayeredTiles} - unrandomized layered tiles
  */
 export function pregenerate_layers(
 	grid,
+	layeringAmount = 0.6,
 	branchingAmount = 0.5,
 	avoidObvious = 0,
 	startLayers = [],
 	reuseMinCount = 3,
-	onMove = undefined,
-	layeringAmount = 0.6
+	onMove = undefined
 ) {
 	const total = grid.total;
 
@@ -472,7 +619,10 @@ export function pregenerate_layers(
 			if (!unvisited.has(neighbour) && Math.random() > layeringAmount) {
 				continue;
 			}
-			if (liveFromBefore.has(fromNode) && liveFromBefore.has(neighbour)) {
+			if (
+				(liveFromBefore.has(fromNode) && liveFromBefore.has(neighbour)) ||
+				islands.get(fromNode)?.has(neighbour)
+			) {
 				// don't break what we reused
 				continue;
 			}
@@ -565,7 +715,6 @@ export function pregenerate_layers(
 			for (let cell of island) {
 				unvisited.delete(cell);
 				visited.push(cell);
-				liveFromBefore.add(cell);
 			}
 			emit({
 				type: 'absorb',
@@ -709,6 +858,8 @@ export class LayeredGenerator {
 	 * reported as this board's `keptCount`).
 	 * Stops after yielding a unique snapshot, or when the attempts
 	 * are exhausted.
+	 * @param {Number} layeringAmount - probability of growing into a visited cell again, values in range [0,1]
+	 * 0 produces classic puzzles.
 	 * @param {Number} branchingAmount - value in range [0, 1]
 	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
 	 * @param {Number} [ambiguousLimitOverride = 0] - cap on ambiguities searched per iteration,
@@ -716,7 +867,12 @@ export class LayeredGenerator {
 	 * and lets the patience tracking work on the true counts.
 	 * @returns {Generator<IterationSnapshot, void, void>}
 	 */
-	*uniqueIterations(branchingAmount = 0.6, avoidObvious = 0.0, ambiguousLimitOverride = 0) {
+	*uniqueIterations(
+		layeringAmount = 0.6,
+		branchingAmount = 0.6,
+		avoidObvious = 0.0,
+		ambiguousLimitOverride = 0
+	) {
 		/** @type {StartLayers} */
 		let startLayers = [];
 		let attempt = 0;
@@ -726,6 +882,7 @@ export class LayeredGenerator {
 			attempt += 1;
 			let tiles = pregenerate_layers(
 				this.grid,
+				layeringAmount,
 				branchingAmount,
 				avoidObvious,
 				startLayers,
@@ -789,6 +946,7 @@ export class LayeredGenerator {
 				}
 				tiles = pregenerate_layers(
 					this.grid,
+					layeringAmount,
 					branchingAmount,
 					avoidObvious,
 					startLayers,
@@ -800,28 +958,35 @@ export class LayeredGenerator {
 
 	/**
 	 * Generate a puzzle according to settings
+	 * @param {Number} layeringAmount - probability of growing into a visited cell again, values in range [0,1]
+	 * 0 produces classic puzzles.
 	 * @param {Number} branchingAmount - value in range [0, 1]
 	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
 	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
 	 * @returns {LayeredTiles} - generated tiles
 	 */
-	generate(branchingAmount = 0.6, avoidObvious = 0.0, solutionsNumber = 'unique') {
+	generate(
+		layeringAmount = 0.6,
+		branchingAmount = 0.6,
+		avoidObvious = 0.0,
+		solutionsNumber = 'unique'
+	) {
 		if (solutionsNumber === 'unique') {
-			for (const step of this.uniqueIterations(branchingAmount, avoidObvious)) {
+			for (const step of this.uniqueIterations(layeringAmount, branchingAmount, avoidObvious)) {
 				if (step.unique) {
 					return randomRotate(applyRotations(this.grid, step.tiles, step.marked), this.grid);
 				}
 			}
 			throw 'Could not generate a layered puzzle with a unique solution. Maybe try again.';
 		} else if (solutionsNumber === 'whatever') {
-			const tiles = pregenerate_layers(this.grid, branchingAmount, avoidObvious);
+			const tiles = pregenerate_layers(this.grid, layeringAmount, branchingAmount, avoidObvious);
 			return randomRotate(tiles, this.grid);
 		} else if (solutionsNumber === 'multiple') {
 			let attempt = 0;
 			while (attempt < this.max_attempts) {
 				attempt += 1;
 				this.generator_progress_callback({ attempt, iteration: 1 });
-				const tiles = pregenerate_layers(this.grid, branchingAmount, avoidObvious);
+				const tiles = pregenerate_layers(this.grid, layeringAmount, branchingAmount, avoidObvious);
 				const solver = new LayeredSolver(tiles, this.grid);
 				if (this.solver_progress_callback) {
 					solver.progress_callback = this.solver_progress_callback;
