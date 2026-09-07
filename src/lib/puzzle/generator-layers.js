@@ -345,6 +345,9 @@ export function pregenerate_layers(
 	/** @type {Map<Number, Set<Number>>} cell index => cells of the dormant island containing it */
 	const islands = new Map();
 
+	/** @type {Set<Number>} cells we reused that have been visited */
+	const liveFromBefore = new Set();
+
 	// reuse non-ambiguous portions of startLayers
 	if (startLayers.length === total) {
 		const plan = planReuse(grid, startLayers, reuseMinCount);
@@ -357,6 +360,7 @@ export function pregenerate_layers(
 			if (cellPlan.role === 'live') {
 				visited.push(cell);
 				unvisited.delete(cell);
+				liveFromBefore.add(cell);
 			} else if (cellPlan.role === 'island') {
 				islands.set(cell, /** @type {Set<Number>} */ (plan.islands.get(cell)));
 			}
@@ -462,6 +466,10 @@ export function pregenerate_layers(
 			if (empty) {
 				continue;
 			}
+			if (liveFromBefore.has(fromNode) && liveFromBefore.has(neighbour)) {
+				// don't break what we reused
+				continue;
+			}
 			const backDirection = opposite.get(direction) || 0;
 			const neighbourUsed = usedDirections(layers[neighbour]);
 			if ((neighbourUsed & backDirection) > 0) {
@@ -551,6 +559,7 @@ export function pregenerate_layers(
 			for (let cell of island) {
 				unvisited.delete(cell);
 				visited.push(cell);
+				liveFromBefore.add(cell);
 			}
 			emit({
 				type: 'absorb',
