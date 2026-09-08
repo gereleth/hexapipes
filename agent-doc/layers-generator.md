@@ -10,13 +10,15 @@ mirroring, `uniqueIterations`). Run:
 
 ## `pregenerate_layers(grid, layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount, onMove)`
 
-GrowingTree maze growth over cells (Prim↔backtracker mix: `usePrims = Math.random() <
-branchingAmount` picks a random frontier cell, else the newest one). Layers variant twists:
+GrowingTree maze growth over cells, but the growing frontier is split by the
+kind of growth a cell offers (see `branchingAmount` below). Layers variant twists:
 
 - Moves are `(existing layer, free direction)` pairs of the source cell. Growing into an
   **unvisited** cell pushes a fresh layer there (the back direction); growing into a **visited**
   cell adds a _new layer_ to it — revisiting is how the board becomes layered (merging would
-  close a cycle).
+  close a cycle). Since every move attaches exactly one new leaf sub-cell to the source layer,
+  tree shape is decided by the source layer's degree: growing a deadend layer (≤ 1 connection)
+  extends a path, growing a busier layer (≥ 2) forks the tree.
 - `layeringAmount` (default `0.6`): per-direction probability of _allowing_ a move into an
   already-visited cell. `0` ⇒ every move reaches a fresh cell ⇒ a classic single-layer tree
   (exactly one layer per playable cell). Fully plumbed: `LayeredGenerator.generate` /
@@ -24,10 +26,26 @@ branchingAmount` picks a random frontier cell, else the newest one). Layers vari
   (optional, default 0.6) flows through `worker-layers.js` (`generate`, `debug-start`,
   `growth-start`), and both UIs expose a slider (custom puzzle page — shown only when the
   Layered checkbox is on — and `/generator-debug`).
-- Frontier tiers, picked in order `visited > avoiding > lastResort`:
+- `branchingAmount`: per-move roll selecting which frontier list to grow from (and which layer
+  to grow when the picked cell hosts both kinds). Low values pick from `extending` — cells
+  hosting a deadend layer, so growth extends paths (long corridor-like boards). High values
+  pick from `branching` — cells whose growth would only fork, attaching leaves mid-path
+  (Prim-like spread). If the rolled list is empty, the other one is used, then the demotion
+  tiers. Picks are random in both lists (no LIFO backtracking). Measured deadend-sub-cell
+  ratios (layering 0.6, 100 boards): square 7×7 ≈ 27% at 0 vs ≈ 41% at 1 (classic: 14%/29%),
+  hex 5×4 ≈ 19% vs ≈ 60% (classic: 22%/40%); asserted by the `branchingAmount knob` tests.
+  A direct port of the classic pick rule was broken here: revisit moves keep cells on the
+  frontier until all their directions are consumed, so the classic "newest cell" tip just
+  ground out revisit moves in its local area instead of backtracking, and the knob did
+  almost nothing (old numbers: 29% vs 36% square, 43% vs 47% hex).
+- Direction choice is layer-independent (a free direction is free for **every** layer of the
+  cell — per-cell disjointness), so directions are picked first (uniformly from the best
+  bucket) and the layer is picked **afterwards**, matching the rolled growth kind, falling
+  back to the other kind when the cell hosts no such layer.
+- Frontier tiers, picked in order `extending/branching (by roll) > avoiding > lastResort`:
   - fully-connected moves (source or neighbour union would become `polygon.fully_connected`;
-    skipped on triangular grids) and obvious moves (below) are demoted: the cell is moved out of
-    `visited` into `avoiding`/`lastResort` and other cells are tried first.
+    skipped on triangular grids) and obvious moves (below) are demoted: the cell is moved out
+    of `extending`/`branching` into `avoiding`/`lastResort` and other cells are tried first.
   - **Moves that would make the source or neighbour fully connected/obvious while reaching an
     already-visited cell are disregarded outright** (`continue`), not demoted. So a demoted move
     always reaches unvisited cells — demotion is pure progress, never a wasteful pure revisit.
@@ -43,10 +61,11 @@ branchingAmount` picks a random frontier cell, else the newest one). Layers vari
   **disconnected playable region**, and that is exactly what it is for: **boards with
   disconnected areas are not supported** by the generator, the solver or the game.
 
-Quirk: a cell demoted to `avoiding`/`lastResort` can later classify for the _other_ demotion
-tier (unions only grow, so moves can become fully connected/obvious after demotion); it is then
-pushed to the second tier without being removed from the first. Harmless — the duplicate yields
-a no-op pick and pops eventually — but tiers can hold a cell twice.
+Quirks: demotion re-checks a cell's moves when picked, so a demoted cell whose unions changed
+can classify for the _other_ tier and moves there cleanly (removal from whichever list it was
+picked from — no duplicates). Re-demotion between tiers can repeat while the primary frontier
+is non-empty, which terminates because primary cells consume a direction per move; once the
+primary frontier is empty the demote guard fails and the cell makes its bad move.
 
 ### startLayers reuse (`planReuse`)
 
@@ -223,11 +242,12 @@ on the `/generator-debug` page:
 
 ## Differences vs classic generator at a glance
 
-| Aspect            | classic                        | layered                                           |
-| ----------------- | ------------------------------ | ------------------------------------------------- |
-| revisit handling  | avoided (merges would loop)    | new layer on revisit, `layeringAmount` gate       |
-| fully-connected   | aesthetic demotion             | demotion + hard disregard when not reaching fresh |
-| obvious avoidance | per-tile tileTypes + straights | union-based forbidden sets; straights not ported  |
-| reuse             | keepable tiles verbatim        | sub-cell components: live seed + dormant islands  |
-| uniqueness loop   | patience over ambiguous counts | + limit cap, cap-saturation rule, `complete` flag |
-| observability     | progress callbacks             | + `uniqueIterations` snapshots, GrowthMove events |
+| Aspect            | classic                         | layered                                             |
+| ----------------- | ------------------------------- | --------------------------------------------------- |
+| revisit handling  | avoided (merges would loop)     | new layer on revisit, `layeringAmount` gate         |
+| branchingAmount   | Prim↔backtracker over frontier | extend-deadend vs branch lists (classic rule broke) |
+| fully-connected   | aesthetic demotion              | demotion + hard disregard when not reaching fresh   |
+| obvious avoidance | per-tile tileTypes + straights  | union-based forbidden sets; straights not ported    |
+| reuse             | keepable tiles verbatim         | sub-cell components: live seed + dormant islands    |
+| uniqueness loop   | patience over ambiguous counts  | + limit cap, cap-saturation rule, `complete` flag   |
+| observability     | progress callbacks              | + `uniqueIterations` snapshots, GrowthMove events   |

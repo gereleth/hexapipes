@@ -81,6 +81,94 @@ describe('Test layered pregeneration', () => {
 	}
 });
 
+describe('Test branchingAmount knob', () => {
+	/**
+	 * Counts the set bits in a mask
+	 * @param {Number} mask
+	 * @returns {Number}
+	 */
+	function countConnections(mask) {
+		let bits = mask;
+		let count = 0;
+		while (bits > 0) {
+			bits ^= bits & -bits;
+			count += 1;
+		}
+		return count;
+	}
+
+	/**
+	 * Fraction of deadend sub-cells (at most one connection) over all sub-cells
+	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {Number} branchingAmount
+	 * @returns {Number}
+	 */
+	function deadendRatio(grid, branchingAmount) {
+		let deadends = 0;
+		let subCells = 0;
+		for (let i = 0; i < 20; i++) {
+			const layers = pregenerate_layers(grid, 0.6, branchingAmount);
+			for (const cellLayers of layers) {
+				for (const layer of cellLayers) {
+					subCells += 1;
+					if (countConnections(layer) <= 1) {
+						deadends += 1;
+					}
+				}
+			}
+		}
+		return deadends / subCells;
+	}
+
+	it('Pregenerates valid boards with default layering across the branching range', () => {
+		const grids = [
+			new SquareGrid(5, 5, false),
+			new SquareGrid(4, 4, true),
+			new HexaGrid(4, 3, false)
+		];
+		for (const grid of grids) {
+			for (const branchingAmount of [0, 0.5, 1]) {
+				for (let i = 0; i < 10; i++) {
+					const layers = pregenerate_layers(grid, 0.6, branchingAmount);
+					validateLayers(grid, layers);
+				}
+			}
+		}
+	});
+
+	it('Low branching amounts produce fewer deadends than high ones', () => {
+		const grids = [new SquareGrid(7, 7, false), new HexaGrid(5, 4, false)];
+		for (const grid of grids) {
+			const extending = deadendRatio(grid, 0);
+			const branching = deadendRatio(grid, 1);
+			// measured spread: square ~27% vs ~41%, hex ~19% vs ~60%
+			expect(branching - extending).toBeGreaterThan(0.05);
+		}
+	});
+
+	it('Mirrors growth events at both branching extremes with reuse', () => {
+		const grid = new SquareGrid(4, 4, false);
+		const tiles0 = pregenerate_layers(grid, 0.6, 0.5);
+		const solver = new LayeredSolver(tiles0, grid);
+		const { marked } = solver.markAmbiguousTiles();
+		const startLayers = buildStartLayers(grid, tiles0, marked);
+		for (const branchingAmount of [0, 1]) {
+			for (let i = 0; i < 5; i++) {
+				/** @type {import('./generator-layers').GrowthMove[]} */
+				const moves = [];
+				const tiles = pregenerate_layers(grid, 0.6, branchingAmount, 0, startLayers, 3, (move) =>
+					moves.push(move)
+				);
+				/** @type {Number[][]} */
+				const board = Array.from({ length: grid.total }, () => []);
+				applyGrowthMoves(grid, board, moves);
+				expect(board).toStrictEqual(tiles);
+				validateLayers(grid, tiles);
+			}
+		}
+	});
+});
+
 describe('Test layered scrambling', () => {
 	it('Scrambled boards keep their shape', () => {
 		for (let i = 0; i < 10; i++) {

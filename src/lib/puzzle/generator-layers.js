@@ -51,6 +51,31 @@ function usedDirections(cellLayers) {
 }
 
 /**
+ * Counts the set bits in a mask
+ * @param {Number} mask
+ * @returns {Number}
+ */
+function popcount(mask) {
+	let bits = mask;
+	let count = 0;
+	while (bits > 0) {
+		bits ^= bits & -bits;
+		count += 1;
+	}
+	return count;
+}
+
+/**
+ * Checks if a cell hosts a deadend layer (one with at most one connection):
+ * growing from such a layer extends a path instead of branching the tree
+ * @param {Number[]} cellLayers
+ * @returns {boolean}
+ */
+function hasDeadendLayer(cellLayers) {
+	return cellLayers.some((layer) => popcount(layer) <= 1);
+}
+
+/**
  * Layered tiles for pregeneration reuse: a keepable cell holds its solved
  * layers already rotated to the solver's representative rotation,
  * a cell that should be regenerated holds null
@@ -430,12 +455,17 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  */
 
 /**
- * Fills a grid with layered tiles using GrowingTree algorithm
+ * Fills a grid with layered tiles by growing a tree of sub-cells
  * Every cell can hold several independent layers (up to one per direction),
  * layers within a cell never connect to each other.
  * A direction can be used by at most one layer of a cell.
  * Growing into an already visited cell adds a new layer there,
  * so the graph of sub-cells (cell + layer) always stays a tree.
+ * The visited frontier is split into cells hosting a deadend layer,
+ * where growth extends a path, and cells whose growth would only branch.
+ * A branchingAmount roll picks which set to grow from (and which layer
+ * to grow when a cell hosts both kinds), low values produce long
+ * corridor-like paths, high values spread like Prim's algorithm.
  * Moves that would make any tile's layers union fully connected are a last resort.
  * Moves that would make a border tile's layers union an obvious
  * (orientation forced by the border walls) shape are demoted too.
@@ -448,8 +478,9 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {Number} layeringAmount - probability of growing into a visited cell again, values in range [0,1]
  * 0 produces classic puzzles.
- * @param {Number} branchingAmount - value in range [0, 1],
- * 0 is like recursive backtracking, 1 is like Prim's algorithm
+ * @param {Number} branchingAmount - value in range [0, 1], low values grow
+ * by extending deadend layers (long corridor-like paths), high values grow
+ * by branching layers of busy cells (Prim-like spread over the board)
  * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
  * @param {StartLayers} startLayers - solved layers of non-ambiguous cells, null for cells to regenerate
  * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant when erasing ambiguities
@@ -485,12 +516,36 @@ export function pregenerate_layers(
 
 	const emit = /** @param {GrowthMove} move */ (move) => onMove?.(move);
 
-	/** @type {Number[]} cells that still have free directions */
-	const visited = [];
+	/** @type {Number[]} visited cells hosting a deadend layer, growing from them extends a path */
+	const extending = [];
+	/** @type {Number[]} visited cells whose growth would only branch the tree */
+	const branching = [];
 	/** @type {Number[]} cells whose only remaining moves make some tile's layers union an obvious shape */
 	const avoiding = [];
 	/** @type {Number[]} cells whose only remaining moves make some tile's layers union fully connected */
 	const lastResort = [];
+
+	/**
+	 * (Re)places a cell on the frontier list matching its layers: extending
+	 * when it hosts a deadend layer, branching otherwise. Cells sitting in
+	 * a demotion tier are left alone unless newly visited.
+	 * @param {Number} cell
+	 * @param {boolean} newlyVisited - the cell was not on the board before this move
+	 */
+	const updateFrontier = (cell, newlyVisited) => {
+		const target = hasDeadendLayer(layers[cell]) ? extending : branching;
+		if (target.includes(cell)) {
+			return;
+		}
+		const other = target === extending ? branching : extending;
+		const index = other.indexOf(cell);
+		if (index >= 0) {
+			other.splice(index, 1);
+			target.push(cell);
+		} else if (newlyVisited) {
+			target.push(cell);
+		}
+	};
 
 	/** @type {Map<Number, Set<Number>>} cell index => cells of the dormant island containing it */
 	const islands = new Map();
@@ -508,7 +563,7 @@ export function pregenerate_layers(
 			layers[cell] = cellPlan.layers;
 			emit({ type: 'seed', cell, role: cellPlan.role, layers: cellPlan.layers });
 			if (cellPlan.role === 'live') {
-				visited.push(cell);
+				updateFrontier(cell, true);
 				unvisited.delete(cell);
 				liveFromBefore.add(cell);
 			} else if (cellPlan.role === 'island') {
@@ -568,28 +623,32 @@ export function pregenerate_layers(
 		}
 	}
 
-	if (visited.length === 0) {
+	if (extending.length === 0 && branching.length === 0) {
 		const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
-		visited.push(startIndex);
 		unvisited.delete(startIndex);
 		// create the first layer on starting tile
 		layers[startIndex].push(0);
+		updateFrontier(startIndex, true);
 		emit({ type: 'seed', cell: startIndex, role: 'start', layers: [0] });
 	}
 
 	const checkFullyConnected = grid.KIND !== 'triangular';
 
 	while (unvisited.size > 0) {
-		const usePrims = Math.random() < branchingAmount;
+		// roll which kind of growth to use: extending a deadend layer
+		// (corridor-like) or branching a busy cell (Prim-like spread)
+		const useBranch = Math.random() < branchingAmount;
 		/** @type {Number[]} */
-		let sourceList = visited;
+		let sourceList = extending;
 		let fromNode = -1;
-		for (let nodes of [visited, avoiding, lastResort]) {
+		for (let nodes of useBranch
+			? [branching, extending, avoiding, lastResort]
+			: [extending, branching, avoiding, lastResort]) {
 			if (nodes.length === 0) {
 				continue;
 			}
 			sourceList = nodes;
-			fromNode = usePrims ? getRandomElement(nodes) : nodes[nodes.length - 1];
+			fromNode = getRandomElement(nodes);
 			break;
 		}
 		if (fromNode === -1) {
@@ -601,13 +660,12 @@ export function pregenerate_layers(
 		const used = usedDirections(cellLayers);
 		const opposite = grid.OPPOSITE;
 
-		/** @type {{layerIndex: Number, direction: Number, neighbour: Number}[]} */
+		/** @type {{direction: Number, neighbour: Number}[]} */
 		const moves = [];
-		/** @type {{layerIndex: Number, direction: Number, neighbour: Number}[]} */
+		/** @type {{direction: Number, neighbour: Number}[]} */
 		const obviousMoves = [];
-		/** @type {{layerIndex: Number, direction: Number, neighbour: Number}[]} */
+		/** @type {{direction: Number, neighbour: Number}[]} */
 		const fullyConnectedMoves = [];
-		const numLayers = cellLayers.length;
 		for (let direction of polygon.directions) {
 			if ((used & direction) > 0) {
 				continue;
@@ -658,53 +716,60 @@ export function pregenerate_layers(
 					continue;
 				}
 			}
-			for (let layerIndex = 0; layerIndex < numLayers; layerIndex++) {
-				const move = { layerIndex, direction, neighbour };
-				if (fullyConnected) {
-					fullyConnectedMoves.push(move);
-				} else if (obvious) {
-					obviousMoves.push(move);
-				} else {
-					moves.push(move);
-				}
+			const move = { direction, neighbour };
+			if (fullyConnected) {
+				fullyConnectedMoves.push(move);
+			} else if (obvious) {
+				obviousMoves.push(move);
+			} else {
+				moves.push(move);
 			}
 		}
 
 		const bestMoves =
 			moves.length > 0 ? moves : obviousMoves.length > 0 ? obviousMoves : fullyConnectedMoves;
 		if (bestMoves.length === 0) {
-			// all directions of this cell are used up, remove it from the frontier
+			// no usable moves left, remove the cell from the frontier
 			emit({ type: 'pop', fromNode });
-			if (usePrims) {
-				sourceList.splice(sourceList.indexOf(fromNode), 1);
-			} else {
-				sourceList.pop();
-			}
+			sourceList.splice(sourceList.indexOf(fromNode), 1);
 			continue;
 		}
-		if (bestMoves === fullyConnectedMoves && visited.length > 0) {
+		// demotion needs another primary cell to try instead, otherwise
+		// the only frontier cell would just demote instead of moving on
+		const fromPrimary = sourceList === extending || sourceList === branching;
+		const otherPrimaryCells = extending.length + branching.length - (fromPrimary ? 1 : 0);
+		if (bestMoves === fullyConnectedMoves && otherPrimaryCells > 0) {
 			// wants to make a fully connected union, try other cells first
 			emit({ type: 'demote', fromNode, tier: 'lastResort' });
-			const index = visited.indexOf(fromNode);
-			if (index >= 0) {
-				visited.splice(index, 1);
-			}
+			sourceList.splice(sourceList.indexOf(fromNode), 1);
 			lastResort.push(fromNode);
 			continue;
 		}
-		if (bestMoves === obviousMoves && visited.length > 0) {
+		if (bestMoves === obviousMoves && otherPrimaryCells > 0) {
 			// wants to make an obvious tile, try other cells first
 			emit({ type: 'demote', fromNode, tier: 'avoiding' });
-			const index = visited.indexOf(fromNode);
-			if (index >= 0) {
-				visited.splice(index, 1);
-			}
+			sourceList.splice(sourceList.indexOf(fromNode), 1);
 			avoiding.push(fromNode);
 			continue;
 		}
 
-		const { layerIndex, direction, neighbour } = getRandomElement(bestMoves);
+		const { direction, neighbour } = getRandomElement(bestMoves);
+		// a free direction is free for every layer of the cell, so the layer
+		// to grow is picked after the direction, matching the rolled kind of
+		// growth: extend a deadend layer, or branch a busy one
+		/** @type {Number[]} */
+		const deadendLayers = [];
+		/** @type {Number[]} */
+		const branchedLayers = [];
+		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
+			const connections = popcount(cellLayers[layerIndex]);
+			(connections <= 1 ? deadendLayers : branchedLayers).push(layerIndex);
+		}
+		const preferredLayers = useBranch ? branchedLayers : deadendLayers;
+		const otherLayers = useBranch ? deadendLayers : branchedLayers;
+		const layerIndex = getRandomElement(preferredLayers.length > 0 ? preferredLayers : otherLayers);
 		cellLayers[layerIndex] |= direction;
+		updateFrontier(fromNode, false);
 		const island = unvisited.has(neighbour) ? islands.get(neighbour) : undefined;
 		if (island !== undefined) {
 			// growing into a dormant island: absorb it by extending one of its
@@ -714,7 +779,7 @@ export function pregenerate_layers(
 			layers[neighbour][0] |= opposite.get(direction) || 0;
 			for (let cell of island) {
 				unvisited.delete(cell);
-				visited.push(cell);
+				updateFrontier(cell, true);
 			}
 			emit({
 				type: 'absorb',
@@ -726,10 +791,11 @@ export function pregenerate_layers(
 			});
 		} else {
 			layers[neighbour].push(opposite.get(direction) || 0);
-			if (unvisited.has(neighbour)) {
+			const fresh = unvisited.has(neighbour);
+			if (fresh) {
 				unvisited.delete(neighbour);
-				visited.push(neighbour);
 			}
+			updateFrontier(neighbour, fresh);
 			emit({ type: 'move', fromNode, layerIndex, direction, neighbour });
 		}
 	}
