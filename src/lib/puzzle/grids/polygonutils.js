@@ -44,6 +44,8 @@ export class RegularPolygonTile {
 		this.radius_in = radius_in;
 		this.radius_out = radius_in / Math.cos(this.angle_unit / 2);
 		this.side_length = 2 * this.radius_out * Math.sin(this.angle_unit / 2);
+		this.pipes_bend_fraction = 0.7;
+		this.pipes_corner_rounding = 0.9;
 		if (directions.length === num_directions) {
 			this.directions = [...directions];
 		} else if (directions.length === 0) {
@@ -211,13 +213,35 @@ export class RegularPolygonTile {
 			// layered case
 			const actualTile = -tile;
 			const { cx, cy } = this.get_layer_center(actualTile);
-			let path = `M ${cx} ${-cy}`;
+			let path = '';
 			this.directions.forEach((direction, index) => {
 				if ((direction & actualTile) > 0) {
 					const angle = this.angle_offset + this.angle_unit * index;
-					const dx = this.radius_in * Math.cos(angle);
-					const dy = this.radius_in * Math.sin(angle);
-					path += ` L ${dx} ${-dy} L ${cx} ${-cy}`;
+					const ux = Math.cos(angle);
+					const uy = Math.sin(angle);
+					const bx = this.pipes_bend_fraction * this.radius_in * ux;
+					const by = this.pipes_bend_fraction * this.radius_in * uy;
+					const dx = this.radius_in * ux;
+					const dy = this.radius_in * uy;
+					let towards_x = cx - bx;
+					let towards_y = cy - by;
+					const center_distance = Math.hypot(towards_x, towards_y);
+					const rho = Math.min(
+						this.pipes_corner_rounding * (1 - this.pipes_bend_fraction) * this.radius_in,
+						0.5 * center_distance
+					);
+					if (center_distance > 1e-9) {
+						towards_x /= center_distance;
+						towards_y /= center_distance;
+					} else {
+						towards_x = -ux;
+						towards_y = -uy;
+					}
+					const p1x = bx + rho * towards_x;
+					const p1y = by + rho * towards_y;
+					const p2x = bx + rho * ux;
+					const p2y = by + rho * uy;
+					path += ` M ${cx} ${-cy} L ${p1x} ${-p1y} Q ${bx} ${-by} ${p2x} ${-p2y} L ${dx} ${-dy} L ${p2x} ${-p2y}`;
 				}
 			});
 			this.cache.pipes_path.set(tile, path);

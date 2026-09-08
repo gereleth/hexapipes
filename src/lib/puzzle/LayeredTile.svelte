@@ -127,6 +127,9 @@
 </g>
 
 <style>
+	.pipe path {
+		fill: none;
+	}
 	:global(.animation-normal) .pipe {
 		transition: transform 100ms ease;
 	}

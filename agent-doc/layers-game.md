@@ -118,7 +118,12 @@ AND a BFS from it sees no loop and no unreached tiles.
 - Per-layer path via `polygon.get_pipes_path(-layer)`: a **negative mask selects the "layered
   case"** in `polygonutils.js` — the path starts at a per-layer offset center
   (`get_layer_center`, centroid of the layer's stubs) instead of the cell center, so parallel
-  pipes within a cell don't overlap.
+  pipes within a cell don't overlap. Each leg runs straight from that center, bends through a
+  quadratic corner and exits perpendicular to the tile edge (`pipes_bend_fraction` /
+  `pipes_corner_rounding` tunables in `RegularPolygonTile`); legs retrace to the bend point so
+  the stroke ends flush at the edge midpoint (no round caps protruding into neighbours).
+- Pipe paths are stroke-only: `.pipe path { fill: none }` in `LayeredTile.svelte`. The spline
+  legs are non-degenerate, so SVG's default black fill would paint crescents on concave bends.
 - Sinks (circles) drawn on deadend layers (single-direction layers), positioned at the layer
   center offset, filled with the layer's component color.
 - Per-layer strokes: `#888` normal; `disconnectStrokeColor`/scaled width when that layer has
