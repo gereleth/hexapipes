@@ -27,17 +27,25 @@ kind of growth a cell offers (see `branchingAmount` below). Layers variant twist
   `growth-start`), and both UIs expose a slider (custom puzzle page — shown only when the
   Layered checkbox is on — and `/generator-debug`).
 - `branchingAmount`: per-move roll selecting which frontier list to grow from (and which layer
-  to grow when the picked cell hosts both kinds). Low values pick from `extending` — cells
-  hosting a deadend layer, so growth extends paths (long corridor-like boards). High values
-  pick from `branching` — cells whose growth would only fork, attaching leaves mid-path
-  (Prim-like spread). If the rolled list is empty, the other one is used, then the demotion
-  tiers. Picks are random in both lists (no LIFO backtracking). Measured deadend-sub-cell
-  ratios (layering 0.6, 100 boards): square 7×7 ≈ 27% at 0 vs ≈ 41% at 1 (classic: 14%/29%),
-  hex 5×4 ≈ 19% vs ≈ 60% (classic: 22%/40%); asserted by the `branchingAmount knob` tests.
+  to grow when the picked cell hosts both kinds). The lists are capability sets: `extending`
+  holds cells hosting a deadend layer, `branching` cells hosting a branched layer (≥ 2
+  connections), and a cell with both belongs to **both lists at once** (synced by
+  `updateFrontier`; pop/demote remove from both). Low values pick from `extending`, so growth
+  extends paths (long corridor-like boards). High values pick from `branching`, attaching
+  leaves mid-path (Prim-like spread). If the rolled list is empty, the other one is used, then
+  the demotion tiers — leftover branch fallbacks are expected at high values on dense boards
+  (enclosed cells pop out on layering-gate failures, fully-connected-demoted cells sit in
+  tiers), they mean no cell currently offers a good branch move. Picks are random in both
+  lists (no LIFO backtracking). Measured deadend-sub-cell ratios (layering 0.6): square 7×7
+  ≈ 27% at 0 vs ≈ 40% at 1 (classic: 14%/29%), hex 5×4 ≈ 18% vs ≈ 62% (classic: 22%/40%);
+  15×15 similar (square 29%/40%, hex 20%/63%); asserted by the `branchingAmount knob` tests.
   A direct port of the classic pick rule was broken here: revisit moves keep cells on the
   frontier until all their directions are consumed, so the classic "newest cell" tip just
   ground out revisit moves in its local area instead of backtracking, and the knob did
-  almost nothing (old numbers: 29% vs 36% square, 43% vs 47% hex).
+  almost nothing (old numbers: 29% vs 36% square, 43% vs 47% hex). An earlier version of the
+  split used a single list per cell ("deadend present ⇒ extending"), which hid dual cells
+  from branch rolls: with pure-branched cells scarce, ~half of all branch rolls at b=1 fell
+  back to the extending list.
 - Direction choice is layer-independent (a free direction is free for **every** layer of the
   cell — per-cell disjointness), so directions are picked first (uniformly from the best
   bucket) and the layer is picked **afterwards**, matching the rolled growth kind, falling
@@ -63,9 +71,10 @@ kind of growth a cell offers (see `branchingAmount` below). Layers variant twist
 
 Quirks: demotion re-checks a cell's moves when picked, so a demoted cell whose unions changed
 can classify for the _other_ tier and moves there cleanly (removal from whichever list it was
-picked from — no duplicates). Re-demotion between tiers can repeat while the primary frontier
-is non-empty, which terminates because primary cells consume a direction per move; once the
-primary frontier is empty the demote guard fails and the cell makes its bad move.
+picked from — no duplicates; pop/demote always clear both primary lists, so dual-listed cells
+cannot leave stale twins behind). Re-demotion between tiers can repeat while the primary
+frontier is non-empty, which terminates because primary cells consume a direction per move;
+once the primary frontier is empty the demote guard fails and the cell makes its bad move.
 
 ### startLayers reuse (`planReuse`)
 

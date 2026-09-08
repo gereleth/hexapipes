@@ -76,6 +76,16 @@ function hasDeadendLayer(cellLayers) {
 }
 
 /**
+ * Checks if a cell hosts a branched layer (one with at least two connections):
+ * growing from such a layer forks the tree instead of extending a path
+ * @param {Number[]} cellLayers
+ * @returns {boolean}
+ */
+function hasBranchedLayer(cellLayers) {
+	return cellLayers.some((layer) => popcount(layer) >= 2);
+}
+
+/**
  * Layered tiles for pregeneration reuse: a keepable cell holds its solved
  * layers already rotated to the solver's representative rotation,
  * a cell that should be regenerated holds null
@@ -461,11 +471,12 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * A direction can be used by at most one layer of a cell.
  * Growing into an already visited cell adds a new layer there,
  * so the graph of sub-cells (cell + layer) always stays a tree.
- * The visited frontier is split into cells hosting a deadend layer,
- * where growth extends a path, and cells whose growth would only branch.
- * A branchingAmount roll picks which set to grow from (and which layer
- * to grow when a cell hosts both kinds), low values produce long
- * corridor-like paths, high values spread like Prim's algorithm.
+ * The visited frontier is split by growth kind: cells hosting a deadend
+ * layer extend a path, cells hosting a branched layer fork the tree,
+ * and a cell can belong to both lists at once. A branchingAmount roll
+ * picks which set to grow from (and which layer to grow when a cell hosts
+ * both kinds), low values produce long corridor-like paths, high values
+ * spread like Prim's algorithm.
  * Moves that would make any tile's layers union fully connected are a last resort.
  * Moves that would make a border tile's layers union an obvious
  * (orientation forced by the border walls) shape are demoted too.
@@ -518,33 +529,61 @@ export function pregenerate_layers(
 
 	/** @type {Number[]} visited cells hosting a deadend layer, growing from them extends a path */
 	const extending = [];
-	/** @type {Number[]} visited cells whose growth would only branch the tree */
+	/** @type {Number[]} visited cells hosting a branched layer, growing from them forks the tree */
 	const branching = [];
 	/** @type {Number[]} cells whose only remaining moves make some tile's layers union an obvious shape */
 	const avoiding = [];
 	/** @type {Number[]} cells whose only remaining moves make some tile's layers union fully connected */
 	const lastResort = [];
+	/** @type {Set<Number>} cells listed in extending and/or branching */
+	const primaryCells = new Set();
 
 	/**
-	 * (Re)places a cell on the frontier list matching its layers: extending
-	 * when it hosts a deadend layer, branching otherwise. Cells sitting in
+	 * Adds or removes one cell from one frontier list
+	 * @param {Number[]} list
+	 * @param {Number} cell
+	 * @param {boolean} member - whether the cell should be listed
+	 */
+	const syncFrontierList = (list, cell, member) => {
+		const index = list.indexOf(cell);
+		if (member && index < 0) {
+			list.push(cell);
+		} else if (!member && index >= 0) {
+			list.splice(index, 1);
+		}
+	};
+
+	/**
+	 * Syncs a cell's frontier memberships with its layers: it belongs in
+	 * extending while it hosts a deadend layer and in branching while it
+	 * hosts a branched layer, possibly in both at once. Cells sitting in
 	 * a demotion tier are left alone unless newly visited.
 	 * @param {Number} cell
 	 * @param {boolean} newlyVisited - the cell was not on the board before this move
 	 */
 	const updateFrontier = (cell, newlyVisited) => {
-		const target = hasDeadendLayer(layers[cell]) ? extending : branching;
-		if (target.includes(cell)) {
+		if (!primaryCells.has(cell) && !newlyVisited) {
 			return;
 		}
-		const other = target === extending ? branching : extending;
-		const index = other.indexOf(cell);
-		if (index >= 0) {
-			other.splice(index, 1);
-			target.push(cell);
-		} else if (newlyVisited) {
-			target.push(cell);
+		const wantsExtend = hasDeadendLayer(layers[cell]);
+		const wantsBranch = hasBranchedLayer(layers[cell]);
+		syncFrontierList(extending, cell, wantsExtend);
+		syncFrontierList(branching, cell, wantsBranch);
+		if (wantsExtend || wantsBranch) {
+			primaryCells.add(cell);
+		} else {
+			primaryCells.delete(cell);
 		}
+	};
+
+	/**
+	 * Removes a cell from both primary frontier lists
+	 * @param {Number} cell
+	 */
+	const removeFromFrontier = (cell) => {
+		syncFrontierList(extending, cell, false);
+		syncFrontierList(branching, cell, false);
+		primaryCells.delete(cell);
 	};
 
 	/** @type {Map<Number, Set<Number>>} cell index => cells of the dormant island containing it */
@@ -731,24 +770,24 @@ export function pregenerate_layers(
 		if (bestMoves.length === 0) {
 			// no usable moves left, remove the cell from the frontier
 			emit({ type: 'pop', fromNode });
-			sourceList.splice(sourceList.indexOf(fromNode), 1);
+			removeFromFrontier(fromNode);
 			continue;
 		}
 		// demotion needs another primary cell to try instead, otherwise
 		// the only frontier cell would just demote instead of moving on
 		const fromPrimary = sourceList === extending || sourceList === branching;
-		const otherPrimaryCells = extending.length + branching.length - (fromPrimary ? 1 : 0);
+		const otherPrimaryCells = primaryCells.size - (fromPrimary ? 1 : 0);
 		if (bestMoves === fullyConnectedMoves && otherPrimaryCells > 0) {
 			// wants to make a fully connected union, try other cells first
 			emit({ type: 'demote', fromNode, tier: 'lastResort' });
-			sourceList.splice(sourceList.indexOf(fromNode), 1);
+			removeFromFrontier(fromNode);
 			lastResort.push(fromNode);
 			continue;
 		}
 		if (bestMoves === obviousMoves && otherPrimaryCells > 0) {
 			// wants to make an obvious tile, try other cells first
 			emit({ type: 'demote', fromNode, tier: 'avoiding' });
-			sourceList.splice(sourceList.indexOf(fromNode), 1);
+			removeFromFrontier(fromNode);
 			avoiding.push(fromNode);
 			continue;
 		}

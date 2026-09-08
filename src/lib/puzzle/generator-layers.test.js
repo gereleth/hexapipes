@@ -141,7 +141,7 @@ describe('Test branchingAmount knob', () => {
 		for (const grid of grids) {
 			const extending = deadendRatio(grid, 0);
 			const branching = deadendRatio(grid, 1);
-			// measured spread: square ~27% vs ~41%, hex ~19% vs ~60%
+			// measured spread: square ~27% vs ~40%, hex ~18% vs ~62%
 			expect(branching - extending).toBeGreaterThan(0.05);
 		}
 	});
