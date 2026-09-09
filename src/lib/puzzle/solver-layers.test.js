@@ -463,3 +463,136 @@ describe('Test multi-layer boards', () => {
 		expect(() => validateLayers(grid, solved)).not.toThrow();
 	});
 });
+
+describe('Test deadend pair facts', () => {
+	it('Derives the deadends mask from layer degrees', () => {
+		const grid = new SquareGrid(3, 3, false);
+		const polygon = grid.polygon_at(4);
+		// two deadend layers: every used direction is always used via a deadend
+		const deadendCell = new LayeredCell([2, 1], polygon, 4);
+		deadendCell.applyConstraints();
+		expect(deadendCell.deadends).toBe(polygon.fully_connected);
+		// mixed cell: every direction is also used via a busier layer somewhere
+		const mixedCell = new LayeredCell([2, 9], polygon, 4);
+		mixedCell.applyConstraints();
+		expect(mixedCell.deadends).toBe(0);
+	});
+
+	it('removeDeadendPairs removes only the deadend answers', () => {
+		const grid = new SquareGrid(3, 3, false);
+		const polygon = grid.polygon_at(4);
+		const cell = new LayeredCell([2, 1], polygon, 4);
+		cell.applyConstraints();
+		// pictures using N via the deadend layer: [2, 1] and [4, 2]
+		expect(cell.removeDeadendPairs(2)).toBe(2);
+		expect([...cell.pictures.keys()].sort()).toEqual(['1-8', '4-8']);
+		const mixedCell = new LayeredCell([2, 9], polygon, 4);
+		mixedCell.applyConstraints();
+		// N via deadend only in [2, 9]; [4, 3] answers N via a two-connection layer
+		expect(mixedCell.removeDeadendPairs(2)).toBe(1);
+		expect(mixedCell.pictures.has('2-9')).toBe(false);
+		expect(mixedCell.pictures.has('3-4')).toBe(true);
+	});
+
+	it('Clones the deadends mask and shares layer degrees', () => {
+		const grid = new SquareGrid(3, 3, false);
+		const cell = new LayeredCell([2, 1], grid.polygon_at(4), 4);
+		cell.applyConstraints();
+		const clone = cell.clone();
+		expect(clone.deadends).toBe(cell.deadends);
+		expect(clone.layerDegrees).toBe(cell.layerDegrees);
+	});
+
+	it('Does not report phantom deadend additions after a picture set replacement', () => {
+		// Regression: the deadends mask is not monotone under picture set
+		// replacement (short trial probes), so the delta must be a bit
+		// intersection, not numeric subtraction. Stale bits used to come
+		// back as phantom additions and unsoundly prune true pictures.
+		const grid = new SquareGrid(3, 3, false);
+		const polygon = grid.polygon_at(4);
+		// layers [S, W, E+N]: rotations put the two deadend layers on
+		// different direction pairs, so the full picture set derives no
+		// deadend facts at all
+		const cell = new LayeredCell([8, 4, 3], polygon, 4);
+		expect(cell.deadends).toBe(0);
+		// survivor [1, 2, 12]: E and N are used via the two-connection layer:
+		// only E and N are (always) used via a deadend among the survivors
+		cell.pictures = new Map([['1-2-12', 2]]);
+		cell.applyConstraints();
+		expect(cell.deadends).toBe(3);
+		// replace the set wholesale, like a short trial probe does:
+		// the only survivor uses S and W via their deadend layers
+		cell.pictures = new Map([['3-4-8', 0]]);
+		const deltas = cell.applyConstraints();
+		expect(cell.deadends).toBe(12);
+		// numeric subtraction would return 12 - 3 = 9: phantom E, missing W
+		expect(deltas.addedDeadends).toBe(12);
+	});
+
+	it('Prunes neighbour pictures answering a deadend with a deadend', () => {
+		const grid = new SquareGrid(3, 3, false);
+		const tiles = [
+			[5],
+			[8, 1], // cell 1: deadend layer south towards the centre
+			[5],
+			[5],
+			[2, 9], // centre: answers north via a deadend in picture [2, 9]
+			[5],
+			[5],
+			[5],
+			[5]
+		];
+		const solver = new LayeredSolver(tiles, grid);
+		solver.dirty.add(1);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 1) {
+				break;
+			}
+		}
+		const centre = solver.getCell(4);
+		// the deadend answer must be gone while the two-connection
+		// north user [8, 6] survives
+		expect(centre.pictures.has('2-9')).toBe(false);
+		expect(centre.pictures.has('6-8')).toBe(true);
+	});
+
+	it('Detects a deadend pair against a pinned cell', () => {
+		const grid = new SquareGrid(3, 3, false);
+		const tiles = [[5], [8, 1], [5], [5], [2, 9], [5], [5], [5], [5]];
+		const solver = new LayeredSolver(tiles, grid);
+		// pin the centre cell to its deadend answer
+		const centre = solver.getCell(4);
+		centre.pictures = new Map([['2-9', 0]]);
+		solver.dirty.add(4);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 4) {
+				break;
+			}
+		}
+		// processing cell 1 must run into the sealed deadend pair
+		solver.dirty.add(1);
+		expect(() => {
+			for (const _ of solver.processDirtyCells()) {
+			}
+		}).toThrow();
+	});
+
+	it('Keeps valid boards solvable with the deadend pair rule', () => {
+		const grids = [
+			new SquareGrid(3, 3, false),
+			new SquareGrid(4, 4, false),
+			new HexaGrid(3, 3, false)
+		];
+		for (const grid of grids) {
+			for (let i = 0; i < 10; i++) {
+				const layers = pregenerate_layers(grid, 0.6, Math.random(), Math.random() * 0.5);
+				validateLayers(grid, layers);
+				const scrambled = randomRotate(layers, grid);
+				const solver = new LayeredSolver(scrambled, grid);
+				const result = solver.markAmbiguousTiles();
+				expect(result.solvable).toBe(true);
+				expect(result.complete).toBe(true);
+			}
+		}
+	});
+});

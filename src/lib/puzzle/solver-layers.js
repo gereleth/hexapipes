@@ -115,6 +115,38 @@ export function LayeredCell(layers, polygon, index = -1) {
 	self.pictures = buildPictures(layers, polygon);
 	self.walls = 0;
 	self.connections = 0;
+	/**
+	 * Directions d such that every surviving picture connecting in direction d
+	 * does so via a single-connection (deadend) layer. Derived fact, same
+	 * monotone-grow semantics as walls and connections: pictures only shrink,
+	 * so the mask only gains bits. Bit is meaningful only for directions that
+	 * some surviving picture actually uses.
+	 * @type {Number}
+	 */
+	self.deadends = 0;
+	/**
+	 * Static per-picture connecting layer degrees:
+	 * picture id => (direction => popcount of the layer holding that
+	 * direction, 0 when the direction is unused). Rotations are rigid, so
+	 * the table is immutable and shared between clones.
+	 * @type {Map<String, Map<Number, Number>>}
+	 */
+	self.layerDegrees = new Map();
+	for (let [id, rotation] of self.pictures) {
+		/** @type {Map<Number, Number>} */
+		const degrees = new Map();
+		for (let layer of layers) {
+			const mask = polygon.rotate(layer, rotation);
+			const degree = popcount(mask);
+			let bits = mask;
+			while (bits > 0) {
+				const direction = bits & -bits;
+				bits ^= direction;
+				degrees.set(direction, degree);
+			}
+		}
+		self.layerDegrees.set(id, degrees);
+	}
 
 	/**
 	 * Union of all layer masks at a rotation
@@ -175,13 +207,14 @@ export function LayeredCell(layers, polygon, index = -1) {
 	/**
 	 * Filters out pictures that contradict known constraints
 	 * @throws {NoOrientationsPossible}
-	 * @returns {{addedWalls:Number, addedConnections: Number}}
+	 * @returns {{addedWalls:Number, addedConnections: Number, addedDeadends: Number}}
 	 */
 	self.applyConstraints = function () {
 		const full = polygon.fully_connected;
 		const newPictures = new Map();
 		let newWalls = full;
 		let newConnections = full;
+		let newDeadends = full;
 		for (let [id, rotation] of self.pictures) {
 			const union = self.unionAt(rotation);
 			if (
@@ -195,16 +228,34 @@ export function LayeredCell(layers, polygon, index = -1) {
 			newPictures.set(id, rotation);
 			newWalls = newWalls & (full - union);
 			newConnections = newConnections & union;
+			const degrees = self.layerDegrees.get(id);
+			let bits = union;
+			while (bits > 0) {
+				const direction = bits & -bits;
+				bits ^= direction;
+				if ((degrees?.get(direction) || 0) > 1) {
+					// this picture connects here with more than a deadend
+					newDeadends &= full - direction;
+				}
+			}
 		}
 		self.pictures = newPictures;
 		if (newPictures.size === 0) {
 			throw new NoOrientationsPossibleException(self);
 		}
+		// restrict the mask to directions some surviving picture actually uses
+		newDeadends &= full - newWalls;
 		const addedWalls = newWalls - self.walls;
 		const addedConnections = newConnections - self.connections;
+		// unlike walls and connections, the deadends mask is not monotone
+		// (the property depends on HOW a direction is used, not just whether):
+		// replacing the picture set (short trial probes) can remove bits, so
+		// the delta must be a proper bit intersection, not numeric subtraction
+		const addedDeadends = newDeadends & (full ^ self.deadends);
 		self.walls = newWalls;
 		self.connections = newConnections;
-		return { addedWalls, addedConnections };
+		self.deadends = newDeadends;
+		return { addedWalls, addedConnections, addedDeadends };
 	};
 
 	/**
@@ -223,6 +274,43 @@ export function LayeredCell(layers, polygon, index = -1) {
 	};
 
 	/**
+	 * Popcount of the layer holding the direction at the given rotation,
+	 * 0 when no layer points there. Meaningful for pinned cells and
+	 * individual pictures, whose rotations are definitive.
+	 * @param {Number} rotation
+	 * @param {Number} direction
+	 * @returns {Number}
+	 */
+	self.layerDegreeAt = function (rotation, direction) {
+		for (let layer of layers) {
+			const mask = polygon.rotate(layer, rotation);
+			if ((mask & direction) > 0) {
+				return popcount(mask);
+			}
+		}
+		return 0;
+	};
+
+	/**
+	 * Removes pictures that connect `direction` via a single-connection layer.
+	 * Called when the neighbour across `direction` can only answer with a
+	 * deadend itself: two facing deadend sub-cells would be sealed off from
+	 * the rest of the tree.
+	 * @param {Number} direction
+	 * @returns {Number} - how many pictures were removed
+	 */
+	self.removeDeadendPairs = function (direction) {
+		let removed = 0;
+		for (let [id] of [...self.pictures]) {
+			if ((self.layerDegrees.get(id)?.get(direction) || 0) === 1) {
+				self.pictures.delete(id);
+				removed += 1;
+			}
+		}
+		return removed;
+	};
+
+	/**
 	 * Returns a copy of the cell
 	 * @returns {LayeredCell}
 	 */
@@ -231,6 +319,8 @@ export function LayeredCell(layers, polygon, index = -1) {
 		clone.pictures = new Map(self.pictures);
 		clone.walls = self.walls;
 		clone.connections = self.connections;
+		clone.deadends = self.deadends;
+		clone.layerDegrees = self.layerDegrees;
 		return clone;
 	};
 
@@ -287,6 +377,19 @@ export function LayeredSolver(tiles, grid) {
 
 	/** @type {Set<Number>} */
 	self.dirty = new Set([]);
+
+	/**
+	 * Counters of search work, shared with all clones (see clone) so that
+	 * totals accumulate across the whole trial tree of one solve run
+	 * @type {{iterations: Number, trialClones: Number, shortTrials: Number, dirtyProcessings: Number, prunedPictures: Number}}
+	 */
+	self.stats = {
+		iterations: 0,
+		trialClones: 0,
+		shortTrials: 0,
+		dirtyProcessings: 0,
+		prunedPictures: 0
+	};
 
 	/** @type {Map<String, Number>[]} picture id => representative rotation, per cell */
 	self.pictureTable = tiles.map((cellLayers, index) =>
@@ -531,6 +634,7 @@ export function LayeredSolver(tiles, grid) {
 			}
 			if (bad) {
 				cellObj.pictures.delete(id);
+				self.stats.prunedPictures += 1;
 				removed = true;
 			}
 		}
@@ -609,14 +713,15 @@ export function LayeredSolver(tiles, grid) {
 	 */
 	self.processDirtyCells = function* () {
 		while (self.dirty.size > 0) {
+			self.stats.dirtyProcessings += 1;
 			// get a dirty cell
 			const [cell] = self.dirty;
 			const cellObj = self.getCell(cell);
 			const polygon = self.grid.polygon_at(cell);
 			// apply constraints and prune until the picture set is stable,
 			// propagating every newly implied wall/connection right away
-			/** @type {{addedWalls: Number, addedConnections: Number}} */
-			let deltas = { addedWalls: 0, addedConnections: 0 };
+			/** @type {{addedWalls: Number, addedConnections: Number, addedDeadends: Number}} */
+			let deltas = { addedWalls: 0, addedConnections: 0, addedDeadends: 0 };
 			for (;;) {
 				deltas = cellObj.applyConstraints();
 				// add walls to walled off neighbours
@@ -664,6 +769,39 @@ export function LayeredSolver(tiles, grid) {
 							const neighbourCell = self.getCell(neighbour);
 							neighbourCell.addConnection(opposite);
 							self.dirty.add(neighbour);
+						}
+					}
+				}
+				// neighbours must not answer a deadend with a deadend: two facing
+				// single-connection sub-cells would be sealed off from the tree.
+				// Same board-size gate as the classic deadend rule: on tiny boards
+				// the sealed pair could be the entire puzzle
+				if (self.checkDeadendConnections && deltas.addedDeadends > 0) {
+					for (let direction of polygon.directions) {
+						if ((direction & deltas.addedDeadends) > 0) {
+							const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
+							if (empty) {
+								continue;
+							}
+							const opposite = self.grid.OPPOSITE.get(direction) || 0;
+							const pinnedNeighbour = self.pinned.get(neighbour);
+							if (pinnedNeighbour !== undefined) {
+								// the pinned neighbour can not lose pictures:
+								// if it answers with a deadend, this cell must not
+								// connect here with a deadend at all
+								const neighbourRotation = pinnedNeighbour.pictures.values().next().value || 0;
+								if (pinnedNeighbour.layerDegreeAt(neighbourRotation, opposite) === 1) {
+									cellObj.addWall(direction);
+									self.dirty.add(cell);
+								}
+								continue;
+							}
+							const neighbourCell = self.getCell(neighbour);
+							const removed = neighbourCell.removeDeadendPairs(opposite);
+							self.stats.prunedPictures += removed;
+							if (removed > 0) {
+								self.dirty.add(neighbour);
+							}
 						}
 					}
 				}
@@ -768,6 +906,8 @@ export function LayeredSolver(tiles, grid) {
 		clone.solution = [...self.solution];
 		clone.solutions = self.solutions.map((solution) => [...solution]);
 		clone.dirty = new Set();
+		// clones must accumulate their work on the root solver's counters
+		clone.stats = self.stats;
 		return clone;
 	};
 
@@ -879,6 +1019,7 @@ export function LayeredSolver(tiles, grid) {
 		/** @type {{cell: Number, guess: String, solver:LayeredSolver}[]} */
 		const trials = [{ cell: -1, guess: '-1', solver: self }];
 		while (trials.length > 0) {
+			self.stats.iterations += 1;
 			const lastTrial = trials[trials.length - 1];
 			if (lastTrial === undefined) {
 				break;
@@ -923,6 +1064,7 @@ export function LayeredSolver(tiles, grid) {
 			} else {
 				// we have to make a guess
 				const clone = solver.clone();
+				self.stats.trialClones += 1;
 				const [guessCell, guessId] = clone.makeAGuess();
 				trials.push({
 					cell: /** @type {Number} */ (guessCell),
@@ -956,6 +1098,7 @@ export function LayeredSolver(tiles, grid) {
 					continue;
 				}
 				const clone = self.clone();
+				self.stats.shortTrials += 1;
 				const cloneCell = clone.unsolved.get(cell);
 				if (cloneCell === undefined) {
 					throw 'Clone cell is undefined';
@@ -1042,6 +1185,7 @@ export function LayeredSolver(tiles, grid) {
 		let iterations = 0;
 		while (trials.length > 0) {
 			iterations += 1;
+			self.stats.iterations += 1;
 			if (maxIterations > 0 && iterations > maxIterations) {
 				complete = false;
 				// an incomplete search must never claim uniqueness
@@ -1122,6 +1266,7 @@ export function LayeredSolver(tiles, grid) {
 			} else {
 				// we have to make a guess
 				const clone = solver.clone();
+				self.stats.trialClones += 1;
 
 				// copypasta of makeAGuess function
 				// because I want to ignore ambiguous tiles as guess candidates

@@ -36,6 +36,25 @@ are not supported.
   not touch `walls` and must include all of `connections`. From the survivors it derives new
   facts: directions avoided by every surviving union become walls, directions shared by every
   surviving union become connections. Empty picture set ⇒ `NoOrientationsPossible`.
+- **Deadend facts** (third derived mask): `deadends` bit d is set
+  when every surviving picture connecting in direction d does so via a single-connection layer.
+  Backed by the static per-picture `layerDegrees` table (picture id => direction => popcount of
+  the connecting layer, immutable, shared between clones). Unlike walls and connections the
+  mask is _not_ monotone — the property depends on HOW a direction is used, not just whether —
+  so `applyConstraints` re-derives it from scratch each pass and reports
+  `addedDeadends = newDeadends & (full ^ deadends)`; a numeric subtraction would turn stale
+  bits into phantom additions after wholesale picture-set replacements (short trial probes)
+  and unsoundly prune true pictures (found via 20x20 boards coming back `solvable: false`).
+  Propagation (`processDirtyCells`): when cell A's `deadends` gains bit d, the neighbour across d must not answer with its own
+  deadend — two facing single-connection sub-cells would be sealed off from the tree — so
+  `removeDeadendPairs(opposite)` deletes the neighbour's pictures that connect there via a
+  popcount-1 layer; against a pinned neighbour the check runs via `layerDegreeAt` and turns
+  into a wall on A itself. This is the layered generalization of the classic deadend rule:
+  classic marks whole deadend _tiles_ (rotation-invariant), here the fact is per direction and
+  per layer, refined as candidate sets shrink. The propagation block is gated by
+  `checkDeadendConnections` with the same rationale as classic: on tiny boards the sealed pair
+  could be the entire puzzle. The static union-popcount seeding in `doLocalDeductions` stays as
+  a harmless subset of the new mechanism.
 - Facts live at cell level (union). Which _layer_ points where only matters at pin time and in
   the pruner, both via `findLayerWithDirection(rotation, direction)`.
 

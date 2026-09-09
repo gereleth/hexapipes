@@ -222,6 +222,13 @@ export function Solver(tiles, grid) {
 	/** @type {Set<Number>} */
 	self.dirty = new Set();
 
+	/**
+	 * Counters of search work, shared with all clones (see clone) so that
+	 * totals accumulate across the whole trial tree of one solve run
+	 * @type {{iterations: Number, trialClones: Number, shortTrials: Number, dirtyProcessings: Number}}
+	 */
+	self.stats = { iterations: 0, trialClones: 0, shortTrials: 0, dirtyProcessings: 0 };
+
 	// ruling out orientations connecting only deadends messes up
 	// solving very small instances
 	// so it's only enabled if there's enough tiles
@@ -450,6 +457,7 @@ export function Solver(tiles, grid) {
 	 */
 	self.processDirtyCells = function* () {
 		while (self.dirty.size > 0) {
+			self.stats.dirtyProcessings += 1;
 			// get a dirty cell
 			const [index] = self.dirty;
 			const cell = self.getCell(index);
@@ -620,6 +628,8 @@ export function Solver(tiles, grid) {
 		});
 		clone.solution = [...self.solution];
 		clone.dirty = new Set();
+		// clones must accumulate their work on the root solver's counters
+		clone.stats = self.stats;
 		return clone;
 	};
 
@@ -690,6 +700,7 @@ export function Solver(tiles, grid) {
 		let iter = 0;
 		while (trials.length > 0) {
 			iter += 1;
+			self.stats.iterations += 1;
 			// if (iter > 100) {
 			// 	break;
 			// }
@@ -737,6 +748,7 @@ export function Solver(tiles, grid) {
 			} else {
 				// we have to make a guess
 				const clone = solver.clone();
+				self.stats.trialClones += 1;
 				const [index, orientation] = clone.makeAGuess();
 				trials.push({
 					index,
@@ -771,6 +783,7 @@ export function Solver(tiles, grid) {
 					continue;
 				}
 				const clone = self.clone();
+				self.stats.shortTrials += 1;
 				const cloneCell = clone.unsolved.get(index);
 				if (cloneCell === undefined) {
 					throw 'Clone cell is undefined';
@@ -849,6 +862,7 @@ export function Solver(tiles, grid) {
 		let iter = 0;
 		while (trials.length > 0) {
 			iter += 1;
+			self.stats.iterations += 1;
 			// console.log('starting iter', iter);
 			// if (iter > 100) {
 			// 	break;
@@ -929,6 +943,7 @@ export function Solver(tiles, grid) {
 			} else {
 				// we have to make a guess
 				const clone = solver.clone();
+				self.stats.trialClones += 1;
 
 				// copypasta of makeAGuess function
 				// because I want to ignore ambiguous tiles as guess candidates
