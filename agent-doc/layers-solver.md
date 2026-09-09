@@ -51,7 +51,9 @@ are not supported.
   popcount-1 layer; against a pinned neighbour the check runs via `layerDegreeAt` and turns
   into a wall on A itself. This is the layered generalization of the classic deadend rule:
   classic marks whole deadend _tiles_ (rotation-invariant), here the fact is per direction and
-  per layer, refined as candidate sets shrink. The propagation block is gated by
+  per layer, refined as candidate sets shrink. Cells without deadend layers (`hasDeadends`,
+  static) skip the degree table, the mask derivation and neighbour-side pair checks entirely —
+  the bulk of the per-pass cost on deadend-free boards. The propagation block is gated by
   `checkDeadendConnections` with the same rationale as classic: on tiny boards the sealed pair
   could be the entire puzzle. The static union-popcount seeding in `doLocalDeductions` stays as
   a harmless subset of the new mechanism.

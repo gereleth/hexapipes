@@ -117,35 +117,44 @@ export function LayeredCell(layers, polygon, index = -1) {
 	self.connections = 0;
 	/**
 	 * Directions d such that every surviving picture connecting in direction d
-	 * does so via a single-connection (deadend) layer. Derived fact, same
-	 * monotone-grow semantics as walls and connections: pictures only shrink,
-	 * so the mask only gains bits. Bit is meaningful only for directions that
-	 * some surviving picture actually uses.
+	 * does so via a single-connection (deadend) layer. Derived fact, re-computed
+	 * from scratch on every applyConstraints pass: the property depends on HOW
+	 * a direction is used, not just whether, so the mask is not monotone under
+	 * picture set replacement. Bit is meaningful only for directions that some
+	 * surviving picture actually uses.
 	 * @type {Number}
 	 */
 	self.deadends = 0;
+	/** Static: whether any layer of this cell is a deadend layer. Cells
+	 * without deadend layers can never have a deadends bit, which lets the
+	 * derivation (and neighbour-side pair checks) skip them entirely.
+	 * @type {Boolean} */
+	self.hasDeadends = layers.some((x) => popcount(x) === 1);
 	/**
 	 * Static per-picture connecting layer degrees:
 	 * picture id => (direction => popcount of the layer holding that
 	 * direction, 0 when the direction is unused). Rotations are rigid, so
-	 * the table is immutable and shared between clones.
+	 * the table is immutable and shared between clones. Only built for
+	 * cells with deadend layers - the only consumers of the degrees.
 	 * @type {Map<String, Map<Number, Number>>}
 	 */
 	self.layerDegrees = new Map();
-	for (let [id, rotation] of self.pictures) {
-		/** @type {Map<Number, Number>} */
-		const degrees = new Map();
-		for (let layer of layers) {
-			const mask = polygon.rotate(layer, rotation);
-			const degree = popcount(mask);
-			let bits = mask;
-			while (bits > 0) {
-				const direction = bits & -bits;
-				bits ^= direction;
-				degrees.set(direction, degree);
+	if (self.hasDeadends) {
+		for (let [id, rotation] of self.pictures) {
+			/** @type {Map<Number, Number>} */
+			const degrees = new Map();
+			for (let layer of layers) {
+				const mask = polygon.rotate(layer, rotation);
+				const degree = popcount(mask);
+				let bits = mask;
+				while (bits > 0) {
+					const direction = bits & -bits;
+					bits ^= direction;
+					degrees.set(direction, degree);
+				}
 			}
+			self.layerDegrees.set(id, degrees);
 		}
-		self.layerDegrees.set(id, degrees);
 	}
 
 	/**
@@ -214,7 +223,8 @@ export function LayeredCell(layers, polygon, index = -1) {
 		const newPictures = new Map();
 		let newWalls = full;
 		let newConnections = full;
-		let newDeadends = full;
+		// cells without deadend layers can never have a deadend direction
+		let newDeadends = self.hasDeadends ? full : 0;
 		for (let [id, rotation] of self.pictures) {
 			const union = self.unionAt(rotation);
 			if (
@@ -228,14 +238,16 @@ export function LayeredCell(layers, polygon, index = -1) {
 			newPictures.set(id, rotation);
 			newWalls = newWalls & (full - union);
 			newConnections = newConnections & union;
-			const degrees = self.layerDegrees.get(id);
-			let bits = union;
-			while (bits > 0) {
-				const direction = bits & -bits;
-				bits ^= direction;
-				if ((degrees?.get(direction) || 0) > 1) {
-					// this picture connects here with more than a deadend
-					newDeadends &= full - direction;
+			if (self.hasDeadends) {
+				const degrees = self.layerDegrees.get(id);
+				let bits = union;
+				while (bits > 0) {
+					const direction = bits & -bits;
+					bits ^= direction;
+					if ((degrees?.get(direction) || 0) > 1) {
+						// this picture connects here with more than a deadend
+						newDeadends &= full - direction;
+					}
 				}
 			}
 		}
@@ -300,6 +312,9 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 * @returns {Number} - how many pictures were removed
 	 */
 	self.removeDeadendPairs = function (direction) {
+		if (!self.hasDeadends) {
+			return 0;
+		}
 		let removed = 0;
 		for (let [id] of [...self.pictures]) {
 			if ((self.layerDegrees.get(id)?.get(direction) || 0) === 1) {
