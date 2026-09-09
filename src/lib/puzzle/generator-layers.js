@@ -577,12 +577,18 @@ export function pregenerate_layers(
 	};
 
 	/**
-	 * Removes a cell from both primary frontier lists
+	 * Removes a cell from all frontier lists (primary and demotion tiers).
+	 * Popped cells must leave the demotion tiers too: a tier cell whose
+	 * remaining moves are all disregarded would otherwise be picked and
+	 * popped forever (its situation can only get worse as neighbours grow),
+	 * spinning the growth loop instead of terminating.
 	 * @param {Number} cell
 	 */
 	const removeFromFrontier = (cell) => {
 		syncFrontierList(extending, cell, false);
 		syncFrontierList(branching, cell, false);
+		syncFrontierList(avoiding, cell, false);
+		syncFrontierList(lastResort, cell, false);
 		primaryCells.delete(cell);
 	};
 

@@ -70,11 +70,19 @@ kind of growth a cell offers (see `branchingAmount` below). Layers variant twist
   disconnected areas are not supported** by the generator, the solver or the game.
 
 Quirks: demotion re-checks a cell's moves when picked, so a demoted cell whose unions changed
-can classify for the _other_ tier and moves there cleanly (removal from whichever list it was
-picked from — no duplicates; pop/demote always clear both primary lists, so dual-listed cells
-cannot leave stale twins behind). Re-demotion between tiers can repeat while the primary
-frontier is non-empty, which terminates because primary cells consume a direction per move;
-once the primary frontier is empty the demote guard fails and the cell makes its bad move.
+can classify for the _other_ tier and moves there cleanly. Pop/demote remove the cell from
+**all four** lists (primary + demotion tiers), so no stale twins or duplicate tier entries can
+accumulate — and a popped tier cell leaves the frontier permanently, which is sound because a
+stuck cell's situation is monotone: its own used bits never shrink and neighbour used bits only
+grow, so fully-connected/obvious disregards can never turn back into legal moves. History: pop
+used to clear only the primary lists, so a tier cell whose remaining moves were all disregarded
+was picked and popped forever — a deterministic infinite spin (one `pop` event per iteration,
+board untouched) hit on ~17% of fresh 20×20 draws with `avoidObvious > 0`; it needed
+`avoidObvious` because the disregarded-move tiers only exist then, and it silently froze
+`pregenerate_layers` instead of reaching the no-frontier throw (the lists never emptied). The
+all-lists pop fixed the spin; the no-frontier throw remains the correct failure mode and stays
+unreachable on connected boards (a frontier cell adjacent to an unvisited cell always has at
+least one non-gated, non-disregarded candidate move, so it can never pop).
 
 ### startLayers reuse (`planReuse`)
 

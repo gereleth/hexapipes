@@ -941,3 +941,58 @@ describe('Test layered uniqueIterations', () => {
 		}
 	});
 });
+
+describe('Test growth termination', () => {
+	const EVENT_BUDGET = 100000;
+
+	/**
+	 * Deterministic PRNG (mulberry32) standing in for Math.random
+	 * @param {Number} seed
+	 * @returns {() => Number}
+	 */
+	function seededRandom(seed) {
+		let a = seed;
+		return () => {
+			a |= 0;
+			a = (a + 0x6d2b79f5) | 0;
+			let t = Math.imul(a ^ (a >>> 15), 1 | a);
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+	}
+
+	it('Pregeneration terminates on boards with stuck demoted frontier cells', () => {
+		// Regression: pop only cleared the primary frontier lists, so a cell in
+		// the avoiding/lastResort tiers whose remaining moves are all
+		// disregarded (fully connected/obvious unions into visited cells) was
+		// picked and popped forever, spinning the growth loop. Seen on 20x20
+		// boards with avoidObvious > 0 in ~17% of random draws.
+		const grids = [new SquareGrid(20, 20, false), new HexaGrid(20, 20, false)];
+		const realRandom = Math.random.bind(Math);
+		try {
+			for (const grid of grids) {
+				for (let seed = 1; seed <= 40; seed++) {
+					Math.random = seededRandom(seed);
+					let events = 0;
+					const layers = pregenerate_layers(
+						grid,
+						0.6,
+						realRandom(),
+						realRandom() * 0.5,
+						[],
+						3,
+						() => {
+							events += 1;
+							if (events > EVENT_BUDGET) {
+								throw new Error(`growth did not terminate (seed ${seed}, ${grid.KIND})`);
+							}
+						}
+					);
+					validateLayers(grid, layers);
+				}
+			}
+		} finally {
+			Math.random = realRandom;
+		}
+	}, 60000);
+});
