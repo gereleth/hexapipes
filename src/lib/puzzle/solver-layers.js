@@ -31,7 +31,6 @@ function IslandDetectedException() {
  * Solve step represents processing new info on a single cell
  * @typedef {Object} LayeredStep
  * @property {Number} cell
- * @property {String} id - picture id of the cell
  * @property {Number} rotation - representative rotation of the picture
  * @property {Boolean} final - true if this picture is the only one left
  */
@@ -74,24 +73,28 @@ function pictureId(masks) {
 }
 
 /**
- * Builds the picture table of a cell: map of picture id
- * to the smallest rotation producing that picture
+ * Builds the possible states of a cell: map of rotation
+ * to the rotated layers at that rotation
+ * States are deduplicated
  * @param {Number[]} layers - layer bitmasks at rotation 0
  * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
- * @returns {Map<String, Number>}
+ * @returns {Map<Number, Number[]>}
  */
-function buildPictures(layers, polygon) {
-	/** @type {Map<String, Number>} */
-	const pictures = new Map();
+function buildPossible(layers, polygon) {
+	/** @type {Set<String>} */
+	const pictures = new Set();
+	/** @type {Map<Number, Number[]>} */
+	const possible = new Map();
 	const numDirections = polygon.num_directions;
 	for (let rotation = 0; rotation < numDirections; rotation++) {
 		const masks = layers.map((layer) => polygon.rotate(layer, rotation));
 		const id = pictureId(masks);
 		if (!pictures.has(id)) {
-			pictures.set(id, rotation);
+			pictures.add(id);
+			possible.set(rotation, masks);
 		}
 	}
-	return pictures;
+	return possible;
 }
 
 /**
@@ -111,8 +114,11 @@ export function LayeredCell(layers, polygon, index = -1) {
 	self.layers = layers;
 	self.polygon = polygon;
 
-	/** @type {Map<String, Number>} picture id => representative rotation */
-	self.pictures = buildPictures(layers, polygon);
+	// /** @type {Map<String, Number>} picture id => representative rotation */
+	// self.pictures = buildPictures(layers, polygon);
+
+	/** @type {Map<Number, Number[]>} rotation => layers at that rotation */
+	self.possible = buildPossible(layers, polygon);
 	self.walls = 0;
 	self.connections = 0;
 	/**
@@ -130,32 +136,7 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 * derivation (and neighbour-side pair checks) skip them entirely.
 	 * @type {Boolean} */
 	self.hasDeadends = layers.some((x) => popcount(x) === 1);
-	/**
-	 * Static per-picture connecting layer degrees:
-	 * picture id => (direction => popcount of the layer holding that
-	 * direction, 0 when the direction is unused). Rotations are rigid, so
-	 * the table is immutable and shared between clones. Only built for
-	 * cells with deadend layers - the only consumers of the degrees.
-	 * @type {Map<String, Map<Number, Number>>}
-	 */
-	self.layerDegrees = new Map();
-	if (self.hasDeadends) {
-		for (let [id, rotation] of self.pictures) {
-			/** @type {Map<Number, Number>} */
-			const degrees = new Map();
-			for (let layer of layers) {
-				const mask = polygon.rotate(layer, rotation);
-				const degree = popcount(mask);
-				let bits = mask;
-				while (bits > 0) {
-					const direction = bits & -bits;
-					bits ^= direction;
-					degrees.set(direction, degree);
-				}
-			}
-			self.layerDegrees.set(id, degrees);
-		}
-	}
+	self.layerPopcounts = layers.map((x) => popcount(x));
 
 	/**
 	 * Union of all layer masks at a rotation
@@ -164,8 +145,8 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 */
 	self.unionAt = function (rotation) {
 		let union = 0;
-		for (let layer of layers) {
-			union |= polygon.rotate(layer, rotation);
+		for (let layer of self.possible.get(rotation) || []) {
+			union |= layer;
 		}
 		return union;
 	};
@@ -189,9 +170,12 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 * @param {Number} directions
 	 */
 	self.mustHaveAllWalls = function (directions) {
-		for (let [id, rotation] of [...self.pictures]) {
-			if ((self.unionAt(rotation) & directions) > 0) {
-				self.pictures.delete(id);
+		for (let [rotation, layers] of [...self.possible]) {
+			for (let layer of layers) {
+				if ((layer & directions) > 0) {
+					self.possible.delete(rotation);
+					break;
+				}
 			}
 		}
 	};
@@ -203,10 +187,10 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 */
 	self.mustHaveOtherConnections = function (directions) {
 		let removed = false;
-		for (let [id, rotation] of [...self.pictures]) {
+		for (let [rotation, _] of [...self.possible]) {
 			const union = self.unionAt(rotation);
 			if (union !== 0 && (union & directions) === union) {
-				self.pictures.delete(id);
+				self.possible.delete(rotation);
 				removed = true;
 			}
 		}
@@ -220,12 +204,12 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 */
 	self.applyConstraints = function () {
 		const full = polygon.fully_connected;
-		const newPictures = new Map();
+		const newPossible = new Map();
 		let newWalls = full;
 		let newConnections = full;
 		// cells without deadend layers can never have a deadend direction
 		let newDeadends = self.hasDeadends ? full : 0;
-		for (let [id, rotation] of self.pictures) {
+		for (let [rotation, layers] of self.possible) {
 			const union = self.unionAt(rotation);
 			if (
 				// respects known walls
@@ -235,24 +219,19 @@ export function LayeredCell(layers, polygon, index = -1) {
 			) {
 				continue;
 			}
-			newPictures.set(id, rotation);
+			newPossible.set(rotation, layers);
 			newWalls = newWalls & (full - union);
 			newConnections = newConnections & union;
 			if (self.hasDeadends) {
-				const degrees = self.layerDegrees.get(id);
-				let bits = union;
-				while (bits > 0) {
-					const direction = bits & -bits;
-					bits ^= direction;
-					if ((degrees?.get(direction) || 0) > 1) {
-						// this picture connects here with more than a deadend
-						newDeadends &= full - direction;
+				layers.forEach((layer, index) => {
+					if (self.layerPopcounts[index] > 1) {
+						newDeadends &= full - layer;
 					}
-				}
+				});
 			}
 		}
-		self.pictures = newPictures;
-		if (newPictures.size === 0) {
+		self.possible = newPossible;
+		if (newPossible.size === 0) {
 			throw new NoOrientationsPossibleException(self);
 		}
 		// restrict the mask to directions some surviving picture actually uses
@@ -277,9 +256,10 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 * @returns {Number} - layer number or -1 if there is no such layer
 	 */
 	self.findLayerWithDirection = function (rotation, direction) {
-		for (let layer = 0; layer < layers.length; layer++) {
-			if ((polygon.rotate(layers[layer], rotation) & direction) > 0) {
-				return layer;
+		const layers = self.possible.get(rotation) || [];
+		for (let index = 0; index < layers.length; index++) {
+			if ((layers[index] & direction) > 0) {
+				return index;
 			}
 		}
 		return -1;
@@ -316,9 +296,9 @@ export function LayeredCell(layers, polygon, index = -1) {
 			return 0;
 		}
 		let removed = 0;
-		for (let [id] of [...self.pictures]) {
-			if ((self.layerDegrees.get(id)?.get(direction) || 0) === 1) {
-				self.pictures.delete(id);
+		for (let [rotation, layers] of [...self.possible]) {
+			if (layers.some((layer) => layer === direction)) {
+				self.possible.delete(rotation);
 				removed += 1;
 			}
 		}
@@ -331,11 +311,10 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 */
 	self.clone = function () {
 		const clone = new LayeredCell(layers, polygon, index);
-		clone.pictures = new Map(self.pictures);
+		clone.possible = new Map(self.possible);
 		clone.walls = self.walls;
 		clone.connections = self.connections;
 		clone.deadends = self.deadends;
-		clone.layerDegrees = self.layerDegrees;
 		return clone;
 	};
 
@@ -384,10 +363,10 @@ export function LayeredSolver(tiles, grid) {
 	 */
 	self.pendingLinks = new Map([]);
 
-	/** @type {(String|Number)[]} - picture id per cell, or UNSOLVED */
+	/** @type {Number[]} - rotation per cell, or UNSOLVED */
 	self.solution = tiles.map(() => self.UNSOLVED);
 
-	/** @type {(String|Number)[][]} - picture ids of found solutions */
+	/** @type {Number[][]} - rotations of found solutions */
 	self.solutions = [];
 
 	/** @type {Set<Number>} */
@@ -405,11 +384,6 @@ export function LayeredSolver(tiles, grid) {
 		dirtyProcessings: 0,
 		prunedPictures: 0
 	};
-
-	/** @type {Map<String, Number>[]} picture id => representative rotation, per cell */
-	self.pictureTable = tiles.map((cellLayers, index) =>
-		buildPictures(cellLayers, grid.polygon_at(index))
-	);
 
 	// ruling out orientations connecting only deadends messes up
 	// solving very small instances
@@ -495,9 +469,9 @@ export function LayeredSolver(tiles, grid) {
 	 * @throws {LoopDetected} when a definitive edge closes a loop
 	 */
 	self.pinCell = function (cell, cellObj) {
-		const rotation = cellObj.pictures.values().next().value || 0;
+		const [rotation, layers] = cellObj.possible.entries().next().value || [0, []];
 		const polygon = self.grid.polygon_at(cell);
-		const numLayers = cellObj.layers.length;
+		const numLayers = layers.length;
 		for (let layer = 0; layer < numLayers; layer++) {
 			const id = self.idOf(cell, layer);
 			if (!self.components.has(id)) {
@@ -519,10 +493,9 @@ export function LayeredSolver(tiles, grid) {
 				self.unionSubCells(fromId, self.idOf(cell, backLayer));
 			}
 		}
-		for (let layer = 0; layer < numLayers; layer++) {
-			const mask = polygon.rotate(cellObj.layers[layer], rotation);
-			const fromId = self.idOf(cell, layer);
-			let bits = mask;
+		for (let [index, layer] of layers.entries()) {
+			const fromId = self.idOf(cell, index);
+			let bits = layer;
 			while (bits > 0) {
 				const direction = bits & -bits;
 				bits ^= direction;
@@ -605,15 +578,15 @@ export function LayeredSolver(tiles, grid) {
 	 * @returns {Boolean} - true if some pictures were removed
 	 */
 	self.pruneContradictoryPictures = function (cell, cellObj) {
-		if (cellObj.pictures.size <= 1) {
+		if (cellObj.possible.size <= 1) {
 			return false;
 		}
 		const polygon = self.grid.polygon_at(cell);
 		let removed = false;
-		for (let [id, rotation] of [...cellObj.pictures]) {
+		for (let [rotation, layers] of [...cellObj.possible]) {
 			let bad = false;
 			for (let layer = 0; layer < cellObj.layers.length && !bad; layer++) {
-				const mask = polygon.rotate(cellObj.layers[layer], rotation);
+				const mask = layers[layer];
 				/** @type {Set<Set<Number>>} */
 				const layerComponents = new Set([]);
 				let bits = mask;
@@ -621,21 +594,13 @@ export function LayeredSolver(tiles, grid) {
 					const direction = bits & -bits;
 					bits ^= direction;
 					const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
-					if (empty) {
-						bad = true;
-						break;
-					}
 					const pinnedNeighbour = self.pinned.get(neighbour);
 					if (pinnedNeighbour === undefined) {
 						continue;
 					}
 					const opposite = self.grid.OPPOSITE.get(direction) || 0;
-					const neighbourRotation = pinnedNeighbour.pictures.values().next().value || 0;
+					const neighbourRotation = pinnedNeighbour.possible.keys().next().value || 0;
 					const backLayer = pinnedNeighbour.findLayerWithDirection(neighbourRotation, opposite);
-					if (backLayer === -1) {
-						bad = true;
-						break;
-					}
 					const component = self.components.get(self.idOf(neighbour, backLayer));
 					if (component === undefined) {
 						throw `Component data missing for pinned neighbour ${neighbour}`;
@@ -648,7 +613,7 @@ export function LayeredSolver(tiles, grid) {
 				}
 			}
 			if (bad) {
-				cellObj.pictures.delete(id);
+				cellObj.possible.delete(rotation);
 				self.stats.prunedPictures += 1;
 				removed = true;
 			}
@@ -662,37 +627,26 @@ export function LayeredSolver(tiles, grid) {
 	 * @param {LayeredCell} cell - cell at index
 	 */
 	self.doLocalDeductions = function (index, cell) {
-		if (cell.pictures.size === 1) {
+		if (cell.possible.size === 1) {
 			// either empty or fully connected, is solved right away
 			self.dirty.add(index);
 			return;
 		}
 		const polygon = self.grid.polygon_at(index);
-		const possibleBefore = cell.pictures.size;
+		const possibleBefore = cell.possible.size;
 		const full = polygon.fully_connected;
 
-		// union of neighbour layers, -1 for empty or invalid directions
-		/** @type {Number[]} */
-		const neighbourUnions = [];
 		let walls = 0;
 		let invalidDirections = 0;
 		for (let direction of polygon.directions) {
 			if ((full & direction) === 0) {
 				// invalid direction that should be disregarded
-				neighbourUnions.push(-1);
 				invalidDirections += direction;
 				continue;
 			}
 			const { neighbour, empty } = self.grid.find_neighbour(index, direction);
 			if (empty) {
 				walls += direction;
-				neighbourUnions.push(-1);
-			} else {
-				let union = 0;
-				for (let layer of self.tiles[neighbour]) {
-					union |= layer;
-				}
-				neighbourUnions.push(union);
 			}
 		}
 		// remove pictures that contradict outer walls
@@ -703,18 +657,7 @@ export function LayeredSolver(tiles, grid) {
 		if (invalidDirections > 0) {
 			cell.mustHaveAllWalls(invalidDirections);
 		}
-		// remove pictures that connect only deadends
-		if (self.checkDeadendConnections) {
-			let deadendConnections = 0;
-			for (let [i, neighbourUnion] of neighbourUnions.entries()) {
-				if (neighbourUnion > 0 && (neighbourUnion & (neighbourUnion - 1)) === 0) {
-					deadendConnections += polygon.directions[i];
-				}
-			}
-			cell.mustHaveOtherConnections(deadendConnections);
-		}
-
-		if (cell.pictures.size < possibleBefore) {
+		if (cell.possible.size < possibleBefore) {
 			// deduced something...
 			self.dirty.add(index);
 		}
@@ -752,7 +695,7 @@ export function LayeredSolver(tiles, grid) {
 							if (pinnedNeighbour !== undefined) {
 								// solved neighbours are not revisited,
 								// but a contradiction must be detected
-								const neighbourRotation = pinnedNeighbour.pictures.values().next().value || 0;
+								const neighbourRotation = pinnedNeighbour.possible.keys().next().value || 0;
 								if (pinnedNeighbour.findLayerWithDirection(neighbourRotation, opposite) !== -1) {
 									throw `Pinned tile ${neighbour} contradicts a new wall`;
 								}
@@ -775,7 +718,7 @@ export function LayeredSolver(tiles, grid) {
 							const opposite = self.grid.OPPOSITE.get(direction) || 0;
 							const pinnedNeighbour = self.pinned.get(neighbour);
 							if (pinnedNeighbour !== undefined) {
-								const neighbourRotation = pinnedNeighbour.pictures.values().next().value || 0;
+								const neighbourRotation = pinnedNeighbour.possible.keys().next().value || 0;
 								if (pinnedNeighbour.findLayerWithDirection(neighbourRotation, opposite) === -1) {
 									throw `Pinned tile ${neighbour} contradicts a new connection`;
 								}
@@ -804,8 +747,8 @@ export function LayeredSolver(tiles, grid) {
 								// the pinned neighbour can not lose pictures:
 								// if it answers with a deadend, this cell must not
 								// connect here with a deadend at all
-								const neighbourRotation = pinnedNeighbour.pictures.values().next().value || 0;
-								if (pinnedNeighbour.layerDegreeAt(neighbourRotation, opposite) === 1) {
+								const neighbourLayers = pinnedNeighbour.possible.values().next().value || [];
+								if (neighbourLayers.some((layer) => layer === opposite)) {
 									cellObj.addWall(direction);
 									self.dirty.add(cell);
 								}
@@ -826,18 +769,18 @@ export function LayeredSolver(tiles, grid) {
 				}
 			}
 			// check if cell is solved
-			const id = /** @type {String} */ (cellObj.pictures.keys().next().value);
-			const final = cellObj.pictures.size === 1;
+			const [rotation, layers] = cellObj.possible.entries().next().value || [0, []];
+			const final = cellObj.possible.size === 1;
 			if (final) {
 				self.unsolved.delete(cell);
 				self.pinned.set(cell, cellObj);
 				self.pinCell(cell, cellObj);
-				self.solution[cell] = id;
+				self.solution[cell] = rotation;
 				if (self.unsolved.size === 0) {
 					self.checkAllConnected();
 				}
 			}
-			yield { cell, id, rotation: cellObj.pictures.get(id) || 0, final };
+			yield { cell, rotation, final };
 			self.dirty.delete(cell);
 		}
 	};
@@ -974,13 +917,13 @@ export function LayeredSolver(tiles, grid) {
 	 * Selects a picture from a cell with the least number of options,
 	 * preferring cells next to pinned structure so that contradictions
 	 * surface quickly, and pictures that grow the pinned structure
-	 * @returns {(Number|String)[]} - [cell, picture id]
+	 * @returns {Number[]} - [cell, rotation]
 	 */
 	self.makeAGuess = function () {
 		let minPossibleSize = Number.POSITIVE_INFINITY;
 		for (let [, cellObj] of self.unsolved.entries()) {
-			if (cellObj.pictures.size < minPossibleSize) {
-				minPossibleSize = cellObj.pictures.size;
+			if (cellObj.possible.size < minPossibleSize) {
+				minPossibleSize = cellObj.possible.size;
 				if (minPossibleSize == 2) {
 					break;
 				}
@@ -989,7 +932,7 @@ export function LayeredSolver(tiles, grid) {
 		let guessCell = -1;
 		let maxPinnedNeighbours = -1;
 		for (let [cell, cellObj] of self.unsolved.entries()) {
-			if (cellObj.pictures.size > minPossibleSize) {
+			if (cellObj.possible.size > minPossibleSize) {
 				continue;
 			}
 			const pinnedNeighbours = self.countPinnedNeighbours(cell);
@@ -1002,22 +945,23 @@ export function LayeredSolver(tiles, grid) {
 		if (cellObj === undefined) {
 			throw 'Cell selected for guessing is undefined!';
 		}
-		let guessId = /** @type {String} */ ('');
 		let guessRotation = -1;
+		/**@type {Number[]} */
+		let guessLayers = [];
 		let maxPinnedConnections = -1;
-		for (let [id, rotation] of cellObj.pictures) {
+		for (let [rotation, layers] of cellObj.possible) {
 			const pinnedConnections = self.countPinnedConnections(guessCell, rotation);
 			if (pinnedConnections > maxPinnedConnections) {
-				guessId = id;
 				guessRotation = rotation;
+				guessLayers = layers;
 				maxPinnedConnections = pinnedConnections;
 			}
 		}
 		const guessedPictures = new Map();
-		guessedPictures.set(guessId, guessRotation);
-		cellObj.pictures = guessedPictures;
+		guessedPictures.set(guessRotation, guessLayers);
+		cellObj.possible = guessedPictures;
 		self.dirty.add(guessCell);
-		return [guessCell, guessId];
+		return [guessCell, guessRotation];
 	};
 
 	/**
@@ -1031,8 +975,8 @@ export function LayeredSolver(tiles, grid) {
 			yield { stage: /** @type {SolvingStage} */ ('initial'), step };
 		}
 
-		/** @type {{cell: Number, guess: String, solver:LayeredSolver}[]} */
-		const trials = [{ cell: -1, guess: '-1', solver: self }];
+		/** @type {{cell: Number, guess: Number, solver:LayeredSolver}[]} */
+		const trials = [{ cell: -1, guess: -1, solver: self }];
 		while (trials.length > 0) {
 			self.stats.iterations += 1;
 			const lastTrial = trials[trials.length - 1];
@@ -1052,7 +996,7 @@ export function LayeredSolver(tiles, grid) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
 					const parentCell = parent.unsolved.get(cell);
-					parentCell?.pictures.delete(guess);
+					parentCell?.possible.delete(guess);
 					parent.dirty.add(cell);
 					continue;
 				} else {
@@ -1070,7 +1014,7 @@ export function LayeredSolver(tiles, grid) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
 					const parentCell = parent.unsolved.get(cell);
-					parentCell?.pictures.delete(guess);
+					parentCell?.possible.delete(guess);
 					parent.dirty.add(cell);
 					continue;
 				} else {
@@ -1080,10 +1024,10 @@ export function LayeredSolver(tiles, grid) {
 				// we have to make a guess
 				const clone = solver.clone();
 				self.stats.trialClones += 1;
-				const [guessCell, guessId] = clone.makeAGuess();
+				const [guessCell, guessRotation] = clone.makeAGuess();
 				trials.push({
-					cell: /** @type {Number} */ (guessCell),
-					guess: /** @type {String} */ (guessId),
+					cell: guessCell,
+					guess: guessRotation,
 					solver: clone
 				});
 			}
@@ -1093,7 +1037,7 @@ export function LayeredSolver(tiles, grid) {
 	/**
 	 * Check pictures of unsolved cells to see if they produce contradictions quickly
 	 * Returns true if solver manages to exclude some picture, false otherwise
-	 * @param {(String|Number)[]} marked
+	 * @param {(Number)[]} marked
 	 * @returns {boolean}
 	 */
 	self.doShortTrials = function (marked = []) {
@@ -1107,8 +1051,8 @@ export function LayeredSolver(tiles, grid) {
 			if (marked[cell] === this.AMBIGUOUS) {
 				continue;
 			}
-			for (let [id, rotation] of [...cellObj.pictures]) {
-				const key = `${cell}_${id}`;
+			for (let [rotation, layers] of [...cellObj.possible]) {
+				const key = `${cell}_${rotation}`;
 				if (tested.has(key)) {
 					continue;
 				}
@@ -1118,18 +1062,18 @@ export function LayeredSolver(tiles, grid) {
 				if (cloneCell === undefined) {
 					throw 'Clone cell is undefined';
 				}
-				const probePictures = new Map();
-				probePictures.set(id, rotation);
-				cloneCell.pictures = probePictures;
+				const probePossible = new Map();
+				probePossible.set(rotation, layers);
+				cloneCell.possible = probePossible;
 				clone.dirty.add(cell);
 				try {
 					for (let step of clone.processDirtyCells()) {
 						if (step.final) {
-							tested.add(`${step.cell}_${step.id}`);
+							tested.add(`${step.cell}_${step.rotation}`);
 						}
 					}
 				} catch (e) {
-					cellObj.pictures.delete(id);
+					cellObj.possible.delete(rotation);
 					self.dirty.add(cell);
 					self.shortTrialsIndex = cell;
 					return true;
@@ -1137,25 +1081,6 @@ export function LayeredSolver(tiles, grid) {
 			}
 		}
 		return false;
-	};
-
-	/**
-	 * Converts marked picture ids to representative rotations,
-	 * leaving the UNSOLVED/AMBIGUOUS sentinels as they are
-	 * @param {(String|Number)[]} marked
-	 * @returns {Number[]}
-	 */
-	self.convertMarked = function (marked) {
-		return marked.map((id, cell) => {
-			if (id === self.UNSOLVED || id === self.AMBIGUOUS) {
-				return id;
-			}
-			const rotation = self.pictureTable[cell].get(/** @type {String} */ (id));
-			if (rotation === undefined) {
-				throw `Unknown picture ${id} at cell ${cell}`;
-			}
-			return rotation;
-		});
 	};
 
 	/**
@@ -1173,7 +1098,7 @@ export function LayeredSolver(tiles, grid) {
 	 * }} - marked rotations per cell, whether a puzzle is solvable, whether the solution is unique, number of ambiguous cells, whether the search finished (a false complete means the results can not be trusted)
 	 */
 	self.markAmbiguousTiles = function (ambiguousTilesLimit = 0, maxIterations = 0) {
-		/** @type {(String|Number)[]} */
+		/** @type {Number[]} */
 		let marked = [...self.solution];
 		let unique = true;
 		let numAmbiguous = 0;
@@ -1183,20 +1108,20 @@ export function LayeredSolver(tiles, grid) {
 		try {
 			for (let step of self.processInitialDeductions()) {
 				if (step.final) {
-					marked[step.cell] = step.id;
+					marked[step.cell] = step.rotation;
 				}
 			}
 		} catch (error) {
 			return {
-				marked: self.convertMarked(marked),
+				marked,
 				solvable: false,
 				unique: false,
 				numAmbiguous,
 				complete: true
 			};
 		}
-		/** @type {{cell: Number, guess: String, solver:LayeredSolver}[]} */
-		const trials = [{ cell: -1, guess: '-1', solver: self }];
+		/** @type {{cell: Number, guess: Number, solver:LayeredSolver}[]} */
+		const trials = [{ cell: -1, guess: -1, solver: self }];
 		let iterations = 0;
 		while (trials.length > 0) {
 			iterations += 1;
@@ -1230,7 +1155,7 @@ export function LayeredSolver(tiles, grid) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
 					const parentCell = parent.unsolved.get(cell);
-					parentCell?.pictures.delete(guess);
+					parentCell?.possible.delete(guess);
 					parent.dirty.add(cell);
 					continue;
 				} else {
@@ -1261,7 +1186,7 @@ export function LayeredSolver(tiles, grid) {
 							trials.length === 1 ? total - numAmbiguous : total - trials[0].solver.unsolved.size
 					});
 					return {
-						marked: self.convertMarked(marked),
+						marked,
 						solvable: true,
 						unique,
 						numAmbiguous,
@@ -1272,7 +1197,7 @@ export function LayeredSolver(tiles, grid) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
 					const parentCell = parent.unsolved.get(cell);
-					parentCell?.pictures.delete(guess);
+					parentCell?.possible.delete(guess);
 					parent.dirty.add(cell);
 					continue;
 				} else {
@@ -1290,8 +1215,8 @@ export function LayeredSolver(tiles, grid) {
 					if (marked[index] === self.AMBIGUOUS) {
 						continue;
 					}
-					if (cellObj.pictures.size < minPossibleSize) {
-						minPossibleSize = cellObj.pictures.size;
+					if (cellObj.possible.size < minPossibleSize) {
+						minPossibleSize = cellObj.possible.size;
 						if (minPossibleSize == 2) {
 							break;
 						}
@@ -1303,7 +1228,7 @@ export function LayeredSolver(tiles, grid) {
 					if (marked[index] === self.AMBIGUOUS) {
 						continue;
 					}
-					if (cellObj.pictures.size > minPossibleSize) {
+					if (cellObj.possible.size > minPossibleSize) {
 						continue;
 					}
 					const pinnedNeighbours = solver.countPinnedNeighbours(index);
@@ -1318,15 +1243,15 @@ export function LayeredSolver(tiles, grid) {
 					solver.unsolved = new Map();
 					continue;
 				}
-				const id = /** @type {String} */ (cellObj.pictures.keys().next().value);
-				const guessedPictures = new Map();
-				guessedPictures.set(id, cellObj.pictures.get(id) || 0);
-				cellObj.pictures = guessedPictures;
+				const [rotation, layers] = cellObj.possible.entries().next().value || [0, []];
+				const guessedPossible = new Map();
+				guessedPossible.set(rotation, layers);
+				cellObj.possible = guessedPossible;
 				clone.dirty.add(guessCell);
 
 				trials.push({
 					cell: guessCell,
-					guess: id,
+					guess: rotation,
 					solver: clone
 				});
 			}
@@ -1341,7 +1266,7 @@ export function LayeredSolver(tiles, grid) {
 			solved: total - numAmbiguous
 		});
 		return {
-			marked: self.convertMarked(marked),
+			marked,
 			solvable,
 			unique,
 			numAmbiguous,

@@ -280,9 +280,7 @@
 						}
 					}
 					// store rotations instead of picture ids for the solution buttons
-					solutions = layeredSolver.solutions.map((solution) =>
-						solution.map((id, cell) => layeredSolver.pictureTable[cell].get(/** @type {String} */ (id)) || 0)
-					);
+					solutions = layeredSolver.solutions;
 				} catch (error) {
 					console.error(error);
 				}
@@ -429,8 +427,7 @@
 									});
 								}
 								game.solved = false;
-							}}
-							>Solution {i + 1}</button
+							}}>Solution {i + 1}</button
 						>
 					{/each}
 				</div>

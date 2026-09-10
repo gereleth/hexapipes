@@ -14,10 +14,8 @@ describe('Test hexagrid layered cell constraints', () => {
 
 	it('Starts with correct possible states from initial layers - deadend', () => {
 		const cell = new LayeredCell([1], grid.polygon_at(0), 0);
-		expect(cell.pictures.size).toBe(6);
-		expect([...cell.pictures.keys()]).toEqual(
-			expect.arrayContaining(['1', '2', '4', '8', '16', '32'])
-		);
+		expect(cell.possible.size).toBe(6);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2, 3, 4, 5]));
 	});
 
 	it('Starts with correct possible states from initial layers - sharp turn', () => {
@@ -374,7 +372,7 @@ describe('Test multi-layer boards', () => {
 		validateLayers(grid, tiles);
 		const centerCell = new LayeredCell(tiles[4], grid.polygon_at(4), 4);
 		// crossing straights draw the same picture at every rotation
-		expect(centerCell.pictures.size).toBe(1);
+		expect(centerCell.possible.size).toBe(1);
 		const solver = new LayeredSolver(tiles, grid);
 		const { marked, solvable, unique } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
@@ -445,7 +443,7 @@ describe('Test multi-layer boards', () => {
 		for (const { stage, step } of solver.solve(true)) {
 			stages.push(stage);
 			expect(step.cell).toBeGreaterThanOrEqual(0);
-			expect(typeof step.id).toBe('string');
+			expect(typeof step.rotation).toBe('number');
 			expect(step.rotation).toBeGreaterThanOrEqual(0);
 			if (step.final) {
 				finalSteps += 1;
@@ -454,12 +452,7 @@ describe('Test multi-layer boards', () => {
 		expect(stages.length).toBeGreaterThan(0);
 		expect(finalSteps).toBe(9);
 		expect(solver.solutions.length).toBe(1);
-		const marked = solver.solution.map((id, cell) => {
-			const rotation = solver.pictureTable[cell].get(/** @type {String} */ (id));
-			expect(rotation).toBeDefined();
-			return /** @type {Number} */ (rotation);
-		});
-		const solved = applyRotations(grid, scrambled, marked);
+		const solved = applyRotations(grid, scrambled, solver.solution);
 		expect(() => validateLayers(grid, solved)).not.toThrow();
 	});
 });
@@ -485,13 +478,13 @@ describe('Test deadend pair facts', () => {
 		cell.applyConstraints();
 		// pictures using N via the deadend layer: [2, 1] and [4, 2]
 		expect(cell.removeDeadendPairs(2)).toBe(2);
-		expect([...cell.pictures.keys()].sort()).toEqual(['1-8', '4-8']);
+		expect([...cell.possible.keys()].sort()).toEqual([1, 2]);
 		const mixedCell = new LayeredCell([2, 9], polygon, 4);
 		mixedCell.applyConstraints();
 		// N via deadend only in [2, 9]; [4, 3] answers N via a two-connection layer
 		expect(mixedCell.removeDeadendPairs(2)).toBe(1);
-		expect(mixedCell.pictures.has('2-9')).toBe(false);
-		expect(mixedCell.pictures.has('3-4')).toBe(true);
+		expect(mixedCell.possible.has(0)).toBe(false);
+		expect(mixedCell.possible.has(3)).toBe(true);
 	});
 
 	it('Clones the deadends mask and shares layer degrees', () => {
@@ -517,12 +510,12 @@ describe('Test deadend pair facts', () => {
 		expect(cell.deadends).toBe(0);
 		// survivor [1, 2, 12]: E and N are used via the two-connection layer:
 		// only E and N are (always) used via a deadend among the survivors
-		cell.pictures = new Map([['1-2-12', 2]]);
+		cell.possible = new Map([[2, [2, 1, 12]]]);
 		cell.applyConstraints();
 		expect(cell.deadends).toBe(3);
 		// replace the set wholesale, like a short trial probe does:
 		// the only survivor uses S and W via their deadend layers
-		cell.pictures = new Map([['3-4-8', 0]]);
+		cell.possible = new Map([[0, [8, 4, 3]]]);
 		const deltas = cell.applyConstraints();
 		expect(cell.deadends).toBe(12);
 		// numeric subtraction would return 12 - 3 = 9: phantom E, missing W
@@ -552,8 +545,8 @@ describe('Test deadend pair facts', () => {
 		const centre = solver.getCell(4);
 		// the deadend answer must be gone while the two-connection
 		// north user [8, 6] survives
-		expect(centre.pictures.has('2-9')).toBe(false);
-		expect(centre.pictures.has('6-8')).toBe(true);
+		expect(centre.possible.has(0)).toBe(false);
+		expect(centre.possible.has(3)).toBe(true);
 	});
 
 	it('Detects a deadend pair against a pinned cell', () => {
