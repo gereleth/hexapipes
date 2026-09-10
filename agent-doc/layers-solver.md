@@ -52,7 +52,8 @@ are not supported.
   deadend — two facing single-connection sub-cells would be sealed off from the tree — so
   `removeDeadendPairs(opposite)` deletes the neighbour's pictures that connect there via a
   popcount-1 layer (a layer mask equal to the single direction bit); against a pinned neighbour
-  the check reads the pinned cell's only layer list directly and turns into a wall on A itself.
+  there is no entry to delete from, so A checks the pinned link recorded when the neighbour
+  pinned (its answering layer mask) and seals itself with a wall if that mask is a deadend.
   This is the layered generalization of the classic deadend rule:
   classic marks whole deadend _tiles_ (rotation-invariant), here the fact is per direction and
   per layer, refined as candidate sets shrink. Cells without deadend layers (`hasDeadends`,
@@ -60,8 +61,10 @@ are not supported.
   the bulk of the per-pass cost on deadend-free boards. The propagation block is gated by
   `checkDeadendConnections` with the same rationale as classic: on tiny boards the sealed pair
   could be the entire puzzle.
-- Facts live at cell level (union). Which _layer_ points where only matters at pin time and in
-  the pruner, both via `findLayerWithDirection(rotation, direction)`.
+- Facts live at cell level (union). Which _layer_ points where only matters in the pinned
+  links: recorded when a neighbour pins (the answering sub-cell and its layer mask), resolved
+  at this cell's own pin via `findLayerWithDirection(rotation, direction)`, and read per
+  candidate direction by the pruner.
 
 ## Tree constraint over sub-cells
 
@@ -76,8 +79,13 @@ State:
   Identity is by object reference; `unionSubCells` throws `LoopDetected` when both ends already
   share a set. Gotcha: `clone()` must preserve set sharing (it maps original set → cloned set
   so cloned ids still share one Set object).
-- `pendingLinks: Map<cell, {fromId, direction}[]>` — edges from already-pinned neighbours
-  waiting for this cell to pin.
+- `linked: Map<cell, Map<direction, {fromId, mask}>>` — an unpinned cell's pinned links, keyed
+  by the cell's own direction: where pinned neighbours connect into it, with the answering
+  sub-cell id on the pinned side and that layer's frozen mask. Recorded when a neighbour pins,
+  read while the cell is open (pruner, deadend rule, guess heuristics), resolved and deleted
+  when the cell pins. Entry objects are immutable, so `clone()` copies the maps and shares the
+  entries. There is no pinned-cell registry: `pinned` was removed because these links plus
+  `components` are everything the solver ever needs to know about pinned cells.
 - `totalEdges = ½ Σ popcount(layer masks)` — every complete assignment has exactly this many
   edges (popcounts are rotation-invariant). `internalEdges + pendingCount` counts committed,
   irreversible edges and must never exceed the budget.
@@ -86,15 +94,15 @@ State:
 island check reads the freshly registered component sets:
 
 1. every layer of the cell joins `components` as a singleton;
-2. pending links from earlier-pinned neighbours resolve: the pinned picture must have a layer
-   pointing back in the opposite direction, missing one ⇒ throw; the ends are united;
+2. its pinned links resolve: for each, the pinned picture must have a layer pointing in the
+   link's direction, missing one ⇒ throw; the ends are united;
 3. directions of the pinned picture toward still-unpinned neighbours become that neighbour's
-   pending links;
+   pinned links (answering sub-cell + layer mask);
 4. each edge is registered exactly once — at whichever endpoint pins later — so budget and
    island checks see every edge once;
 5. edge budget check ⇒ `LoopDetected` (finishing would force a cycle);
 6. `checkForIslands`: while unsolved cells remain, every component must hold at least one
-   pending link, i.e. some way to ever connect; a sealed component ⇒ `IslandDetected`;
+   pinned link, i.e. some way to ever connect; a sealed component ⇒ `IslandDetected`;
 7. all unsolved neighbours get dirtied — pin facts can invalidate their pictures without any
    wall/connection changing (prune-only propagation).
 
@@ -115,13 +123,32 @@ connecting into the same pinned component twice. That narrower rule is the heart
 For each dirty cell, `processDirtyCells` loops until stable:
 
 1. `applyConstraints` → wall/connection deltas;
-2. propagate deltas to neighbours. Into pinned neighbours: verify consistency and throw — the
-   solver never resurrects pinned cells (classic re-creates solved cells via `getCell`);
+2. propagate deltas to neighbours unconditionally — same as classic, by the pin-time push
+   invariant (below) a delta never targets an already-pinned neighbour, so `getCell` never
+   sees one and there is no guard;
 3. `pruneContradictoryPictures`: delete pictures that would connect a single layer into the
-   same pinned component twice (definite cycle, see above). No off-board or back-layer checks
-   are needed: border walls are derived at cell init, and a pinned cell with a wall towards
-   this cell already forced the opposite wall here, deleting contradicting states during wall
-   propagation.
+   same pinned component twice (definite cycle, see above). Reads the cell's pinned links per
+   candidate direction — the link's sub-cell maps to its component with a fresh `components`
+   lookup (sets are re-targeted on merge, so caching Set references would break identity).
+   No off-board or back-layer checks are needed: border walls are derived at cell init, and a
+   pinned cell with a wall towards this cell already forced the opposite wall here, deleting
+   contradicting states during wall propagation.
+
+Pin-time push invariant (shared with classic): when a cell pins, the same processing pass has
+already derived its complete final stance — with a single surviving picture every direction is
+either connected or walled — and pushed it into every unpinned neighbour as mask facts.
+Afterwards no dirty cell can newly derive a wall/connection fact toward a pinned neighbour:
+the direction is either already known there, or contradicts a pushed connection and every
+picture using it dies in `applyConstraints` first. Both solvers rely on this invariant alone:
+unguarded `getCell` delta pushes never receive a solved/pinned index, and in classic the same
+occupied-direction filter keeps solved cells out of `mergeComponents`' adjacent scan — the
+`getCell` rebuild branch never fires in the live flow. The one live pinned-neighbour check is
+the deadend pair rule: `deadends` is not part of the pin-time push (non-monotone, re-derived
+from scratch each pass), so a cell can genuinely derive a new deadend direction toward a
+neighbour that pinned long ago; the check reads that direction's pinned link and seals the
+cell with a wall if the frozen mask is a deadend (no entry means the neighbour is not pinned
+yet — a pinned wall here would have pushed a wall into this cell first, ruling the deadend
+fact out).
 
 The loop is a correctness requirement, not an optimization: pruning can imply NEW
 walls/connections (the deleted picture was the only one avoiding a wall), and those facts must
@@ -141,7 +168,7 @@ into tile types — one reason layered deduction is weaker (see performance).
   and re-dirties the cell. The exception types (`LoopDetected`, `IslandDetected`,
   `NoOrientationsPossible`) simply pop the trial.
 - Guessing (`makeAGuess`): MRV over possible-state counts (early exit at 2), tie-break "most
-  pinned neighbours" (contradictions surface next to the pinned structure), value order
+  pinned links" (contradictions surface where pinned structure connects in), value order
   "picture with most pinned connections" (greedy tree-growing — safe for completeness because
   every value is still tried on backtrack).
 - `doShortTrials` (used by `markAmbiguousTiles` only, at the root trial): probes each candidate
@@ -173,17 +200,23 @@ into tile types — one reason layered deduction is weaker (see performance).
   ≫20 s. Wrong-branch detection is fundamentally weaker than classic's cell-level component
   walls (see the tree constraint section) — trial stacks grow deep before a contradiction
   surfaces.
+- Fresh 20×20 non-wrap boards (layering 0.6): `solver-layers-stats.test.js` with
+  `BENCH_MARK_AMBIGUOUS=1` — square mean ≈1.5 s, p90 ≈2.8 s; hexa mean ≈2.1 s, p90 ≈4.7 s,
+  with a rare multi-minute tail (one run in 100 hit the 60 s wall-clock cap; see
+  `generator_stats/layered_mark_ambiguous_20x20.json`). Per-step cost halved vs the previous
+  pinned-map design, but hexa boards explore more trials: the link-count guess tie-break sees
+  fewer candidate cells than the old pinned-neighbour count, which changes search order.
 - The generator's workaround (maxIterations + regenerate) hides the tail from users but wastes
   the work; a real fix would be cell-level pruning that stays sound with parallel pipes —
   remembering that only same-layer double connections are definite cycles.
 
 ## Differences vs classic Solver at a glance
 
-| Aspect           | classic                       | layered                                           |
-| ---------------- | ----------------------------- | ------------------------------------------------- |
-| cell state       | set of orientation masks      | map of representative rotation → rotated layers   |
-| identity         | cell index                    | cell for constraints, sub-cell for the tree       |
-| loop detection   | component walls + merge check | union-find merge + edge budget + per-layer prune  |
-| solved cells     | may be re-created via getCell | never resurrected; contradictions throw           |
-| local deductions | tileTypes hexa tricks         | union masks only (weaker)                         |
-| ambiguity search | uncapped                      | `maxIterations` cap + `complete` flag (to remove) |
+| Aspect           | classic                       | layered                                            |
+| ---------------- | ----------------------------- | -------------------------------------------------- |
+| cell state       | set of orientation masks      | map of representative rotation → rotated layers    |
+| identity         | cell index                    | cell for constraints, sub-cell for the tree        |
+| loop detection   | component walls + merge check | union-find merge + edge budget + per-layer prune   |
+| solved cells     | no guard, never re-touched    | same; pinned links read while neighbours stay open |
+| local deductions | tileTypes hexa tricks         | union masks only (weaker)                          |
+| ambiguity search | uncapped                      | `maxIterations` cap + `complete` flag (to remove)  |

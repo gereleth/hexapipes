@@ -326,9 +326,6 @@ export function LayeredSolver(tiles, grid) {
 	/** @type {Map<Number, LayeredCell>} */
 	self.unsolved = new Map([]);
 
-	/** @type {Map<Number, LayeredCell>} cells pinned down to a single picture */
-	self.pinned = new Map([]);
-
 	/**
 	 * sub-cell id => set of sub-cell ids of its component.
 	 * Only sub-cells of pinned cells participate.
@@ -337,10 +334,14 @@ export function LayeredSolver(tiles, grid) {
 	self.components = new Map([]);
 
 	/**
-	 * cell => links from pinned cells waiting for this cell to pin down
-	 * @type {Map<Number, {fromId: Number, direction: Number}[]>}
+	 * cell => pinned links of an unpinned cell, by the cell's own direction:
+	 * where pinned neighbours connect into this cell, with the answering
+	 * sub-cell on the pinned side and its frozen layer mask. Recorded when
+	 * a neighbour pins down, resolved when this cell pins down, and read in
+	 * between to prune candidate pictures against pinned components.
+	 * @type {Map<Number, Map<Number, {fromId: Number, mask: Number}>>}
 	 */
-	self.pendingLinks = new Map([]);
+	self.linked = new Map([]);
 
 	/** @type {Number[]} - rotation per cell, or UNSOLVED */
 	self.solution = tiles.map(() => self.UNSOLVED);
@@ -457,15 +458,13 @@ export function LayeredSolver(tiles, grid) {
 				self.components.set(id, new Set([id]));
 			}
 		}
-		const pending = self.pendingLinks.get(cell);
-		if (pending !== undefined) {
-			self.pendingLinks.delete(cell);
-			self.pendingCount -= pending.length;
-			for (let { fromId, direction } of pending) {
-				const backLayer = cellObj.findLayerWithDirection(
-					rotation,
-					self.grid.OPPOSITE.get(direction) || 0
-				);
+		const linked = self.linked.get(cell);
+		if (linked !== undefined) {
+			self.linked.delete(cell);
+			self.pendingCount -= linked.size;
+			// the key is this cell's direction towards the pinned neighbour
+			for (let [direction, { fromId }] of linked) {
+				const backLayer = cellObj.findLayerWithDirection(rotation, direction);
 				if (backLayer === -1) {
 					throw `Pinned tiles ${fromId} and ${cell} do not match`;
 				}
@@ -483,9 +482,13 @@ export function LayeredSolver(tiles, grid) {
 					throw 'Trying to connect to an empty neighbour!';
 				}
 				if (self.unsolved.has(neighbour)) {
-					const neighboursPending = self.pendingLinks.get(neighbour) || [];
-					neighboursPending.push({ fromId, direction });
-					self.pendingLinks.set(neighbour, neighboursPending);
+					let neighboursLinks = self.linked.get(neighbour);
+					if (neighboursLinks === undefined) {
+						neighboursLinks = new Map([]);
+						self.linked.set(neighbour, neighboursLinks);
+					}
+					// at most one layer may use any direction, so the key is unique
+					neighboursLinks.set(self.grid.OPPOSITE.get(direction) || 0, { fromId, mask: layer });
 					self.pendingCount += 1;
 				}
 			}
@@ -532,8 +535,8 @@ export function LayeredSolver(tiles, grid) {
 		}
 		/** @type {Set<Set<Number>>} */
 		const withPending = new Set([]);
-		for (let links of self.pendingLinks.values()) {
-			for (let { fromId } of links) {
+		for (let links of self.linked.values()) {
+			for (let { fromId } of links.values()) {
 				const component = self.components.get(fromId);
 				if (component !== undefined) {
 					withPending.add(component);
@@ -548,10 +551,9 @@ export function LayeredSolver(tiles, grid) {
 	};
 
 	/**
-	 * Removes pictures that definitively contradict pinned neighbours:
-	 * a picture with a direction towards a pinned cell that does not
-	 * point back, or with a single layer connecting into the same pinned
-	 * component twice, can never be part of a solution
+	 * Removes pictures that definitively contradict pinned structure:
+	 * a single layer connecting into the same pinned component twice
+	 * (a definite cycle) can never be part of a solution
 	 * @param {Number} cell
 	 * @param {LayeredCell} cellObj
 	 * @returns {Boolean} - true if some pictures were removed
@@ -560,7 +562,7 @@ export function LayeredSolver(tiles, grid) {
 		if (cellObj.possible.size <= 1) {
 			return false;
 		}
-		const polygon = self.grid.polygon_at(cell);
+		const links = self.linked.get(cell);
 		let removed = false;
 		for (let [rotation, layers] of [...cellObj.possible]) {
 			let bad = false;
@@ -572,17 +574,13 @@ export function LayeredSolver(tiles, grid) {
 				while (bits > 0 && !bad) {
 					const direction = bits & -bits;
 					bits ^= direction;
-					const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
-					const pinnedNeighbour = self.pinned.get(neighbour);
-					if (pinnedNeighbour === undefined) {
+					const link = links?.get(direction);
+					if (link === undefined) {
 						continue;
 					}
-					const opposite = self.grid.OPPOSITE.get(direction) || 0;
-					const neighbourRotation = pinnedNeighbour.possible.keys().next().value || 0;
-					const backLayer = pinnedNeighbour.findLayerWithDirection(neighbourRotation, opposite);
-					const component = self.components.get(self.idOf(neighbour, backLayer));
+					const component = self.components.get(link.fromId);
 					if (component === undefined) {
-						throw `Component data missing for pinned neighbour ${neighbour}`;
+						throw `Component data missing for pinned link at cell ${cell}`;
 					}
 					if (layerComponents.has(component)) {
 						bad = true;
@@ -670,16 +668,6 @@ export function LayeredSolver(tiles, grid) {
 								continue;
 							}
 							const opposite = self.grid.OPPOSITE.get(direction) || 0;
-							const pinnedNeighbour = self.pinned.get(neighbour);
-							if (pinnedNeighbour !== undefined) {
-								// solved neighbours are not revisited,
-								// but a contradiction must be detected
-								const neighbourRotation = pinnedNeighbour.possible.keys().next().value || 0;
-								if (pinnedNeighbour.findLayerWithDirection(neighbourRotation, opposite) !== -1) {
-									throw `Pinned tile ${neighbour} contradicts a new wall`;
-								}
-								continue;
-							}
 							const neighbourCell = self.getCell(neighbour);
 							neighbourCell.addWall(opposite);
 							self.dirty.add(neighbour);
@@ -695,14 +683,6 @@ export function LayeredSolver(tiles, grid) {
 								throw 'Trying to connect to an empty neighbour!';
 							}
 							const opposite = self.grid.OPPOSITE.get(direction) || 0;
-							const pinnedNeighbour = self.pinned.get(neighbour);
-							if (pinnedNeighbour !== undefined) {
-								const neighbourRotation = pinnedNeighbour.possible.keys().next().value || 0;
-								if (pinnedNeighbour.findLayerWithDirection(neighbourRotation, opposite) === -1) {
-									throw `Pinned tile ${neighbour} contradicts a new connection`;
-								}
-								continue;
-							}
 							const neighbourCell = self.getCell(neighbour);
 							neighbourCell.addConnection(opposite);
 							self.dirty.add(neighbour);
@@ -714,6 +694,7 @@ export function LayeredSolver(tiles, grid) {
 				// Same board-size gate as the classic deadend rule: on tiny boards
 				// the sealed pair could be the entire puzzle
 				if (self.checkDeadendConnections && deltas.addedDeadends > 0) {
+					const links = self.linked.get(cell);
 					for (let direction of polygon.directions) {
 						if ((direction & deltas.addedDeadends) > 0) {
 							const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
@@ -721,18 +702,20 @@ export function LayeredSolver(tiles, grid) {
 								continue;
 							}
 							const opposite = self.grid.OPPOSITE.get(direction) || 0;
-							const pinnedNeighbour = self.pinned.get(neighbour);
-							if (pinnedNeighbour !== undefined) {
+							const link = links?.get(direction);
+							if (link !== undefined) {
 								// the pinned neighbour can not lose pictures:
 								// if it answers with a deadend, this cell must not
 								// connect here with a deadend at all
-								const neighbourLayers = pinnedNeighbour.possible.values().next().value || [];
-								if (neighbourLayers.some((layer) => layer === opposite)) {
+								if (link.mask === opposite) {
 									cellObj.addWall(direction);
 									self.dirty.add(cell);
 								}
 								continue;
 							}
+							// no link means the neighbour is not pinned yet:
+							// a pinned neighbour with a wall here would have pushed
+							// the wall into this cell, ruling the deadend fact out
 							const neighbourCell = self.getCell(neighbour);
 							const removed = neighbourCell.removeDeadendPairs(opposite);
 							self.stats.prunedPictures += removed;
@@ -752,7 +735,6 @@ export function LayeredSolver(tiles, grid) {
 			const final = cellObj.possible.size === 1;
 			if (final) {
 				self.unsolved.delete(cell);
-				self.pinned.set(cell, cellObj);
 				self.pinCell(cell, cellObj);
 				self.solution[cell] = rotation;
 				if (self.unsolved.size === 0) {
@@ -815,10 +797,6 @@ export function LayeredSolver(tiles, grid) {
 		self.unsolved.forEach((cell, index) => {
 			clone.unsolved.set(index, cell.clone());
 		});
-		clone.pinned = new Map([]);
-		self.pinned.forEach((cell, index) => {
-			clone.pinned.set(index, cell.clone());
-		});
 		clone.components = new Map([]);
 		/** @type {Map<Set<Number>, Set<Number>>} */
 		const clonedSets = new Map([]);
@@ -836,9 +814,10 @@ export function LayeredSolver(tiles, grid) {
 				clonedSet.add(element);
 			}
 		});
-		clone.pendingLinks = new Map([]);
-		self.pendingLinks.forEach((links, cell) => {
-			clone.pendingLinks.set(cell, [...links]);
+		clone.linked = new Map([]);
+		self.linked.forEach((links, cell) => {
+			// entries are immutable, sharing them between clones is safe
+			clone.linked.set(cell, new Map(links));
 		});
 		clone.solution = [...self.solution];
 		clone.solutions = self.solutions.map((solution) => [...solution]);
@@ -849,24 +828,17 @@ export function LayeredSolver(tiles, grid) {
 	};
 
 	/**
-	 * Counts the pinned neighbours of a cell
+	 * Counts the pinned neighbours that connect into a cell
 	 * @param {Number} cell
 	 * @returns {Number}
 	 */
-	self.countPinnedNeighbours = function (cell) {
-		let count = 0;
-		const polygon = self.grid.polygon_at(cell);
-		for (let direction of polygon.directions) {
-			const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
-			if (!empty && self.pinned.has(neighbour)) {
-				count += 1;
-			}
-		}
-		return count;
+	self.countPinnedLinks = function (cell) {
+		const links = self.linked.get(cell);
+		return links === undefined ? 0 : links.size;
 	};
 
 	/**
-	 * Counts the directions of a picture that point into pinned cells
+	 * Counts the directions of a picture that connect into pinned cells
 	 * @param {Number} cell
 	 * @param {Number} rotation
 	 * @returns {Number}
@@ -874,6 +846,10 @@ export function LayeredSolver(tiles, grid) {
 	self.countPinnedConnections = function (cell, rotation) {
 		const polygon = self.grid.polygon_at(cell);
 		const cellObj = /** @type {LayeredCell} */ (self.unsolved.get(cell));
+		const links = self.linked.get(cell);
+		if (links === undefined) {
+			return 0;
+		}
 		let count = 0;
 		let union = 0;
 		for (let layer of cellObj.layers) {
@@ -883,8 +859,7 @@ export function LayeredSolver(tiles, grid) {
 			if ((union & direction) === 0) {
 				continue;
 			}
-			const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
-			if (!empty && self.pinned.has(neighbour)) {
+			if (links.get(direction) !== undefined) {
 				count += 1;
 			}
 		}
@@ -894,7 +869,7 @@ export function LayeredSolver(tiles, grid) {
 	/**
 	 * Chooses a cell/picture to try out.
 	 * Selects a picture from a cell with the least number of options,
-	 * preferring cells next to pinned structure so that contradictions
+	 * preferring cells pinned structure connects into so that contradictions
 	 * surface quickly, and pictures that grow the pinned structure
 	 * @returns {Number[]} - [cell, rotation]
 	 */
@@ -909,15 +884,15 @@ export function LayeredSolver(tiles, grid) {
 			}
 		}
 		let guessCell = -1;
-		let maxPinnedNeighbours = -1;
+		let maxPinnedLinks = -1;
 		for (let [cell, cellObj] of self.unsolved.entries()) {
 			if (cellObj.possible.size > minPossibleSize) {
 				continue;
 			}
-			const pinnedNeighbours = self.countPinnedNeighbours(cell);
-			if (pinnedNeighbours > maxPinnedNeighbours) {
+			const pinnedLinks = self.countPinnedLinks(cell);
+			if (pinnedLinks > maxPinnedLinks) {
 				guessCell = cell;
-				maxPinnedNeighbours = pinnedNeighbours;
+				maxPinnedLinks = pinnedLinks;
 			}
 		}
 		const cellObj = self.unsolved.get(guessCell);
@@ -1202,7 +1177,7 @@ export function LayeredSolver(tiles, grid) {
 					}
 				}
 				let guessCell = -1;
-				let maxPinnedNeighbours = -1;
+				let maxPinnedLinks = -1;
 				for (let [index, cellObj] of clone.unsolved.entries()) {
 					if (marked[index] === self.AMBIGUOUS) {
 						continue;
@@ -1210,10 +1185,10 @@ export function LayeredSolver(tiles, grid) {
 					if (cellObj.possible.size > minPossibleSize) {
 						continue;
 					}
-					const pinnedNeighbours = solver.countPinnedNeighbours(index);
-					if (pinnedNeighbours > maxPinnedNeighbours) {
+					const pinnedLinks = solver.countPinnedLinks(index);
+					if (pinnedLinks > maxPinnedLinks) {
 						guessCell = index;
-						maxPinnedNeighbours = pinnedNeighbours;
+						maxPinnedLinks = pinnedLinks;
 					}
 				}
 				const cellObj = clone.unsolved.get(guessCell);
