@@ -20,64 +20,62 @@ describe('Test hexagrid layered cell constraints', () => {
 
 	it('Starts with correct possible states from initial layers - sharp turn', () => {
 		const cell = new LayeredCell([3], grid.polygon_at(0), 0);
-		expect(cell.pictures.size).toBe(6);
-		expect([...cell.pictures.keys()]).toEqual(
-			expect.arrayContaining(['3', '6', '12', '24', '48', '33'])
-		);
+		expect(cell.possible.size).toBe(6);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2, 3, 4, 5]));
 	});
 
 	it('Starts with correct possible states from initial layers - straight', () => {
 		const cell = new LayeredCell([9], grid.polygon_at(0), 0);
-		expect(cell.pictures.size).toBe(3);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['9', '18', '36']));
+		expect(cell.possible.size).toBe(3);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2]));
 	});
 
 	it('Drops configurations that contradict walls - deadend', () => {
 		const cell = new LayeredCell([1], grid.polygon_at(0), 0);
 		cell.addWall(8);
 		cell.applyConstraints();
-		expect(cell.pictures.size).toBe(5);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['1', '2', '4', '16', '32']));
+		expect(cell.possible.size).toBe(5);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2, 4, 5]));
 	});
 
 	it('Drops configurations that contradict walls - straight', () => {
 		const cell = new LayeredCell([9], grid.polygon_at(0), 0);
 		cell.addWall(2);
 		cell.applyConstraints();
-		expect(cell.pictures.size).toBe(2);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['9', '36']));
+		expect(cell.possible.size).toBe(2);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1]));
 	});
 
 	it('Drops configurations that contradict walls - sharp turn', () => {
 		const cell = new LayeredCell([3], grid.polygon_at(0), 0);
 		cell.addWall(2);
 		cell.applyConstraints();
-		expect(cell.pictures.size).toBe(4);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['12', '24', '48', '33']));
+		expect(cell.possible.size).toBe(4);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([1, 2, 3, 4]));
 	});
 
 	it('Drops configurations that contradict connections - deadend', () => {
 		const cell = new LayeredCell([1], grid.polygon_at(0), 0);
 		cell.addConnection(8);
 		cell.applyConstraints();
-		expect(cell.pictures.size).toBe(1);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['8']));
+		expect(cell.possible.size).toBe(1);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([3]));
 	});
 
 	it('Drops configurations that contradict connections - straight', () => {
 		const cell = new LayeredCell([9], grid.polygon_at(0), 0);
 		cell.addConnection(2);
 		cell.applyConstraints();
-		expect(cell.pictures.size).toBe(1);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['18']));
+		expect(cell.possible.size).toBe(1);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([2]));
 	});
 
 	it('Drops configurations that contradict connections - sharp turn', () => {
 		const cell = new LayeredCell([3], grid.polygon_at(0), 0);
 		cell.addConnection(2);
 		cell.applyConstraints();
-		expect(cell.pictures.size).toBe(2);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['3', '6']));
+		expect(cell.possible.size).toBe(2);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 5]));
 	});
 
 	it('Reports correct added features - deadend', () => {
@@ -119,27 +117,26 @@ describe('Test hexagrid layered cell constraints', () => {
 	});
 });
 
-describe('Test squaregrid layered cell pictures', () => {
+describe('Test squaregrid layered cell possible states', () => {
 	const grid = new SquareGrid(3, 3, false);
 
 	it('Deduplicates twin rotations of two opposite deadends', () => {
 		const cell = new LayeredCell([1, 4], grid.polygon_at(4), 4);
-		expect(cell.pictures.size).toBe(2);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['1-4', '2-8']));
-		expect(cell.pictures.get('1-4')).toBe(0);
-		expect(cell.pictures.get('2-8')).toBe(1);
+		expect(cell.possible.size).toBe(2);
+		expect(cell.possible.get(0)).toEqual([1, 4]);
+		expect(cell.possible.get(1)).toEqual([8, 2]);
 	});
 
 	it('Deduplicates all rotations of two crossing straights', () => {
 		const cell = new LayeredCell([5, 10], grid.polygon_at(4), 4);
-		expect(cell.pictures.size).toBe(1);
-		expect(cell.pictures.get('5-10')).toBe(0);
+		expect(cell.possible.size).toBe(1);
+		expect(cell.possible.get(0)).toEqual([5, 10]);
 	});
 
-	it('Empty cell has a single empty picture', () => {
+	it('Empty cell has a single empty state', () => {
 		const cell = new LayeredCell([], grid.polygon_at(0), 0);
-		expect(cell.pictures.size).toBe(1);
-		expect(cell.pictures.get('0')).toBe(0);
+		expect(cell.possible.size).toBe(1);
+		expect(cell.possible.get(0)).toEqual([]);
 	});
 });
 
@@ -150,26 +147,28 @@ describe('Test layered cell cloning', () => {
 		const cell = new LayeredCell([1], grid.polygon_at(0), 0);
 		const clone = cell.clone();
 		expect(clone.index).toBe(cell.index);
-		expect([...clone.pictures.keys()]).toEqual(expect.arrayContaining([...cell.pictures.keys()]));
+		expect([...clone.possible.keys()]).toEqual(expect.arrayContaining([...cell.possible.keys()]));
 	});
 
-	it('Removing picture from cell does not affect clone', () => {
+	it('Removing state from cell does not affect clone', () => {
 		const cell = new LayeredCell([1], grid.polygon_at(0), 0);
-		const ids = [...cell.pictures.keys()];
+		const rotations = [...cell.possible.keys()];
 		const clone = cell.clone();
-		cell.pictures.delete('1');
-		expect([...clone.pictures.keys()]).toEqual(expect.arrayContaining(ids));
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(ids.filter((x) => x !== '1')));
+		cell.possible.delete(0);
+		expect([...clone.possible.keys()]).toEqual(expect.arrayContaining(rotations));
+		expect([...cell.possible.keys()]).toEqual(
+			expect.arrayContaining(rotations.filter((x) => x !== 0))
+		);
 	});
 
-	it('Removing picture from clone does not affect cell', () => {
+	it('Removing state from clone does not affect cell', () => {
 		const cell = new LayeredCell([1], grid.polygon_at(0), 0);
-		const ids = [...cell.pictures.keys()];
+		const rotations = [...cell.possible.keys()];
 		const clone = cell.clone();
-		clone.pictures.delete('1');
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(ids));
-		expect([...clone.pictures.keys()]).toEqual(
-			expect.arrayContaining(ids.filter((x) => x !== '1'))
+		clone.possible.delete(0);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining(rotations));
+		expect([...clone.possible.keys()]).toEqual(
+			expect.arrayContaining(rotations.filter((x) => x !== 0))
 		);
 	});
 });
@@ -181,8 +180,8 @@ describe('Test solver border constraints', () => {
 	it('Starts with correct possible states', () => {
 		const solver = new LayeredSolver(tiles, grid);
 		const cell = solver.getCell(3);
-		expect(cell.pictures.size).toBe(5);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['1', '2', '4', '16', '32']));
+		expect(cell.possible.size).toBe(5);
+		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2, 4, 5]));
 	});
 
 	it('Adds walls to border cells', () => {
@@ -203,10 +202,10 @@ describe('Test solver border constraints', () => {
 		);
 		const emptyCell = solver.getCell(5);
 		expect(emptyCell.walls).toBe(0);
-		expect(emptyCell.pictures.size).toBe(1);
+		expect(emptyCell.possible.size).toBe(1);
 		const fullCell = solver.getCell(6);
 		expect(fullCell.connections).toBe(0);
-		expect(fullCell.pictures.size).toBe(1);
+		expect(fullCell.possible.size).toBe(1);
 		expect([...solver.dirty]).toContain(5);
 		expect([...solver.dirty]).toContain(6);
 	});
@@ -216,13 +215,6 @@ describe('Test solver border constraints', () => {
 		const solver = new LayeredSolver([[3], [3], [3]], grid);
 		solver.getCell(0);
 		expect(solver.dirty.size).toBe(0);
-	});
-
-	it('Rules out pictures connecting only deadends', () => {
-		const solver = new LayeredSolver(tiles, new HexaGrid(3, 3, false));
-		const cell = solver.getCell(4);
-		expect([...solver.dirty]).toContain(4);
-		expect([...cell.pictures.keys()]).toEqual(expect.arrayContaining(['18', '36']));
 	});
 });
 
@@ -237,9 +229,9 @@ describe('Test solver cloning', () => {
 		if (cloneCell === undefined) {
 			throw 'Clone cell is undefined';
 		}
-		cell.pictures.delete('3');
+		cell.possible.delete(0);
 		cell.addWall(1);
-		expect([...cloneCell.pictures.keys()]).toContain('3');
+		expect([...cloneCell.possible.keys()]).toContain(0);
 		expect(cloneCell.walls).toBe(cell.walls - 1);
 		cloneCell.addConnection(2);
 		expect(cell.connections).toBe(0);
@@ -458,7 +450,7 @@ describe('Test multi-layer boards', () => {
 });
 
 describe('Test deadend pair facts', () => {
-	it('Derives the deadends mask from layer degrees', () => {
+	it('Derives the deadends mask from layer popcounts', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const polygon = grid.polygon_at(4);
 		// two deadend layers: every used direction is always used via a deadend
@@ -487,13 +479,13 @@ describe('Test deadend pair facts', () => {
 		expect(mixedCell.possible.has(3)).toBe(true);
 	});
 
-	it('Clones the deadends mask and shares layer degrees', () => {
+	it('Clones the deadends mask and layer popcounts', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const cell = new LayeredCell([2, 1], grid.polygon_at(4), 4);
 		cell.applyConstraints();
 		const clone = cell.clone();
 		expect(clone.deadends).toBe(cell.deadends);
-		expect(clone.layerDegrees).toBe(cell.layerDegrees);
+		expect(clone.layerPopcounts).toEqual(cell.layerPopcounts);
 	});
 
 	it('Does not report phantom deadend additions after a picture set replacement', () => {
@@ -555,7 +547,7 @@ describe('Test deadend pair facts', () => {
 		const solver = new LayeredSolver(tiles, grid);
 		// pin the centre cell to its deadend answer
 		const centre = solver.getCell(4);
-		centre.pictures = new Map([['2-9', 0]]);
+		centre.possible = new Map([[0, [2, 9]]]);
 		solver.dirty.add(4);
 		for (const step of solver.processDirtyCells()) {
 			if (step.cell === 4) {

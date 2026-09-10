@@ -7,22 +7,24 @@ Files: `src/lib/puzzle/solver-layers.js`. Classic counterpart: `solver.js` (`Sol
 Boards are assumed to have a single connected playable region — grids with disconnected areas
 are not supported.
 
-## Core model: pictures
+## Core model: possible states
 
 - The decision variable is the **cell rotation**: rotating a cell rotates all its layers at
   once, so a cell has `num_directions` possible states, not a free choice per layer.
 - A **picture** is an equivalence class of rotations that produce the same multiset of rotated
-  layer masks. `pictureId(masks)` = sorted masks joined with `-` (`'0'` for empty cells).
-  `buildPictures`/`pictureTable` map picture id → smallest rotation producing it.
+  layer masks; `pictureId(masks)` = sorted masks joined with `-` (`'0'` for empty cells) is
+  only the dedupe key. The state itself lives in `LayeredCell.possible: Map<rotation, layers[]>`:
+  each surviving picture is stored as its smallest representative rotation together with the
+  rotated layer masks at that rotation (`buildPossible`).
 - Soundness: rotations sharing a picture are solved-equivalent — they induce the same sub-cell
   adjacency up to relabeling (a graph isomorphism). So classic's trick of deduplicating
   identical orientation masks carries over: constraints are tracked per picture and any
   representative rotation can stand in for the whole class.
-- Pictures are also the uniqueness currency: `LayeredCell.pictures: Map<id, repRotation>`,
-  `solution`/`solutions` hold picture ids, ambiguity is decided per picture id, and
-  Puzzle.svelte's solution switching compares picture ids. `convertMarked` turns ids back into
-  representative rotations (the `UNSOLVED`/`AMBIGUOUS` sentinels pass through).
-- Steps yield `LayeredStep {cell, id, rotation, final}`; sentinels `UNSOLVED = -1`,
+- Rotations are also the uniqueness currency: `solution`/`solutions` hold representative
+  rotations, ambiguity is decided per representative rotation, and Puzzle.svelte applies
+  solution rotations directly with no id conversion. The `UNSOLVED`/`AMBIGUOUS` sentinels
+  pass through unchanged.
+- Steps yield `LayeredStep {cell, rotation, final}`; sentinels `UNSOLVED = -1`,
   `AMBIGUOUS = -2`.
 - Gotcha: layer masks are plain numbers — a cell with two straight pipes is `[5, 10]`, never
   `[[5], [10]]`. Nested one-element arrays only pass tests by accident of JS bitwise coercion
@@ -38,25 +40,26 @@ are not supported.
   surviving union become connections. Empty picture set ⇒ `NoOrientationsPossible`.
 - **Deadend facts** (third derived mask): `deadends` bit d is set
   when every surviving picture connecting in direction d does so via a single-connection layer.
-  Backed by the static per-picture `layerDegrees` table (picture id => direction => popcount of
-  the connecting layer, immutable, shared between clones). Unlike walls and connections the
-  mask is _not_ monotone — the property depends on HOW a direction is used, not just whether —
-  so `applyConstraints` re-derives it from scratch each pass and reports
-  `addedDeadends = newDeadends & (full ^ deadends)`; a numeric subtraction would turn stale
-  bits into phantom additions after wholesale picture-set replacements (short trial probes)
-  and unsoundly prune true pictures (found via 20x20 boards coming back `solvable: false`).
+  Backed by the static `layerPopcounts` array (popcount per layer at rotation 0 — popcounts
+  are rotation-invariant, so the array never changes and is simply rebuilt per clone). Unlike
+  walls and connections the mask is _not_ monotone — the property depends on HOW a direction is
+  used, not just whether — so `applyConstraints` re-derives it from scratch each pass and
+  reports `addedDeadends = newDeadends & (full ^ deadends)`; a numeric subtraction would turn
+  stale bits into phantom additions after wholesale picture-set replacements (short trial
+  probes) and unsoundly prune true pictures (found via 20x20 boards coming back
+  `solvable: false`).
   Propagation (`processDirtyCells`): when cell A's `deadends` gains bit d, the neighbour across d must not answer with its own
   deadend — two facing single-connection sub-cells would be sealed off from the tree — so
   `removeDeadendPairs(opposite)` deletes the neighbour's pictures that connect there via a
-  popcount-1 layer; against a pinned neighbour the check runs via `layerDegreeAt` and turns
-  into a wall on A itself. This is the layered generalization of the classic deadend rule:
+  popcount-1 layer (a layer mask equal to the single direction bit); against a pinned neighbour
+  the check reads the pinned cell's only layer list directly and turns into a wall on A itself.
+  This is the layered generalization of the classic deadend rule:
   classic marks whole deadend _tiles_ (rotation-invariant), here the fact is per direction and
   per layer, refined as candidate sets shrink. Cells without deadend layers (`hasDeadends`,
-  static) skip the degree table, the mask derivation and neighbour-side pair checks entirely —
+  static) skip the popcount scan, the mask derivation and neighbour-side pair checks entirely —
   the bulk of the per-pass cost on deadend-free boards. The propagation block is gated by
   `checkDeadendConnections` with the same rationale as classic: on tiny boards the sealed pair
-  could be the entire puzzle. The static union-popcount seeding in `doLocalDeductions` stays as
-  a harmless subset of the new mechanism.
+  could be the entire puzzle.
 - Facts live at cell level (union). Which _layer_ points where only matters at pin time and in
   the pruner, both via `findLayerWithDirection(rotation, direction)`.
 
@@ -114,40 +117,44 @@ For each dirty cell, `processDirtyCells` loops until stable:
 1. `applyConstraints` → wall/connection deltas;
 2. propagate deltas to neighbours. Into pinned neighbours: verify consistency and throw — the
    solver never resurrects pinned cells (classic re-creates solved cells via `getCell`);
-3. `pruneContradictoryPictures`: delete pictures where some layer points off-board, points at a
-   pinned cell with no back-layer, or would connect a single layer into the same pinned
-   component twice (definite cycle, see above).
+3. `pruneContradictoryPictures`: delete pictures that would connect a single layer into the
+   same pinned component twice (definite cycle, see above). No off-board or back-layer checks
+   are needed: border walls are derived at cell init, and a pinned cell with a wall towards
+   this cell already forced the opposite wall here, deleting contradicting states during wall
+   propagation.
 
 The loop is a correctness requirement, not an optimization: pruning can imply NEW
 walls/connections (the deleted picture was the only one avoiding a wall), and those facts must
 reach neighbours before the cell is considered for pinning. Without it, cells pinned to wrong
 rotations — rare, random boards only, found by a 450-board stress loop.
 
-`doLocalDeductions` on cell init: outer walls, invalid directions, deadend connections
-(neighbour union has a single bit; gated by the `checkDeadendConnections` board-size
-threshold). Classic's hexa/octa `tileTypes` tricks are not ported — union masks don't classify
+`doLocalDeductions` on cell init: outer walls and invalid directions only. The classic
+"connects only deadends" picture filter is not needed here — the per-direction deadend pair
+rule above supersedes it. Classic's hexa/octa
+`tileTypes` tricks are not ported — union masks don't classify
 into tile types — one reason layered deduction is weaker (see performance).
 
 ## Search
 
 - `solve(allSolutions)`: a stack of trials, each trial a cloned solver. Stages yielded:
-  `initial`, `guess`, `aftercheck`. Backtracking = the parent deletes the guessed picture id
+  `initial`, `guess`, `aftercheck`. Backtracking = the parent deletes the guessed rotation
   and re-dirties the cell. The exception types (`LoopDetected`, `IslandDetected`,
   `NoOrientationsPossible`) simply pop the trial.
-- Guessing (`makeAGuess`): MRV over picture counts (early exit at 2), tie-break "most pinned
-  neighbours" (contradictions surface next to the pinned structure), value order "picture with
-  most pinned connections" (greedy tree-growing — safe for completeness because every value is
-  still tried on backtrack).
+- Guessing (`makeAGuess`): MRV over possible-state counts (early exit at 2), tie-break "most
+  pinned neighbours" (contradictions surface next to the pinned structure), value order
+  "picture with most pinned connections" (greedy tree-growing — safe for completeness because
+  every value is still tried on backtrack).
 - `doShortTrials` (used by `markAmbiguousTiles` only, at the root trial): probes each candidate
-  picture on a clone; if processing dies, the picture is deleted from the real cell.
+  state on a clone; if processing dies, the state is deleted from the real cell.
   Round-robins the start cell via `shortTrialsIndex`.
 - History: these heuristics plus the pruners took 10×10 boards from ~75% timeouts to ≤1.1 s.
 
 ## `markAmbiguousTiles(ambiguousTilesLimit, maxIterations)`
 
-- Same contract as classic: search for solutions; cells whose picture id differs between
-  solutions become `AMBIGUOUS` (ambiguity is reported per CELL even though matching is per
-  picture id); the returned `marked` array holds representative rotations.
+- Same contract as classic: search for solutions; cells whose representative rotation differs
+  between solutions become `AMBIGUOUS` (ambiguity is reported per CELL even though matching is
+  per rotation); the returned `marked` array holds rotations, with the `UNSOLVED`/`AMBIGUOUS`
+  sentinels in place where applicable.
 - The guess loop here is an inlined copy of `makeAGuess` that skips `AMBIGUOUS`-marked cells;
   if only ambiguous cells remain it drains `solver.unsolved` and continues instead of guessing.
 - `ambiguousTilesLimit > 0` early-returns once that many ambiguities are known.
@@ -174,7 +181,7 @@ into tile types — one reason layered deduction is weaker (see performance).
 
 | Aspect           | classic                       | layered                                           |
 | ---------------- | ----------------------------- | ------------------------------------------------- |
-| cell state       | set of orientation masks      | map of picture id → representative rotation       |
+| cell state       | set of orientation masks      | map of representative rotation → rotated layers   |
 | identity         | cell index                    | cell for constraints, sub-cell for the tree       |
 | loop detection   | component walls + merge check | union-find merge + edge budget + per-layer prune  |
 | solved cells     | may be re-created via getCell | never resurrected; contradictions throw           |

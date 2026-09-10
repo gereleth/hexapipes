@@ -82,15 +82,15 @@ function pictureId(masks) {
  */
 function buildPossible(layers, polygon) {
 	/** @type {Set<String>} */
-	const pictures = new Set();
+	const seen = new Set();
 	/** @type {Map<Number, Number[]>} */
 	const possible = new Map();
 	const numDirections = polygon.num_directions;
 	for (let rotation = 0; rotation < numDirections; rotation++) {
 		const masks = layers.map((layer) => polygon.rotate(layer, rotation));
 		const id = pictureId(masks);
-		if (!pictures.has(id)) {
-			pictures.add(id);
+		if (!seen.has(id)) {
+			seen.add(id);
 			possible.set(rotation, masks);
 		}
 	}
@@ -113,9 +113,6 @@ export function LayeredCell(layers, polygon, index = -1) {
 	self.index = index;
 	self.layers = layers;
 	self.polygon = polygon;
-
-	// /** @type {Map<String, Number>} picture id => representative rotation */
-	// self.pictures = buildPictures(layers, polygon);
 
 	/** @type {Map<Number, Number[]>} rotation => layers at that rotation */
 	self.possible = buildPossible(layers, polygon);
@@ -263,24 +260,6 @@ export function LayeredCell(layers, polygon, index = -1) {
 			}
 		}
 		return -1;
-	};
-
-	/**
-	 * Popcount of the layer holding the direction at the given rotation,
-	 * 0 when no layer points there. Meaningful for pinned cells and
-	 * individual pictures, whose rotations are definitive.
-	 * @param {Number} rotation
-	 * @param {Number} direction
-	 * @returns {Number}
-	 */
-	self.layerDegreeAt = function (rotation, direction) {
-		for (let layer of layers) {
-			const mask = polygon.rotate(layer, rotation);
-			if ((mask & direction) > 0) {
-				return popcount(mask);
-			}
-		}
-		return 0;
 	};
 
 	/**

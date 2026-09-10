@@ -200,11 +200,9 @@ describe('Test layered solver wiring', () => {
 		for (const _ of solver.solve(false)) {
 			// find the first solution
 		}
-		const rotations = solver.solution.map(
-			(id, cell) => solver.pictureTable[cell].get(/** @type {String} */ (id)) || 0
-		);
+		// solution now holds rotations directly,
 		// the same way Puzzle.svelte applies solver steps
-		rotations.forEach((rotation, cell) => game.setTileOrientation(cell, rotation));
+		solver.solution.forEach((rotation, cell) => game.setTileOrientation(cell, rotation));
 		expect(game.solved).toBe(true);
 	});
 });
