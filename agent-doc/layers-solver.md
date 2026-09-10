@@ -82,7 +82,7 @@ State:
 - `linked: Map<cell, Map<direction, {fromId, mask}>>` — an unpinned cell's pinned links, keyed
   by the cell's own direction: where pinned neighbours connect into it, with the answering
   sub-cell id on the pinned side and that layer's frozen mask. Recorded when a neighbour pins,
-  read while the cell is open (pruner, deadend rule, guess heuristics), resolved and deleted
+  read while the cell is open (pruner, deadend rule), resolved and deleted
   when the cell pins. Entry objects are immutable, so `clone()` copies the maps and shares the
   entries. There is no pinned-cell registry: `pinned` was removed because these links plus
   `components` are everything the solver ever needs to know about pinned cells.
@@ -167,14 +167,16 @@ into tile types — one reason layered deduction is weaker (see performance).
   `initial`, `guess`, `aftercheck`. Backtracking = the parent deletes the guessed rotation
   and re-dirties the cell. The exception types (`LoopDetected`, `IslandDetected`,
   `NoOrientationsPossible`) simply pop the trial.
-- Guessing (`makeAGuess`): MRV over possible-state counts (early exit at 2), tie-break "most
-  pinned links" (contradictions surface where pinned structure connects in), value order
-  "picture with most pinned connections" (greedy tree-growing — safe for completeness because
-  every value is still tried on backtrack).
+- Guessing (`makeAGuess`): MRV over possible-state counts (early exit at 2), first candidate
+  state as the value — classic-style. Guess heuristics (pinned-links cell tie-break, pinned
+  connections value order) were removed after benchmarking: worth ~15–35% typical case, but
+  the effect did not reproduce reliably across board samples and the removed tail behaviour
+  was calmer without them (see performance).
 - `doShortTrials` (used by `markAmbiguousTiles` only, at the root trial): probes each candidate
   state on a clone; if processing dies, the state is deleted from the real cell.
   Round-robins the start cell via `shortTrialsIndex`.
-- History: these heuristics plus the pruners took 10×10 boards from ~75% timeouts to ≤1.1 s.
+- History: the pruners took 10×10 boards from ~75% timeouts to ≤1.1 s; the guess heuristics on
+  top turned out not to earn their keep (see above).
 
 ## `markAmbiguousTiles(ambiguousTilesLimit, maxIterations)`
 
@@ -201,11 +203,12 @@ into tile types — one reason layered deduction is weaker (see performance).
   walls (see the tree constraint section) — trial stacks grow deep before a contradiction
   surfaces.
 - Fresh 20×20 non-wrap boards (layering 0.6): `solver-layers-stats.test.js` with
-  `BENCH_MARK_AMBIGUOUS=1` — square mean ≈1.5 s, p90 ≈2.8 s; hexa mean ≈2.1 s, p90 ≈4.7 s,
-  with a rare multi-minute tail (one run in 100 hit the 60 s wall-clock cap; see
-  `generator_stats/layered_mark_ambiguous_20x20.json`). Per-step cost halved vs the previous
-  pinned-map design, but hexa boards explore more trials: the link-count guess tie-break sees
-  fewer candidate cells than the old pinned-neighbour count, which changes search order.
+  `BENCH_MARK_AMBIGUOUS=1` — square mean ≈1.8 s (p50 ≈1.5 s, p90 ≈3.3 s); hexa mean ≈2.4 s
+  (p50 ≈1.2 s, p90 ≈5.7 s), worst run ≈24 s, no wall-clock caps in 200 runs (see
+  `generator_stats/layered_mark_ambiguous_20x20.json`). The removed guess heuristics were
+  worth ~15–35% typical case on this sample, but their effect fluctuated across board samples
+  and the capped-tail runs only appeared with them on — taking them out trades a modest,
+  unreliable speedup for simpler classic-parity guessing.
 - The generator's workaround (maxIterations + regenerate) hides the tail from users but wastes
   the work; a real fix would be cell-level pruning that stays sound with parallel pipes —
   remembering that only same-layer double connections are definite cycles.

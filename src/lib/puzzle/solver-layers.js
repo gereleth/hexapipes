@@ -828,89 +828,28 @@ export function LayeredSolver(tiles, grid) {
 	};
 
 	/**
-	 * Counts the pinned neighbours that connect into a cell
-	 * @param {Number} cell
-	 * @returns {Number}
-	 */
-	self.countPinnedLinks = function (cell) {
-		const links = self.linked.get(cell);
-		return links === undefined ? 0 : links.size;
-	};
-
-	/**
-	 * Counts the directions of a picture that connect into pinned cells
-	 * @param {Number} cell
-	 * @param {Number} rotation
-	 * @returns {Number}
-	 */
-	self.countPinnedConnections = function (cell, rotation) {
-		const polygon = self.grid.polygon_at(cell);
-		const cellObj = /** @type {LayeredCell} */ (self.unsolved.get(cell));
-		const links = self.linked.get(cell);
-		if (links === undefined) {
-			return 0;
-		}
-		let count = 0;
-		let union = 0;
-		for (let layer of cellObj.layers) {
-			union |= polygon.rotate(layer, rotation);
-		}
-		for (let direction of polygon.directions) {
-			if ((union & direction) === 0) {
-				continue;
-			}
-			if (links.get(direction) !== undefined) {
-				count += 1;
-			}
-		}
-		return count;
-	};
-
-	/**
 	 * Chooses a cell/picture to try out.
 	 * Selects a picture from a cell with the least number of options,
-	 * preferring cells pinned structure connects into so that contradictions
-	 * surface quickly, and pictures that grow the pinned structure
+	 * taking its first candidate state
 	 * @returns {Number[]} - [cell, rotation]
 	 */
 	self.makeAGuess = function () {
+		let guessCell = -1;
 		let minPossibleSize = Number.POSITIVE_INFINITY;
-		for (let [, cellObj] of self.unsolved.entries()) {
+		for (let [cell, cellObj] of self.unsolved.entries()) {
 			if (cellObj.possible.size < minPossibleSize) {
 				minPossibleSize = cellObj.possible.size;
+				guessCell = cell;
 				if (minPossibleSize == 2) {
 					break;
 				}
-			}
-		}
-		let guessCell = -1;
-		let maxPinnedLinks = -1;
-		for (let [cell, cellObj] of self.unsolved.entries()) {
-			if (cellObj.possible.size > minPossibleSize) {
-				continue;
-			}
-			const pinnedLinks = self.countPinnedLinks(cell);
-			if (pinnedLinks > maxPinnedLinks) {
-				guessCell = cell;
-				maxPinnedLinks = pinnedLinks;
 			}
 		}
 		const cellObj = self.unsolved.get(guessCell);
 		if (cellObj === undefined) {
 			throw 'Cell selected for guessing is undefined!';
 		}
-		let guessRotation = -1;
-		/**@type {Number[]} */
-		let guessLayers = [];
-		let maxPinnedConnections = -1;
-		for (let [rotation, layers] of cellObj.possible) {
-			const pinnedConnections = self.countPinnedConnections(guessCell, rotation);
-			if (pinnedConnections > maxPinnedConnections) {
-				guessRotation = rotation;
-				guessLayers = layers;
-				maxPinnedConnections = pinnedConnections;
-			}
-		}
+		const [guessRotation, guessLayers] = cellObj.possible.entries().next().value || [0, []];
 		const guessedPictures = new Map();
 		guessedPictures.set(guessRotation, guessLayers);
 		cellObj.possible = guessedPictures;
@@ -1164,6 +1103,7 @@ export function LayeredSolver(tiles, grid) {
 
 				// copypasta of makeAGuess function
 				// because I want to ignore ambiguous tiles as guess candidates
+				let guessCell = -1;
 				let minPossibleSize = Number.POSITIVE_INFINITY;
 				for (let [index, cellObj] of clone.unsolved.entries()) {
 					if (marked[index] === self.AMBIGUOUS) {
@@ -1171,24 +1111,10 @@ export function LayeredSolver(tiles, grid) {
 					}
 					if (cellObj.possible.size < minPossibleSize) {
 						minPossibleSize = cellObj.possible.size;
+						guessCell = index;
 						if (minPossibleSize == 2) {
 							break;
 						}
-					}
-				}
-				let guessCell = -1;
-				let maxPinnedLinks = -1;
-				for (let [index, cellObj] of clone.unsolved.entries()) {
-					if (marked[index] === self.AMBIGUOUS) {
-						continue;
-					}
-					if (cellObj.possible.size > minPossibleSize) {
-						continue;
-					}
-					const pinnedLinks = solver.countPinnedLinks(index);
-					if (pinnedLinks > maxPinnedLinks) {
-						guessCell = index;
-						maxPinnedLinks = pinnedLinks;
 					}
 				}
 				const cellObj = clone.unsolved.get(guessCell);
