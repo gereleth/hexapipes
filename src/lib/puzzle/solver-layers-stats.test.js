@@ -165,8 +165,8 @@ function flush() {
 					'stats are per-run solver work counters',
 				started: startedIso,
 				written: new Date().toISOString(),
-				runs: allRuns,
-				summary
+				summary,
+				runs: allRuns
 			},
 			undefined,
 			'\t'
