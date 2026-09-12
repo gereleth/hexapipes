@@ -45,6 +45,24 @@ function IslandDetectedException() {
  */
 
 /**
+ * A slot is an unresolved component member: a promise that whichever
+ * sub-cell of `cell` ends up using `direction` will join the slot's
+ * component. Slots are born when a connection between two cells becomes
+ * certain (every surviving picture connects that way) but the answering
+ * sub-cell is not uniquely determined yet. Slot objects are immutable and
+ * shared between clones.
+ * @typedef {Object} Slot
+ * @property {Number} cell - the cell owning the direction
+ * @property {Number} direction - the cell's own direction of the edge
+ */
+
+/**
+ * Component members are the resolved sub-cells of unpinned cells and the
+ * unresolved slots. Sub-cells of pinned cells are dropped from components.
+ * @typedef {Number|Slot} ComponentMember
+ */
+
+/**
  * Counts set bits in a bitmask
  * @param {Number} mask
  * @returns {Number}
@@ -306,10 +324,13 @@ const emptyCallback = (/**@type {SolverProgress} */ progress) => {};
  * Solver for layered pipes puzzles.
  * Mirrors the classic Solver, but the state of a cell is its rotation
  * (represented by picture equivalence classes) instead of a tile bitmask.
- * The tree constraint is tracked over sub-cells (cell + layer): when a cell
- * pins down to a single picture, its sub-cell edges become definitive and
- * get merged in a union-find structure; closing a loop or leaving the
- * solved board disconnected raises an exception.
+ * The tree constraint is tracked over sub-cells (cell + layer) with
+ * components maintained eagerly over the open frontier: whenever a
+ * connection between two cells becomes certain, its ends join one
+ * component - directly when both answering sub-cells are uniquely
+ * determined, otherwise as slots promising that the future answerer will
+ * join. Closing a loop or leaving the solved board disconnected raises an
+ * exception.
  * @constructor
  * @param {Number[][]} tiles - layered tiles: per cell a list of layer bitmasks
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
@@ -327,21 +348,24 @@ export function LayeredSolver(tiles, grid) {
 	self.unsolved = new Map([]);
 
 	/**
-	 * sub-cell id => set of sub-cell ids of its component.
-	 * Only sub-cells of pinned cells participate.
-	 * @type {Map<Number, Set<Number>>}
+	 * member => set of members of its component. A component set is the
+	 * open frontier through which the component can still grow: resolved
+	 * sub-cells of unpinned cells and unresolved slots. Resolved members
+	 * are dropped again - slot resolution swaps the slot for the answerer,
+	 * pinning swaps the sub-cell for the slots of its certain edges - so
+	 * nothing accumulates. Identity is by object reference for slots, and
+	 * clone() must preserve set sharing.
+	 * @type {Map<ComponentMember, Set<ComponentMember>>}
 	 */
 	self.components = new Map([]);
 
 	/**
-	 * cell => pinned links of an unpinned cell, by the cell's own direction:
-	 * where pinned neighbours connect into this cell, with the answering
-	 * sub-cell on the pinned side and its frozen layer mask. Recorded when
-	 * a neighbour pins down, resolved when this cell pins down, and read in
-	 * between to prune candidate pictures against pinned components.
-	 * @type {Map<Number, Map<Number, {fromId: Number, mask: Number}>>}
+	 * cell => (direction => slot) for the cell's own directions of certain
+	 * edges whose answering sub-cell is not uniquely determined yet.
+	 * At most one slot per cell+direction, so the pair is a unique key.
+	 * @type {Map<Number, Map<Number, Slot>>}
 	 */
-	self.linked = new Map([]);
+	self.slotIndex = new Map([]);
 
 	/** @type {Number[]} - rotation per cell, or UNSOLVED */
 	self.solution = tiles.map(() => self.UNSOLVED);
@@ -374,9 +398,10 @@ export function LayeredSolver(tiles, grid) {
 	self.shortTrialsIndex = 0;
 
 	// Every complete assignment has the same number of edges: half the
-	// total number of layer direction bits (popcounts are rotation invariant).
-	// Edges committed by pinned cells (internal + pending) are irreversible,
-	// so they can never exceed this budget.
+	// total number of layer direction bits (popcounts are rotation invariant),
+	// which is exactly the edge count of a spanning tree over the sub-cells.
+	// Every certain edge is part of the final tree, so their running count
+	// can never exceed this budget.
 	self.totalSubCells = 0;
 	self.totalEdges = 0;
 	for (let cellLayers of tiles) {
@@ -386,8 +411,9 @@ export function LayeredSolver(tiles, grid) {
 		}
 	}
 	self.totalEdges = self.totalEdges / 2;
-	self.internalEdges = 0;
-	self.pendingCount = 0;
+	self.committedEdges = 0;
+	// non-empty cells still to pin down; zero means the board is complete
+	self.cellsToPin = tiles.filter((cellLayers) => cellLayers.length > 0).length;
 
 	/**
 	 * Sub-cell id for a layer of a cell
@@ -416,88 +442,377 @@ export function LayeredSolver(tiles, grid) {
 	};
 
 	/**
-	 * Merges the components of two sub-cells
-	 * @param {Number} a - sub-cell id
-	 * @param {Number} b - sub-cell id
-	 * @throws {LoopDetected}
+	 * Set of sub-cell ids that could answer a connection in `direction` of
+	 * `cell`, across the surviving pictures. Pinned cells are not in
+	 * `unsolved`, so null is returned for them.
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @returns {Set<Number>|null}
 	 */
-	self.unionSubCells = function (a, b) {
-		const componentA = self.components.get(a);
-		const componentB = self.components.get(b);
-		if (componentA === undefined || componentB === undefined) {
-			throw `Component data missing for sub-cells ${a}, ${b}`;
+	self.answererCandidates = function (cell, direction) {
+		const cellObj = self.unsolved.get(cell);
+		if (cellObj === undefined) {
+			return null;
 		}
-		if (componentA === componentB) {
-			throw new LoopDetectedException();
+		/** @type {Set<Number>} */
+		const candidates = new Set([]);
+		for (let layers of cellObj.possible.values()) {
+			for (let index = 0; index < layers.length; index++) {
+				if ((layers[index] & direction) > 0) {
+					candidates.add(self.idOf(cell, index));
+				}
+			}
 		}
-		self.internalEdges += 1;
-		const source = componentA.size > componentB.size ? componentB : componentA;
-		const target = source === componentA ? componentB : componentA;
-		for (let id of source) {
-			self.components.set(id, target);
-			target.add(id);
+		return candidates;
+	};
+
+	/**
+	 * Registers a member in a component set, creating a singleton if needed
+	 * @param {ComponentMember} member
+	 * @returns {Set<ComponentMember>}
+	 */
+	self.componentOf = function (member) {
+		let set = self.components.get(member);
+		if (set === undefined) {
+			set = new Set([member]);
+			self.components.set(member, set);
+		}
+		return set;
+	};
+
+	/**
+	 * Merges two component sets, re-keying the smaller one into the larger.
+	 * Runs the touch scan over the freshly absorbed members: an open
+	 * direction of an absorbed open-cell member resolving into the same
+	 * component is a definite wall in every solution - the layered
+	 * equivalent of classic mergeComponents wall drawing.
+	 * @param {Set<ComponentMember>} a
+	 * @param {Set<ComponentMember>} b
+	 * @returns {Set<ComponentMember>} - the surviving set
+	 */
+	self.mergeSets = function (a, b) {
+		if (a === b) {
+			return a;
+		}
+		const source = a.size > b.size ? b : a;
+		const target = source === a ? b : a;
+		for (let member of source) {
+			self.components.set(member, target);
+			target.add(member);
+			if (typeof member === 'number') {
+				// the absorbed sub-cell's neighbours resolve this component
+				// behind its directions now - their pictures may be prunable
+				const cell = member % self.grid.total;
+				for (let direction of self.grid.polygon_at(cell).directions) {
+					const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
+					if (!empty && self.unsolved.has(neighbour)) {
+						self.dirty.add(neighbour);
+					}
+				}
+			}
+		}
+		self.touchScan(source, target);
+		return target;
+	};
+
+	/**
+	 * Draws definite walls around a freshly absorbed component part: when
+	 * BOTH ends of a member cell's open direction resolve uniquely into the
+	 * same component, the edge would close a cycle in every solution. The
+	 * near end is only certain when the direction has a unique answerer -
+	 * a multi-layered cell's other layers may legally reach the component
+	 * through their own sub-cells
+	 * @param {Set<ComponentMember>} members - freshly absorbed members
+	 * @param {Set<ComponentMember>} target - the merged component
+	 */
+	self.touchScan = function (members, target) {
+		for (let member of members) {
+			if (typeof member !== 'number') {
+				// slots have no stance of their own
+				continue;
+			}
+			const cell = member % self.grid.total;
+			const cellObj = self.unsolved.get(cell);
+			if (cellObj === undefined) {
+				// pinned cells have their stance pushed already
+				continue;
+			}
+			const occupied = cellObj.walls + cellObj.connections;
+			for (let direction of self.grid.polygon_at(cell).directions) {
+				if ((occupied & direction) > 0) {
+					continue;
+				}
+				const candidates = self.answererCandidates(cell, direction);
+				if (candidates === null || candidates.size !== 1) {
+					continue;
+				}
+				const nearId = /** @type {Number} */ (candidates.values().next().value);
+				const near = self.components.get(nearId);
+				if (near === undefined || near !== target) {
+					continue;
+				}
+				const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
+				if (empty) {
+					continue;
+				}
+				const far = self.componentBehind(cell, cellObj, direction);
+				if (far !== undefined && far === target) {
+					const neighbourCell = self.getCell(neighbour);
+					neighbourCell.addWall(self.grid.OPPOSITE.get(direction) || 0);
+					cellObj.addWall(direction);
+					self.dirty.add(neighbour);
+					self.dirty.add(cell);
+				}
+			}
 		}
 	};
 
 	/**
-	 * Registers the definitive sub-cell edges of a cell that just pinned down.
-	 * Edges to still unpinned neighbours are stored as pending links and get
-	 * merged when the neighbour pins down; edges between two pinned cells are
-	 * always resolved exactly once, at the pin of the later of the two.
+	 * Creates a slot for an unresolved end of a certain edge, either joining
+	 * an existing component or starting a fresh one (for a pair of slots)
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @param {Set<ComponentMember>|undefined} set - component to join
+	 * @returns {Slot}
+	 */
+	self.createSlot = function (cell, direction, set) {
+		/** @type {Slot} */
+		const slot = { cell, direction };
+		let dirs = self.slotIndex.get(cell);
+		if (dirs === undefined) {
+			dirs = new Map([]);
+			self.slotIndex.set(cell, dirs);
+		}
+		dirs.set(direction, slot);
+		if (set === undefined) {
+			set = new Set([slot]);
+		} else {
+			set.add(slot);
+		}
+		self.components.set(slot, set);
+		return slot;
+	};
+
+	/**
+	 * Resolves a slot to the sub-cell answering its certain edge: the slot
+	 * is dropped and the sub-cell joins the component in its place. The
+	 * sub-cell already being in the same component means two certain edges
+	 * of one sub-cell into one component - a cycle in every solution.
+	 * @param {Slot} slot
+	 * @param {Number} answerer - sub-cell id
+	 * @throws {LoopDetected}
+	 */
+	self.resolveSlot = function (slot, answerer) {
+		const set = self.components.get(slot);
+		if (set === undefined) {
+			throw `Component data missing for slot at cell ${slot.cell}`;
+		}
+		self.components.delete(slot);
+		set.delete(slot);
+		self.slotIndex.get(slot.cell)?.delete(slot.direction);
+		const other = self.components.get(answerer);
+		if (other === undefined) {
+			set.add(answerer);
+			self.components.set(answerer, set);
+			// the neighbours of the answerer resolve this component behind
+			// its directions now - their pictures may be prunable
+			for (let direction of self.grid.polygon_at(slot.cell).directions) {
+				const { neighbour, empty } = self.grid.find_neighbour(slot.cell, direction);
+				if (!empty && self.unsolved.has(neighbour)) {
+					self.dirty.add(neighbour);
+				}
+			}
+		} else if (other === set) {
+			throw new LoopDetectedException();
+		} else {
+			self.mergeSets(set, other);
+		}
+	};
+
+	/**
+	 * Resolves the cell's own slots whose answering sub-cell has become
+	 * uniquely determined across the surviving pictures
+	 * @param {Number} cell
+	 * @returns {Boolean} - true if any slot was resolved
+	 * @throws {LoopDetected}
+	 */
+	self.resolveOwnSlots = function (cell) {
+		const dirs = self.slotIndex.get(cell);
+		if (dirs === undefined || dirs.size === 0) {
+			return false;
+		}
+		let resolved = false;
+		for (let [direction, slot] of [...dirs]) {
+			const candidates = self.answererCandidates(cell, direction);
+			if (candidates !== null && candidates.size === 1) {
+				const answerer = /** @type {Number} */ (candidates.values().next().value);
+				self.resolveSlot(slot, answerer);
+				resolved = true;
+			}
+		}
+		return resolved;
+	};
+
+	/**
+	 * Registers a newly certain edge between cell+direction and its
+	 * neighbour: both ends join one component, directly when both answering
+	 * sub-cells are uniquely determined, otherwise as slots promising that
+	 * the future answerers will join. Called when a connection fact is
+	 * first derived; the slotIndex membership tells repeated calls for the
+	 * same edge apart.
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @throws {LoopDetected} when both ends are already in one component
+	 */
+	self.registerCertainEdge = function (cell, direction) {
+		if (self.slotIndex.get(cell)?.has(direction)) {
+			return;
+		}
+		const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
+		if (empty) {
+			return; // the connection push already throws for empty neighbours
+		}
+		const opposite = self.grid.OPPOSITE.get(direction) || 0;
+		if (self.slotIndex.get(neighbour)?.has(opposite)) {
+			return;
+		}
+		const candidatesA = self.answererCandidates(cell, direction);
+		const candidatesB = self.answererCandidates(neighbour, opposite);
+		if (candidatesA === null || candidatesB === null) {
+			throw `Certain edge between ${cell} and ${neighbour} is missing an endpoint`;
+		}
+		self.committedEdges += 1;
+		const singleA =
+			candidatesA.size === 1 ? /** @type {Number} */ (candidatesA.values().next().value) : -1;
+		const singleB =
+			candidatesB.size === 1 ? /** @type {Number} */ (candidatesB.values().next().value) : -1;
+		if (singleA !== -1 && singleB !== -1) {
+			const setA = self.componentOf(singleA);
+			const setB = self.componentOf(singleB);
+			if (setA === setB) {
+				throw new LoopDetectedException();
+			}
+			self.mergeSets(setA, setB);
+		} else if (singleA !== -1) {
+			self.createSlot(neighbour, opposite, self.componentOf(singleA));
+		} else if (singleB !== -1) {
+			self.createSlot(cell, direction, self.componentOf(singleB));
+		} else {
+			const slotA = self.createSlot(cell, direction, undefined);
+			self.createSlot(neighbour, opposite, self.components.get(slotA));
+		}
+	};
+
+	/**
+	 * Resolves the component behind an edge at cell+direction, and whether
+	 * the edge is still candidate-dependent:
+	 * - an own unresolved slot is a certain edge whose answering sub-cell
+	 *   is not uniquely determined yet - whichever layer uses the direction
+	 *   will join the slot's component (candidate-dependent),
+	 * - a certain edge with a uniquely determined own answerer is already
+	 *   committed: the answerer sub-cell joined its component through this
+	 *   very edge (not candidate-dependent),
+	 * - an uncertain edge can only be answered by the neighbour's uniquely
+	 *   determined answerer sub-cell, provided it is already a member
+	 *   (candidate-dependent).
+	 * @param {Number} cell
+	 * @param {LayeredCell} cellObj
+	 * @param {Number} direction
+	 * @returns {{component: Set<ComponentMember>, isNew: Boolean}|undefined}
+	 */
+	self.resolveBehind = function (cell, cellObj, direction) {
+		const slot = self.slotIndex.get(cell)?.get(direction);
+		if (slot !== undefined) {
+			const component = self.components.get(slot);
+			if (component === undefined) {
+				return undefined;
+			}
+			return { component, isNew: true };
+		}
+		if ((cellObj.connections & direction) > 0) {
+			const candidates = self.answererCandidates(cell, direction);
+			if (candidates !== null && candidates.size === 1) {
+				const answerer = /** @type {Number} */ (candidates.values().next().value);
+				const component = self.components.get(answerer);
+				return component === undefined ? undefined : { component, isNew: false };
+			}
+			return undefined;
+		}
+		const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
+		if (empty) {
+			return undefined;
+		}
+		const candidates = self.answererCandidates(neighbour, self.grid.OPPOSITE.get(direction) || 0);
+		if (candidates !== null && candidates.size === 1) {
+			const answerer = /** @type {Number} */ (candidates.values().next().value);
+			const component = self.components.get(answerer);
+			return component === undefined ? undefined : { component, isNew: false };
+		}
+		return undefined;
+	};
+
+	/**
+	 * The component that the far side of an edge at cell+direction belongs
+	 * to (or will belong to once resolved), as far as certainly known.
+	 * Used by the touch scan, which only looks at open directions - there
+	 * only the candidate-dependent resolutions (unresolved slots and
+	 * neighbour answers) can apply.
+	 * @param {Number} cell
+	 * @param {LayeredCell} cellObj
+	 * @param {Number} direction
+	 * @returns {Set<ComponentMember>|undefined}
+	 */
+	self.componentBehind = function (cell, cellObj, direction) {
+		return self.resolveBehind(cell, cellObj, direction)?.component;
+	};
+
+	/**
+	 * Commits the cell that just pinned down: its own unresolved slots
+	 * resolve to the answering sub-cells (merging components, catching
+	 * cycles - the certain edges themselves were registered when they
+	 * became certain, during the final constraint pass), and the pinned
+	 * sub-cells are dropped from their components. A component that runs
+	 * out of members while unsolved cells remain can never connect to the
+	 * rest of the board and is an island.
 	 * @param {Number} cell
 	 * @param {LayeredCell} cellObj
 	 * @throws {LoopDetected} when a definitive edge closes a loop
+	 * @throws {IslandDetected} when a component is sealed off
 	 */
 	self.pinCell = function (cell, cellObj) {
 		const [rotation, layers] = cellObj.possible.entries().next().value || [0, []];
 		const polygon = self.grid.polygon_at(cell);
-		const numLayers = layers.length;
-		for (let layer = 0; layer < numLayers; layer++) {
-			const id = self.idOf(cell, layer);
-			if (!self.components.has(id)) {
-				self.components.set(id, new Set([id]));
-			}
-		}
-		const linked = self.linked.get(cell);
-		if (linked !== undefined) {
-			self.linked.delete(cell);
-			self.pendingCount -= linked.size;
-			// the key is this cell's direction towards the pinned neighbour
-			for (let [direction, { fromId }] of linked) {
+		const dirs = self.slotIndex.get(cell);
+		if (dirs !== undefined) {
+			for (let [direction, slot] of [...dirs]) {
 				const backLayer = cellObj.findLayerWithDirection(rotation, direction);
 				if (backLayer === -1) {
-					throw `Pinned tiles ${fromId} and ${cell} do not match`;
+					throw `Pinned tile at cell ${cell} does not match a certain edge`;
 				}
-				self.unionSubCells(fromId, self.idOf(cell, backLayer));
+				self.resolveSlot(slot, self.idOf(cell, backLayer));
 			}
 		}
-		for (let [index, layer] of layers.entries()) {
-			const fromId = self.idOf(cell, index);
-			let bits = layer;
-			while (bits > 0) {
-				const direction = bits & -bits;
-				bits ^= direction;
-				const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
-				if (empty) {
-					throw 'Trying to connect to an empty neighbour!';
-				}
-				if (self.unsolved.has(neighbour)) {
-					let neighboursLinks = self.linked.get(neighbour);
-					if (neighboursLinks === undefined) {
-						neighboursLinks = new Map([]);
-						self.linked.set(neighbour, neighboursLinks);
-					}
-					// at most one layer may use any direction, so the key is unique
-					neighboursLinks.set(self.grid.OPPOSITE.get(direction) || 0, { fromId, mask: layer });
-					self.pendingCount += 1;
-				}
+		if (layers.length > 0) {
+			self.cellsToPin -= 1;
+		}
+		for (let index = 0; index < layers.length; index++) {
+			const id = self.idOf(cell, index);
+			const set = self.components.get(id);
+			if (set === undefined) {
+				continue;
+			}
+			set.delete(id);
+			self.components.delete(id);
+			if (set.size === 0 && self.cellsToPin > 0) {
+				// a component that ran out of members while unpinned cells
+				// remain can never connect to the rest of the board
+				throw new IslandDetectedException();
 			}
 		}
-		if (self.internalEdges + self.pendingCount > self.totalEdges) {
+		if (self.committedEdges > self.totalEdges) {
 			// too many edges committed, the final graph would contain a cycle
 			throw new LoopDetectedException();
 		}
-		self.checkForIslands();
 		// neighbours may have pictures that are now definitively contradicted
 		// even when no wall/connection facts changed
 		for (let direction of polygon.directions) {
@@ -509,51 +824,26 @@ export function LayeredSolver(tiles, grid) {
 	};
 
 	/**
-	 * Checks that all sub-cells ended up in a single component
+	 * Checks that the committed certain edges form the full tree: every
+	 * solution edge becomes certain by the time the board completes, a
+	 * forest would stay below the budget, and cycles throw at registration
+	 * and resolution time - so equality proves connectivity
 	 * @throws {IslandDetected}
 	 */
 	self.checkAllConnected = function () {
-		let component = undefined;
-		for (let set of self.components.values()) {
-			if (component === undefined) {
-				component = set;
-			} else if (set !== component) {
-				throw new IslandDetectedException();
-			}
+		if (self.committedEdges !== self.totalEdges) {
+			throw new IslandDetectedException();
 		}
 	};
 
 	/**
-	 * Checks that no component of pinned sub-cells is sealed off:
-	 * a component without pending links to unpinned cells can never
-	 * connect to the rest of the board
-	 * @throws {IslandDetected}
-	 */
-	self.checkForIslands = function () {
-		if (self.unsolved.size === 0) {
-			return;
-		}
-		/** @type {Set<Set<Number>>} */
-		const withPending = new Set([]);
-		for (let links of self.linked.values()) {
-			for (let { fromId } of links.values()) {
-				const component = self.components.get(fromId);
-				if (component !== undefined) {
-					withPending.add(component);
-				}
-			}
-		}
-		for (let component of self.components.values()) {
-			if (!withPending.has(component)) {
-				throw new IslandDetectedException();
-			}
-		}
-	};
-
-	/**
-	 * Removes pictures that definitively contradict pinned structure:
-	 * a single layer connecting into the same pinned component twice
-	 * (a definite cycle) can never be part of a solution
+	 * Removes pictures that definitively contradict components: a single
+	 * layer must not get more than one new edge into the same component,
+	 * and none at all when the layer's sub-cell is already part of that
+	 * component through committed edges - either would close a cycle in
+	 * every solution choosing the picture. Committed certain edges are
+	 * skipped (they are why the sub-cell is in the component already),
+	 * the candidate-dependent ones count
 	 * @param {Number} cell
 	 * @param {LayeredCell} cellObj
 	 * @returns {Boolean} - true if some pictures were removed
@@ -562,31 +852,35 @@ export function LayeredSolver(tiles, grid) {
 		if (cellObj.possible.size <= 1) {
 			return false;
 		}
-		const links = self.linked.get(cell);
+		/** @type {Map<Number, {component: Set<ComponentMember>, isNew: Boolean}|undefined>} */
+		const behindCache = new Map([]);
+		/** @type {(direction: Number) => {component: Set<ComponentMember>, isNew: Boolean}|undefined} */
+		const behind = (direction) => {
+			if (!behindCache.has(direction)) {
+				behindCache.set(direction, self.resolveBehind(cell, cellObj, direction));
+			}
+			return behindCache.get(direction);
+		};
 		let removed = false;
 		for (let [rotation, layers] of [...cellObj.possible]) {
 			let bad = false;
 			for (let layer = 0; layer < cellObj.layers.length && !bad; layer++) {
 				const mask = layers[layer];
-				/** @type {Set<Set<Number>>} */
-				const layerComponents = new Set([]);
+				/** @type {Set<Set<ComponentMember>>} */
+				const groups = new Set([]);
 				let bits = mask;
 				while (bits > 0 && !bad) {
 					const direction = bits & -bits;
 					bits ^= direction;
-					const link = links?.get(direction);
-					if (link === undefined) {
+					const resolved = behind(direction);
+					if (resolved === undefined) {
 						continue;
 					}
-					const component = self.components.get(link.fromId);
-					if (component === undefined) {
-						throw `Component data missing for pinned link at cell ${cell}`;
-					}
-					if (layerComponents.has(component)) {
+					if (resolved.isNew && groups.has(resolved.component)) {
 						bad = true;
 						break;
 					}
-					layerComponents.add(component);
+					groups.add(resolved.component);
 				}
 			}
 			if (bad) {
@@ -689,12 +983,20 @@ export function LayeredSolver(tiles, grid) {
 						}
 					}
 				}
+				// new certain edges join components (or create slots for
+				// their yet unresolved answering sub-cells)
+				if (deltas.addedConnections > 0) {
+					for (let direction of polygon.directions) {
+						if ((direction & deltas.addedConnections) > 0) {
+							self.registerCertainEdge(cell, direction);
+						}
+					}
+				}
 				// neighbours must not answer a deadend with a deadend: two facing
 				// single-connection sub-cells would be sealed off from the tree.
 				// Same board-size gate as the classic deadend rule: on tiny boards
 				// the sealed pair could be the entire puzzle
 				if (self.checkDeadendConnections && deltas.addedDeadends > 0) {
-					const links = self.linked.get(cell);
 					for (let direction of polygon.directions) {
 						if ((direction & deltas.addedDeadends) > 0) {
 							const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
@@ -702,21 +1004,27 @@ export function LayeredSolver(tiles, grid) {
 								continue;
 							}
 							const opposite = self.grid.OPPOSITE.get(direction) || 0;
-							const link = links?.get(direction);
-							if (link !== undefined) {
-								// the pinned neighbour can not lose pictures:
-								// if it answers with a deadend, this cell must not
-								// connect here with a deadend at all
-								if (link.mask === opposite) {
+							let neighbourCell = self.unsolved.get(neighbour);
+							if (neighbourCell === undefined && self.solution[neighbour] === self.UNSOLVED) {
+								// the neighbour was never touched yet, safe to initialize
+								neighbourCell = self.getCell(neighbour);
+							}
+							if (neighbourCell === undefined) {
+								// pinned neighbour: the answering mask is frozen in
+								// its pinned picture. If it answers with a deadend,
+								// this cell must not connect here with a deadend
+								// at all
+								const pinnedRotation = self.solution[neighbour];
+								const pinnedLayers = self.tiles[neighbour].map((layer) =>
+									self.grid.polygon_at(neighbour).rotate(layer, pinnedRotation)
+								);
+								if (pinnedLayers.some((layer) => layer === opposite)) {
 									cellObj.addWall(direction);
 									self.dirty.add(cell);
 								}
 								continue;
 							}
-							// no link means the neighbour is not pinned yet:
-							// a pinned neighbour with a wall here would have pushed
-							// the wall into this cell, ruling the deadend fact out
-							const neighbourCell = self.getCell(neighbour);
+							// the neighbour can still lose pictures
 							const removed = neighbourCell.removeDeadendPairs(opposite);
 							self.stats.prunedPictures += removed;
 							if (removed > 0) {
@@ -725,8 +1033,11 @@ export function LayeredSolver(tiles, grid) {
 						}
 					}
 				}
-				// rule out pictures definitively contradicted by pinned neighbours
-				if (!self.pruneContradictoryPictures(cell, cellObj)) {
+				// resolve own slots made unique by the shrunken picture set
+				const resolved = self.resolveOwnSlots(cell);
+				// rule out pictures definitively contradicted by components
+				const removed = self.pruneContradictoryPictures(cell, cellObj);
+				if (!removed && !resolved) {
 					break;
 				}
 			}
@@ -737,7 +1048,7 @@ export function LayeredSolver(tiles, grid) {
 				self.unsolved.delete(cell);
 				self.pinCell(cell, cellObj);
 				self.solution[cell] = rotation;
-				if (self.unsolved.size === 0) {
+				if (self.cellsToPin === 0) {
 					self.checkAllConnected();
 				}
 			}
@@ -787,37 +1098,38 @@ export function LayeredSolver(tiles, grid) {
 	 */
 	self.clone = function () {
 		const clone = new LayeredSolver([], self.grid);
+		clone.tiles = self.tiles;
 		clone.checkDeadendConnections = self.checkDeadendConnections;
 		clone.shortTrialsIndex = self.shortTrialsIndex;
 		clone.totalSubCells = self.totalSubCells;
 		clone.totalEdges = self.totalEdges;
-		clone.internalEdges = self.internalEdges;
-		clone.pendingCount = self.pendingCount;
+		clone.committedEdges = self.committedEdges;
+		clone.cellsToPin = self.cellsToPin;
 		clone.unsolved = new Map([]);
 		self.unsolved.forEach((cell, index) => {
 			clone.unsolved.set(index, cell.clone());
 		});
 		clone.components = new Map([]);
-		/** @type {Map<Set<Number>, Set<Number>>} */
+		/** @type {Map<Set<ComponentMember>, Set<ComponentMember>>} */
 		const clonedSets = new Map([]);
-		self.components.forEach((set, id) => {
+		self.components.forEach((set, member) => {
 			let clonedSet = clonedSets.get(set);
 			if (clonedSet === undefined) {
 				clonedSet = new Set([]);
 				clonedSets.set(set, clonedSet);
 			}
-			clone.components.set(id, clonedSet);
+			clone.components.set(member, clonedSet);
 		});
-		self.components.forEach((set, id) => {
-			const clonedSet = /** @type {Set<Number>} */ (clonedSets.get(set));
+		self.components.forEach((set, member) => {
+			const clonedSet = /** @type {Set<ComponentMember>} */ (clonedSets.get(set));
 			for (let element of set) {
+				// slot objects are immutable, sharing them between clones is safe
 				clonedSet.add(element);
 			}
 		});
-		clone.linked = new Map([]);
-		self.linked.forEach((links, cell) => {
-			// entries are immutable, sharing them between clones is safe
-			clone.linked.set(cell, new Map(links));
+		clone.slotIndex = new Map([]);
+		self.slotIndex.forEach((dirs, cell) => {
+			clone.slotIndex.set(cell, new Map(dirs));
 		});
 		clone.solution = [...self.solution];
 		clone.solutions = self.solutions.map((solution) => [...solution]);

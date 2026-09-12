@@ -581,3 +581,144 @@ describe('Test deadend pair facts', () => {
 		}
 	});
 });
+
+describe('Test component pruning against open neighbours', () => {
+	//  0    1    2    3
+	//  4    5    6    7
+	//  8    9   10   11
+	// A1 = cell 5 and A2 = cell 6 sit above the pinned pair P1 = cell 9 and
+	// P2 = cell 10: both pins point north into them, so an A1-A2 edge would
+	// close a cycle through the pinned pair
+	const grid = new SquareGrid(4, 3, false);
+	const tiles = (a2) => [[2], [2], [2], [2], [2], a2, [3], [2], [2], [3], [3], [2]];
+
+	function pinU(solver) {
+		// pin P1 to the N+E bend, P2 to the N+W bend: the W answer merges
+		// both pins into one component
+		solver.getCell(9).possible = new Map([[0, [3]]]);
+		solver.dirty.add(9);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 9) break;
+		}
+		solver.dirty.delete(9);
+		solver.getCell(10).possible = new Map([[3, [6]]]);
+		solver.dirty.add(10);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 10) break;
+		}
+		solver.dirty.delete(10);
+	}
+
+	it('Prunes the loop-closing candidate against a resolved open neighbour', () => {
+		const solver = new LayeredSolver(tiles([3]), grid);
+		pinU(solver);
+		// process only A1: A2 is still open, one-layered and linked, so A1's
+		// east direction resolves to the shared component and the S+E bend
+		// must be pruned, leaving the west exit
+		solver.dirty.clear();
+		solver.dirty.add(5);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 5) break;
+		}
+		expect(solver.solution[5]).toBe(2);
+	});
+
+	it('Keeps the loop-closing candidate while the far pin is missing', () => {
+		const solver = new LayeredSolver(tiles([3]), grid);
+		// pin P1 only: A2 has no pinned link and no destiny, so A1's east
+		// direction resolves to nothing and the S+E bend stays alive
+		solver.getCell(9).possible = new Map([[0, [3]]]);
+		solver.dirty.add(9);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 9) break;
+		}
+		solver.dirty.delete(9);
+		solver.dirty.clear();
+		solver.dirty.add(5);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 5) break;
+		}
+		const A1 = solver.getCell(5);
+		expect(A1.possible.size).toBe(2);
+		expect(A1.possible.has(1)).toBe(true);
+	});
+
+	it('Ignores multi-layered open neighbours', () => {
+		const solver = new LayeredSolver(tiles([12, 3]), grid);
+		pinU(solver);
+		// A2 is multi-layered: its two layers may legally connect into the
+		// same component, so A1's east direction must not resolve to it
+		solver.dirty.clear();
+		solver.dirty.add(5);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 5) break;
+		}
+		const A1 = solver.getCell(5);
+		expect(A1.possible.size).toBe(2);
+		expect(A1.possible.has(1)).toBe(true);
+	});
+
+	it('Keeps valid boards solvable with the component prune', () => {
+		const grids = [
+			new SquareGrid(4, 4, false),
+			new HexaGrid(3, 4, false),
+			new SquareGrid(4, 3, true)
+		];
+		for (const g of grids) {
+			for (let i = 0; i < 10; i++) {
+				const layers = pregenerate_layers(g, 0.6, Math.random(), Math.random() * 0.5);
+				validateLayers(g, layers);
+				const scrambled = randomRotate(layers, g);
+				const solver = new LayeredSolver(scrambled, g);
+				const result = solver.markAmbiguousTiles();
+				expect(result.solvable).toBe(true);
+				expect(result.complete).toBe(true);
+			}
+		}
+	});
+});
+
+describe('Test component pruning after late certainty', () => {
+	// Same U layout as above. With maintained slot components the old
+	// propagation gap is closed: when P2 pins, A2's sub-cell joins the
+	// shared component and A1 is re-dirtied, so its loop-closing candidate
+	// dies on the next pass
+	it('Re-prunes when the certainty arrives late', () => {
+		const grid = new SquareGrid(4, 3, false);
+		const tiles = [[2], [2], [2], [2], [2], [3], [3], [2], [2], [3], [3], [2]];
+		const solver = new LayeredSolver(tiles, grid);
+		solver.getCell(9).possible = new Map([[0, [3]]]);
+		solver.dirty.add(9);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 9) break;
+		}
+		solver.dirty.delete(9);
+		// A1 (cell 5) processes while A2 (cell 6) is not yet linked: no prune
+		solver.dirty.clear();
+		solver.dirty.add(5);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 5) break;
+		}
+		expect(solver.getCell(5).possible.has(1)).toBe(true);
+		// P2 (cell 10) pins: A2's sub-cell joins the shared component, A1 is
+		// re-dirtied and the loop-closing candidate can not survive
+		solver.getCell(10).possible = new Map([[3, [6]]]);
+		solver.dirty.add(10);
+		const A1 = solver.getCell(5);
+		// P2 pins: its certain edge joins A2's sub-cell into the shared
+		// component and the merge re-dirties A1
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 10) break;
+		}
+		const shared = solver.components.get(5);
+		expect(shared).toBeDefined();
+		expect(solver.components.get(6)).toBe(shared);
+		// process A1 once more: the loop-closing candidate can not survive
+		solver.dirty.clear();
+		solver.dirty.add(5);
+		for (const step of solver.processDirtyCells()) {
+			if (step.cell === 5) break;
+		}
+		expect(A1.possible.has(1)).toBe(false);
+	});
+});

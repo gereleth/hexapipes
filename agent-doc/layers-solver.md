@@ -61,78 +61,121 @@ are not supported.
   the bulk of the per-pass cost on deadend-free boards. The propagation block is gated by
   `checkDeadendConnections` with the same rationale as classic: on tiny boards the sealed pair
   could be the entire puzzle.
-- Facts live at cell level (union). Which _layer_ points where only matters in the pinned
-  links: recorded when a neighbour pins (the answering sub-cell and its layer mask), resolved
-  at this cell's own pin via `findLayerWithDirection(rotation, direction)`, and read per
-  candidate direction by the pruner.
+- Facts live at cell level (union). Which _layer_ points where only matters in the component
+  registry's slots: born when a connection becomes certain but the answering sub-cell is not
+  uniquely determined yet, resolved when it becomes unique, and re-created on the open
+  neighbours at pin time (see the tree constraint section).
 
 ## Tree constraint over sub-cells
 
-The solved board must be one tree over all sub-cells. The solver enforces this incrementally:
-when a cell pins down to a single picture, its edges become definitive facts merged into a
-union-find over sub-cell ids. Dead branches are caught by three mechanisms: a loop check on
-merge, a global edge budget, and an island check.
+The solved board must be one tree over all sub-cells. Edges of that tree are **cell-edge
+pairs** — the "at most one layer per cell+direction" invariant makes `(cell, direction)` a
+unique key. The solver maintains components **eagerly**: whenever a connection between two
+cells becomes certain (every surviving picture connects there — `applyConstraints` derives it
+in `addedConnections`), its ends join one component immediately, not at pin time. Dead
+branches are caught at that moment: a loop check on merge, a global edge budget, and an
+empty-component island check.
 
 State:
 
-- `components: Map<subCellId, Set<subCellId>>` — union-find over sub-cells of pinned cells.
-  Identity is by object reference; `unionSubCells` throws `LoopDetected` when both ends already
-  share a set. Gotcha: `clone()` must preserve set sharing (it maps original set → cloned set
-  so cloned ids still share one Set object).
-- `linked: Map<cell, Map<direction, {fromId, mask}>>` — an unpinned cell's pinned links, keyed
-  by the cell's own direction: where pinned neighbours connect into it, with the answering
-  sub-cell id on the pinned side and that layer's frozen mask. Recorded when a neighbour pins,
-  read while the cell is open (pruner, deadend rule), resolved and deleted
-  when the cell pins. Entry objects are immutable, so `clone()` copies the maps and shares the
-  entries. There is no pinned-cell registry: `pinned` was removed because these links plus
-  `components` are everything the solver ever needs to know about pinned cells.
-- `totalEdges = ½ Σ popcount(layer masks)` — every complete assignment has exactly this many
-  edges (popcounts are rotation-invariant). `internalEdges + pendingCount` counts committed,
-  irreversible edges and must never exceed the budget.
+- **Member** = a resolved `subCellId` or an unresolved **slot** `{cell, direction}`. A slot
+  is a promise: whichever sub-cell of `cell` ends up using `direction` will join the slot's
+  component. Slot objects are immutable and shared between clones.
+- `components: Map<Member, Set<Member>>` — a component set is the **open frontier** through
+  which the component can still grow: resolved sub-cells of unpinned cells and unresolved
+  slots. Resolved members are dropped again — slot resolution swaps the slot for the
+  answerer, pinning swaps the sub-cell for slots of its certain edges — so nothing
+  accumulates. Identity is by object reference for slots; `clone()` must preserve set
+  sharing (it maps original set → cloned set, members copied by reference).
+- `slotIndex: Map<cell, Map<direction, Slot>>` — the cell's own unresolved slot ends; the
+  `(cell, direction)` pair is a unique key (one exit per cell+direction), which also makes
+  repeated registrations of the same edge detectable.
+- `committedEdges` — one increment per certain edge, exactly once. Every certain edge is
+  part of the final tree and the tree has exactly `totalEdges = ½ Σ popcount(layer masks)`
+  edges, so the count can never exceed the budget; equality at completion plus the local
+  cycle checks proves connectivity (`checkAllConnected`).
+- `cellsToPin` — non-empty cells still to pin; zero means the board is complete. Never use
+  `unsolved.size === 0` for that: `unsolved` only contains _touched_ cells, so it is
+  momentarily empty after the first empty cell pins (found via a false `IslandDetected` on
+  the 7×7 "many empty cells" board).
 
-`pinCell` runs only after the cell has left `unsolved` — the ordering matters because the
-island check reads the freshly registered component sets:
+`registerCertainEdge(cell, direction)` is called exactly when a connection fact is first
+derived (the `addedConnections` delta; the slotIndex membership tells re-runs for an edge
+already registered from the neighbour side apart). Per edge: both ends join one component —
+directly (merge + loop check) when both answering sub-cells are uniquely determined, as a
+slot on the unresolved end(s) otherwise. A fresh pair of slots forms its own component.
 
-1. every layer of the cell joins `components` as a singleton;
-2. its pinned links resolve: for each, the pinned picture must have a layer pointing in the
-   link's direction, missing one ⇒ throw; the ends are united;
-3. directions of the pinned picture toward still-unpinned neighbours become that neighbour's
-   pinned links (answering sub-cell + layer mask);
-4. each edge is registered exactly once — at whichever endpoint pins later — so budget and
-   island checks see every edge once;
-5. edge budget check ⇒ `LoopDetected` (finishing would force a cycle);
-6. `checkForIslands`: while unsolved cells remain, every component must hold at least one
-   pinned link, i.e. some way to ever connect; a sealed component ⇒ `IslandDetected`;
-7. all unsolved neighbours get dirtied — pin facts can invalidate their pictures without any
+`resolveOwnSlots(cell)` runs during the cell's own processing pass (the cell is guaranteed
+dirty whenever its picture set changed, so resolution costs no extra scans): a slot whose
+answerer became uniquely determined across the surviving pictures is dropped and the
+sub-cell joins in its place. Joining the component it is already in means two certain edges
+of one sub-cell into one component — a cycle in every solution ⇒ `LoopDetected`; a different
+component ⇒ merge. Resolutions dirty the resolved cell's unsolved neighbours: their
+behind-direction resolutions changed, so their pictures may be prunable — this closes the
+old "certainty arrives late" propagation gap structurally.
+
+`mergeSets` (union, smaller re-keyed into larger) runs the **touch scan** over the freshly
+absorbed members, the layered equivalent of classic's mergeComponents wall drawing: for an
+absorbed sub-cell of an open cell, an open direction whose near AND far ends both resolve
+uniquely into the same component is a definite wall in every solution and gets walled
+(pushes the opposite wall, re-dirties). The near end must be checked too — a multi-layered
+cell's membership does not tell which layer answers an arbitrary open direction; only a
+unique answerer pins it down (one-layered cells always qualify).
+
+`pinCell` (runs only after the cell has left `unsolved`):
+
+1. the cell's own unresolved slots resolve to the pinned picture's answering layers
+   (`findLayerWithDirection`), merging components and catching cycles — the certain edges
+   themselves were already registered when they became certain, during the final constraint
+   pass (the pin-time push invariant means no new certainty toward pinned neighbours can
+   arise afterwards, so no dedicated pin-time registration is needed);
+2. the pinned sub-cells are dropped from their components. A component that runs out of
+   members while unpinned cells remain can never gain another edge — future certain edges
+   always have at least one open end, by the same invariant — so it is sealed:
+   `IslandDetected`. This replaces classic's checkForIslands with an exact local check;
+3. edge budget check ⇒ `LoopDetected`;
+4. all unsolved neighbours get dirtied — pin facts can invalidate their pictures without any
    wall/connection changing (prune-only propagation).
 
-When the last cell pins, `checkAllConnected` requires everything to be in a single component.
+When the last cell pins, `checkAllConnected` requires `committedEdges === totalEdges`: every
+solution edge becomes certain by completion, a forest would stay below the budget, and
+cycles throw at registration and resolution time — equality proves connectivity.
 
-### Why classic's component-wall pruning is not ported
+### Components vs classic's component walls
 
-Classic `mergeComponents` adds walls wherever a merged component would touch itself again and
-prunes bridge candidates with `mustHaveSomeWalls`. That is cell-level reasoning assuming a cell
-connects to a given neighbour at most once — unsound here because layered boards have parallel
-pipes: two layers of one cell may legally both point into the same neighbour cell (they are
-different sub-cells). The only definite cycle visible at cell granularity is a **single layer**
-connecting into the same pinned component twice. That narrower rule is the heart of
-`pruneContradictoryPictures` (below).
+Classic `mergeComponents` adds walls wherever a merged component would touch itself again
+and prunes bridge candidates. The naive port is unsound here: multi-layered cells have
+parallel pipes, and two layers of one cell may legally both touch the same component
+(through different sub-cells). The slot model fixes this by choosing the granularity of
+every fact per edge end: components live over resolved sub-cells and slots (not whole
+cells), certain edges union eagerly with a same-set check, slot resolution catches two
+certain edges of one sub-cell into one component, and the touch scan walls an open
+direction only when BOTH ends resolve uniquely into the component. This covers the classic
+U shape — two open cells above the ends of a pinned U cannot connect to each other — and
+generalizes the previous one-hop pinned-link pruning: multi-layered neighbours participate
+through their uniquely determined answerers, chains resolve transitively through slot
+resolutions, and component state is maintained rather than rebuilt per pass, so there are no
+propagation-order gaps.
 
 ## Propagation loop
 
 For each dirty cell, `processDirtyCells` loops until stable:
 
-1. `applyConstraints` → wall/connection deltas;
-2. propagate deltas to neighbours unconditionally — same as classic, by the pin-time push
-   invariant (below) a delta never targets an already-pinned neighbour, so `getCell` never
-   sees one and there is no guard;
-3. `pruneContradictoryPictures`: delete pictures that would connect a single layer into the
-   same pinned component twice (definite cycle, see above). Reads the cell's pinned links per
-   candidate direction — the link's sub-cell maps to its component with a fresh `components`
-   lookup (sets are re-targeted on merge, so caching Set references would break identity).
-   No off-board or back-layer checks are needed: border walls are derived at cell init, and a
-   pinned cell with a wall towards this cell already forced the opposite wall here, deleting
-   contradicting states during wall propagation.
+1. `applyConstraints` → wall/connection/deadend deltas;
+2. propagate wall and connection deltas to neighbours unconditionally — same as classic, by
+   the pin-time push invariant (below) a delta never targets an already-pinned neighbour, so
+   `getCell` never sees one and there is no guard;
+3. `registerCertainEdge` for every new connection — the certain edge joins components and
+   creates slots (see the tree constraint section);
+4. `resolveOwnSlots` — the cell's own slots whose answerer became uniquely determined;
+5. `pruneContradictoryPictures`: delete pictures where a single layer would get more than
+   one NEW edge into the same component, or any new edge at all when the layer's sub-cell is
+   already part of that component through committed edges. Per direction the "component
+   behind" resolves via the cell's own slots (candidate-dependent), via its own certain
+   committed edges (NOT candidate-dependent — they are why the sub-cell is in the component
+   already, and counting them would false-flag stars of committed edges), or via a uniquely
+   determined neighbour answerer (candidate-dependent). Two different layers of one cell
+   both touching the same component stay legal — parallel pipes.
 
 Pin-time push invariant (shared with classic): when a cell pins, the same processing pass has
 already derived its complete final stance — with a single surviving picture every direction is
@@ -145,10 +188,13 @@ occupied-direction filter keeps solved cells out of `mergeComponents`' adjacent 
 `getCell` rebuild branch never fires in the live flow. The one live pinned-neighbour check is
 the deadend pair rule: `deadends` is not part of the pin-time push (non-monotone, re-derived
 from scratch each pass), so a cell can genuinely derive a new deadend direction toward a
-neighbour that pinned long ago; the check reads that direction's pinned link and seals the
-cell with a wall if the frozen mask is a deadend (no entry means the neighbour is not pinned
-yet — a pinned wall here would have pushed a wall into this cell first, ruling the deadend
-fact out).
+neighbour that pinned long ago; for a pinned neighbour the check reads the frozen answer from
+`solution[neighbour]` and seals the cell with a wall if that mask is a deadend, otherwise it
+calls `removeDeadendPairs` on the still-mutable neighbour. Gotcha: `unsolved.get` cannot
+distinguish "pinned" from "never touched" — cells enter `unsolved` lazily via `getCell` —
+branch on `solution[neighbour] === UNSOLVED` and initialize fresh cells first (found via a
+false deadend wall on a hexa board: `solution[neighbour]` was `UNSOLVED`, `rotate(layer, -1)`
+produced garbage and the frozen-mask check mis-fired).
 
 The loop is a correctness requirement, not an optimization: pruning can imply NEW
 walls/connections (the deleted picture was the only one avoiding a wall), and those facts must
@@ -198,28 +244,41 @@ into tile types — one reason layered deduction is weaker (see performance).
 
 ### Performance
 
-- Fine up to 10×10 and hexa 7×6. **12×12 wrap has a heavy tail**: most runs take seconds, some
-  ≫20 s. Wrong-branch detection is fundamentally weaker than classic's cell-level component
-  walls (see the tree constraint section) — trial stacks grow deep before a contradiction
-  surfaces.
-- Fresh 20×20 non-wrap boards (layering 0.6): `solver-layers-stats.test.js` with
-  `BENCH_MARK_AMBIGUOUS=1` — square mean ≈1.8 s (p50 ≈1.5 s, p90 ≈3.3 s); hexa mean ≈2.4 s
-  (p50 ≈1.2 s, p90 ≈5.7 s), worst run ≈24 s, no wall-clock caps in 200 runs (see
-  `generator_stats/layered_mark_ambiguous_20x20.json`). The removed guess heuristics were
-  worth ~15–35% typical case on this sample, but their effect fluctuated across board samples
-  and the capped-tail runs only appeared with them on — taking them out trades a modest,
-  unreliable speedup for simpler classic-parity guessing.
-- The generator's workaround (maxIterations + regenerate) hides the tail from users but wastes
-  the work; a real fix would be cell-level pruning that stays sound with parallel pipes —
-  remembering that only same-layer double connections are definite cycles.
+- Fine up to 10×10 and hexa 7×6. 12×12 wrap and large boards still have a tail, but the
+  eager component machinery keeps it far tighter than the pin-time-only union-find ever did.
+- Fresh 20×20 non-wrap boards (layering 0.6), `solver-layers-stats.test.js` with
+  `BENCH_MARK_AMBIGUOUS=1`, 100 runs per grid, no wall-clock caps —
+  `generator_stats/layered_mark_ambiguous_20x20.json` (compare
+  `..._a1c35ce1.json`, the pin-time-only union-find before eager components):
+  square p50 693 ms vs 1185 (−41%), mean 779 vs 1521 (−49%), p90 1509 vs 2821, worst 2253 vs
+  5698, iterations mean 272 vs 889 (−69%); hexagonal p50 553 vs 888 (−38%), mean 1704 vs
+  2119, p90 3670 vs 4703, iterations mean 1013 vs 530 (hexa iterations rose — more certain
+  edges get registered and checked — but wall time still dropped). 0 unsolvable boards.
+- Soundness fuzz: 4000 fresh boards across square 4×4, hexa 3×4, square 4×3 wrap,
+  square 6×5, hexa 4×5 wrap, layerings 0.5–0.8, all solvable and complete
+  (scratch harness, see below).
+- The generator's `maxIterations` crutch is still in place but no longer leans on the
+  wall-clock tail the way it used to; removing it is future work.
+
+## Debugging harness (scratch, uncommitted)
+
+`scratch-debug.test.js` + `scratch-old-solver.js` (a copy of the pre-rewrite solver from git)
+form an oracle fact-checker: the old solver enumerates all solutions of a board, the new
+solver runs with wrappers around `registerCertainEdge` / `pinCell` / pruner /
+`applyConstraints` / `addWall` / `addConnection` / `removeDeadendPairs`, and every derived
+fact is verified against the solution set (registration ⇒ edge in ALL solutions; wall ⇒ edge
+in NONE; picture removal ⇒ rotation in NO solution). Found every unsoundness during the
+rewrite — including two that hand-tracing missed. Careful: solver clones must be wrapped too
+(their constructors re-run the instrumentation), and picture-class dedup means rotation KEYS
+are representatives — compare solved boards, not rotation numbers, when in doubt.
 
 ## Differences vs classic Solver at a glance
 
-| Aspect           | classic                       | layered                                            |
-| ---------------- | ----------------------------- | -------------------------------------------------- |
-| cell state       | set of orientation masks      | map of representative rotation → rotated layers    |
-| identity         | cell index                    | cell for constraints, sub-cell for the tree        |
-| loop detection   | component walls + merge check | union-find merge + edge budget + per-layer prune   |
-| solved cells     | no guard, never re-touched    | same; pinned links read while neighbours stay open |
-| local deductions | tileTypes hexa tricks         | union masks only (weaker)                          |
-| ambiguity search | uncapped                      | `maxIterations` cap + `complete` flag (to remove)  |
+| Aspect           | classic                       | layered                                                                           |
+| ---------------- | ----------------------------- | --------------------------------------------------------------------------------- |
+| cell state       | set of orientation masks      | map of representative rotation → rotated layers                                   |
+| identity         | cell index                    | cell for constraints, sub-cell for the tree                                       |
+| loop detection   | component walls + merge check | eager slot components: touch-scan walls, merge/resolution loop checks, edge count |
+| solved cells     | no guard, never re-touched    | same; certain edges and slots read while neighbours stay open                     |
+| local deductions | tileTypes hexa tricks         | union masks only (weaker)                                                         |
+| ambiguity search | uncapped                      | `maxIterations` cap + `complete` flag (to remove)                                 |
