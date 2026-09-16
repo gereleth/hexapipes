@@ -38,29 +38,45 @@ are not supported.
   not touch `walls` and must include all of `connections`. From the survivors it derives new
   facts: directions avoided by every surviving union become walls, directions shared by every
   surviving union become connections. Empty picture set ⇒ `NoOrientationsPossible`.
-- **Deadend facts** (third derived mask): `deadends` bit d is set
-  when every surviving picture connecting in direction d does so via a single-connection layer.
-  Backed by the static `layerPopcounts` array (popcount per layer at rotation 0 — popcounts
-  are rotation-invariant, so the array never changes and is simply rebuilt per clone). Unlike
-  walls and connections the mask is _not_ monotone — the property depends on HOW a direction is
-  used, not just whether — so `applyConstraints` re-derives it from scratch each pass and
-  reports `addedDeadends = newDeadends & (full ^ deadends)`; a numeric subtraction would turn
-  stale bits into phantom additions after wholesale picture-set replacements (short trial
-  probes) and unsoundly prune true pictures (found via 20x20 boards coming back
-  `solvable: false`).
-  Propagation (`processDirtyCells`): when cell A's `deadends` gains bit d, the neighbour across d must not answer with its own
-  deadend — two facing single-connection sub-cells would be sealed off from the tree — so
-  `removeDeadendPairs(opposite)` deletes the neighbour's pictures that connect there via a
-  popcount-1 layer (a layer mask equal to the single direction bit); against a pinned neighbour
-  there is no entry to delete from, so A checks the pinned link recorded when the neighbour
-  pinned (its answering layer mask) and seals itself with a wall if that mask is a deadend.
-  This is the layered generalization of the classic deadend rule:
-  classic marks whole deadend _tiles_ (rotation-invariant), here the fact is per direction and
-  per layer, refined as candidate sets shrink. Cells without deadend layers (`hasDeadends`,
-  static) skip the popcount scan, the mask derivation and neighbour-side pair checks entirely —
-  the bulk of the per-pass cost on deadend-free boards. The propagation block is gated by
-  `checkDeadendConnections` with the same rationale as classic: on tiny boards the sealed pair
-  could be the entire puzzle.
+- **Deadend facts** (third derived mask): `deadends` bit d is set when every surviving
+  picture connecting in direction d does so via a layer that is _deadend-effective_: either a
+  single-connection layer, or a layer whose remaining directions all face neighbour deadend
+  facts (an effective deadend — this is what lets a fact travel through a bend or a corridor of
+  straights). Backed by the static `layerPopcounts` array (popcount per layer at rotation 0 —
+  popcounts are rotation-invariant, so the array never changes and is simply rebuilt per clone).
+  Unlike walls and connections the mask is _not_ monotone — the property depends on HOW a
+  direction is used, not just whether — so `applyConstraints` re-derives it from scratch each
+  pass and reports `addedDeadends = newDeadends & (full ^ deadends)`; a numeric subtraction
+  would turn stale bits into phantom additions after wholesale picture-set replacements (short
+  trial probes) and unsoundly prune true pictures (found via 20x20 boards coming back
+  `solvable: false`). Candidate directions are seeded from `full & ~walls & ~neighbourDeadends`
+  and cleared by surviving layers with two or more effective directions.
+  Propagation (`processDirtyCells`): when cell A's `deadends` gains bit d, the neighbour across
+  d must not answer with a deadend-effective layer of its own — two facing deadend-effective
+  sub-cells would seal each other off from the tree **along with every deadend hanging behind
+  them**. Facts therefore carry a **sealed mass**: how many sub-cells (the sender's answering
+  sub-cell included, plus the masses behind the answering layer's other directions) would be
+  sealed by such an answer. `pushed mass = 1 + max over surviving pictures using d of
+Σ mass(other layer directions)`; a plain deadend tile originates mass 1, each chained hop
+  adds 1, so a violation at the end of a k-corridor seals k+2 sub-cells. The receiver stores
+  the fact in `neighbourDeadendMass` (max on repeat — masses are upper bounds, and a stale
+  loose mass only ever costs a missed pruning, never an unsound one, so facts are never
+  retracted), and `applyConstraints` prunes any picture with a layer inside the received
+  directions while `1 + Σ mass(layer directions) < totalSubCells` — the one exact gate. When
+  the sealed area equals the whole board the answer may be the final move that completes the
+  tree, so the picture must survive; this is why the old static board-size gate
+  (`checkDeadendConnections`, `playable > D+1`) is gone: single-hop facts are covered by the
+  mass condition on every board size (a pair seals 2, withheld exactly when `totalSubCells =
+2`), and chained facts need their own accumulated mass, which no unsolved-tile count can
+  express. Against a pinned neighbour there is no mutable picture set, so A reads the frozen
+  pinned answer and walls itself off only when `mass + 1 < totalSubCells` (the old code walled
+  unconditionally under the gate). This is the layered generalization of the classic deadend
+  rule: classic marks whole deadend _tiles_ (rotation-invariant), here the fact is per
+  direction, per layer, mass-carrying, refined as candidate sets shrink. The derivation skip
+  condition is `hasDeadends || neighbourDeadends > 0` — cells without deadend layers can still
+  become effective deadends once facts arrive (a bend between two deadend neighbours pushes
+  facts out its other sides), which is the main new propagation power; deadend-free boards
+  still skip all of it.
 - Facts live at cell level (union). Which _layer_ points where only matters in the component
   registry's slots: born when a connection becomes certain but the answering sub-cell is not
   uniquely determined yet, resolved when it becomes unique, and re-created on the open
@@ -189,8 +205,10 @@ occupied-direction filter keeps solved cells out of `mergeComponents`' adjacent 
 the deadend pair rule: `deadends` is not part of the pin-time push (non-monotone, re-derived
 from scratch each pass), so a cell can genuinely derive a new deadend direction toward a
 neighbour that pinned long ago; for a pinned neighbour the check reads the frozen answer from
-`solution[neighbour]` and seals the cell with a wall if that mask is a deadend, otherwise it
-calls `removeDeadendPairs` on the still-mutable neighbour. Gotcha: `unsolved.get` cannot
+`solution[neighbour]` and seals the cell with a wall if that mask is a deadend AND the sealed
+mass still leaves something outside (`mass + 1 < totalSubCells`), otherwise it stores the
+mass-carrying fact on the still-mutable neighbour, which prunes its own pictures on its next
+pass. Gotcha: `unsolved.get` cannot
 distinguish "pinned" from "never touched" — cells enter `unsolved` lazily via `getCell` —
 branch on `solution[neighbour] === UNSOLVED` and initialize fresh cells first (found via a
 false deadend wall on a hexa board: `solution[neighbour]` was `UNSOLVED`, `rotate(layer, -1)`
@@ -254,9 +272,21 @@ into tile types — one reason layered deduction is weaker (see performance).
   5698, iterations mean 272 vs 889 (−69%); hexagonal p50 553 vs 888 (−38%), mean 1704 vs
   2119, p90 3670 vs 4703, iterations mean 1013 vs 530 (hexa iterations rose — more certain
   edges get registered and checked — but wall time still dropped). 0 unsolvable boards.
+- Deadend-fact propagation (mass semantics, 200 runs per grid, fresh boards both sides,
+  before/after this change): search iterations mean 440 → 302 on square (−31%), 393 → 217 on
+  hexa (−45%); worst single run 7.1 s → 5.2 s (square) and 17.1 s → 11.9 s (hexa), and the one
+  hexa run that hit the 60 s cap before finished uncapped after. Wall time is roughly neutral
+  (square mean 898 → 877 ms, hexa mean 1543 → 1516 ms; hexa p50 rose 433 → 490 ms within
+  fresh-board noise) because each dirty-processing pass costs ~10–15% more (mass bookkeeping
+  plus more derived facts) while ~10–15% fewer passes are needed — the win is in the tail and
+  the trial count, exactly where the generator's patience loop feels it.
 - Soundness fuzz: 4000 fresh boards across square 4×4, hexa 3×4, square 4×3 wrap,
   square 6×5, hexa 4×5 wrap, layerings 0.5–0.8, all solvable and complete
-  (scratch harness, see below).
+  (scratch harness, see below), plus a tiny-board brute-force fuzz (scratch): random
+  1×N/2×2/2×3/3×3 boards with deadend-heavy tile pools, random layer-less cells and
+  multi-layer tiles, decided by exhaustive rotation search + `validateLayers` and compared
+  with the solver's verdict — 1200+ boards, 0 mismatches. This is the fuzz that guards the
+  mass boundary (`sealed area == totalSubCells`), which generated boards alone never exercise.
 - The generator's `maxIterations` crutch is still in place but no longer leans on the
   wall-clock tail the way it used to; removing it is future work.
 
@@ -265,7 +295,7 @@ into tile types — one reason layered deduction is weaker (see performance).
 `scratch-debug.test.js` + `scratch-old-solver.js` (a copy of the pre-rewrite solver from git)
 form an oracle fact-checker: the old solver enumerates all solutions of a board, the new
 solver runs with wrappers around `registerCertainEdge` / `pinCell` / pruner /
-`applyConstraints` / `addWall` / `addConnection` / `removeDeadendPairs`, and every derived
+`applyConstraints` / `addWall` / `addConnection`, and every derived
 fact is verified against the solution set (registration ⇒ edge in ALL solutions; wall ⇒ edge
 in NONE; picture removal ⇒ rotation in NO solution). Found every unsoundness during the
 rewrite — including two that hand-tracing missed. Careful: solver clones must be wrapped too

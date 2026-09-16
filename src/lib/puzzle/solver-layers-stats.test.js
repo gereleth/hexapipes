@@ -6,7 +6,7 @@ import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
-const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 100;
+const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 200;
 // wall-clock cap on a single markAmbiguousTiles call, guarding against
 // the heavy backtracking tail. Capped runs are recorded with capped: true
 // and excluded from the elapsed/ambiguous statistics.

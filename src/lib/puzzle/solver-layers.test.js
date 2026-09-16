@@ -463,29 +463,74 @@ describe('Test deadend pair facts', () => {
 		expect(mixedCell.deadends).toBe(0);
 	});
 
-	it('removeDeadendPairs removes only the deadend answers', () => {
+	it('Prunes pictures answering neighbour deadend facts by mass', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const polygon = grid.polygon_at(4);
-		const cell = new LayeredCell([2, 1], polygon, 4);
-		cell.applyConstraints();
-		// pictures using N via the deadend layer: [2, 1] and [4, 2]
-		expect(cell.removeDeadendPairs(2)).toBe(2);
-		expect([...cell.possible.keys()].sort()).toEqual([1, 2]);
-		const mixedCell = new LayeredCell([2, 9], polygon, 4);
-		mixedCell.applyConstraints();
-		// N via deadend only in [2, 9]; [4, 3] answers N via a two-connection layer
-		expect(mixedCell.removeDeadendPairs(2)).toBe(1);
-		expect(mixedCell.possible.has(0)).toBe(false);
-		expect(mixedCell.possible.has(3)).toBe(true);
+		// [2, 9]: N via the deadend layer in picture rotation 0
+		const cell = new LayeredCell([2, 9], polygon, 4);
+		cell.addNeighbourDeadend(2, 1);
+		cell.applyConstraints(9);
+		// the pure deadend answer seals 2 < 9 sub-cells: gone, while the
+		// two-connection north user [4, 3] survives
+		expect(cell.possible.has(0)).toBe(false);
+		expect(cell.possible.has(3)).toBe(true);
+		// a mass that makes the sealed area the whole board withholds the
+		// prune: the answer may be the final move completing the tree
+		const boundary = new LayeredCell([2, 9], polygon, 4);
+		boundary.addNeighbourDeadend(2, 8);
+		boundary.applyConstraints(9);
+		expect(boundary.possible.has(0)).toBe(true);
+		// ...and once the board grows, the same fact prunes again
+		const bigger = new LayeredCell([2, 9], polygon, 4);
+		bigger.addNeighbourDeadend(2, 8);
+		bigger.applyConstraints(10);
+		expect(bigger.possible.has(0)).toBe(false);
 	});
 
-	it('Clones the deadends mask and layer popcounts', () => {
+	it('Transfers neighbour deadend facts through a bend', () => {
+		const grid = new SquareGrid(3, 3, false);
+		const polygon = grid.polygon_at(4);
+		// bend E+N: both east and west neighbours are deadends, so every
+		// surviving picture uses N and S via layers whose other direction
+		// faces a deadend - the bend becomes an effective deadend at N and S
+		const cell = new LayeredCell([3], polygon, 4);
+		cell.addNeighbourDeadend(1, 1);
+		cell.addNeighbourDeadend(4, 1);
+		const { addedDeadends } = cell.applyConstraints(9);
+		expect(addedDeadends).toBe(2 | 8);
+		// the pushed masses cover the worst picture: if the neighbour above
+		// answers N with its own deadend, the sealed area is the answerer
+		// (1) + the bend + the mass-1 fact behind E or W => pushed mass 2
+		expect(cell.ownDeadendMass(2)).toBe(2);
+		expect(cell.ownDeadendMass(8)).toBe(2);
+	});
+
+	it('Computes pushed deadend masses along a corridor', () => {
+		const grid = new SquareGrid(3, 1, false);
+		const polygon = grid.polygon_at(1);
+		// straight E+W with a mass-2 deadend fact from the west: the east
+		// direction becomes an effective deadend carrying that mass forward
+		const cell = new LayeredCell([5], polygon, 1);
+		cell.addNeighbourDeadend(4, 2);
+		const { addedDeadends } = cell.applyConstraints(9);
+		expect(addedDeadends).toBe(1);
+		expect(cell.ownDeadendMass(1)).toBe(3);
+	});
+
+	it('Clones the deadends mask and neighbour deadend facts', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const cell = new LayeredCell([2, 1], grid.polygon_at(4), 4);
-		cell.applyConstraints();
+		cell.applyConstraints(9);
+		cell.addNeighbourDeadend(4, 2);
 		const clone = cell.clone();
 		expect(clone.deadends).toBe(cell.deadends);
 		expect(clone.layerPopcounts).toEqual(cell.layerPopcounts);
+		expect(clone.neighbourDeadends).toBe(cell.neighbourDeadends);
+		expect(clone.neighbourDeadendMass.get(4)).toBe(2);
+		// the mass map must not be shared: raising a fact on the clone
+		// leaves the original untouched
+		clone.addNeighbourDeadend(4, 5);
+		expect(cell.neighbourDeadendMass.get(4)).toBe(2);
 	});
 
 	it('Does not report phantom deadend additions after a picture set replacement', () => {
@@ -517,26 +562,28 @@ describe('Test deadend pair facts', () => {
 	it('Prunes neighbour pictures answering a deadend with a deadend', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const tiles = [
-			[5],
-			[8, 1], // cell 1: deadend layer south towards the centre
-			[5],
-			[5],
+			[1],
+			[8, 5], // cell 1: deadend layer south towards the centre
+			[12],
+			[9],
 			[2, 9], // centre: answers north via a deadend in picture [2, 9]
+			[14],
+			[3],
 			[5],
-			[5],
-			[5],
-			[5]
+			[6]
 		];
 		const solver = new LayeredSolver(tiles, grid);
 		solver.dirty.add(1);
+		// stop when the centre itself gets processed: the deadend fact is
+		// stored on it and prunes its pictures in its own constraint pass
 		for (const step of solver.processDirtyCells()) {
-			if (step.cell === 1) {
+			if (step.cell === 4) {
 				break;
 			}
 		}
 		const centre = solver.getCell(4);
 		// the deadend answer must be gone while the two-connection
-		// north user [8, 6] survives
+		// north user [4, 3] survives
 		expect(centre.possible.has(0)).toBe(false);
 		expect(centre.possible.has(3)).toBe(true);
 	});
@@ -579,6 +626,33 @@ describe('Test deadend pair facts', () => {
 				expect(result.complete).toBe(true);
 			}
 		}
+	});
+
+	it('Solves a 1x2 pair of deadends - the final move seals the board', () => {
+		const grid = new SquareGrid(2, 1, false);
+		const solver = new LayeredSolver([[1], [4]], grid);
+		const result = solver.markAmbiguousTiles();
+		expect(result.solvable).toBe(true);
+		expect(result.complete).toBe(true);
+		expect(result.unique).toBe(true);
+		const solved = applyRotations(grid, [[1], [4]], solver.solution);
+		expect(() => validateLayers(grid, solved)).not.toThrow();
+	});
+
+	it('Solves a corridor that chains deadend facts to the last tile', () => {
+		// the chained facts reach the right deadend with a sealed mass of 6
+		// (five straights transfer it, one hop each); the pair rule used to
+		// throw NoOrientationsPossible here once the board passed the old
+		// static gate, because sealing the corridor would be the whole tree
+		const grid = new SquareGrid(7, 1, false);
+		const tiles = [[1], [5], [5], [5], [5], [5], [4]];
+		const solver = new LayeredSolver(tiles, grid);
+		const result = solver.markAmbiguousTiles();
+		expect(result.solvable).toBe(true);
+		expect(result.complete).toBe(true);
+		expect(result.unique).toBe(true);
+		const solved = applyRotations(grid, tiles, solver.solution);
+		expect(() => validateLayers(grid, solved)).not.toThrow();
 	});
 });
 

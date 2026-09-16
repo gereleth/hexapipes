@@ -147,11 +147,30 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 */
 	self.deadends = 0;
 	/** Static: whether any layer of this cell is a deadend layer. Cells
-	 * without deadend layers can never have a deadends bit, which lets the
-	 * derivation (and neighbour-side pair checks) skip them entirely.
+	 * without deadend layers can still become effective deadends once
+	 * neighbour facts arrive (every picture then uses some direction via
+	 * layers whose remaining directions all face neighbour deadends), so
+	 * the derivation skip condition also checks neighbourDeadends.
 	 * @type {Boolean} */
 	self.hasDeadends = layers.some((x) => popcount(x) === 1);
 	self.layerPopcounts = layers.map((x) => popcount(x));
+	/**
+	 * Bitmask of directions with a neighbour deadend fact (the keys of
+	 * neighbourDeadendMass, kept for cheap checks in hot paths)
+	 * @type {Number}
+	 */
+	self.neighbourDeadends = 0;
+	/**
+	 * Deadend facts received from neighbours, with the sealed mass behind
+	 * each: how many sub-cells (the neighbour's deadend sub-cell included)
+	 * would be sealed off from the tree together with our answering
+	 * sub-cell if we answered this direction with a deadend-effective
+	 * layer. Masses are upper bounds and only ever raised (max) - a stale
+	 * loose mass costs a missed pruning, never an unsound one, so facts
+	 * are never retracted.
+	 * @type {Map<Number, Number>} direction bit => mass >= 1
+	 */
+	self.neighbourDeadendMass = new Map();
 
 	/**
 	 * Union of all layer masks at a rotation
@@ -178,6 +197,57 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 */
 	self.addConnection = function (direction) {
 		self.connections += direction - ((self.connections + self.walls) & direction);
+	};
+
+	/**
+	 * Records a neighbour's deadend fact: across `direction` sits a
+	 * sub-cell whose deadend answer, paired with a deadend-effective layer
+	 * of ours, would seal `mass` sub-cells. Masses are upper bounds, so
+	 * repeated facts merge by keeping the max.
+	 * @param {Number} direction
+	 * @param {Number} mass
+	 */
+	self.addNeighbourDeadend = function (direction, mass) {
+		if ((self.neighbourDeadends & direction) === 0) {
+			self.neighbourDeadends += direction;
+		}
+		const previous = self.neighbourDeadendMass.get(direction) || 0;
+		if (mass > previous) {
+			self.neighbourDeadendMass.set(direction, mass);
+		}
+	};
+
+	/**
+	 * True when some layer of the picture answers only directions where
+	 * neighbour deadend facts wait, and the area sealed by such an answer
+	 * (the layer's own sub-cell plus the masses behind its directions) is
+	 * a proper subset of all sub-cells - such a picture can never be part
+	 * of a spanning tree. When the sealed area equals the whole board, the
+	 * answer may be the final move that completes the tree, so the
+	 * picture must survive.
+	 * @param {Number[]} layers
+	 * @param {Number} totalSubCells
+	 * @returns {Boolean}
+	 */
+	self.sealsNeighbourDeadends = function (layers, totalSubCells) {
+		if (self.neighbourDeadends === 0) {
+			return false;
+		}
+		for (let layer of layers) {
+			if (layer > 0 && (layer & self.neighbourDeadends) === layer) {
+				let mass = 1;
+				let bits = layer;
+				while (bits > 0) {
+					const direction = bits & -bits;
+					bits ^= direction;
+					mass += self.neighbourDeadendMass.get(direction) || 0;
+				}
+				if (mass < totalSubCells) {
+					return true;
+				}
+			}
+		}
+		return false;
 	};
 
 	/**
@@ -213,17 +283,25 @@ export function LayeredCell(layers, polygon, index = -1) {
 	};
 
 	/**
-	 * Filters out pictures that contradict known constraints
+	 * Filters out pictures that contradict known constraints, including
+	 * pictures that answer neighbour deadend facts with a deadend-effective
+	 * layer of their own while something would remain unsealed outside
+	 * @param {Number} [totalSubCells = 0] - all sub-cells of the playable
+	 * board; the deadend-answer pruning only fires while the sealed area is
+	 * a proper subset (mass < totalSubCells), so the default 0 disables it
 	 * @throws {NoOrientationsPossible}
-	 * @returns {{addedWalls:Number, addedConnections: Number, addedDeadends: Number}}
+	 * @returns {{addedWalls:Number, addedConnections: Number, addedDeadends: Number, deadendPrunes: Number}}
 	 */
-	self.applyConstraints = function () {
+	self.applyConstraints = function (totalSubCells = 0) {
 		const full = polygon.fully_connected;
 		const newPossible = new Map();
 		let newWalls = full;
 		let newConnections = full;
-		// cells without deadend layers can never have a deadend direction
-		let newDeadends = self.hasDeadends ? full : 0;
+		// cells without deadend layers can still become effective deadends
+		// once neighbour facts arrive, so the derivation also runs then
+		const deriveDeadends = self.hasDeadends || self.neighbourDeadends > 0;
+		let newDeadends = deriveDeadends ? full & ~self.walls & ~self.neighbourDeadends : 0;
+		let deadendPrunes = 0;
 		for (let [rotation, layers] of self.possible) {
 			const union = self.unionAt(rotation);
 			if (
@@ -234,14 +312,26 @@ export function LayeredCell(layers, polygon, index = -1) {
 			) {
 				continue;
 			}
+			if (self.sealsNeighbourDeadends(layers, totalSubCells)) {
+				deadendPrunes += 1;
+				continue;
+			}
 			newPossible.set(rotation, layers);
 			newWalls = newWalls & (full - union);
 			newConnections = newConnections & union;
-			if (self.hasDeadends) {
+			if (deriveDeadends) {
 				layers.forEach((layer, index) => {
-					if (self.layerPopcounts[index] > 1) {
-						newDeadends &= full - layer;
+					if (self.layerPopcounts[index] === 1) {
+						// pure deadend layer: leaves its direction a candidate
+						return;
 					}
+					const effective = layer & ~self.neighbourDeadends;
+					if (popcount(effective) <= 1) {
+						// all remaining directions face neighbour deadends:
+						// effectively a deadend, leaves them as candidates too
+						return;
+					}
+					newDeadends &= full - effective;
 				});
 			}
 		}
@@ -261,7 +351,7 @@ export function LayeredCell(layers, polygon, index = -1) {
 		self.walls = newWalls;
 		self.connections = newConnections;
 		self.deadends = newDeadends;
-		return { addedWalls, addedConnections, addedDeadends };
+		return { addedWalls, addedConnections, addedDeadends, deadendPrunes };
 	};
 
 	/**
@@ -281,25 +371,38 @@ export function LayeredCell(layers, polygon, index = -1) {
 	};
 
 	/**
-	 * Removes pictures that connect `direction` via a single-connection layer.
-	 * Called when the neighbour across `direction` can only answer with a
-	 * deadend itself: two facing deadend sub-cells would be sealed off from
-	 * the rest of the tree.
+	 * Sealed mass behind one of our deadend directions: if the neighbour
+	 * answered it with a deadend of its own, this many sub-cells (our
+	 * answering sub-cell and the neighbour's included, plus every deadend
+	 * hanging behind the answering layer's other directions) would be
+	 * sealed off together. Upper bound: max over the surviving pictures
+	 * using the direction - by derivation their answering layers are pure
+	 * deadends (mass 1) or have all other directions facing neighbour
+	 * deadend facts.
 	 * @param {Number} direction
-	 * @returns {Number} - how many pictures were removed
+	 * @returns {Number}
 	 */
-	self.removeDeadendPairs = function (direction) {
-		if (!self.hasDeadends) {
-			return 0;
-		}
-		let removed = 0;
-		for (let [rotation, layers] of [...self.possible]) {
-			if (layers.some((layer) => layer === direction)) {
-				self.possible.delete(rotation);
-				removed += 1;
+	self.ownDeadendMass = function (direction) {
+		let mass = 1;
+		for (let layers of self.possible.values()) {
+			for (let index = 0; index < layers.length; index++) {
+				const layer = layers[index];
+				if ((layer & direction) === 0 || self.layerPopcounts[index] === 1) {
+					continue;
+				}
+				let candidate = 1;
+				let bits = layer & ~direction;
+				while (bits > 0) {
+					const bit = bits & -bits;
+					bits ^= bit;
+					candidate += self.neighbourDeadendMass.get(bit) || 0;
+				}
+				if (candidate > mass) {
+					mass = candidate;
+				}
 			}
 		}
-		return removed;
+		return mass;
 	};
 
 	/**
@@ -312,6 +415,8 @@ export function LayeredCell(layers, polygon, index = -1) {
 		clone.walls = self.walls;
 		clone.connections = self.connections;
 		clone.deadends = self.deadends;
+		clone.neighbourDeadends = self.neighbourDeadends;
+		clone.neighbourDeadendMass = new Map(self.neighbourDeadendMass);
 		return clone;
 	};
 
@@ -388,12 +493,6 @@ export function LayeredSolver(tiles, grid) {
 		dirtyProcessings: 0,
 		prunedPictures: 0
 	};
-
-	// ruling out orientations connecting only deadends messes up
-	// solving very small instances
-	// so it's only enabled if there's enough tiles
-	self.checkDeadendConnections =
-		self.grid.total - self.grid.emptyCells.size > self.grid.DIRECTIONS.length + 1;
 
 	self.shortTrialsIndex = 0;
 
@@ -949,10 +1048,16 @@ export function LayeredSolver(tiles, grid) {
 			const polygon = self.grid.polygon_at(cell);
 			// apply constraints and prune until the picture set is stable,
 			// propagating every newly implied wall/connection right away
-			/** @type {{addedWalls: Number, addedConnections: Number, addedDeadends: Number}} */
-			let deltas = { addedWalls: 0, addedConnections: 0, addedDeadends: 0 };
+			/** @type {{addedWalls: Number, addedConnections: Number, addedDeadends: Number, deadendPrunes: Number}} */
+			let deltas = {
+				addedWalls: 0,
+				addedConnections: 0,
+				addedDeadends: 0,
+				deadendPrunes: 0
+			};
 			for (;;) {
-				deltas = cellObj.applyConstraints();
+				deltas = cellObj.applyConstraints(self.totalSubCells);
+				self.stats.prunedPictures += deltas.deadendPrunes;
 				// add walls to walled off neighbours
 				if (deltas.addedWalls > 0) {
 					for (let direction of polygon.directions) {
@@ -992,13 +1097,17 @@ export function LayeredSolver(tiles, grid) {
 						}
 					}
 				}
-				// neighbours must not answer a deadend with a deadend: two facing
-				// single-connection sub-cells would be sealed off from the tree.
-				// Same board-size gate as the classic deadend rule: on tiny boards
-				// the sealed pair could be the entire puzzle
-				if (self.checkDeadendConnections && deltas.addedDeadends > 0) {
+				// neighbours must not answer a deadend with a deadend: two
+				// facing deadend-effective sub-cells would seal each other
+				// off from the tree along with every deadend hanging behind
+				// them. Facts carry the sealed mass; the receiving side only
+				// prunes while the sealed area stays a proper subset of the
+				// board - when it equals the whole board, the answer may be
+				// the final move that completes the tree
+				if (deltas.addedDeadends > 0) {
 					for (let direction of polygon.directions) {
 						if ((direction & deltas.addedDeadends) > 0) {
+							const mass = cellObj.ownDeadendMass(direction);
 							const { neighbour, empty } = self.grid.find_neighbour(cell, direction);
 							if (empty) {
 								continue;
@@ -1012,24 +1121,26 @@ export function LayeredSolver(tiles, grid) {
 							if (neighbourCell === undefined) {
 								// pinned neighbour: the answering mask is frozen in
 								// its pinned picture. If it answers with a deadend,
-								// this cell must not connect here with a deadend
-								// at all
+								// every picture of ours connecting here (a
+								// deadend-effective layer, by our own fact) seals
+								// the pair - impossible while something remains
+								// outside the sealed area
 								const pinnedRotation = self.solution[neighbour];
 								const pinnedLayers = self.tiles[neighbour].map((layer) =>
 									self.grid.polygon_at(neighbour).rotate(layer, pinnedRotation)
 								);
-								if (pinnedLayers.some((layer) => layer === opposite)) {
+								if (
+									pinnedLayers.some((layer) => layer === opposite) &&
+									mass + 1 < self.totalSubCells
+								) {
 									cellObj.addWall(direction);
 									self.dirty.add(cell);
 								}
 								continue;
 							}
 							// the neighbour can still lose pictures
-							const removed = neighbourCell.removeDeadendPairs(opposite);
-							self.stats.prunedPictures += removed;
-							if (removed > 0) {
-								self.dirty.add(neighbour);
-							}
+							neighbourCell.addNeighbourDeadend(opposite, mass);
+							self.dirty.add(neighbour);
 						}
 					}
 				}
@@ -1099,7 +1210,6 @@ export function LayeredSolver(tiles, grid) {
 	self.clone = function () {
 		const clone = new LayeredSolver([], self.grid);
 		clone.tiles = self.tiles;
-		clone.checkDeadendConnections = self.checkDeadendConnections;
 		clone.shortTrialsIndex = self.shortTrialsIndex;
 		clone.totalSubCells = self.totalSubCells;
 		clone.totalEdges = self.totalEdges;
