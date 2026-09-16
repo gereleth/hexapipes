@@ -19,11 +19,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
   times (edge marks per cell-edge stay unambiguous, two layers can never point the same way).
 - A cell can be "revisited" by the generator: that adds a new layer instead of a loop.
 - Solved condition: **one tree over all sub-cells** — every layer of every playable cell
-  mutually connected, no loops, no open ends. `isSolved()` also requires `openEnds` empty.
-  Classic blocks neighbour-stubs via one-sided link storage + a mutuality re-check in its BFS,
-  but its off-board stub check is dead code (`dirIn` never stores `-1`) — irrelevant in practice
-  since generated boards never point off-board. The layered game stores mutual-only edges, so
-  `openEnds` handles both stub types — keep it.
+  mutually connected, no loops, no open ends.
 
 ## Encodings
 
