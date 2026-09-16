@@ -468,7 +468,7 @@ describe('Test deadend pair facts', () => {
 		const polygon = grid.polygon_at(4);
 		// [2, 9]: N via the deadend layer in picture rotation 0
 		const cell = new LayeredCell([2, 9], polygon, 4);
-		cell.addNeighbourDeadend(2, 1);
+		cell.addNeighbourDeadend(2, { mass: 1, ref: undefined });
 		cell.applyConstraints(9);
 		// the pure deadend answer seals 2 < 9 sub-cells: gone, while the
 		// two-connection north user [4, 3] survives
@@ -477,12 +477,12 @@ describe('Test deadend pair facts', () => {
 		// a mass that makes the sealed area the whole board withholds the
 		// prune: the answer may be the final move completing the tree
 		const boundary = new LayeredCell([2, 9], polygon, 4);
-		boundary.addNeighbourDeadend(2, 8);
+		boundary.addNeighbourDeadend(2, { mass: 8, ref: undefined });
 		boundary.applyConstraints(9);
 		expect(boundary.possible.has(0)).toBe(true);
 		// ...and once the board grows, the same fact prunes again
 		const bigger = new LayeredCell([2, 9], polygon, 4);
-		bigger.addNeighbourDeadend(2, 8);
+		bigger.addNeighbourDeadend(2, { mass: 8, ref: undefined });
 		bigger.applyConstraints(10);
 		expect(bigger.possible.has(0)).toBe(false);
 	});
@@ -494,8 +494,8 @@ describe('Test deadend pair facts', () => {
 		// surviving picture uses N and S via layers whose other direction
 		// faces a deadend - the bend becomes an effective deadend at N and S
 		const cell = new LayeredCell([3], polygon, 4);
-		cell.addNeighbourDeadend(1, 1);
-		cell.addNeighbourDeadend(4, 1);
+		cell.addNeighbourDeadend(1, { mass: 1, ref: undefined });
+		cell.addNeighbourDeadend(4, { mass: 1, ref: undefined });
 		const { addedDeadends } = cell.applyConstraints(9);
 		expect(addedDeadends).toBe(2 | 8);
 		// the pushed masses cover the worst picture: if the neighbour above
@@ -511,7 +511,7 @@ describe('Test deadend pair facts', () => {
 		// straight E+W with a mass-2 deadend fact from the west: the east
 		// direction becomes an effective deadend carrying that mass forward
 		const cell = new LayeredCell([5], polygon, 1);
-		cell.addNeighbourDeadend(4, 2);
+		cell.addNeighbourDeadend(4, { mass: 2, ref: undefined });
 		const { addedDeadends } = cell.applyConstraints(9);
 		expect(addedDeadends).toBe(1);
 		expect(cell.ownDeadendMass(1)).toBe(3);
@@ -521,16 +521,16 @@ describe('Test deadend pair facts', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const cell = new LayeredCell([2, 1], grid.polygon_at(4), 4);
 		cell.applyConstraints(9);
-		cell.addNeighbourDeadend(4, 2);
+		cell.addNeighbourDeadend(4, { mass: 2, ref: undefined });
 		const clone = cell.clone();
 		expect(clone.deadends).toBe(cell.deadends);
 		expect(clone.layerPopcounts).toEqual(cell.layerPopcounts);
 		expect(clone.neighbourDeadends).toBe(cell.neighbourDeadends);
-		expect(clone.neighbourDeadendMass.get(4)).toBe(2);
+		expect(clone.neighbourDeadendMass.get(4)?.mass).toBe(2);
 		// the mass map must not be shared: raising a fact on the clone
 		// leaves the original untouched
-		clone.addNeighbourDeadend(4, 5);
-		expect(cell.neighbourDeadendMass.get(4)).toBe(2);
+		clone.addNeighbourDeadend(4, { mass: 5, ref: undefined });
+		expect(cell.neighbourDeadendMass.get(4)?.mass).toBe(2);
 	});
 
 	it('Does not report phantom deadend additions after a picture set replacement', () => {

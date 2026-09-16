@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers, validateLayers } from './generator-layers';
 import { LayeredSolver } from './solver-layers';
@@ -163,6 +163,7 @@ function flush() {
 					'ambiguousTilesLimit max(100, 0.1 * total) like the uniqueness loop, no iteration cap, ' +
 					`wall-clock cap ${WALL_CLOCK_CAP_MS} ms (capped runs are excluded from statistics), ` +
 					'stats are per-run solver work counters',
+				seed: SEED,
 				started: startedIso,
 				written: new Date().toISOString(),
 				summary,
@@ -200,8 +201,40 @@ function printSummary(kind) {
 }
 
 const enabled = !!env.BENCH_MARK_AMBIGUOUS;
+// paired-seed protocol: with BENCH_SEED set, Math.random is replaced by a
+// seeded PRNG for the duration of the run so that two benchmark runs (e.g.
+// before/after a solver change) see the identical board sequence - this
+// also controls pregenerate_layers internals. Runs must stay
+// single-threaded while the PRNG is installed; the original Math.random is
+// restored in afterAll
+const SEED = env.BENCH_SEED !== undefined && env.BENCH_SEED !== '' ? Number(env.BENCH_SEED) : null;
+
+/**
+ * Deterministic PRNG (mulberry32)
+ * @param {Number} seed
+ * @returns {() => Number}
+ */
+function mulberry32(seed) {
+	let a = seed >>> 0;
+	return function () {
+		a |= 0;
+		a = (a + 0x6d2b79f5) | 0;
+		let t = Math.imul(a ^ (a >>> 15), 1 | a);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
 
 describe('Benchmark markAmbiguousTiles on layered 20x20 boards', () => {
+	const originalRandom = Math.random;
+	beforeAll(() => {
+		if (SEED !== null) {
+			Math.random = mulberry32(SEED);
+		}
+	});
+	afterAll(() => {
+		Math.random = originalRandom;
+	});
 	for (const [
 		label,
 		makeGrid

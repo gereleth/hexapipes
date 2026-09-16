@@ -63,6 +63,19 @@ function IslandDetectedException() {
  */
 
 /**
+ * A neighbour deadend fact: answering `direction` with a deadend-effective
+ * layer would seal `mass` sub-cells (the fact's origin included, plus
+ * everything hanging behind it). `ref` carries the fact's origin: component
+ * facts (one-link islands) carry the component set they were derived from,
+ * so the same mass hanging behind several directions of one layer is
+ * counted once; tile-chain facts carry `undefined` (each direction's
+ * behind-mass is a distinct unit)
+ * @typedef {Object} NeighbourDeadendFact
+ * @property {Number} mass
+ * @property {Set<ComponentMember>|undefined} ref
+ */
+
+/**
  * Counts set bits in a bitmask
  * @param {Number} mask
  * @returns {Number}
@@ -167,8 +180,8 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 * sub-cell if we answered this direction with a deadend-effective
 	 * layer. Masses are upper bounds and only ever raised (max) - a stale
 	 * loose mass costs a missed pruning, never an unsound one, so facts
-	 * are never retracted.
-	 * @type {Map<Number, Number>} direction bit => mass >= 1
+	 * are never retracted. Keys are single direction bits
+	 * @type {Map<Number, NeighbourDeadendFact>} direction bit => fact
 	 */
 	self.neighbourDeadendMass = new Map();
 
@@ -203,18 +216,65 @@ export function LayeredCell(layers, polygon, index = -1) {
 	 * Records a neighbour's deadend fact: across `direction` sits a
 	 * sub-cell whose deadend answer, paired with a deadend-effective layer
 	 * of ours, would seal `mass` sub-cells. Masses are upper bounds, so
-	 * repeated facts merge by keeping the max.
-	 * @param {Number} direction
-	 * @param {Number} mass
+	 * repeated facts merge by keeping the max (with its ref). Facts are
+	 * stored per single direction bit, so `direction` may be a mask
+	 * @param {Number} direction - single direction or mask of directions
+	 * @param {NeighbourDeadendFact} fact
 	 */
-	self.addNeighbourDeadend = function (direction, mass) {
-		if ((self.neighbourDeadends & direction) === 0) {
-			self.neighbourDeadends += direction;
+	self.addNeighbourDeadend = function (direction, fact) {
+		const added = direction & ~self.neighbourDeadends;
+		if (added !== 0) {
+			self.neighbourDeadends += added;
 		}
-		const previous = self.neighbourDeadendMass.get(direction) || 0;
-		if (mass > previous) {
-			self.neighbourDeadendMass.set(direction, mass);
+		let bits = direction;
+		while (bits > 0) {
+			const bit = bits & -bits;
+			bits ^= bit;
+			const previous = self.neighbourDeadendMass.get(bit);
+			if (previous === undefined || fact.mass > previous.mass) {
+				self.neighbourDeadendMass.set(bit, fact);
+			}
 		}
+	};
+
+	/**
+	 * Sum of the masses behind the given directions, counting each distinct
+	 * `ref` once: equal refs mean the same mass hangs behind several
+	 * directions of one layer (one component reached through two of its
+	 * edges), which must not be double-counted. Undefined refs are always
+	 * distinct - tile-chain facts have no component identity. Stale refs
+	 * left over from before a component merge only cause a missed dedup,
+	 * i.e. a larger, conservative sum
+	 * @param {Number} directions
+	 * @returns {Number}
+	 */
+	self.massBehind = function (directions) {
+		let mass = 0;
+		let refCount = 0;
+		let bits = directions & self.neighbourDeadends;
+		while (bits > 0) {
+			const bit = bits & -bits;
+			bits ^= bit;
+			const fact = self.neighbourDeadendMass.get(bit);
+			if (fact === undefined) {
+				continue;
+			}
+			if (fact.ref !== undefined) {
+				let seen = false;
+				for (let i = 0; i < refCount; i++) {
+					if (massBehindRefs[i] === fact.ref) {
+						seen = true;
+						break;
+					}
+				}
+				if (seen) {
+					continue;
+				}
+				massBehindRefs[refCount++] = fact.ref;
+			}
+			mass += fact.mass;
+		}
+		return mass;
 	};
 
 	/**
@@ -235,14 +295,7 @@ export function LayeredCell(layers, polygon, index = -1) {
 		}
 		for (let layer of layers) {
 			if (layer > 0 && (layer & self.neighbourDeadends) === layer) {
-				let mass = 1;
-				let bits = layer;
-				while (bits > 0) {
-					const direction = bits & -bits;
-					bits ^= direction;
-					mass += self.neighbourDeadendMass.get(direction) || 0;
-				}
-				if (mass < totalSubCells) {
+				if (1 + self.massBehind(layer) < totalSubCells) {
 					return true;
 				}
 			}
@@ -390,19 +443,29 @@ export function LayeredCell(layers, polygon, index = -1) {
 				if ((layer & direction) === 0 || self.layerPopcounts[index] === 1) {
 					continue;
 				}
-				let candidate = 1;
-				let bits = layer & ~direction;
-				while (bits > 0) {
-					const bit = bits & -bits;
-					bits ^= bit;
-					candidate += self.neighbourDeadendMass.get(bit) || 0;
-				}
+				const candidate = 1 + self.massBehind(layer & ~direction);
 				if (candidate > mass) {
 					mass = candidate;
 				}
 			}
 		}
 		return mass;
+	};
+
+	/**
+	 * Directions that the layer at `layerIndex` certainly uses: the
+	 * per-layer intersection over all surviving pictures. An unpinned cell
+	 * can still have a fully definite layer - its pictures may agree on
+	 * one layer's mask while differing in the others
+	 * @param {Number} layerIndex
+	 * @returns {Number}
+	 */
+	self.getLayerDefiniteConnections = function (layerIndex) {
+		let connections = polygon.fully_connected & ~self.walls;
+		for (let layers of self.possible.values()) {
+			connections &= layers[layerIndex];
+		}
+		return connections;
 	};
 
 	/**
@@ -422,6 +485,14 @@ export function LayeredCell(layers, polygon, index = -1) {
 
 	return self;
 }
+
+/**
+ * Scratch array for `massBehind`, reused across calls: it sits on the hot
+ * prune path (once per layer of every picture of every constraint pass),
+ * so it must not allocate
+ * @type {NeighbourDeadendFact['ref'][]}
+ */
+const massBehindRefs = [];
 
 const emptyCallback = (/**@type {SolverProgress} */ progress) => {};
 
@@ -463,6 +534,17 @@ export function LayeredSolver(tiles, grid) {
 	 * @type {Map<ComponentMember, Set<ComponentMember>>}
 	 */
 	self.components = new Map([]);
+
+	/**
+	 * Sealed mass of each component set: how many sub-cells have ever
+	 * joined it. Monotone - never decremented (pinned sub-cells stay in
+	 * the sealed area), merges sum their masses. Exact for one-link facts:
+	 * a component whose open frontier is a single link can only grow
+	 * through that link, so answering it with a deadend seals exactly this
+	 * many sub-cells plus the answering one
+	 * @type {Map<Set<ComponentMember>, Number>}
+	 */
+	self.componentMass = new Map([]);
 
 	/**
 	 * cell => (direction => slot) for the cell's own directions of certain
@@ -574,6 +656,7 @@ export function LayeredSolver(tiles, grid) {
 		let set = self.components.get(member);
 		if (set === undefined) {
 			set = new Set([member]);
+			self.componentMass.set(set, 1);
 			self.components.set(member, set);
 		}
 		return set;
@@ -611,6 +694,12 @@ export function LayeredSolver(tiles, grid) {
 			}
 		}
 		self.touchScan(source, target);
+		self.componentMass.set(
+			target,
+			(self.componentMass.get(target) || 0) + (self.componentMass.get(source) || 0)
+		);
+		self.componentMass.delete(source);
+		self.checkOneLinkIsland(target);
 		return target;
 	};
 
@@ -685,6 +774,8 @@ export function LayeredSolver(tiles, grid) {
 		dirs.set(direction, slot);
 		if (set === undefined) {
 			set = new Set([slot]);
+			// a fresh slot-only component contains no sub-cells yet
+			self.componentMass.set(set, 0);
 		} else {
 			set.add(slot);
 		}
@@ -713,6 +804,7 @@ export function LayeredSolver(tiles, grid) {
 		if (other === undefined) {
 			set.add(answerer);
 			self.components.set(answerer, set);
+			self.componentMass.set(set, (self.componentMass.get(set) || 0) + 1);
 			// the neighbours of the answerer resolve this component behind
 			// its directions now - their pictures may be prunable
 			for (let direction of self.grid.polygon_at(slot.cell).directions) {
@@ -721,6 +813,7 @@ export function LayeredSolver(tiles, grid) {
 					self.dirty.add(neighbour);
 				}
 			}
+			self.checkOneLinkIsland(set);
 		} else if (other === set) {
 			throw new LoopDetectedException();
 		} else {
@@ -866,6 +959,99 @@ export function LayeredSolver(tiles, grid) {
 	};
 
 	/**
+	 * One-link island facts: when a component's open frontier is reduced to
+	 * a single link, that link must not be answered with a deadend-effective
+	 * layer - doing so would seal the whole component (plus the answerer)
+	 * away from the tree. Two fact kinds:
+	 * - frontier = one unresolved Slot: its cell must not answer the slot's
+	 *   direction with a deadend-effective layer (the component's only
+	 *   growth path is that link, so the sealed size is exact);
+	 * - frontier = one resolved sub-cell of an unpinned cell: the layer's
+	 *   definite directions are "sealed behind" - the cell's derivation
+	 *   then turns the layer's remaining directions into effective deadends
+	 *   and chains the fact outward
+	 * @param {Set<ComponentMember>} set - component set to check
+	 */
+	self.checkOneLinkIsland = function (set) {
+		if (self.cellsToPin === 0) {
+			return;
+		}
+		if (set.size !== 1) {
+			return;
+		}
+		const mass = self.componentMass.get(set) || 0;
+		if (mass + 1 >= self.totalSubCells) {
+			// the sealed area could be the whole tree - a valid final move
+			return;
+		}
+		const member = /** @type {ComponentMember} */ (set.values().next().value);
+		if (typeof member !== 'number') {
+			const receiver = self.unsolved.get(member.cell);
+			if (receiver === undefined) {
+				return;
+			}
+			const ownSlots = self.slotIndex.get(member.cell);
+			if (ownSlots !== undefined && ownSlots.size > 1) {
+				// another unresolved slot of this cell lives in some other
+				// component: one layer answering both slots would merge the
+				// components instead of sealing this one (the OR-semantics
+				// case, out of scope)
+				return;
+			}
+			const candidates = self.answererCandidates(member.cell, member.direction);
+			if (candidates === null) {
+				return;
+			}
+			for (let candidate of candidates) {
+				const other = self.components.get(candidate);
+				if (other !== undefined && other !== set) {
+					// this answerer already hangs off another component:
+					// answering would merge the two rather than seal ours
+					return;
+				}
+			}
+			receiver.addNeighbourDeadend(member.direction, { mass, ref: set });
+			self.dirty.add(member.cell);
+			return;
+		}
+		const cell = member % self.grid.total;
+		const cellObj = self.unsolved.get(cell);
+		if (cellObj === undefined) {
+			// transient: this runs while the member's own cell pins down
+			// (its slots resolve before its sub-cells leave the components).
+			// The pinned stance was pushed already and the member is dropped
+			// moments later, so no fact is owed here
+			return;
+		}
+		const layer = Math.floor(member / self.grid.total);
+		// only the inward directions count: definite directions whose edge
+		// is already registered as a certain edge (and therefore points
+		// into this very component). Merely definite directions can still be
+		// the component's own growth path - marking those sealed would be
+		// exactly backwards. Registered edges join both ends into one
+		// component, so `connections` is the registration marker
+		const known = cellObj.getLayerDefiniteConnections(layer) & cellObj.connections;
+		if (known === 0) {
+			return;
+		}
+		const ownSlots = self.slotIndex.get(cell);
+		if (ownSlots !== undefined) {
+			for (let direction of ownSlots.keys()) {
+				for (let layers of cellObj.possible.values()) {
+					if ((layers[layer] & direction) > 0) {
+						// the member may yet be the one answering this slot -
+						// doing so pulls the slot's component in instead of
+						// sealing ours, so the seal claim would be false
+						return;
+					}
+				}
+			}
+		}
+		cellObj.addNeighbourDeadend(known, { mass, ref: set });
+		self.dirty.add(cell);
+	};
+
+	/**
 	 * Commits the cell that just pinned down: its own unresolved slots
 	 * resolve to the answering sub-cells (merging components, catching
 	 * cycles - the certain edges themselves were registered when they
@@ -894,6 +1080,8 @@ export function LayeredSolver(tiles, grid) {
 		if (layers.length > 0) {
 			self.cellsToPin -= 1;
 		}
+		/** @type {Set<Set<ComponentMember>>} */
+		const touched = new Set([]);
 		for (let index = 0; index < layers.length; index++) {
 			const id = self.idOf(cell, index);
 			const set = self.components.get(id);
@@ -902,10 +1090,18 @@ export function LayeredSolver(tiles, grid) {
 			}
 			set.delete(id);
 			self.components.delete(id);
+			touched.add(set);
 			if (set.size === 0 && self.cellsToPin > 0) {
 				// a component that ran out of members while unpinned cells
 				// remain can never connect to the rest of the board
 				throw new IslandDetectedException();
+			}
+		}
+		for (let set of touched) {
+			if (set.size === 0) {
+				self.componentMass.delete(set);
+			} else {
+				self.checkOneLinkIsland(set);
 			}
 		}
 		if (self.committedEdges > self.totalEdges) {
@@ -1139,7 +1335,7 @@ export function LayeredSolver(tiles, grid) {
 								continue;
 							}
 							// the neighbour can still lose pictures
-							neighbourCell.addNeighbourDeadend(opposite, mass);
+							neighbourCell.addNeighbourDeadend(opposite, { mass, ref: undefined });
 							self.dirty.add(neighbour);
 						}
 					}
@@ -1236,6 +1432,7 @@ export function LayeredSolver(tiles, grid) {
 				// slot objects are immutable, sharing them between clones is safe
 				clonedSet.add(element);
 			}
+			clone.componentMass.set(clonedSet, self.componentMass.get(set) ?? 0);
 		});
 		clone.slotIndex = new Map([]);
 		self.slotIndex.forEach((dirs, cell) => {
