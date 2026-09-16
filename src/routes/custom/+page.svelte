@@ -119,21 +119,28 @@
 				throw 'Tiles list not found';
 			}
 			const t = data.tiles;
-			t.forEach((tile, index) => {
-				if (isNaN(tile)) {
-					throw `NaN value found in tiles list at index ${index}`;
-				}
-			});
+			const layer = Array.isArray(data.tiles[0]);
+			if (!layer) {
+				t.forEach((tile, index) => {
+					if (isNaN(tile)) {
+						throw `NaN value found in tiles list at index ${index}`;
+					}
+				});
+			}
+
 			let gr = createGrid(data.grid, w, h, wr, t);
 			if (gr.total !== t.length) {
 				throw `Size mismatch: grid total = ${gr.total}, length of tiles = ${t.length}`;
 			}
-			t.forEach((tile, index) => {
-				if (tile < 0 || tile > gr.polygon_at(index).fully_connected) {
-					throw `Bad tile value at index ${index}: ${tile}`;
-				}
-			});
+			if (!layer) {
+				t.forEach((tile, index) => {
+					if (tile < 0 || tile > gr.polygon_at(index).fully_connected) {
+						throw `Bad tile value at index ${index}: ${tile}`;
+					}
+				});
+			}
 			// now it looks like the imported puzzle is ok
+			layered = layer;
 			width = w;
 			height = h;
 			wrap = wr;
