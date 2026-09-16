@@ -51,7 +51,7 @@ function IslandDetectedException() {
  * @typedef {Object} LayeredComponent
  * @property {Map<Number,Number>} subCells subCellId => known connection directions
  * @property {Map<Number,Number>} slots cellIndex => directions
- * @property {Number} freeLinks
+ * @property {Number} totalSubcells
  */
 
 /**
@@ -148,13 +148,16 @@ export class LayeredCell {
 		 * directions where the neighbour either has a wall or a deadend layer
 		 */
 		this.neighbourDeadends = 0;
+		/** @type {Map<Number,Number>} - how many subcells might be hiding behind this deadend*/
+		this.neighbourDeadendWeights = new Map();
 		/**
 		 * Deadend constraints we push into neighbours - all our directions
 		 * where we either have a wall or a deadend layer
 		 */
 		this.ownDeadends = 0;
 		// /**@type {Map<Number,Set<Number>>} for each direction - which layers might answer the connection*/
-		// this.answeringLayers = new Map();
+		/** @type {Map<Number,Number>} - how many subcells might be hiding behind this deadend*/
+		this.ownDeadendWeights = new Map();
 	}
 	/**
 	 * Clone this cell assigning new possible states
@@ -200,10 +203,18 @@ export class LayeredCell {
 	}
 
 	/**
+	 * Inform this cell that the neighbour in direction could only answer a connection
+	 * with a deadend layer (if at all). Weight is how many subcells belong to the
+	 * deadend portion (it might be a whole island with one free link left).
 	 * @param {Number} direction
+	 * @param {Number} weight
 	 */
-	addNeighbourDeadend(direction) {
+	addNeighbourDeadend(direction, weight) {
 		this.neighbourDeadends |= direction & ~(this.neighbourDeadends & direction);
+		this.neighbourDeadendWeights.set(
+			direction,
+			Math.max(weight, this.neighbourDeadendWeights.get(direction) || 0)
+		);
 	}
 
 	/**
@@ -244,13 +255,17 @@ export class LayeredCell {
 	 * neighbour extends a deadend toward me I must not answer with a
 	 * deadend myself.
 	 * @param {Number} directions
+	 * @param {Number} unlessThisBig - allow orientation if the resulting island is big enough
 	 * @returns {Number} count of removed orientations
 	 */
-	mustNotSealDeadends(directions) {
+	mustNotSealDeadends(directions, unlessThisBig = Infinity) {
 		const remove = [];
 		for (let [rotation, layers] of this.possible) {
-			if (layers.some((layer) => (layer & directions) === layer)) {
-				remove.push(rotation);
+			for (let layer of layers) {
+				if ((layer & directions) === layer && this.getDeadendWeight(layer) < unlessThisBig) {
+					remove.push(rotation);
+					break;
+				}
 			}
 		}
 		remove.forEach((r) => this.possible.delete(r));
@@ -259,6 +274,19 @@ export class LayeredCell {
 
 	/**
 	 *
+	 * @param {Number} layer
+	 */
+	getDeadendWeight(layer) {
+		let total = 1;
+		for (let direction of iterate_directions(layer)) {
+			total += this.neighbourDeadendWeights.get(direction) || 0;
+		}
+		return total;
+	}
+
+	/**
+	 * Forbid orientations where a certain layer connects in direction
+	 * (use case: layer is in component and direction connects to the same component, avoid loop)
 	 * @param {Number} layerIndex
 	 * @param {Number} direction
 	 */
@@ -275,6 +303,7 @@ export class LayeredCell {
 
 	/**
 	 * Forbid orientations where any layer connects at least two of the directions
+	 * (use case: all given directions lead to the same component, avoid loop)
 	 * @param {Number} directions
 	 */
 	forbidLayerBridge(directions) {
@@ -290,25 +319,6 @@ export class LayeredCell {
 		remove.forEach((r) => this.possible.delete(r));
 		return remove.length;
 	}
-
-	/**
-	 * For every direction tells which layers might answer a connection there
-	 */
-	// collectAnsweringLayers() {
-	// 	const answeringLayers = new Map();
-	// 	for (let [rotation, layers] of this.possible) {
-	// 		for (let [index, layer] of layers.entries()) {
-	// 			for (let direction of iterate_directions(layer)) {
-	// 				if (!answeringLayers.has(direction)) {
-	// 					answeringLayers.set(direction, new Set([index]));
-	// 				} else {
-	// 					answeringLayers.get(direction).add(index);
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// 	this.answeringLayers = answeringLayers;
-	// }
 
 	/**
 	 * Which layers might answer a connection in this direction
@@ -328,15 +338,28 @@ export class LayeredCell {
 
 	/**
 	 * @returns {Number} our directions where we can only use deadend tiles
+	 * or only use layers that connect to neighbour deadends
 	 */
 	get ownDeadendDirections() {
 		if (!(this.hasDeadends || this.neighbourDeadends > 0)) return 0;
 		let deadends = this.polygon.fully_connected & ~this.walls & ~this.neighbourDeadends;
+		const w = this.ownDeadendWeights;
 		for (let [rotation, layers] of this.possible) {
 			for (let [index, layer] of layers.entries()) {
-				if (this.layerPopcounts[index] === 1) continue;
+				if (this.layerPopcounts[index] === 1) {
+					w.set(layer, Math.max(1, w.get(layer) || 0));
+					continue;
+				}
 				const effectiveLayer = layer & ~this.neighbourDeadends;
-				if (popcount(effectiveLayer) <= 1) continue;
+				if (effectiveLayer === 0) continue;
+				else if (popcount(effectiveLayer) === 1) {
+					let weight = 1;
+					for (let direction of iterate_directions(layer & this.neighbourDeadends)) {
+						weight += this.neighbourDeadendWeights.get(direction) || 0;
+					}
+					w.set(effectiveLayer, Math.max(weight, w.get(effectiveLayer) || 0));
+					continue;
+				}
 				deadends &= ~effectiveLayer;
 			}
 		}
@@ -371,10 +394,11 @@ export class LayeredCell {
 
 	/**
 	 * Filters out rotations that contradict known constraints
+	 * @param {Number} weightLimit - deadend sealing prevented if total sealed weight < weightLimit
 	 * @throws {NoOrientationsPossibleException}
 	 * @returns {{addedWalls:Number, addedConnections: Number, addedDeadends: Number}}
 	 */
-	applyConstraints(checkDeadends = true) {
+	applyConstraints(weightLimit = Infinity) {
 		const full = this.polygon.fully_connected;
 		const result = {
 			addedWalls: 0,
@@ -386,12 +410,12 @@ export class LayeredCell {
 		const removedCount =
 			this.mustHaveAllConnections(this.connections) +
 			this.mustHaveAllWalls(this.walls) +
-			(checkDeadends ? this.mustNotSealDeadends(this.neighbourDeadends) : 0);
+			this.mustNotSealDeadends(this.neighbourDeadends, weightLimit);
 		// if (removedCount === 0) return result;
 		if (this.possible.size === 0) {
 			throw NoOrientationsPossibleException(this);
 		}
-		for (let [rotation, layers] of this.possible) {
+		for (let rotation of this.possible.keys()) {
 			const union = this.unionAt(rotation);
 			newWalls = newWalls & (full - union);
 			newConnections = newConnections & union;
@@ -405,7 +429,6 @@ export class LayeredCell {
 			result.addedDeadends = newDeadends & ~this.ownDeadends & ~newWalls;
 			this.ownDeadends = newDeadends | newWalls;
 		}
-		// this.collectAnsweringLayers();
 		return result;
 	}
 }
@@ -424,6 +447,7 @@ export class LayeredSolver {
 		this.tiles = tiles;
 		this.grid = grid;
 		this.progress_callback = emptyCallback;
+		this.totalSubcells = 0;
 
 		/** @type {Map<Number, LayeredCell>} */
 		this.unsolved = new Map();
@@ -449,12 +473,6 @@ export class LayeredSolver {
 		 */
 		this.subcellComponents = new Map();
 
-		// ruling out orientations connecting only deadends messes up
-		// solving very small instances
-		// so it's only enabled if there's enough tiles
-		// this.checkDeadendConnections = grid.total - grid.emptyCells.size > grid.DIRECTIONS.length + 1;
-		this.totalUnsolved = grid.total - grid.emptyCells.size;
-
 		this.shortTrialsIndex = 0;
 
 		/** @type {any[][]} cells to process components for */
@@ -464,22 +482,18 @@ export class LayeredSolver {
 		this.avoidIslandQueue = new Set();
 	}
 
-	get checkDeadendConnections() {
-		return this.totalUnsolved > this.grid.DIRECTIONS.length + 1;
-	}
-
 	/**
-	 * Sub-cell id for a layer of a cell
-	 * @param {Number} cell
+	 * Sub-cell id for a layer of a cell at index
+	 * @param {Number} index
 	 * @param {Number} layer
 	 * @returns {Number}
 	 */
-	idOf(cell, layer) {
-		return cell + layer * this.grid.total;
+	idOf(index, layer) {
+		return index + layer * this.grid.total;
 	}
 
 	/**
-	 * Sub-cell id for a layer of a cell
+	 * Cell index and layer from a subcellId
 	 * @param {Number} subcellId
 	 * @returns {Number[]}
 	 */
@@ -491,6 +505,7 @@ export class LayeredSolver {
 
 	/**
 	 * Returns the cell at index. Initializes the cell if necessary.
+	 * Throws should never happen when the solver is working correctly
 	 * @param {Number} index
 	 * @returns {LayeredCell}
 	 */
@@ -556,7 +571,7 @@ export class LayeredSolver {
 				[index, direction],
 				[neighbour, opposite]
 			]),
-			freeLinks: 0
+			totalSubcells: 0
 		};
 		if (!this.slotComponents.has(index)) {
 			this.slotComponents.set(index, new Map([[direction, component]]));
@@ -694,7 +709,7 @@ export class LayeredSolver {
 							component.slots.set(index, slotsLeft);
 						}
 						component.subCells.set(subCellId, direction);
-						component.freeLinks += cell.layerPopcounts[layerIndex] - 1;
+						component.totalSubcells += 1;
 						// subcell joined a component - check if it has
 						// any neighbours already in component
 						this.avoidSubcellLoops(index, layerIndex, cell, component);
@@ -741,7 +756,6 @@ export class LayeredSolver {
 					if (otherComponent === undefined) {
 						neighbourSlots.set(opposite, component);
 						component.slots.set(neighbour, (component.slots.get(neighbour) || 0) | opposite);
-						component.freeLinks -= 1;
 						this.avoidIslandQueue.add(component);
 						this.avoidSlotLoops(index, component);
 					} else if (otherComponent === component) {
@@ -758,7 +772,7 @@ export class LayeredSolver {
 				this.subcellComponents.delete(subCellId);
 			}
 		}
-		// this.pruneLoop(index, cell);
+		this.pruneLoop(index, cell);
 	}
 
 	/**
@@ -784,7 +798,7 @@ export class LayeredSolver {
 		} else {
 			slotComponent.slots.set(index, slotsLeft);
 		}
-		subcellComponent.freeLinks += slotComponent.freeLinks - 1;
+		subcellComponent.totalSubcells += slotComponent.totalSubcells;
 		for (let [joinIndex, directions] of slotComponent.slots) {
 			subcellComponent.slots.set(
 				joinIndex,
@@ -817,7 +831,7 @@ export class LayeredSolver {
 			const grid = this.grid;
 			// console.log({ index: cell.index, walls: cell.walls, connections: cell.connections });
 			let { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints(
-				this.checkDeadendConnections
+				this.totalSubcells
 			);
 			// console.log({ addedWalls, addedConnections, addedDeadends });
 			if (addedWalls > 0) {
@@ -835,7 +849,7 @@ export class LayeredSolver {
 					this.addConnection(index, direction);
 				}
 			}
-			if (this.checkDeadendConnections && addedDeadends > 0) {
+			if (addedDeadends > 0) {
 				for (let direction of iterate_directions(addedDeadends)) {
 					const { neighbour, empty } = grid.find_neighbour(index, direction);
 					// avoid telling our deadend facts to solved neighbours
@@ -843,7 +857,7 @@ export class LayeredSolver {
 					if (empty || this.solution[neighbour] !== this.UNSOLVED) continue;
 					const opposite = grid.OPPOSITE.get(direction) || 0;
 					const neighbourCell = this.getCell(neighbour);
-					neighbourCell.addNeighbourDeadend(opposite);
+					neighbourCell.addNeighbourDeadend(opposite, cell.ownDeadendWeights.get(direction) || 0);
 					this.dirty.add(neighbour);
 				}
 			}
@@ -870,43 +884,47 @@ export class LayeredSolver {
 			}
 			this.avoidLoopQueue = [];
 
-			if (this.checkDeadendConnections)
-				for (let component of this.avoidIslandQueue) {
-					if (component.slots.size === 0 && component.subCells.size === 0) {
-						throw IslandDetectedException();
-					}
-
-					// this block tried to be island avoidance but it causes "unsolvable puzzle" in some cases
-					// needs more work
-					else if (component.slots.size === 1 && component.subCells.size === 0) {
-						const [[islandCell, islandConnections]] = component.slots.entries();
-						if (popcount(islandConnections) === 1) {
-							const c = this.getCell(islandCell);
-							const deadendsBefore = c.neighbourDeadends;
-							c.addNeighbourDeadend(islandConnections);
-							if (c.neighbourDeadends !== deadendsBefore) {
-								this.dirty.add(islandCell);
-							}
-						}
-						// 2+ island connections into the same cell should be handled differently.
-						// It's enough for one strand to escape, so sealing one connection and
-						// continuing another one should be valid.
-						// Deadend machinery treats all deadends as independent => doesn't work for this case
-						// Valid handling is not implemented yet
-					} else if (component.slots.size === 0 && component.subCells.size === 1) {
-						const [[islandSubCell, islandConnections]] = component.subCells.entries();
-						const islandCell = islandSubCell % this.grid.total;
+			for (let component of this.avoidIslandQueue) {
+				if (
+					component.slots.size === 0 &&
+					component.subCells.size === 0 &&
+					component.totalSubcells < this.totalSubcells
+				) {
+					throw new IslandDetectedException();
+				} else if (component.slots.size === 1 && component.subCells.size === 0) {
+					const [[islandCell, islandConnections]] = component.slots.entries();
+					if (popcount(islandConnections) === 1) {
 						const c = this.getCell(islandCell);
 						const deadendsBefore = c.neighbourDeadends;
-						c.addNeighbourDeadend(islandConnections);
+						// override weight because component size is exact at this point
+						c.addNeighbourDeadend(islandConnections, 0);
+						c.neighbourDeadendWeights.set(islandConnections, component.totalSubcells);
 						if (c.neighbourDeadends !== deadendsBefore) {
 							this.dirty.add(islandCell);
 						}
 					}
+					// 2+ island connections into the same cell should be handled differently.
+					// It's enough for one strand to escape, so sealing one connection and
+					// continuing another one should be valid.
+					// Deadend machinery treats all deadends as independent => doesn't work for this case
+					// Valid handling is not implemented yet
+				} else if (component.slots.size === 0 && component.subCells.size === 1) {
+					const [[islandSubCell, islandConnections]] = component.subCells.entries();
+					const islandCell = islandSubCell % this.grid.total;
+					const c = this.getCell(islandCell);
+					const deadendsBefore = c.neighbourDeadends;
+					let weight = component.totalSubcells - 1; // don't count this subcell itself
+					for (let direction of iterate_directions(islandConnections)) {
+						c.addNeighbourDeadend(direction, weight);
+						c.neighbourDeadendWeights.set(direction, weight);
+						weight = 0; // prevent double-counting of island
+						// it doesn't matter which direction carries the weight
+					}
+					if (c.neighbourDeadends !== deadendsBefore) {
+						this.dirty.add(islandCell);
+					}
 				}
-			this.avoidIslandQueue.clear();
-			if (!this.dirty.has(index)) {
-				this.pruneLoop(index, cell);
+				this.avoidIslandQueue.clear();
 			}
 		}
 		const final = cell.possible.size === 1;
@@ -914,7 +932,6 @@ export class LayeredSolver {
 		if (final) {
 			this.solution[index] = rotation;
 			this.unsolved.delete(index);
-			this.totalUnsolved -= 1;
 		}
 		// console.log('end dirty step', index, [...this.dirty]);
 		return { index, rotation, final };
@@ -940,6 +957,7 @@ export class LayeredSolver {
 	 */
 	*processInitialDeductions() {
 		if (this.dirty.size > 0) return;
+		this.totalSubcells = 0;
 		const toInit = new Set();
 		// process empty cells first, then the rest
 		for (let index = 0; index < this.grid.total; index++) {
@@ -947,6 +965,7 @@ export class LayeredSolver {
 				this.dirty.add(index);
 			} else {
 				toInit.add(index);
+				this.totalSubcells += this.tiles[index].length;
 			}
 		}
 		while (toInit.size > 0) {

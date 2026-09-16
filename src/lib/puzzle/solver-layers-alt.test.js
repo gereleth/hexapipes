@@ -75,7 +75,7 @@ describe('Test LayeredCell behaviour', () => {
 	});
 	it('Applies neighbour deadend constraint', () => {
 		const cell = new LayeredCell([1, 6], polygon, 0);
-		cell.addNeighbourDeadend(1);
+		cell.addNeighbourDeadend(1, 1);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(cell.possible.size).toBe(5);
 		expect(cell.possible.get(1)).toEqual([32, 3]);
@@ -87,9 +87,10 @@ describe('Test LayeredCell behaviour', () => {
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(2);
 	});
-	it('Applies neighbour deadend constraint - must escape deadend area', () => {
+	it('Applies neighbour deadend constraint - a bend must escape deadend area', () => {
 		const cell = new LayeredCell([3], polygon, 0);
-		cell.addNeighbourDeadend(63 - 1);
+		// direction 1 is the only escape route
+		polygon.directions.forEach((d) => d === 1 || cell.addNeighbourDeadend(d, 1));
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(cell.possible.size).toBe(2);
 		expect(cell.possible.get(0)).toEqual([3]);
@@ -97,15 +98,17 @@ describe('Test LayeredCell behaviour', () => {
 		expect(addedConnections).toEqual(1);
 		expect(addedWalls).toEqual(4 + 8 + 16);
 		expect(addedDeadends).toEqual(1);
+		expect(cell.ownDeadendWeights.get(1)).toEqual(2);
 	});
 	it('Transfers neighbour deadend constraints through itself', () => {
 		const cell = new LayeredCell([9], polygon, 0);
-		cell.addNeighbourDeadend(1);
+		cell.addNeighbourDeadend(1, 1);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(cell.possible.size).toBe(3);
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(8);
+		expect(cell.ownDeadendWeights.get(8)).toEqual(2);
 	});
 });
 
@@ -143,10 +146,6 @@ describe('Test LayeredSolver loop avoidance', () => {
 		[1, 2, 5].forEach((i) => solver.dirty.add(i));
 		[1, 2, 5].forEach((i) => solver.processDirtyCell(i));
 		solver.processDirtyCell(6);
-		console.log(solver.dirty);
-		console.log(solver.slotComponents.get(6));
-		console.log(solver.subcellComponents);
-		console.log(cell6.possible);
 		expect(cell6.possible.size).toEqual(2);
 		expect([...cell6.possible.keys()]).toEqual([0, 2]);
 	});
