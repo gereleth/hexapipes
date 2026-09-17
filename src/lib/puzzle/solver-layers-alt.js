@@ -1,7 +1,5 @@
 /* Constraint Violation Exceptions */
 
-import { check } from 'prettier';
-
 /**
  * A cell has no more viable rotation states
  * @param {LayeredCell} cell
@@ -169,7 +167,9 @@ export class LayeredCell {
 		copy.walls = this.walls;
 		copy.connections = this.connections;
 		copy.neighbourDeadends = this.neighbourDeadends;
+		copy.neighbourDeadendWeights = new Map(this.neighbourDeadendWeights);
 		copy.ownDeadends = this.ownDeadends;
+		copy.ownDeadendWeights = new Map(this.ownDeadendWeights);
 		return copy;
 	}
 
@@ -413,7 +413,7 @@ export class LayeredCell {
 			this.mustNotSealDeadends(this.neighbourDeadends, weightLimit);
 		// if (removedCount === 0) return result;
 		if (this.possible.size === 0) {
-			throw NoOrientationsPossibleException(this);
+			throw new NoOrientationsPossibleException(this);
 		}
 		for (let rotation of this.possible.keys()) {
 			const union = this.unionAt(rotation);
@@ -442,18 +442,23 @@ export class LayeredSolver {
 	 *
 	 * @param {Number[][]} tiles
 	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {LayeredSolver|null} parent
 	 */
-	constructor(tiles, grid) {
+	constructor(tiles, grid, parent = null) {
 		this.tiles = tiles;
 		this.grid = grid;
+		this.parent = parent;
 		this.progress_callback = emptyCallback;
-		this.totalSubcells = 0;
+		/** @type {Number} */
+		this.totalSubcells = parent ? parent.totalSubcells : 0;
+		/** @type {Number} */
+		this.totalUnsolved = parent ? parent.totalUnsolved : grid.total;
 
 		/** @type {Map<Number, LayeredCell>} */
 		this.unsolved = new Map();
 
 		/** @type {Number[]} - rotation per cell, or UNSOLVED */
-		this.solution = tiles.map(() => this.UNSOLVED);
+		this.solution = parent ? [...parent.solution] : tiles.map(() => this.UNSOLVED);
 
 		/** @type {Number[][]} - array of found solutions */
 		this.solutions = [];
@@ -472,6 +477,62 @@ export class LayeredSolver {
 		 * subcell index => component
 		 */
 		this.subcellComponents = new Map();
+
+		if (parent) {
+			// clone the components, what a headache
+			for (let [subcellId, component] of parent.subcellComponents) {
+				/** @type {LayeredComponent} */
+				const cloned = {
+					subCells: new Map(component.subCells),
+					slots: new Map(component.slots),
+					totalSubcells: component.totalSubcells
+				};
+				for (let [subcellId, directions] of cloned.subCells) {
+					this.subcellComponents.set(subcellId, cloned);
+				}
+				for (let [index, directions] of cloned.slots) {
+					if (!this.slotComponents.has(index)) {
+						this.slotComponents.set(index, new Map());
+					}
+					for (let direction of iterate_directions(directions)) {
+						this.slotComponents.get(index)?.set(direction, cloned);
+					}
+				}
+			}
+			for (let [index, direction_components] of parent.slotComponents) {
+				// /** @type {Map<Number, LayeredComponent>} */
+				// const cloned = new Map();
+				for (let [direction, component] of direction_components) {
+					if (component.subCells.size > 0) continue; // already processed in the subcell loop
+					if (this.slotComponents.get(index)?.has(direction)) continue;
+					// now it's a component with no subcells, just slots
+					// and we haven't seen its slots before, so clone it
+					/** @type {LayeredComponent} */
+					const cloned = {
+						subCells: new Map(component.subCells),
+						slots: new Map(component.slots),
+						totalSubcells: component.totalSubcells
+					};
+					for (let [cloneIndex, cloneDirections] of cloned.slots) {
+						if (!this.slotComponents.has(cloneIndex)) {
+							this.slotComponents.set(cloneIndex, new Map());
+						}
+						for (let direction of iterate_directions(cloneDirections)) {
+							this.slotComponents.get(cloneIndex)?.set(direction, cloned);
+						}
+					}
+				}
+			}
+		}
+
+		/**
+		 * Counters of search work, shared with all clones (see clone) so that
+		 * totals accumulate across the whole trial tree of one solve run
+		 * @type {{iterations: Number, trialClones: Number, shortTrials: Number, dirtyProcessings: Number}}
+		 */
+		this.stats = parent
+			? parent.stats
+			: { iterations: 0, trialClones: 0, shortTrials: 0, dirtyProcessings: 0 };
 
 		this.shortTrialsIndex = 0;
 
@@ -516,6 +577,12 @@ export class LayeredSolver {
 		}
 		if (this.solution[index] !== this.UNSOLVED) {
 			throw `Attempted resurrection of cell ${index}`;
+		}
+		if (this.parent) {
+			cell = this.parent.getCell(index);
+			const clone = cell.clone(new Map(cell.possible));
+			this.unsolved.set(index, clone);
+			return clone;
 		}
 		cell = new LayeredCell(this.tiles[index], this.grid.polygon_at(index), index);
 		this.unsolved.set(index, cell);
@@ -824,6 +891,7 @@ export class LayeredSolver {
 	 * @throws {NoOrientationsPossibleException|IslandDetectedException|LoopDetectedException}
 	 */
 	processDirtyCell(index) {
+		this.stats.dirtyProcessings += 1;
 		const cell = this.getCell(index);
 		while (this.dirty.has(index)) {
 			// console.log('process dirty cell', index);
@@ -932,8 +1000,8 @@ export class LayeredSolver {
 		if (final) {
 			this.solution[index] = rotation;
 			this.unsolved.delete(index);
+			this.totalUnsolved -= 1;
 		}
-		// console.log('end dirty step', index, [...this.dirty]);
 		return { index, rotation, final };
 	}
 
@@ -986,6 +1054,98 @@ export class LayeredSolver {
 			}
 		}
 	}
+
+	/**
+	 * Chooses a tile/rotation to try out.
+	 * Selects a rotation from a tile with the least number of options
+	 * Sets a single rotation as possible and dirties the cell
+	 * @param {Number[]} marked - optional marked array to skip ambiguous tiles
+	 * @returns {Number[]} - [index, rotation]
+	 */
+	makeAGuess(marked = []) {
+		let minPossibleSize = Number.POSITIVE_INFINITY;
+		let guessIndex = -1;
+		// with lazy cloning this.unsolved might not have entries for
+		// cells we haven't touched yet
+		// so check for unsolved entries using (marked or this.solution)
+		for (let [index, value] of this.solution.entries()) {
+			// skip both ambiguous and solved tiles
+			if (value !== this.UNSOLVED || marked[index] === this.AMBIGUOUS) continue;
+			const cell = this.getCell(index);
+			if (cell.possible.size < minPossibleSize) {
+				guessIndex = index;
+				minPossibleSize = cell.possible.size;
+				if (minPossibleSize === 2) {
+					break;
+				}
+			}
+		}
+		if (guessIndex === -1) {
+			// can't guess because only amb tiles are left
+			return [-1, 0];
+		}
+		const cell = this.getCell(guessIndex);
+		if (cell === undefined) {
+			throw 'Cell selected for guessing is undefined!';
+		}
+		const [[rotation, layers]] = cell.possible.entries();
+		cell.possible = new Map([[rotation, layers]]);
+		this.dirty.add(guessIndex);
+		return [guessIndex, rotation];
+	}
+
+	/**
+	 * Creates a copy of the solver.
+	 * Copies components data and solution eagerly,
+	 * getCell puts things in unsolved lazily
+	 * @returns {LayeredSolver}
+	 */
+	clone() {
+		const clone = new LayeredSolver(this.tiles, this.grid, this);
+		return clone;
+	}
+
+	/**
+	 * Check orientations of unsolved cells to see if they produce contradictions quickly
+	 * Returns true if solver manages to exclude some orientation, false otherwise
+	 * @param {Number[]} marked
+	 * @returns {boolean}
+	 */
+	doShortTrials(marked = []) {
+		const tested = new Set();
+		for (let i = this.shortTrialsIndex; i < this.shortTrialsIndex + this.grid.total; i++) {
+			const index = i % this.grid.total;
+			if (this.solution[index] !== this.UNSOLVED) continue;
+			if (marked[index] === this.AMBIGUOUS) continue;
+			const cell = this.getCell(index);
+			for (let [rotation, layers] of cell.possible) {
+				const key = `${index}_${rotation}`;
+				if (tested.has(key)) {
+					continue;
+				}
+				const clone = this.clone();
+				this.stats.shortTrials += 1;
+				const cloneCell = clone.getCell(index);
+				cloneCell.possible = new Map([[rotation, layers]]);
+				clone.dirty.add(index);
+				try {
+					for (let step of clone.processDirtyCells()) {
+						if (step.final) {
+							const key = `${step.index}_${step.rotation}`;
+							tested.add(key);
+						}
+					}
+				} catch (e) {
+					cell.possible.delete(rotation);
+					this.dirty.add(index);
+					this.shortTrialsIndex = index;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * Solve the puzzle
 	 * @param {boolean} allSolutions = false, whether to find all solutions.
@@ -993,10 +1153,185 @@ export class LayeredSolver {
 	 * @yields {{stage:{SolvingStage}, step:{LayeredStep}}}
 	 */
 	*solve(allSolutions = false) {
-		// Initial processing
+		// Initial processing, touches every cell
 		for (let step of this.processInitialDeductions()) {
 			yield { stage: /** @type {SolvingStage} */ ('initial'), step };
 		}
 		// time to guess and check
+		let iter = 0;
+		/** @type {{index: Number, guess: Number, solver: LayeredSolver}[]} */
+		const trials = [{ index: -1, guess: -1, solver: this }];
+		while (trials.length > 0) {
+			iter += 1;
+			this.stats.iterations += 1;
+			const lastTrial = trials[trials.length - 1];
+			if (lastTrial === undefined) break;
+			const { index, guess, solver } = lastTrial;
+			try {
+				let stage = trials.length === 1 ? 'initial' : 'guess';
+				stage = this.solutions.length === 0 ? stage : 'aftercheck';
+				for (let step of solver.processDirtyCells()) {
+					yield { stage, step };
+				}
+			} catch (error) {
+				if (trials.length > 1) {
+					trials.pop();
+					const parent = trials[trials.length - 1].solver;
+					const cell = parent.unsolved.get(index);
+					cell?.possible.delete(guess);
+					parent.dirty.add(index);
+					continue;
+				} else break;
+			}
+			if (solver.totalUnsolved === 0) {
+				// got a solution
+				this.solutions.push([...solver.solution]);
+				if (!allSolutions) {
+					break;
+				}
+				if (trials.length > 1) {
+					trials.pop();
+					const parent = trials[trials.length - 1].solver;
+					const cell = parent.getCell(index);
+					cell.possible.delete(guess);
+					parent.dirty.add(index);
+					continue;
+				} else break;
+			} else {
+				// guess again
+				const clone = solver.clone();
+				this.stats.trialClones += 1;
+				const [index, rotation] = clone.makeAGuess();
+				trials.push({
+					index,
+					guess: rotation,
+					solver: clone
+				});
+			}
+		}
+		// we rely on `this.solution` to check for solved cells, so assign this only at the end
+		if (this.solutions.length > 0) {
+			this.solution = this.solutions[0];
+		}
+	}
+
+	/**
+	 * Solve the puzzle but mark ambiguous areas with a special value
+	 * Does not yield steps
+	 * If the solution is unique then marked == solution
+	 * @param {Number} [ambiguousTilesLimit = 0] - return if we find at least this many ambiguous tiles. Not all ambiguous tiles may be marked in this case. Default 0 means no limit, find all ambiguities.
+	 * @returns {{
+	 * 	marked: Number[],
+	 *  solvable: boolean,
+	 * 	unique: boolean,
+	 *  numAmbiguous: Number
+	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique, number of ambiguous tiles
+	 */
+	markAmbiguousTiles(ambiguousTilesLimit = 0) {
+		let marked = [...this.solution];
+		let unique = true;
+		let numAmbiguous = 0;
+		const total = this.grid.total - this.grid.emptyCells.size;
+		// process what we can for a start
+		try {
+			// Initial processing, touches every cell
+			for (let step of this.processInitialDeductions()) {
+				if (step.final) {
+					marked[step.index] = step.rotation;
+				}
+			}
+		} catch (error) {
+			return { marked, solvable: false, unique: false, numAmbiguous };
+		}
+
+		/** @type {{index: Number, guess: Number, solver:LayeredSolver}[]} */
+		const trials = [{ index: -1, guess: -1, solver: this }];
+		let iter = 0;
+		while (trials.length > 0) {
+			iter += 1;
+			this.stats.iterations += 1;
+			const lastTrial = trials[trials.length - 1];
+			if (lastTrial === undefined) break;
+			const { index, guess, solver } = lastTrial;
+			this.progress_callback({
+				total,
+				ambiguous: numAmbiguous,
+				guessed: trials.length - 1,
+				solved: total - this.totalUnsolved
+			});
+			try {
+				for (let _ of solver.processDirtyCells()) {
+				}
+				if (trials.length === 1 && solver.doShortTrials()) {
+					continue;
+				}
+			} catch (error) {
+				// something went wrong, no solution here
+				if (trials.length > 1) {
+					trials.pop();
+					const parent = trials[trials.length - 1].solver;
+					const cell = parent.getCell(index);
+					cell?.possible.delete(guess);
+					parent.dirty.add(index);
+					continue;
+				} else break;
+			}
+			if (solver.totalUnsolved === 0) {
+				// got a solution
+				numAmbiguous = 0;
+				for (let i = 0; i < marked.length; i++) {
+					if (marked[i] === this.UNSOLVED) {
+						marked[i] = solver.solution[i];
+					} else if (marked[i] === this.AMBIGUOUS) {
+						numAmbiguous += 1;
+					} else if (marked[i] !== solver.solution[i]) {
+						marked[i] = this.AMBIGUOUS;
+						unique = false;
+						numAmbiguous += 1;
+					}
+				}
+				if (ambiguousTilesLimit > 0 && numAmbiguous >= ambiguousTilesLimit) {
+					this.progress_callback({
+						total,
+						ambiguous: numAmbiguous,
+						guessed: trials.length - 1,
+						solved:
+							trials.length === 1 ? total - numAmbiguous : total - trials[0].solver.totalUnsolved
+					});
+					return { marked, solvable: true, unique, numAmbiguous };
+				}
+				if (trials.length > 1) {
+					trials.pop();
+					const parent = trials[trials.length - 1].solver;
+					const cell = parent.getCell(index);
+					cell.possible.delete(guess);
+					parent.dirty.add(index);
+					continue;
+				} else break;
+			} else {
+				// guess again
+				const clone = solver.clone();
+				this.stats.trialClones += 1;
+				const [index, rotation] = clone.makeAGuess(marked);
+				// console.log('guess index', index, 'rotation', rotation);
+				if (index === -1) {
+					solver.totalUnsolved = 0;
+					continue;
+				}
+				trials.push({
+					index,
+					guess: rotation,
+					solver: clone
+				});
+			}
+		}
+		const solvable = marked.every((tile) => tile !== this.UNSOLVED);
+		this.progress_callback({
+			total,
+			ambiguous: numAmbiguous,
+			guessed: 0,
+			solved: total - numAmbiguous
+		});
+		return { marked, solvable, unique, numAmbiguous };
 	}
 }
