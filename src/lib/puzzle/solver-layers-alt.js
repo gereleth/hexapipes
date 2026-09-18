@@ -950,7 +950,7 @@ export class LayeredSolver {
 					}
 				}
 			}
-			this.avoidLoopQueue = [];
+			this.avoidLoopQueue.length = 0;
 
 			for (let component of this.avoidIslandQueue) {
 				if (
@@ -992,8 +992,8 @@ export class LayeredSolver {
 						this.dirty.add(islandCell);
 					}
 				}
-				this.avoidIslandQueue.clear();
 			}
+			this.avoidIslandQueue.clear();
 		}
 		const final = cell.possible.size === 1;
 		const [rotation] = cell.possible.keys();
@@ -1280,10 +1280,10 @@ export class LayeredSolver {
 				// got a solution
 				numAmbiguous = 0;
 				for (let i = 0; i < marked.length; i++) {
-					if (marked[i] === this.UNSOLVED) {
-						marked[i] = solver.solution[i];
-					} else if (marked[i] === this.AMBIGUOUS) {
+					if (marked[i] === this.AMBIGUOUS) {
 						numAmbiguous += 1;
+					} else if (marked[i] === this.UNSOLVED) {
+						marked[i] = solver.solution[i];
 					} else if (marked[i] !== solver.solution[i]) {
 						marked[i] = this.AMBIGUOUS;
 						unique = false;
@@ -1313,8 +1313,17 @@ export class LayeredSolver {
 				const clone = solver.clone();
 				this.stats.trialClones += 1;
 				const [index, rotation] = clone.makeAGuess(marked);
-				// console.log('guess index', index, 'rotation', rotation);
 				if (index === -1) {
+					// This means all potential guesses are in already ambiguous tiles.
+					// But this solver may have different rotations in its solved cells
+					// so we pretend it's solved and send it to the solution comparison branch.
+					// This sometimes causes overcounting of further ambiguous tiles
+					// once the first set of them is found.
+					// The false positives never affect the `unique` result since they can only
+					// appear after the first set of ambiguous tiles is found.
+					// Completing a full search instead is much more computationally intensive, so here
+					// we explicitly prefer a slightly wrong but fast result.
+					// Potential experiment - try undercounting instead, just pop the trial here.
 					solver.totalUnsolved = 0;
 					continue;
 				}
