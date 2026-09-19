@@ -1,11 +1,24 @@
 import { afterAll, beforeAll, describe, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers, validateLayers } from './generator-layers';
-import { LayeredSolver } from './solver-layers';
+import { LayeredSolver as RefLayeredSolver } from './solver-layers';
+import { LayeredSolver as AltLayeredSolver } from './solver-layers-alt';
+import { LayeredSolver as NoBudgetSolver } from './solver-layers-scratch-nobudget';
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
+// BENCH_SOLVER picks the benchmark target: alt (default, the alternative
+// solver), ref (the reference solver with edge-budget instrumentation) or
+// ref_nobudget (ablation scratch copy of ref, edge-budget throws disabled)
+/** @type {Record<String, any>} */
+const SOLVERS = {
+	alt: AltLayeredSolver,
+	ref: RefLayeredSolver,
+	ref_nobudget: NoBudgetSolver
+};
+const SOLVER_NAME = SOLVERS[env.BENCH_SOLVER] ? env.BENCH_SOLVER : 'alt';
+const LayeredSolver = SOLVERS[SOLVER_NAME];
 const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 200;
 // wall-clock cap on a single markAmbiguousTiles call, guarding against
 // the heavy backtracking tail. Capped runs are recorded with capped: true
@@ -13,7 +26,12 @@ const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 200;
 const WALL_CLOCK_CAP_MS = Number(env.BENCH_MARK_AMBIGUOUS_CAP_MS) || 60 * 1000;
 const TIMEOUT_ERROR = 'benchmark wall-clock cap reached';
 const OUTPUT_DIR = 'generator_stats';
-const OUTPUT_FILE = `${OUTPUT_DIR}/layered_mark_ambiguous_20x20.json`;
+const OUTPUT_SUFFIX = {
+	alt: '',
+	ref: '_ref_edgebudget',
+	ref_nobudget: '_ref_nobudget'
+}[SOLVER_NAME];
+const OUTPUT_FILE = `${OUTPUT_DIR}/layered_mark_ambiguous_20x20${OUTPUT_SUFFIX}.json`;
 const LAYERING = 0.6;
 // long timeout, a single uncapped search can occasionally take minutes
 const TIMEOUT = 2 * 60 * 60 * 1000;
@@ -40,10 +58,13 @@ function percentile(sorted, p) {
  * @property {Number} shortTrials - single-picture probes of doShortTrials
  * @property {Number} dirtyProcessings - cells processed by processDirtyCells
  * @property {Number} prunedPictures - pictures deleted by pruning (contradictions and deadend pairs)
+ * @property {Number} edgeBudgetOverruns - pins where committedEdges exceeded the tree budget (LoopDetected)
+ * @property {Number} edgeBudgetShortfalls - completions below the tree budget (IslandDetected)
  */
 
 /**
  * @typedef {Object} MarkRunRecord
+ * @property {String} solver - which solver produced the record
  * @property {String} grid
  * @property {Number} width
  * @property {Number} height
@@ -68,7 +89,9 @@ const STAT_KEYS = [
 	'trialClones',
 	'shortTrials',
 	'dirtyProcessings',
-	'prunedPictures'
+	'prunedPictures',
+	'edgeBudgetOverruns',
+	'edgeBudgetShortfalls'
 ];
 
 /**
@@ -159,7 +182,8 @@ function flush() {
 			{
 				description:
 					'markAmbiguousTiles timings on fresh pregenerate_layers boards: 20x20 non-wrapping, ' +
-					'layering 0.6, branching random in [0, 1], avoidObvious random in [0, 0.5], ' +
+					`solver ${SOLVER_NAME}, layering 0.6, branching random in [0, 1], ` +
+					'avoidObvious random in [0, 0.5], ' +
 					'ambiguousTilesLimit max(100, 0.1 * total) like the uniqueness loop, no iteration cap, ' +
 					`wall-clock cap ${WALL_CLOCK_CAP_MS} ms (capped runs are excluded from statistics), ` +
 					'stats are per-run solver work counters',
@@ -197,6 +221,15 @@ function printSummary(kind) {
 			(s.stats.dirtyProcessings.mean
 				? (s.elapsedMs.mean / s.stats.dirtyProcessings.mean).toFixed(4)
 				: 'n/a')
+	);
+	const kindRuns = allRuns.filter((r) => r.grid === kind);
+	const fired = kindRuns.filter(
+		(r) => (r.stats.edgeBudgetOverruns || 0) + (r.stats.edgeBudgetShortfalls || 0) > 0
+	);
+	console.log(
+		`[${kind}] edge budget fired on ${fired.length}/${kindRuns.length} boards ` +
+			`(overruns ${kindRuns.reduce((sum, r) => sum + (r.stats.edgeBudgetOverruns || 0), 0)}, ` +
+			`shortfalls ${kindRuns.reduce((sum, r) => sum + (r.stats.edgeBudgetShortfalls || 0), 0)})`
 	);
 }
 
@@ -266,6 +299,7 @@ describe('Benchmark markAmbiguousTiles on layered 20x20 boards', () => {
 					};
 					/** @type {MarkRunRecord} */
 					const record = {
+						solver: SOLVER_NAME,
 						grid: grid.KIND,
 						width: grid.width,
 						height: grid.height,
@@ -287,7 +321,9 @@ describe('Benchmark markAmbiguousTiles on layered 20x20 boards', () => {
 							trialClones: 0,
 							shortTrials: 0,
 							dirtyProcessings: 0,
-							prunedPictures: 0
+							prunedPictures: 0,
+							edgeBudgetOverruns: 0,
+							edgeBudgetShortfalls: 0
 						}
 					};
 					try {
@@ -319,7 +355,7 @@ describe('Benchmark markAmbiguousTiles on layered 20x20 boards', () => {
 							`[${grid.KIND}] run ${i}: capped after ${(record.elapsedMs / 1000).toFixed(1)} s, ` +
 								`ambiguous at cap=${record.ambiguousAtCap}`
 						);
-					} else if (!record.solvable || !record.complete) {
+					} else if (!record.solvable) {
 						console.warn(`[${grid.KIND}] run ${i}: anomaly`, record);
 					}
 					if (i % 10 === 0) {

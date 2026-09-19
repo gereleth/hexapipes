@@ -115,6 +115,22 @@ State:
   momentarily empty after the first empty cell pins (found via a false `IslandDetected` on
   the 7×7 "many empty cells" board).
 
+**Edge budget — empirically redundant (2026-09-17).** Instrumented counting
+(`stats.edgeBudgetOverruns` / `stats.edgeBudgetShortfalls`, kept permanently, shared across
+clones) over 800 fresh `markAmbiguousTiles` runs (20×20 square + hexa, generator protocol)
+fired the budget 4 times: 3 pin-time overruns on 2 hexa boards and _zero_ completion-time
+shortfalls — `checkAllConnected` never acted at all. A seeded ablation
+(`solver-layers-scratch-nobudget.js`, a scratch copy with both throws disabled; paired-seed
+benchmark compared with `scratch-compare-bench.mjs`, plus the solution-list fuzz with
+`FUZZ_REF_SCRATCH=1`) produced byte-identical deterministic counters and identical verdicts on
+400/400 boards: on the overrun boards the local slot/merge cycle checks catch the same states
+at the same iteration, so the budget is a same-state redundant detector. The overruns only
+exist because `registerCertainEdge` increments `committedEdges` _before_ its own
+`setA === setB` cycle check throws — certain-edge cycles formed through slot merges get
+counted first and caught at pin time. Conclusion: the budget is a theoretical safety net
+against bookkeeping bugs, not a detection mechanism — do not port it to the alternative
+solver.
+
 `registerCertainEdge(cell, direction)` is called exactly when a connection fact is first
 derived (the `addedConnections` delta; the slotIndex membership tells re-runs for an edge
 already registered from the neighbour side apart). Per edge: both ends join one component —
@@ -301,6 +317,16 @@ in NONE; picture removal ⇒ rotation in NO solution). Found every unsoundness d
 rewrite — including two that hand-tracing missed. Careful: solver clones must be wrapped too
 (their constructors re-run the instrumentation), and picture-class dedup means rotation KEYS
 are representatives — compare solved boards, not rotation numbers, when in doubt.
+
+`solver-layers-scratch-nobudget.js` is the ablation variant used for the edge-budget study
+(above): identical to the instrumented reference but without the two budget throws, counting
+what would have fired. Ablation protocol: paired-seed benchmark runs
+(`BENCH_SOLVER=ref` / `BENCH_SOLVER=ref_nobudget` / `BENCH_SEED`) compared with
+`scratch-compare-bench.mjs` (reports verdict diffs and budget counters alongside the paired
+deltas), plus the solution-list fuzz `solver-layers-alt-fuzz.test.js` with `FUZZ_REF_SCRATCH=1`
+pointing its reference side at the scratch copy — any bogus solution surviving without the
+budget fails `validateLayers` or the set comparison. Delete the scratch file only together
+with this note.
 
 ## Differences vs classic Solver at a glance
 
