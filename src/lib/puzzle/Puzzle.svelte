@@ -8,7 +8,7 @@
 	import { PipesGame } from '$lib/puzzle/game.svelte.js';
 	import { LayeredPipesGame } from './game-layers.svelte';
 	import { Solver } from './solver';
-	import { LayeredSolver } from './solver-layers';
+	import { LayeredSolver } from './solver-layers-alt';
 	import EdgeMarks from './EdgeMarks.svelte';
 
 	/**
@@ -234,7 +234,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver|undefined}
+	 * @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers-alt').LayeredSolver|undefined}
 	 */
 	let solver;
 	/**
@@ -250,19 +250,21 @@
 			}
 			if (game instanceof LayeredPipesGame) {
 				const layeredGame = game;
-				/** @type {import('$lib/puzzle/solver-layers').LayeredSolver} */
-				const layeredSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
+				let layeredSolver;
+				/** @type {import('$lib/puzzle/solver-layers-alt').LayeredSolver} */
+				layeredSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
+
 				solver = layeredSolver;
 				try {
 					for (let { stage, step } of layeredSolver.solve(true)) {
 						if (stage === 'aftercheck') {
 							continue;
 						}
-						game.toggleLocked(step.cell, false);
+						game.toggleLocked(step.index, false);
 						const shouldLock = step.final && stage === 'initial';
-						layeredGame.setTileOrientation(step.cell, step.rotation, !shouldLock);
+						layeredGame.setTileOrientation(step.index, step.rotation, !shouldLock);
 						if (shouldLock) {
-							game.toggleLocked(step.cell, true);
+							game.toggleLocked(step.index, true);
 						}
 						if (animate) {
 							await sleep(100);
@@ -279,7 +281,7 @@
 							}
 						}
 					}
-					// store rotations instead of picture ids for the solution buttons
+					// store rotations for the solution buttons
 					solutions = layeredSolver.solutions;
 				} catch (error) {
 					console.error(error);
@@ -326,7 +328,7 @@
 	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
-		/** @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver} */
+		/** @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers-alt').LayeredSolver} */
 		let measureSolver;
 		if (game instanceof LayeredPipesGame) {
 			measureSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
@@ -345,8 +347,6 @@
 		ms = t1 - t0;
 		msStats.push(ms);
 		msStats = msStats.sort((a, b) => a - b);
-		// for layered puzzles these are picture ids, only the count is displayed
-		// until unleashTheSolver replaces them with rotations
 		solutions = /** @type {number[][]} */ (measureSolver.solutions);
 	}
 

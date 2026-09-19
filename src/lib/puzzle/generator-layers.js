@@ -1,4 +1,4 @@
-import { LayeredSolver } from '$lib/puzzle/solver-layers';
+import { LayeredSolver } from '$lib/puzzle/solver-layers-alt';
 
 /**
  * @typedef {Number[][]} LayeredTiles - for every grid cell a list of layers,
@@ -917,7 +917,6 @@ const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
  * @property {Number[]} marked - solver-frame rotations per cell, AMBIGUOUS/UNSOLVED sentinels for bad cells
  * @property {Number} numAmbiguous
  * @property {boolean} unique - the search finished and found a unique solution
- * @property {boolean} complete - the solver search was not cut short by the iteration cap
  * @property {Number} keptCount - cells this board reused from the previous iteration
  * @property {Number} elapsedMs - time spent in the solver for this iteration
  */
@@ -936,8 +935,7 @@ export class LayeredGenerator {
 	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous cells did not decrease in this many iterations
 	 * @param {Number} [max_attempts = 100] abandon generation if no attempt produced a unique puzzle
 	 * @param {Number} [max_uniqueness_iterations = 100] abandon an attempt after this many uniqueness iterations
-	 * @param {Number} [max_solver_iterations = 0] cap on solver search iterations per uniqueness check, 0 means no cap
-	 * @param {(progress: import('$lib/puzzle/solver-layers').SolverProgress) => void} [solver_progress_callback] reports solver progress
+	 * @param {(progress: import('$lib/puzzle/solver-layers-alt').SolverProgress) => void} [solver_progress_callback] reports solver progress
 	 * @param {(progress: GeneratorProgress) => void} [generator_progress_callback] reports generation progress
 	 */
 	constructor(
@@ -946,7 +944,6 @@ export class LayeredGenerator {
 		uniqueness_patience = 5,
 		max_attempts = 100,
 		max_uniqueness_iterations = 100,
-		max_solver_iterations = 0,
 		solver_progress_callback = undefined,
 		generator_progress_callback = undefined
 	) {
@@ -955,7 +952,6 @@ export class LayeredGenerator {
 		this.uniqueness_patience = uniqueness_patience;
 		this.max_attempts = max_attempts;
 		this.max_uniqueness_iterations = max_uniqueness_iterations;
-		this.max_solver_iterations = max_solver_iterations;
 		this.solver_progress_callback = solver_progress_callback;
 		this.generator_progress_callback = generator_progress_callback || emptyCallback;
 	}
@@ -1010,9 +1006,8 @@ export class LayeredGenerator {
 				if (this.solver_progress_callback) {
 					solver.progress_callback = this.solver_progress_callback;
 				}
-				const { solvable, marked, unique, numAmbiguous, complete } = solver.markAmbiguousTiles(
-					Math.min(ambiguous, ambiguousLimit),
-					this.max_solver_iterations
+				const { solvable, marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
+					Math.min(ambiguous, ambiguousLimit)
 				);
 				const elapsedMs = performance.now() - started;
 				if (!solvable) {
@@ -1026,21 +1021,13 @@ export class LayeredGenerator {
 					tiles,
 					marked,
 					numAmbiguous,
-					unique: unique && complete,
-					complete,
+					unique,
 					keptCount,
 					elapsedMs
 				};
 				if (snapshot.unique) {
 					yield snapshot;
 					return;
-				}
-				if (!complete) {
-					// the solver hit its iteration cap,
-					// these results can not be trusted.
-					// keep startLayers and retry with a fresh board
-					yield snapshot;
-					break;
 				}
 				if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {
 					startLayers = buildStartLayers(this.grid, tiles, marked);
@@ -1102,8 +1089,8 @@ export class LayeredGenerator {
 				if (this.solver_progress_callback) {
 					solver.progress_callback = this.solver_progress_callback;
 				}
-				const { unique, complete } = solver.markAmbiguousTiles(1, this.max_solver_iterations);
-				if (!unique && complete) {
+				const { unique } = solver.markAmbiguousTiles(1);
+				if (!unique) {
 					return randomRotate(tiles, this.grid);
 				}
 			}

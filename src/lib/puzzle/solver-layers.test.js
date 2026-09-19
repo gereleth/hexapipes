@@ -411,19 +411,6 @@ describe('Test multi-layer boards', () => {
 		}
 	});
 
-	it('Stops with an incomplete result when capped', () => {
-		const grid = new HexaGrid(3, 3, false);
-		const tiles = [[1], [5], [1], [1], [62], [3], [1], [5], [1]];
-		const solver = new LayeredSolver(tiles, grid);
-		const { solvable, unique, complete } = solver.markAmbiguousTiles(0, 1);
-		expect(complete).toBe(false);
-		expect(unique).toBe(false);
-		expect(solvable).toBe(true);
-		// without the cap the same puzzle completes
-		const fullSolver = new LayeredSolver(tiles, grid);
-		expect(fullSolver.markAmbiguousTiles().complete).toBe(true);
-	});
-
 	it('Yields steps while solving', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const tiles = [[1], [13], [4], [9], [5, 10], [4], [3], [7], [4]];

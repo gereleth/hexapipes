@@ -63,7 +63,7 @@
 	let viewIndex = $state(-1);
 
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
-	/** @type {import('$lib/puzzle/solver-layers').SolverProgress|null} */
+	/** @type {import('$lib/puzzle/solver-layers-alt').SolverProgress|null} */
 	let liveProgress = $state(null);
 	let liveLabel = $state('');
 	let liveSeconds = $state(0);
