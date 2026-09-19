@@ -7,7 +7,6 @@ import {
 	validateLayers
 } from './generator-layers';
 import { LayeredSolver as RefLayeredSolver } from './solver-layers';
-import { LayeredSolver as NoBudgetRefSolver } from './solver-layers-scratch-nobudget';
 import { LayeredSolver as AltLayeredSolver } from './solver-layers-alt';
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
@@ -41,11 +40,6 @@ import { HexaGrid } from './grids/hexagrid';
 //     skipped, partial lists can not be compared (default 1000)
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
-// FUZZ_REF_SCRATCH=1 points the reference side at the scratch ablation copy
-// (edge budget throws disabled): any bogus solution surviving without the
-// budget fails validateLayers or the solution-list comparison
-/** @type {typeof RefLayeredSolver} */
-const LayeredSolver = env.FUZZ_REF_SCRATCH ? NoBudgetRefSolver : RefLayeredSolver;
 const enabled = !!env.FUZZ_SOLUTIONS;
 const RUNS_PER_SIZE = Number(env.FUZZ_STABLE_RUNS) || 15;
 const CAP_MS = Number(env.FUZZ_CAP_MS) || 15000;
@@ -148,7 +142,7 @@ function copyTiles(tiles) {
  * Enumerates all solutions of a board with solve(true). The caps are
  * enforced in the consumer loop: solve() has no progress_callback, so the
  * only way to abort it is to stop pulling steps from the generator
- * @param {LayeredSolver|AltLayeredSolver} solver
+ * @param {RefLayeredSolver|AltLayeredSolver} solver
  * @returns {EnumResult}
  */
 function enumerate(solver) {
@@ -294,7 +288,7 @@ function fuzzBoard(grid, runIndex) {
 	validateLayers(grid, solvedTiles);
 	const tiles = randomRotate(solvedTiles, grid);
 
-	const refResult = enumerate(new LayeredSolver(copyTiles(tiles), grid));
+	const refResult = enumerate(new RefLayeredSolver(copyTiles(tiles), grid));
 	const altResult = enumerate(new AltLayeredSolver(copyTiles(tiles), grid));
 
 	if (refResult.capped || altResult.capped) {
@@ -323,7 +317,7 @@ function fuzzBoard(grid, runIndex) {
 	// unique boards: markAmbiguousTiles must report the one solution exactly
 	if (diffs.length === 0 && refResult.solutions.length === 1) {
 		const solution = refResult.solutions[0];
-		const refMark = new LayeredSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
+		const refMark = new RefLayeredSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
 		const altMark = new AltLayeredSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
 		diffs.push(...uniqueResultDiffs('ref', solution, refMark));
 		diffs.push(...uniqueResultDiffs('alt', solution, altMark));

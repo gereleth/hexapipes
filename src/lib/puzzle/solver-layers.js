@@ -566,16 +566,14 @@ export function LayeredSolver(tiles, grid) {
 	/**
 	 * Counters of search work, shared with all clones (see clone) so that
 	 * totals accumulate across the whole trial tree of one solve run
-	 * @type {{iterations: Number, trialClones: Number, shortTrials: Number, dirtyProcessings: Number, prunedPictures: Number, edgeBudgetOverruns: Number, edgeBudgetShortfalls: Number}}
+	 * @type {{iterations: Number, trialClones: Number, shortTrials: Number, dirtyProcessings: Number, prunedPictures: Number}}
 	 */
 	self.stats = {
 		iterations: 0,
 		trialClones: 0,
 		shortTrials: 0,
 		dirtyProcessings: 0,
-		prunedPictures: 0,
-		edgeBudgetOverruns: 0,
-		edgeBudgetShortfalls: 0
+		prunedPictures: 0
 	};
 
 	self.shortTrialsIndex = 0;
@@ -1108,7 +1106,6 @@ export function LayeredSolver(tiles, grid) {
 		}
 		if (self.committedEdges > self.totalEdges) {
 			// too many edges committed, the final graph would contain a cycle
-			self.stats.edgeBudgetOverruns += 1;
 			throw new LoopDetectedException();
 		}
 		// neighbours may have pictures that are now definitively contradicted
@@ -1130,7 +1127,6 @@ export function LayeredSolver(tiles, grid) {
 	 */
 	self.checkAllConnected = function () {
 		if (self.committedEdges !== self.totalEdges) {
-			self.stats.edgeBudgetShortfalls += 1;
 			throw new IslandDetectedException();
 		}
 	};

@@ -3,19 +3,16 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers, validateLayers } from './generator-layers';
 import { LayeredSolver as RefLayeredSolver } from './solver-layers';
 import { LayeredSolver as AltLayeredSolver } from './solver-layers-alt';
-import { LayeredSolver as NoBudgetSolver } from './solver-layers-scratch-nobudget';
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
 // BENCH_SOLVER picks the benchmark target: alt (default, the alternative
-// solver), ref (the reference solver with edge-budget instrumentation) or
-// ref_nobudget (ablation scratch copy of ref, edge-budget throws disabled)
+// solver) or ref (the reference solver)
 /** @type {Record<String, any>} */
 const SOLVERS = {
 	alt: AltLayeredSolver,
-	ref: RefLayeredSolver,
-	ref_nobudget: NoBudgetSolver
+	ref: RefLayeredSolver
 };
 const SOLVER_NAME = SOLVERS[env.BENCH_SOLVER] ? env.BENCH_SOLVER : 'alt';
 const LayeredSolver = SOLVERS[SOLVER_NAME];
@@ -28,8 +25,7 @@ const TIMEOUT_ERROR = 'benchmark wall-clock cap reached';
 const OUTPUT_DIR = 'generator_stats';
 const OUTPUT_SUFFIX = {
 	alt: '',
-	ref: '_ref_edgebudget',
-	ref_nobudget: '_ref_nobudget'
+	ref: '_ref'
 }[SOLVER_NAME];
 const OUTPUT_FILE = `${OUTPUT_DIR}/layered_mark_ambiguous_20x20${OUTPUT_SUFFIX}.json`;
 const LAYERING = 0.6;
@@ -58,8 +54,6 @@ function percentile(sorted, p) {
  * @property {Number} shortTrials - single-picture probes of doShortTrials
  * @property {Number} dirtyProcessings - cells processed by processDirtyCells
  * @property {Number} prunedPictures - pictures deleted by pruning (contradictions and deadend pairs)
- * @property {Number} edgeBudgetOverruns - pins where committedEdges exceeded the tree budget (LoopDetected)
- * @property {Number} edgeBudgetShortfalls - completions below the tree budget (IslandDetected)
  */
 
 /**
@@ -89,9 +83,7 @@ const STAT_KEYS = [
 	'trialClones',
 	'shortTrials',
 	'dirtyProcessings',
-	'prunedPictures',
-	'edgeBudgetOverruns',
-	'edgeBudgetShortfalls'
+	'prunedPictures'
 ];
 
 /**
@@ -222,15 +214,6 @@ function printSummary(kind) {
 				? (s.elapsedMs.mean / s.stats.dirtyProcessings.mean).toFixed(4)
 				: 'n/a')
 	);
-	const kindRuns = allRuns.filter((r) => r.grid === kind);
-	const fired = kindRuns.filter(
-		(r) => (r.stats.edgeBudgetOverruns || 0) + (r.stats.edgeBudgetShortfalls || 0) > 0
-	);
-	console.log(
-		`[${kind}] edge budget fired on ${fired.length}/${kindRuns.length} boards ` +
-			`(overruns ${kindRuns.reduce((sum, r) => sum + (r.stats.edgeBudgetOverruns || 0), 0)}, ` +
-			`shortfalls ${kindRuns.reduce((sum, r) => sum + (r.stats.edgeBudgetShortfalls || 0), 0)})`
-	);
 }
 
 const enabled = !!env.BENCH_MARK_AMBIGUOUS;
@@ -321,9 +304,7 @@ describe('Benchmark markAmbiguousTiles on layered 20x20 boards', () => {
 							trialClones: 0,
 							shortTrials: 0,
 							dirtyProcessings: 0,
-							prunedPictures: 0,
-							edgeBudgetOverruns: 0,
-							edgeBudgetShortfalls: 0
+							prunedPictures: 0
 						}
 					};
 					try {
