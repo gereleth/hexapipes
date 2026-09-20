@@ -80,7 +80,7 @@ export class HexaGrid extends AbstractGrid {
 	 * @param {Number} width
 	 * @param {Number} height
 	 * @param {Boolean} wrap
-	 * @param {Number[]} tiles
+	 * @param {Number[]|Number[][]} tiles
 	 */
 	constructor(width, height, wrap, tiles = []) {
 		super(width, height, wrap, tiles);
