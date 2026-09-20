@@ -131,9 +131,9 @@ export class LayeredCell {
 	 * @param {Number[]} layers
 	 * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
 	 * @param {Number} index
-	 * @param {ReturnType<buildPossible>|null} possible
+	 * @param {ReturnType<buildPossible>|undefined} possible
 	 */
-	constructor(layers, polygon, index, possible = null) {
+	constructor(layers, polygon, index, possible = undefined) {
 		this.layers = layers;
 		this.polygon = polygon;
 		this.index = index; // only for error messages
@@ -159,10 +159,10 @@ export class LayeredCell {
 	}
 	/**
 	 * Clone this cell assigning new possible states
-	 * @param {ReturnType<buildPossible>} newPossible
+	 * @param {ReturnType<buildPossible>|undefined} newPossible
 	 * @returns {LayeredCell}
 	 */
-	clone(newPossible) {
+	clone(newPossible = undefined) {
 		const copy = new LayeredCell(this.layers, this.polygon, this.index, newPossible);
 		copy.walls = this.walls;
 		copy.connections = this.connections;
