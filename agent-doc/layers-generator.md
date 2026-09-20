@@ -155,7 +155,6 @@ was removed. Event-mirroring fidelity is asserted by tests (apply events == retu
 
 Mirrors classic `Generator`. Constructor knobs: `reuse_tiles_min_count = 3`,
 `uniqueness_patience = 5`, `max_attempts = 100`, `max_uniqueness_iterations = 100`,
-`max_solver_iterations = 0` (solver search cap, see the solver doc — a crutch to be removed),
 plus solver/generator progress callbacks (forwarded as worker messages).
 
 `generate(layeringAmount, branchingAmount, avoidObvious, solutionsNumber)`:
@@ -164,21 +163,20 @@ plus solver/generator progress callbacks (forwarded as worker messages).
   `randomRotate(applyRotations(tiles, marked))` of the unique snapshot; throws when attempts
   are exhausted.
 - `'whatever'`: one `pregenerate_layers` + `randomRotate`.
-- `'multiple'`: requires `complete && !unique` from `markAmbiguousTiles(1, maxSolverIterations)`,
+- `'multiple'`: requires `!unique` from `markAmbiguousTiles(1)`,
   retries up to `max_attempts`.
 
 `uniqueIterations(layeringAmount, branchingAmount, avoidObvious, ambiguousLimitOverride)` yields an
 `IterationSnapshot` per solver iteration (`attempt, iteration, tiles, marked, numAmbiguous,
-unique, complete, keptCount, elapsedMs`); `marked` holds solver-frame rotations with
+unique, keptCount, elapsedMs`); `marked` holds solver-frame rotations with
 `AMBIGUOUS`/`UNSOLVED` sentinels, and non-sentinel cells feed the next iteration as
 `startLayers` (`keptCount` = how many cells that was). Per iteration:
 
-- `markAmbiguousTiles(min(ambiguous, ambiguousLimit), maxSolverIterations)`; ambiguousLimit
+- `markAmbiguousTiles(min(ambiguous, ambiguousLimit))`; ambiguousLimit
   defaults to `max(100, 0.1 * total)`; the override exists so research runs can mark every
   ambiguity and let patience work on true counts.
 - `!solvable` ⇒ throw (pregeneration produced garbage).
-- `unique && complete` ⇒ yield and stop.
-- `!complete` (solver cap hit) ⇒ trust nothing: yield, keep `startLayers`, next attempt.
+- `unique` ⇒ yield and stop.
 - Patience: if the previous count exceeded the limit and `numAmbiguous` sits saturated at the
   limit, rebuild `startLayers` anyway (no way to tell improvement, don't punish patience);
   else if no improvement, `patienceLeft -= 1`; else record the new count, reset patience and
@@ -194,7 +192,7 @@ unique, complete, keptCount, elapsedMs`); `marked` holds solver-frame rotations 
   playable board.
 - `randomRotate(layers, grid)`: scramble; one random rotation per cell, all layers together.
 - `applyRotations(grid, layers, rotations)`: rotate each cell's layers; solver sentinel
-  rotations count as no-op. Shared with `solver-layers.test.js`.
+  rotations count as no-op. Shared with `solver-layers-alt.test.js`.
 - `buildStartLayers(grid, layers, marked)`: solved board + marked rotations → `StartLayers`
   (`null` for empty cells and `AMBIGUOUS`/`UNSOLVED` sentinels).
 
@@ -252,8 +250,7 @@ on the `/generator-debug` page:
   around claimed cells (see `planReuse` above); post-fix 20×20 squares converge in 3–5
   iterations, islands carry most of the reused material, and remaining losses (claimed cells,
   fragments, too-small) are minor.
-- **H4**: solver backtracking tail (heavy on large wrapped boards) — see the solver doc; this
-  is the `max_solver_iterations` crutch.
+- **H4**: solver backtracking tail (heavy on large wrapped boards) — see the solver doc.
 - ~~H3 (reuse not engaging)~~: the `liveFromBefore` rule and reuse role visualization address
   the reuse side; kept-count behavior still worth watching on big boards.
 
@@ -266,5 +263,5 @@ on the `/generator-debug` page:
 | fully-connected   | aesthetic demotion              | demotion + hard disregard when not reaching fresh   |
 | obvious avoidance | per-tile tileTypes + straights  | union-based forbidden sets; straights not ported    |
 | reuse             | keepable tiles verbatim         | sub-cell components: live seed + dormant islands    |
-| uniqueness loop   | patience over ambiguous counts  | + limit cap, cap-saturation rule, `complete` flag   |
+| uniqueness loop   | patience over ambiguous counts  | + limit cap, cap-saturation rule                    |
 | observability     | progress callbacks              | + `uniqueIterations` snapshots, GrowthMove events   |
