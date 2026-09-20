@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LayeredPipesGame } from './game-layers.svelte';
 import { SquareGrid } from './grids/squaregrid';
 import { pregenerate_layers, randomRotate } from './generator-layers';
-import { LayeredSolver } from './solver-layers-alt';
+import { LayeredSolver } from './solver-layers';
 
 describe('Test layered game', () => {
 	it('Tracks connections and solved state on a simple chain', () => {

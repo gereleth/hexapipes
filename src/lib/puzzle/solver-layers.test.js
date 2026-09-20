@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { HexaGrid } from './grids/hexagrid';
 import { SquareGrid } from './grids/squaregrid';
-import { LayeredCell, LayeredSolver } from './solver-layers-alt';
+import { LayeredCell, LayeredSolver } from './solver-layers';
 import {
 	applyRotations,
 	pregenerate_layers,
@@ -377,7 +377,7 @@ describe('Test multi-layer boards', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const tiles = [[1], [13], [4], [9], [5, 10], [4], [3], [7], [4]];
 		const solver = new LayeredSolver(tiles, grid);
-		/** @type {import('./solver-layers-alt').SolverProgress[]} */
+		/** @type {import('./solver-layers').SolverProgress[]} */
 		const calls = [];
 		solver.progress_callback = (progress) => calls.push({ ...progress });
 		solver.markAmbiguousTiles();

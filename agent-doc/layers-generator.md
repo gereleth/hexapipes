@@ -192,7 +192,7 @@ unique, keptCount, elapsedMs`); `marked` holds solver-frame rotations with
   playable board.
 - `randomRotate(layers, grid)`: scramble; one random rotation per cell, all layers together.
 - `applyRotations(grid, layers, rotations)`: rotate each cell's layers; solver sentinel
-  rotations count as no-op. Shared with `solver-layers-alt.test.js`.
+  rotations count as no-op. Shared with `solver-layers.test.js`.
 - `buildStartLayers(grid, layers, marked)`: solved board + marked rotations → `StartLayers`
   (`null` for empty cells and `AMBIGUOUS`/`UNSOLVED` sentinels).
 

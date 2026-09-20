@@ -8,7 +8,7 @@
 	import { PipesGame } from '$lib/puzzle/game.svelte.js';
 	import { LayeredPipesGame } from './game-layers.svelte';
 	import { Solver } from './solver';
-	import { LayeredSolver } from './solver-layers-alt';
+	import { LayeredSolver } from './solver-layers';
 	import EdgeMarks from './EdgeMarks.svelte';
 
 	/**
@@ -234,7 +234,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers-alt').LayeredSolver|undefined}
+	 * @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver|undefined}
 	 */
 	let solver;
 	/**
@@ -251,7 +251,7 @@
 			if (game instanceof LayeredPipesGame) {
 				const layeredGame = game;
 				let layeredSolver;
-				/** @type {import('$lib/puzzle/solver-layers-alt').LayeredSolver} */
+				/** @type {import('$lib/puzzle/solver-layers').LayeredSolver} */
 				layeredSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
 
 				solver = layeredSolver;
@@ -328,7 +328,7 @@
 	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
-		/** @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers-alt').LayeredSolver} */
+		/** @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver} */
 		let measureSolver;
 		if (game instanceof LayeredPipesGame) {
 			measureSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);

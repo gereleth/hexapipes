@@ -1,4 +1,4 @@
-import { LayeredSolver } from '$lib/puzzle/solver-layers-alt';
+import { LayeredSolver } from '$lib/puzzle/solver-layers';
 
 /**
  * @typedef {Number[][]} LayeredTiles - for every grid cell a list of layers,
@@ -935,7 +935,7 @@ export class LayeredGenerator {
 	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous cells did not decrease in this many iterations
 	 * @param {Number} [max_attempts = 100] abandon generation if no attempt produced a unique puzzle
 	 * @param {Number} [max_uniqueness_iterations = 100] abandon an attempt after this many uniqueness iterations
-	 * @param {(progress: import('$lib/puzzle/solver-layers-alt').SolverProgress) => void} [solver_progress_callback] reports solver progress
+	 * @param {(progress: import('$lib/puzzle/solver-layers').SolverProgress) => void} [solver_progress_callback] reports solver progress
 	 * @param {(progress: GeneratorProgress) => void} [generator_progress_callback] reports generation progress
 	 */
 	constructor(

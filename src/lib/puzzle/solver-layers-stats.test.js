@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers, validateLayers } from './generator-layers';
-import { LayeredSolver as AltLayeredSolver } from './solver-layers-alt';
+import { LayeredSolver as AltLayeredSolver } from './solver-layers';
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
 
 // Paired benchmark: every board is solved twice, back-to-back, by the
 // baseline snapshot (solver-layers-baseline.js, an untracked frozen copy of
-// solver-layers-alt.js) and the current solver (solver-layers-alt.js).
+// solver-layers.js) and the current solver (solver-layers.js).
 // Because both solves share the same process state, the comparison is much
 // less affected by whatever else the machine is doing than cross-session
 // wall-clock comparisons. The run order alternates per board index to cancel
@@ -46,9 +46,9 @@ const TIMEOUT = 2 * 60 * 60 * 1000;
 
 /**
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
- * file (a verbatim copy of solver-layers-alt.js frozen at the start of the
+ * file (a verbatim copy of solver-layers.js frozen at the start of the
  * optimization series), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('./solver-layers-alt').LayeredSolver>}
+ * @returns {Promise<typeof import('./solver-layers').LayeredSolver>}
  */
 async function loadBaselineSolver() {
 	try {
@@ -60,10 +60,10 @@ async function loadBaselineSolver() {
 		throw new Error(
 			'Baseline solver snapshot is missing or cannot be imported.\n' +
 				'Expected file: src/lib/puzzle/solver-layers-baseline.js - a verbatim copy of\n' +
-				'solver-layers-alt.js frozen at the start of the optimization series\n' +
+				'solver-layers.js frozen at the start of the optimization series\n' +
 				'(see agent-doc/solver-perf-plan.md, "Reference snapshot").\n' +
 				'Create it with:\n' +
-				'\tcp src/lib/puzzle/solver-layers-alt.js src/lib/puzzle/solver-layers-baseline.js\n' +
+				'\tcp src/lib/puzzle/solver-layers.js src/lib/puzzle/solver-layers-baseline.js\n' +
 				`Original error: ${/** @type {Error} */ (error).message}`
 		);
 	}
@@ -274,7 +274,7 @@ function flush() {
 					'20x20 non-wrapping, layering 0.6, branching random in [0, 1], ' +
 					'avoidObvious random in [0, 0.5]. Every board is solved back-to-back by ' +
 					'baseline = solver-layers-baseline.js (frozen snapshot) and ' +
-					'candidate = the current solver-layers-alt.js; run order alternates by ' +
+					'candidate = the current solver-layers.js; run order alternates by ' +
 					'board index. ambiguousTilesLimit max(100, 0.1 * total) like the ' +
 					`uniqueness loop, wall-clock cap ${WALL_CLOCK_CAP_MS} ms per solve ` +
 					'(boards where either side capped are excluded from statistics). ' +
@@ -294,7 +294,7 @@ function flush() {
 
 /**
  * Runs markAmbiguousTiles once on a fresh solver instance
- * @param {typeof import('./solver-layers-alt').LayeredSolver} SolverClass
+ * @param {typeof import('./solver-layers').LayeredSolver} SolverClass
  * @param {import('$lib/puzzle/generator-layers').LayeredTiles} layers
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @returns {SolverRunRecord}

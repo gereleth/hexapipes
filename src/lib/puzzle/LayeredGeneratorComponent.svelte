@@ -13,7 +13,7 @@
 	let worker = null;
 	let showGenProgress = $state(false);
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
-	/** @type {import('$lib/puzzle/solver-layers-alt').SolverProgress[]}*/
+	/** @type {import('$lib/puzzle/solver-layers').SolverProgress[]}*/
 	let solverProgressItems = $state([]);
 
 	/**

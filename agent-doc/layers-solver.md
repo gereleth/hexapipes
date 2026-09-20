@@ -1,8 +1,8 @@
 # Layers variant: solver (`LayeredSolver`)
 
-Files: `src/lib/puzzle/solver-layers-alt.js` (`LayeredCell`, `LayeredSolver`). Classic
-counterpart: `solver.js` (`Solver`). Tests: `solver-layers-alt.test.js`; safety nets:
-`solver-layers-alt-fuzz.test.js` (solution-equivalence fuzz) and
+Files: `src/lib/puzzle/solver-layers.js` (`LayeredCell`, `LayeredSolver`). Classic
+counterpart: `solver.js` (`Solver`). Tests: `solver-layers.test.js`; safety nets:
+`solver-layers-fuzz.test.js` (solution-equivalence fuzz) and
 `solver-layers-stats.test.js` (paired benchmark) — both env-gated, described in the
 harness section below. Consumers: `Puzzle.svelte` (solve animation +
 stats readout), `LayeredGenerator` (uniqueness/patience loop), `worker-layers.js` +
@@ -272,7 +272,7 @@ Both harnesses compare the current solver against a frozen snapshot copy of this
 (their failure messages say how to recreate the snapshot after a fresh clone); snapshot
 mismatches mean the solver's behaviour changed.
 
-- `solver-layers-alt-fuzz.test.js` — the soundness gate for any solver change. Run with
+- `solver-layers-fuzz.test.js` — the soundness gate for any solver change. Run with
   `FUZZ_SOLUTIONS=1` (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the
   full `solve(true)` solution list must match the snapshot's, every solution must pass
   `validateLayers`, and `markAmbiguousTiles` must report unique boards exactly. Failing

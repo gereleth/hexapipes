@@ -1,5 +1,5 @@
 import { LayeredGenerator, pregenerate_layers } from '$lib/puzzle/generator-layers';
-import { LayeredSolver } from '$lib/puzzle/solver-layers-alt';
+import { LayeredSolver } from '$lib/puzzle/solver-layers';
 import { createGrid } from '$lib/puzzle/grids/grids';
 
 /**
@@ -15,7 +15,7 @@ function generate(grid, options) {
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
-	/** @param {import('$lib/puzzle/solver-layers-alt').SolverProgress} progress */
+	/** @param {import('$lib/puzzle/solver-layers').SolverProgress} progress */
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
@@ -55,7 +55,7 @@ function debugStart(grid, options) {
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
-	/** @param {import('$lib/puzzle/solver-layers-alt').SolverProgress} progress */
+	/** @param {import('$lib/puzzle/solver-layers').SolverProgress} progress */
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};

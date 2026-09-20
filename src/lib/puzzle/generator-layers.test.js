@@ -11,7 +11,7 @@ import {
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
 import { LayeredPipesGame } from './game-layers.svelte';
-import { LayeredSolver } from './solver-layers-alt';
+import { LayeredSolver } from './solver-layers';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
@@ -657,9 +657,9 @@ describe('Test layered generator', () => {
 		const grid = new SquareGrid(3, 3, false);
 		/** @type {import('./generator-layers').GeneratorProgress[]} */
 		const generatorProgress = [];
-		/** @type {import('./solver-layers-alt').SolverProgress[]} */
+		/** @type {import('./solver-layers').SolverProgress[]} */
 		const solverProgress = [];
-		/** @param {import('./solver-layers-alt').SolverProgress} progress */
+		/** @param {import('./solver-layers').SolverProgress} progress */
 		const onSolverProgress = (progress) => solverProgress.push(progress);
 		/** @param {import('./generator-layers').GeneratorProgress} progress */
 		const onGeneratorProgress = (progress) => generatorProgress.push(progress);

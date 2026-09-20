@@ -35,7 +35,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 - [layers-game.md](agent-doc/layers-game.md) — `LayeredPipesGame` + `LayeredTile.svelte` +
   `Puzzle.svelte` wiring: state model, rendering, user input, solved checking; differences vs
   classic `PipesGame`.
-- [layers-solver.md](agent-doc/layers-solver.md) — `LayeredSolver` (`solver-layers-alt.js`):
+- [layers-solver.md](agent-doc/layers-solver.md) — `LayeredSolver` (`solver-layers.js`):
   rotation state classes, sub-cell tree constraint via slot components, deadend facts,
   propagation, search, `markAmbiguousTiles`; differences vs classic `Solver`.
 - [layers-generator.md](agent-doc/layers-generator.md) — `pregenerate_layers`, startLayers
@@ -43,7 +43,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
   tooling, convergence research; differences vs classic generator.
 
 Layered test suite:
-`npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers-alt.test.js`
+`npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers.test.js`
 
 ## Known quirks
 
