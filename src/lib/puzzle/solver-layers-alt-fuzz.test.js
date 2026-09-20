@@ -6,18 +6,18 @@ import {
 	randomRotate,
 	validateLayers
 } from './generator-layers';
-import { LayeredSolver as RefLayeredSolver } from './solver-layers';
 import { LayeredSolver as AltLayeredSolver } from './solver-layers-alt';
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
 
-// Equivalence fuzz: compares the COMPLETE solution lists that the reference
-// solver (solver-layers.js) and the alternative solver (solver-layers-alt.js)
-// enumerate with solve(true) on fresh generated boards. The full solution set
-// is a property of the board alone, so sound + complete solvers must produce
-// identical sets - both dedupe pictures identically (same buildPossible), so
-// solutions are comparable rotation arrays and only enumeration order can
-// differ, hence set comparison.
+// Equivalence fuzz: compares the COMPLETE solution lists that the baseline
+// snapshot (solver-layers-baseline.js, an untracked frozen copy of
+// solver-layers-alt.js from the start of the optimization series) and the
+// current solver (solver-layers-alt.js) enumerate with solve(true) on fresh
+// generated boards. The full solution set is a property of the board alone,
+// so sound + complete solvers must produce identical sets - both dedupe
+// pictures identically (same buildPossible), so solutions are comparable
+// rotation arrays and only enumeration order can differ, hence set comparison.
 //
 // Extra checks per board:
 // - every enumerated solution of both solvers must pass validateLayers;
@@ -28,6 +28,10 @@ import { HexaGrid } from './grids/hexagrid';
 //
 // On the first discrepancy the offending board is saved as a self-contained
 // JSON reproducer into generator_stats/ and the test fails.
+//
+// The baseline file is untracked, so a fresh checkout may not have it; the
+// loader below fails with creation instructions instead of a cryptic
+// import error.
 //
 // Usage:
 //   FUZZ_SOLUTIONS=1 npx vitest run src/lib/puzzle/solver-layers-alt-fuzz.test.js
@@ -41,6 +45,31 @@ import { HexaGrid } from './grids/hexagrid';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
 const enabled = !!env.FUZZ_SOLUTIONS;
+
+/**
+ * Loads the baseline solver snapshot. The snapshot is an untracked scratch
+ * file (a verbatim copy of solver-layers-alt.js frozen at the start of the
+ * optimization series), so it may be missing on a fresh checkout
+ * @returns {Promise<typeof import('./solver-layers-alt').LayeredSolver>}
+ */
+async function loadBaselineSolver() {
+	try {
+		// computed specifier + @vite-ignore keep the import runtime-only, so a
+		// missing file reaches the catch below instead of failing module resolution
+		const module = await import(/* @vite-ignore */ './solver-layers-baseline'.concat(''));
+		return module.LayeredSolver;
+	} catch (error) {
+		throw new Error(
+			'Baseline solver snapshot is missing or cannot be imported.\n' +
+				'Expected file: src/lib/puzzle/solver-layers-baseline.js - a verbatim copy of\n' +
+				'solver-layers-alt.js frozen at the start of the optimization series\n' +
+				'(see agent-doc/solver-perf-plan.md, "Reference snapshot").\n' +
+				'Create it with:\n' +
+				'\tcp src/lib/puzzle/solver-layers-alt.js src/lib/puzzle/solver-layers-baseline.js\n' +
+				`Original error: ${/** @type {Error} */ (error).message}`
+		);
+	}
+}
 const RUNS_PER_SIZE = Number(env.FUZZ_STABLE_RUNS) || 15;
 const CAP_MS = Number(env.FUZZ_CAP_MS) || 15000;
 const MAX_SOLUTIONS = Number(env.FUZZ_MAX_SOLUTIONS) || 1000;
@@ -142,7 +171,7 @@ function copyTiles(tiles) {
  * Enumerates all solutions of a board with solve(true). The caps are
  * enforced in the consumer loop: solve() has no progress_callback, so the
  * only way to abort it is to stop pulling steps from the generator
- * @param {RefLayeredSolver|AltLayeredSolver} solver
+ * @param {import('./solver-layers-alt').LayeredSolver} solver
  * @returns {EnumResult}
  */
 function enumerate(solver) {
@@ -178,27 +207,33 @@ function enumerate(solver) {
 
 /**
  * Lists the ways two complete solution lists disagree
- * @param {Number[][]} refSolutions
- * @param {Number[][]} altSolutions
+ * @param {Number[][]} baselineSolutions
+ * @param {Number[][]} currentSolutions
  * @returns {String[]} - empty when the lists describe the same solution set
  */
-function compareSolutionSets(refSolutions, altSolutions) {
+function compareSolutionSets(baselineSolutions, currentSolutions) {
 	/** @type {String[]} */
 	const diffs = [];
-	if (refSolutions.length !== altSolutions.length) {
-		diffs.push(`solution count: ref=${refSolutions.length} alt=${altSolutions.length}`);
+	if (baselineSolutions.length !== currentSolutions.length) {
+		diffs.push(
+			`solution count: baseline=${baselineSolutions.length} current=${currentSolutions.length}`
+		);
 	}
 	/** @type {Set<String>} */
-	const refKeys = new Set(refSolutions.map((solution) => solution.join(',')));
+	const baselineKeys = new Set(baselineSolutions.map((solution) => solution.join(',')));
 	/** @type {Set<String>} */
-	const altKeys = new Set(altSolutions.map((solution) => solution.join(',')));
-	const onlyRef = [...refKeys].filter((key) => !altKeys.has(key));
-	const onlyAlt = [...altKeys].filter((key) => !refKeys.has(key));
-	if (onlyRef.length > 0) {
-		diffs.push(`${onlyRef.length} solutions only in ref, e.g. ${onlyRef.slice(0, 3).join(' | ')}`);
+	const currentKeys = new Set(currentSolutions.map((solution) => solution.join(',')));
+	const onlyBaseline = [...baselineKeys].filter((key) => !currentKeys.has(key));
+	const onlyCurrent = [...currentKeys].filter((key) => !baselineKeys.has(key));
+	if (onlyBaseline.length > 0) {
+		diffs.push(
+			`${onlyBaseline.length} solutions only in baseline, e.g. ${onlyBaseline.slice(0, 3).join(' | ')}`
+		);
 	}
-	if (onlyAlt.length > 0) {
-		diffs.push(`${onlyAlt.length} solutions only in alt, e.g. ${onlyAlt.slice(0, 3).join(' | ')}`);
+	if (onlyCurrent.length > 0) {
+		diffs.push(
+			`${onlyCurrent.length} solutions only in current, e.g. ${onlyCurrent.slice(0, 3).join(' | ')}`
+		);
 	}
 	return diffs;
 }
@@ -277,9 +312,10 @@ function saveDiscrepancy(grid, tiles, runIndex) {
  * discrepancy.
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {Number} runIndex - 1-based board counter, for logs and artifact names
+ * @param {typeof import('./solver-layers-alt').LayeredSolver} BaselineSolver
  * @returns {String} 'ok' when comparable and identical, 'capped' when skipped
  */
-function fuzzBoard(grid, runIndex) {
+function fuzzBoard(grid, runIndex, BaselineSolver) {
 	const label = `${grid.KIND} ${grid.width}x${grid.height}${grid.wrap ? ' wrap' : ''}`;
 	const layering = 0.5 + Math.random() * 0.3;
 	const branching = Math.random();
@@ -288,39 +324,40 @@ function fuzzBoard(grid, runIndex) {
 	validateLayers(grid, solvedTiles);
 	const tiles = randomRotate(solvedTiles, grid);
 
-	const refResult = enumerate(new RefLayeredSolver(copyTiles(tiles), grid));
-	const altResult = enumerate(new AltLayeredSolver(copyTiles(tiles), grid));
+	const baselineResult = enumerate(new BaselineSolver(copyTiles(tiles), grid));
+	const currentResult = enumerate(new AltLayeredSolver(copyTiles(tiles), grid));
 
-	if (refResult.capped || altResult.capped) {
+	if (baselineResult.capped || currentResult.capped) {
 		console.warn(
-			`[${label}] run ${runIndex}: capped (ref=${refResult.capped}, alt=${altResult.capped}), skipped`
+			`[${label}] run ${runIndex}: capped (baseline=${baselineResult.capped}, ` +
+				`current=${currentResult.capped}), skipped`
 		);
 		return 'capped';
 	}
 	console.log(
-		`[${label}] run ${runIndex}: solutions ref=${refResult.solutions.length} ` +
-			`alt=${altResult.solutions.length} (ref ${refResult.elapsedMs.toFixed(0)} ms, ` +
-			`alt ${altResult.elapsedMs.toFixed(0)} ms)`
+		`[${label}] run ${runIndex}: solutions baseline=${baselineResult.solutions.length} ` +
+			`current=${currentResult.solutions.length} (baseline ${baselineResult.elapsedMs.toFixed(0)} ms, ` +
+			`current ${currentResult.elapsedMs.toFixed(0)} ms)`
 	);
 
-	const diffs = compareSolutionSets(refResult.solutions, altResult.solutions);
+	const diffs = compareSolutionSets(baselineResult.solutions, currentResult.solutions);
 	if (diffs.length === 0) {
-		const refInvalid = invalidSolution(grid, tiles, refResult.solutions);
-		if (refInvalid !== '') {
-			diffs.push(`ref enumerated an invalid solution: ${refInvalid}`);
+		const baselineInvalid = invalidSolution(grid, tiles, baselineResult.solutions);
+		if (baselineInvalid !== '') {
+			diffs.push(`baseline enumerated an invalid solution: ${baselineInvalid}`);
 		}
-		const altInvalid = invalidSolution(grid, tiles, altResult.solutions);
-		if (altInvalid !== '') {
-			diffs.push(`alt enumerated an invalid solution: ${altInvalid}`);
+		const currentInvalid = invalidSolution(grid, tiles, currentResult.solutions);
+		if (currentInvalid !== '') {
+			diffs.push(`current enumerated an invalid solution: ${currentInvalid}`);
 		}
 	}
 	// unique boards: markAmbiguousTiles must report the one solution exactly
-	if (diffs.length === 0 && refResult.solutions.length === 1) {
-		const solution = refResult.solutions[0];
-		const refMark = new RefLayeredSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
-		const altMark = new AltLayeredSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
-		diffs.push(...uniqueResultDiffs('ref', solution, refMark));
-		diffs.push(...uniqueResultDiffs('alt', solution, altMark));
+	if (diffs.length === 0 && baselineResult.solutions.length === 1) {
+		const solution = baselineResult.solutions[0];
+		const baselineMark = new BaselineSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
+		const currentMark = new AltLayeredSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
+		diffs.push(...uniqueResultDiffs('baseline', solution, baselineMark));
+		diffs.push(...uniqueResultDiffs('current', solution, currentMark));
 	}
 
 	if (diffs.length > 0) {
@@ -330,14 +367,14 @@ function fuzzBoard(grid, runIndex) {
 			console.error(`  ${diff}`);
 		}
 		throw new Error(
-			`solution list mismatch between solver-layers-alt and solver-layers ` +
-				`on ${label}, board saved to ${file}`
+			`solution list mismatch between solver-layers-alt and its baseline snapshot ` +
+				`(solver-layers-baseline.js) on ${label}, board saved to ${file}`
 		);
 	}
 	return 'ok';
 }
 
-describe('Fuzz solve(true) solution lists: solver-layers-alt vs solver-layers', () => {
+describe('Fuzz solve(true) solution lists: solver-layers-alt vs baseline snapshot', () => {
 	const originalRandom = Math.random;
 	// paired-seed protocol: with FUZZ_SEED set, Math.random is replaced by a
 	// seeded PRNG for the duration of the run so the board sequence is
@@ -356,7 +393,8 @@ describe('Fuzz solve(true) solution lists: solver-layers-alt vs solver-layers', 
 	for (const config of CONFIGS) {
 		it.skipIf(!enabled)(
 			`Fuzz ${config.label}: ${RUNS_PER_SIZE} clean boards per size before escalating`,
-			() => {
+			async () => {
+				const BaselineSolver = await loadBaselineSolver();
 				for (let sizeIndex = 0; sizeIndex < config.sizes.length; sizeIndex++) {
 					const [width, height] = config.sizes[sizeIndex];
 					const grid = config.makeGrid(width, height);
@@ -365,7 +403,7 @@ describe('Fuzz solve(true) solution lists: solver-layers-alt vs solver-layers', 
 					while (clean < RUNS_PER_SIZE && runs < MAX_RUNS_PER_SIZE) {
 						runs += 1;
 						totalRuns += 1;
-						if (fuzzBoard(grid, totalRuns) === 'ok') {
+						if (fuzzBoard(grid, totalRuns, BaselineSolver) === 'ok') {
 							clean += 1;
 						}
 					}

@@ -377,7 +377,7 @@ describe('Test multi-layer boards', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const tiles = [[1], [13], [4], [9], [5, 10], [4], [3], [7], [4]];
 		const solver = new LayeredSolver(tiles, grid);
-		/** @type {import('./solver-layers').SolverProgress[]} */
+		/** @type {import('./solver-layers-alt').SolverProgress[]} */
 		const calls = [];
 		solver.progress_callback = (progress) => calls.push({ ...progress });
 		solver.markAmbiguousTiles();
