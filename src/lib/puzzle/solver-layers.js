@@ -132,8 +132,10 @@ export class LayeredCell {
 	 * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
 	 * @param {Number} index
 	 * @param {ReturnType<buildPossible>|undefined} possible
+	 * @param {Number|undefined} repeatLayersMask - precomputed for a superset
+	 * of possible, e.g. passed down by clone; computed here when omitted
 	 */
-	constructor(layers, polygon, index, possible = undefined) {
+	constructor(layers, polygon, index, possible = undefined, repeatLayersMask = undefined) {
 		this.layers = layers;
 		this.polygon = polygon;
 		this.index = index; // only for error messages
@@ -156,6 +158,33 @@ export class LayeredCell {
 		// /**@type {Map<Number,Set<Number>>} for each direction - which layers might answer the connection*/
 		/** @type {Map<Number,Number>} - how many subcells might be hiding behind this deadend*/
 		this.ownDeadendWeights = new Map();
+		/** @type {Map<Number,Set<Number>>|null} - memoized getAnsweringLayers results
+		 * per direction; the returned Sets are shared, callers must not mutate
+		 */
+		this.answeringCache = null;
+		/** @type {Map<Number,Number[]>|null} - this.possible reference the cache belongs to */
+		this.answeringCachePossible = null;
+		/** @type {Number} - this.possible.size at cache build time */
+		this.answeringCacheSize = -1;
+		/** Bitmask of layer indices whose masks repeat across the rotations in
+		 * this.possible - only these layers can be solved (all surviving
+		 * rotations agreeing) while possible.size > 1, because layers with
+		 * distinct masks differ between any two surviving rotations.
+		 * Computed from whatever possible the constructor receives; filtering
+		 * only shrinks the survivor set, so a layer with distinct masks stays
+		 * distinct and a mask computed for a map stays sound for any subset */
+		if (repeatLayersMask !== undefined) {
+			this.repeatLayersMask = repeatLayersMask;
+		} else {
+			this.repeatLayersMask = 0;
+			const masksPerRotation = [...this.possible.values()];
+			for (let layerIndex = 0; layerIndex < this.layers.length; layerIndex++) {
+				const distinct = new Set(masksPerRotation.map((layers) => layers[layerIndex]));
+				if (distinct.size < masksPerRotation.length) {
+					this.repeatLayersMask |= 1 << layerIndex;
+				}
+			}
+		}
 	}
 	/**
 	 * Clone this cell assigning new possible states
@@ -163,7 +192,15 @@ export class LayeredCell {
 	 * @returns {LayeredCell}
 	 */
 	clone(newPossible = undefined) {
-		const copy = new LayeredCell(this.layers, this.polygon, this.index, newPossible);
+		// the parent's repeatLayersMask was computed for a superset of
+		// newPossible, which keeps it sound - pass it down to skip the scan
+		const copy = new LayeredCell(
+			this.layers,
+			this.polygon,
+			this.index,
+			newPossible,
+			this.repeatLayersMask
+		);
 		copy.walls = this.walls;
 		copy.connections = this.connections;
 		copy.neighbourDeadends = this.neighbourDeadends;
@@ -321,17 +358,35 @@ export class LayeredCell {
 	}
 
 	/**
-	 * Which layers might answer a connection in this direction
+	 * Which layers might answer a connection in this direction.
+	 * Memoized per direction until this.possible changes; possible is only
+	 * ever mutated by entry deletion (size shrinks) or whole-map replacement
+	 * (identity changes), so comparing reference and size detects every
+	 * real change. The returned Set is cached and shared - do not mutate
 	 * @param {Number} direction
+	 * @returns {Set<Number>}
 	 */
 	getAnsweringLayers(direction) {
-		const answering = new Set();
-		for (let [rotation, layers] of this.possible) {
-			for (let [index, layer] of layers.entries()) {
-				if ((layer & direction) > 0) {
-					answering.add(index);
+		if (
+			this.answeringCache === null ||
+			this.answeringCachePossible !== this.possible ||
+			this.answeringCacheSize !== this.possible.size
+		) {
+			this.answeringCache = new Map();
+			this.answeringCachePossible = this.possible;
+			this.answeringCacheSize = this.possible.size;
+		}
+		let answering = this.answeringCache.get(direction);
+		if (answering === undefined) {
+			answering = new Set();
+			for (let [rotation, layers] of this.possible) {
+				for (let [index, layer] of layers.entries()) {
+					if ((layer & direction) > 0) {
+						answering.add(index);
+					}
 				}
 			}
+			this.answeringCache.set(direction, answering);
 		}
 		return answering;
 	}
@@ -706,15 +761,34 @@ export class LayeredSolver {
 	 */
 	avoidSlotLoops(index, component) {
 		const cell = this.getCell(index);
+		if (cell.possible.size === 1) {
+			// the cell is solved - every remaining direction is a
+			// non-connection of its only rotation, so any bridge constraint
+			// derived from probing them would be vacuous
+			return;
+		}
 		let directions = cell.polygon.fully_connected & ~cell.walls;
 		for (let layerIndex of cell.layers.keys()) {
 			const subcellId = this.idOf(index, layerIndex);
 			directions &= ~(this.subcellComponents.get(subcellId)?.subCells.get(subcellId) || 0);
-			// detect solved layers to avoid resurrecting neighbours
-			const possible = new Set(cell.possible.values().map((layers) => layers[layerIndex]));
-			if (possible.size === 1) {
-				const [layer] = possible;
-				directions &= ~layer;
+			// detect solved layers to avoid resurrecting neighbours: layers
+			// without repeated masks differ between any two surviving
+			// rotations, so they can only be solved when possible.size === 1,
+			// handled by the early return above
+			if (((cell.repeatLayersMask >> layerIndex) & 1) === 0) continue;
+			let uniqueMask;
+			let isUnique = true;
+			for (let layers of cell.possible.values()) {
+				const mask = layers[layerIndex];
+				if (uniqueMask === undefined) {
+					uniqueMask = mask;
+				} else if (mask !== uniqueMask) {
+					isUnique = false;
+					break;
+				}
+			}
+			if (isUnique && uniqueMask !== undefined) {
+				directions &= ~uniqueMask;
 			}
 		}
 		let forbidden = 0;
