@@ -52,8 +52,15 @@ areas are not supported.
   that.
 - Per-layer helpers complement the union view: `getLayerDefiniteConnections(layerIndex)`
   (AND over surviving states, minus walls), `getLayerPotentialConnections(layerIndex)` (OR
-  over surviving states, minus walls), `getAnsweringLayers(direction)` (candidate layer
-  indices across all surviving states).
+  over surviving states, minus walls), `getAnsweringLayer(direction)`
+  (the unique layer index, or `undefined` when none or several answer).
+- Birth-time cell data, computed once from the constructor's `possible` and passed down
+  through `clone` by reference:
+  - `repeatLayersMask` — layers whose masks repeat across rotations.
+  - `answerRotations` — per grid direction bit position and layer index, a bitmask of the
+    rotations whose mask connects that direction through that layer.
+  - `getAnsweringLayersMask` is computed from the table as survivor-mask ANDs per layer,
+    memoized per direction until `possible` changes (reference if cloned or size if pruned).
 
 ## Deadend facts
 
@@ -166,11 +173,7 @@ directions>, totalSubcells}` — `totalSubcells` counts resolved sub-cell member
     its own component is a loop.
   - `avoidSlotLoops` — cell-level: collects directions whose answering component is the
     same; with ≥ 2 of them queues `forbidLayerBridge(directions)`, deleting every rotation
-    where a single layer bridges two of the directions. Solved layers (same mask across
-    all surviving rotations) and directions already known for own resolved sub-cells are
-    subtracted first, so a forced direction of a solved layer can never be forbidden (that
-    would kill all rotations of a cell whose neighbour is already solved).
-- `pruneLoop` skips cells with a single surviving rotation.
+    where a single layer bridges two of the directions.
 - **Islands** — components are queued in `avoidIslandQueue` when their open ends change,
   flushed after `resolveComponents`:
   - open ends exhausted (`slots.size === 0 && subCells.size === 0`) while the component's
@@ -233,11 +236,10 @@ touched cells under lazy cloning (see search).
 - `clone()`: copies `solution`, `totalSubcells`/`totalUnsolved` and rebuilds the component
   registry eagerly (two passes over `subcellComponents` then slot-only components; fresh
   Maps everywhere, nothing shared with the parent), while **cells are cloned lazily**: the
-  first `getCell` touch walks up the parent chain, clones the parent's cell
-  (`new Map(cell.possible)` around the same mask arrays) and skips `doLocalDeductions`
-  (facts are inherited). This is what keeps short trials and deep trial trees cheap.
-  `stats` is shared by reference with the parent, so counters accumulate across the whole
-  trial tree: `iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`.
+  first `getCell` touch walks up the parent chain, clones the parent's cell and skips 
+  `doLocalDeductions` (facts are inherited). `stats` is shared by reference with the parent, 
+  so counters accumulate across the whole trial tree: `iterations`, `trialClones`, 
+  `shortTrials`, `dirtyProcessings`.
 - `makeAGuess(marked)`: MRV over `solution[]` entries — **not** `unsolved`, which is
   incomplete under lazy cloning — skipping solved and `AMBIGUOUS`-marked cells, early exit
   at 2, first candidate rotation as the value. Returns `[-1, 0]` when no candidate

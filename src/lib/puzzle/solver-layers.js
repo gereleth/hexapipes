@@ -134,8 +134,17 @@ export class LayeredCell {
 	 * @param {ReturnType<buildPossible>|undefined} possible
 	 * @param {Number|undefined} repeatLayersMask - precomputed for a superset
 	 * of possible, e.g. passed down by clone; computed here when omitted
+	 * @param {Uint32Array|undefined} answerRotations - birth table for a
+	 * superset of possible, e.g. passed down by clone; computed here when omitted
 	 */
-	constructor(layers, polygon, index, possible = undefined, repeatLayersMask = undefined) {
+	constructor(
+		layers,
+		polygon,
+		index,
+		possible = undefined,
+		repeatLayersMask = undefined,
+		answerRotations = undefined
+	) {
 		this.layers = layers;
 		this.polygon = polygon;
 		this.index = index; // only for error messages
@@ -158,10 +167,12 @@ export class LayeredCell {
 		// /**@type {Map<Number,Set<Number>>} for each direction - which layers might answer the connection*/
 		/** @type {Map<Number,Number>} - how many subcells might be hiding behind this deadend*/
 		this.ownDeadendWeights = new Map();
-		/** @type {Map<Number,Set<Number>>|null} - memoized getAnsweringLayers results
-		 * per direction; the returned Sets are shared, callers must not mutate
-		 */
-		this.answeringCache = null;
+		/** @type {Array<Number>|null} - answering layer bitmask per direction
+		 * bit position, -1 = not computed; cleared whenever possible changes
+		 * (see getAnsweringLayersMask) */
+		this.answeringMaskCache = null;
+		/** @type {Number} - bitmask of rotations currently in this.possible */
+		this.answeringSurvivors = 0;
 		/** @type {Map<Number,Number[]>|null} - this.possible reference the cache belongs to */
 		this.answeringCachePossible = null;
 		/** @type {Number} - this.possible.size at cache build time */
@@ -185,6 +196,32 @@ export class LayeredCell {
 				}
 			}
 		}
+		/** Per (grid direction bit position, layer index): bitmask of rotation
+		 * numbers whose mask connects that direction through that layer.
+		 * Fixed at birth - rotation numbers are the stable keys of possible,
+		 * and filtering only shrinks the survivor set, so a table computed
+		 * for a map stays sound for any subset of it. Rows for directions
+		 * the polygon never uses stay zero: nothing can ever answer them */
+		if (answerRotations !== undefined) {
+			this.answerRotations = answerRotations;
+		} else {
+			const layerCount = this.layers.length;
+			// grid direction space spanned by this shape: bit positions 0
+			// through the highest bit of the union of all its directions
+			const rows = 32 - Math.clz32(this.polygon.fully_connected);
+			this.answerRotations = new Uint32Array(rows * layerCount);
+			for (let [rotation, masks] of this.possible) {
+				for (let i = 0; i < layerCount; i++) {
+					let mask = masks[i];
+					while (mask) {
+						const low = mask & -mask;
+						const k = 31 - Math.clz32(low);
+						this.answerRotations[k * layerCount + i] |= 1 << rotation;
+						mask ^= low;
+					}
+				}
+			}
+		}
 	}
 	/**
 	 * Clone this cell assigning new possible states
@@ -192,14 +229,16 @@ export class LayeredCell {
 	 * @returns {LayeredCell}
 	 */
 	clone(newPossible = undefined) {
-		// the parent's repeatLayersMask was computed for a superset of
-		// newPossible, which keeps it sound - pass it down to skip the scan
+		// the parent's repeatLayersMask and answerRotations were computed for
+		// a superset of newPossible, which keeps them sound - pass them down
+		// to skip the birth computations
 		const copy = new LayeredCell(
 			this.layers,
 			this.polygon,
 			this.index,
 			newPossible,
-			this.repeatLayersMask
+			this.repeatLayersMask,
+			this.answerRotations
 		);
 		copy.walls = this.walls;
 		copy.connections = this.connections;
@@ -358,37 +397,62 @@ export class LayeredCell {
 	}
 
 	/**
-	 * Which layers might answer a connection in this direction.
+	 * Which layers might answer a connection in this direction, as a bitmask
+	 * of layer indices: 0 = none, single bit = unique, several = ambiguous.
+	 * Directions are single-bit masks, the table row is their bit position.
 	 * Memoized per direction until this.possible changes; possible is only
 	 * ever mutated by entry deletion (size shrinks) or whole-map replacement
 	 * (identity changes), so comparing reference and size detects every
-	 * real change. The returned Set is cached and shared - do not mutate
+	 * real change. A layer answers iff any of its birth rotations that
+	 * connect this direction is still a survivor
 	 * @param {Number} direction
-	 * @returns {Set<Number>}
+	 * @returns {Number}
 	 */
-	getAnsweringLayers(direction) {
+	getAnsweringLayersMask(direction) {
 		if (
-			this.answeringCache === null ||
+			this.answeringMaskCache === null ||
 			this.answeringCachePossible !== this.possible ||
 			this.answeringCacheSize !== this.possible.size
 		) {
-			this.answeringCache = new Map();
+			let survivors = 0;
+			for (let rotation of this.possible.keys()) survivors |= 1 << rotation;
+			this.answeringSurvivors = survivors;
+			if (this.answeringMaskCache === null) {
+				const rows = 32 - Math.clz32(this.polygon.fully_connected);
+				this.answeringMaskCache = new Array(rows).fill(-1);
+			} else {
+				this.answeringMaskCache.fill(-1);
+			}
 			this.answeringCachePossible = this.possible;
 			this.answeringCacheSize = this.possible.size;
 		}
-		let answering = this.answeringCache.get(direction);
-		if (answering === undefined) {
-			answering = new Set();
-			for (let [rotation, layers] of this.possible) {
-				for (let [index, layer] of layers.entries()) {
-					if ((layer & direction) > 0) {
-						answering.add(index);
-					}
+		const row = 31 - Math.clz32(direction);
+		let answering = this.answeringMaskCache[row];
+		if (answering === -1) {
+			answering = 0;
+			const layerCount = this.layers.length;
+			for (let i = 0; i < layerCount; i++) {
+				if (this.answerRotations[row * layerCount + i] & this.answeringSurvivors) {
+					answering |= 1 << i;
 				}
 			}
-			this.answeringCache.set(direction, answering);
+			this.answeringMaskCache[row] = answering;
 		}
 		return answering;
+	}
+
+	/**
+	 * The unique layer index that might answer a connection in this
+	 * direction, or undefined when none or several layers answer
+	 * @param {Number} direction
+	 * @returns {Number|undefined}
+	 */
+	getAnsweringLayer(direction) {
+		const answering = this.getAnsweringLayersMask(direction);
+		if (answering !== 0 && popcount(answering) === 1) {
+			return 31 - Math.clz32(answering);
+		}
+		return undefined;
 	}
 
 	/**
@@ -725,10 +789,9 @@ export class LayeredSolver {
 		const { neighbour } = this.grid.find_neighbour(index, direction);
 		const opposite = this.grid.OPPOSITE.get(direction) || 0;
 		const neighbourCell = this.getCell(neighbour);
-		const answering = neighbourCell.getAnsweringLayers(opposite);
-		// console.log('neighbour', neighbour, 'direction', opposite, 'answering', answering);
-		if (answering && answering.size === 1) {
-			const [layerIndex] = answering;
+		const layerIndex = neighbourCell.getAnsweringLayer(opposite);
+		// console.log('neighbour', neighbour, 'direction', opposite, 'answering', layerIndex);
+		if (layerIndex !== undefined) {
 			const subcellId = this.idOf(neighbour, layerIndex);
 			// console.log(subcellId, this.subcellComponents);
 			return this.subcellComponents.get(subcellId);
@@ -834,10 +897,9 @@ export class LayeredSolver {
 		if (ourSlots !== undefined) {
 			const removedDirections = [];
 			for (let [direction, component] of ourSlots) {
-				const answering = cell.getAnsweringLayers(direction);
-				if (answering !== undefined && answering.size === 1) {
+				const layerIndex = cell.getAnsweringLayer(direction);
+				if (layerIndex !== undefined) {
 					removedDirections.push(direction);
-					const [layerIndex] = answering;
 					const subCellId = this.idOf(index, layerIndex);
 					const otherComponent = this.subcellComponents.get(subCellId);
 					if (otherComponent === undefined) {
