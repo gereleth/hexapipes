@@ -52,6 +52,7 @@
 	let growthSeedFromSnapshot = $state(false);
 	/** @type {ReturnType<typeof setInterval>|undefined} */
 	let growthTimer;
+	let growthCarry = 0;
 
 	/** @type {Worker|null} */
 	let worker = null;
@@ -365,8 +366,14 @@
 	}
 
 	function growthTick() {
-		const chunk = Math.max(1, Math.round(Number(growthSpeed) || 1));
-		for (let i = 0; i < chunk && growthApplied < growthMoves.length; i++) {
+		const rate = Math.max(0, Number(growthSpeed) || 0);
+		growthCarry += rate * 0.03;
+		const count = Math.floor(growthCarry);
+		if (count < 1) {
+			return;
+		}
+		growthCarry -= count;
+		for (let i = 0; i < count && growthApplied < growthMoves.length; i++) {
 			applyGrowthMove(growthMoves[growthApplied]);
 		}
 		if (growthApplied >= growthMoves.length) {
@@ -375,6 +382,7 @@
 	}
 
 	function startGrowthTimer() {
+		growthCarry = 0;
 		if (growthTimer === undefined) {
 			growthTimer = setInterval(growthTick, 30);
 		}
@@ -454,64 +462,79 @@
 	</p>
 
 	<div class="params">
-		<label>
-			Grid type
-			<select bind:value={gridKind}>
-				{#each gridKinds.filter((kind) => kind === 'square' || kind === 'hexagonal') as kind (kind)}
-					<option value={kind}>{gridInfo[kind].title}</option>
-				{/each}
-			</select>
-		</label>
-		<label>
-			Width <input type="number" bind:value={width} min="3" />
-		</label>
-		<label>
-			Height <input type="number" bind:value={height} min="3" />
-		</label>
-		<label>
-			Wrap <input type="checkbox" bind:checked={wrap} />
-		</label>
-		<label>
-			Branching
-			<input type="range" min="0" max="1" step="0.05" bind:value={branchingAmount} />
-		</label>
-		<label>
-			Layering
-			<input type="range" min="0" max="1" step="0.05" bind:value={layeringAmount} />
-		</label>
-		<label>
-			Avoid obvious
-			<input type="range" min="0" max="1" step="0.05" bind:value={avoidObvious} />
-		</label>
-		<label>
-			Max ambiguous tiles
-			<input type="number" bind:value={maxAmbiguousTiles} min="0" step="10" max={width * height} />
-			(0 = auto {Math.max(100, Math.round(0.1 * width * height))})
-		</label>
-		<button onclick={start} disabled={generatorState === 'stepping'}>Start</button>
-		<button onclick={step} disabled={generatorState === 'stepping' || !hasWorker}> Step </button>
-		<button
-			onclick={() => {
-				auto = true;
-				if (generatorState !== 'stepping') {
-					step();
-				}
-			}}
-			disabled={!hasWorker || generatorState === 'done'}
-		>
-			Auto
-		</button>
-		<button onclick={() => stop()} disabled={!hasWorker}>Stop</button>
-		<label>
-			<input type="checkbox" bind:checked={auto} disabled={!hasWorker} /> auto-run
-		</label>
-		<label>
-			<input type="checkbox" bind:checked={highlightChanges} /> highlight changes
-		</label>
-		<button onclick={grow} disabled={generatorState === 'stepping'}>Grow</button>
-		<label>
-			<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's survivors
-		</label>
+		<div class="row">
+			<label>
+				Grid type
+				<select bind:value={gridKind}>
+					{#each gridKinds.filter((kind) => kind === 'square' || kind === 'hexagonal') as kind (kind)}
+						<option value={kind}>{gridInfo[kind].title}</option>
+					{/each}
+				</select>
+			</label>
+			<label>
+				Width <input type="number" bind:value={width} min="3" />
+			</label>
+			<label>
+				Height <input type="number" bind:value={height} min="3" />
+			</label>
+			<label>
+				Wrap <input type="checkbox" bind:checked={wrap} />
+			</label>
+		</div>
+		<div class="row">
+			<label>
+				Branching
+				<input type="range" min="0" max="1" step="0.05" bind:value={branchingAmount} />
+			</label>
+			<label>
+				Layering
+				<input type="range" min="0" max="1" step="0.05" bind:value={layeringAmount} />
+			</label>
+			<label>
+				Avoid obvious
+				<input type="range" min="0" max="1" step="0.05" bind:value={avoidObvious} />
+			</label>
+		</div>
+		<div class="row">
+			<label>
+				Max ambiguous tiles
+				<input
+					type="number"
+					bind:value={maxAmbiguousTiles}
+					min="0"
+					step="10"
+					max={width * height}
+				/>
+				(0 = auto {Math.max(100, Math.round(0.1 * width * height))})
+			</label>
+			<button onclick={start} disabled={generatorState === 'stepping'}>Start</button>
+			<button onclick={step} disabled={generatorState === 'stepping' || !hasWorker}> Step </button>
+			<button
+				onclick={() => {
+					auto = true;
+					if (generatorState !== 'stepping') {
+						step();
+					}
+				}}
+				disabled={!hasWorker || generatorState === 'done'}
+			>
+				Auto
+			</button>
+			<button onclick={() => stop()} disabled={!hasWorker}>Stop</button>
+			<label>
+				<input type="checkbox" bind:checked={auto} disabled={!hasWorker} /> auto-run
+			</label>
+			<label>
+				<input type="checkbox" bind:checked={highlightChanges} /> highlight changes
+			</label>
+		</div>
+		<div class="row">
+			<button onclick={grow} disabled={generatorState === 'stepping'}>Grow</button>
+			<label>
+				<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's
+				survivors
+			</label>
+		</div>
 	</div>
 
 	{#if errorMessage !== ''}
@@ -582,8 +605,8 @@
 						Step
 					</button>
 					<label>
-						moves/tick
-						<input type="number" min="1" max="200" bind:value={growthSpeed} />
+						moves/s
+						<input type="number" min="0.1" step="0.1" max="200" bind:value={growthSpeed} />
 					</label>
 				</span>
 			{/if}
@@ -591,28 +614,30 @@
 	{/if}
 
 	{#if viewSnapshot && game && runGrid && boardMode === 'solved'}
-		<svg
-			class="board"
-			viewBox="{runGrid.XMIN} {runGrid.YMIN} {runGrid.XMAX - runGrid.XMIN} {runGrid.YMAX -
-				runGrid.YMIN}"
-		>
-			{#each visibleCells as cell (cell.key)}
-				<LayeredTile {game} i={cell.index} cx={cell.x} cy={cell.y} />
-			{/each}
-			<!-- status overlay goes ON TOP of the tiles:
-				LayeredTile paints its own opaque tile background -->
-			{#each visibleCells as cell (cell.key)}
-				<g transform="translate({cell.x},{cell.y})">
-					<path
-						d={runGrid.getTilePath(cell.index)}
-						fill={statusFill(cell.index)}
-						opacity={changedCells.has(cell.index) || !highlightChanges ? 1 : 0.6}
-						style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}
-							; pointer-events: none"
-					/>
-				</g>
-			{/each}
-		</svg>
+		{#key viewIndex}
+			<svg
+				class="board"
+				viewBox="{runGrid.XMIN} {runGrid.YMIN} {runGrid.XMAX - runGrid.XMIN} {runGrid.YMAX -
+					runGrid.YMIN}"
+			>
+				{#each visibleCells as cell (cell.key)}
+					<LayeredTile {game} i={cell.index} cx={cell.x} cy={cell.y} />
+				{/each}
+				<!-- status overlay goes ON TOP of the tiles:
+					LayeredTile paints its own opaque tile background -->
+				{#each visibleCells as cell (cell.key)}
+					<g transform="translate({cell.x},{cell.y})">
+						<path
+							d={runGrid.getTilePath(cell.index)}
+							fill={statusFill(cell.index)}
+							opacity={changedCells.has(cell.index) || !highlightChanges ? 1 : 0.6}
+							style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}
+								; pointer-events: none"
+						/>
+					</g>
+				{/each}
+			</svg>
+		{/key}
 	{:else if viewSnapshot && runGrid && reusePlan && boardMode === 'reused'}
 		<svg
 			class="board"
@@ -789,16 +814,25 @@
 	}
 	.params {
 		display: flex;
+		flex-direction: column;
+		gap: 0.6em;
+		align-items: center;
+		margin: 1em 0;
+	}
+	.params .row {
+		display: flex;
 		flex-wrap: wrap;
 		gap: 1em;
 		justify-content: center;
 		align-items: center;
-		margin: 1em 0;
 	}
 	.params label {
 		display: flex;
 		gap: 0.3em;
 		align-items: center;
+	}
+	.params input[type='number'] {
+		width: 6em;
 	}
 	button {
 		color: var(--text-color);
