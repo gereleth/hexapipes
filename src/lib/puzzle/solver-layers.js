@@ -167,16 +167,6 @@ export class LayeredCell {
 		// /**@type {Map<Number,Set<Number>>} for each direction - which layers might answer the connection*/
 		/** @type {Map<Number,Number>} - how many subcells might be hiding behind this deadend*/
 		this.ownDeadendWeights = new Map();
-		/** @type {Array<Number>|null} - answering layer bitmask per direction
-		 * bit position, -1 = not computed; cleared whenever possible changes
-		 * (see getAnsweringLayersMask) */
-		this.answeringMaskCache = null;
-		/** @type {Number} - bitmask of rotations currently in this.possible */
-		this.answeringSurvivors = 0;
-		/** @type {Map<Number,Number[]>|null} - this.possible reference the cache belongs to */
-		this.answeringCachePossible = null;
-		/** @type {Number} - this.possible.size at cache build time */
-		this.answeringCacheSize = -1;
 		/** Bitmask of layer indices whose masks repeat across the rotations in
 		 * this.possible - only these layers can be solved (all surviving
 		 * rotations agreeing) while possible.size > 1. */
@@ -400,11 +390,8 @@ export class LayeredCell {
 	 * Which layers might answer a connection in this direction, as a bitmask
 	 * of layer indices: 0 = none, single bit = unique, several = ambiguous.
 	 * Directions are single-bit masks, the table row is their bit position.
-	 * Memoized per direction until this.possible changes; possible is only
-	 * ever mutated by entry deletion (size shrinks) or whole-map replacement
-	 * (identity changes), so comparing reference and size detects every
-	 * real change. A layer answers iff any of its birth rotations that
-	 * connect this direction is still a survivor
+	 * A layer answers iff any of its birth rotations that connect this
+	 * direction is still a survivor
 	 * @param {Number} direction
 	 * @returns {Number}
 	 */
@@ -419,34 +406,15 @@ export class LayeredCell {
 			}
 			return 0;
 		}
-		if (
-			this.answeringMaskCache === null ||
-			this.answeringCachePossible !== this.possible ||
-			this.answeringCacheSize !== this.possible.size
-		) {
-			let survivors = 0;
-			for (let rotation of this.possible.keys()) survivors |= 1 << rotation;
-			this.answeringSurvivors = survivors;
-			if (this.answeringMaskCache === null) {
-				const rows = 32 - Math.clz32(this.polygon.fully_connected);
-				this.answeringMaskCache = new Array(rows).fill(-1);
-			} else {
-				this.answeringMaskCache.fill(-1);
-			}
-			this.answeringCachePossible = this.possible;
-			this.answeringCacheSize = this.possible.size;
-		}
 		const row = 31 - Math.clz32(direction);
-		let answering = this.answeringMaskCache[row];
-		if (answering === -1) {
-			answering = 0;
-			const layerCount = this.layers.length;
-			for (let i = 0; i < layerCount; i++) {
-				if (rotations[row * layerCount + i] & this.answeringSurvivors) {
-					answering |= 1 << i;
-				}
+		let survivors = 0;
+		for (let rotation of this.possible.keys()) survivors |= 1 << rotation;
+		let answering = 0;
+		const layerCount = this.layers.length;
+		for (let i = 0; i < layerCount; i++) {
+			if (rotations[row * layerCount + i] & survivors) {
+				answering |= 1 << i;
 			}
-			this.answeringMaskCache[row] = answering;
 		}
 		return answering;
 	}
