@@ -179,11 +179,7 @@ export class LayeredCell {
 		this.answeringCacheSize = -1;
 		/** Bitmask of layer indices whose masks repeat across the rotations in
 		 * this.possible - only these layers can be solved (all surviving
-		 * rotations agreeing) while possible.size > 1, because layers with
-		 * distinct masks differ between any two surviving rotations.
-		 * Computed from whatever possible the constructor receives; filtering
-		 * only shrinks the survivor set, so a layer with distinct masks stays
-		 * distinct and a mask computed for a map stays sound for any subset */
+		 * rotations agreeing) while possible.size > 1. */
 		if (repeatLayersMask !== undefined) {
 			this.repeatLayersMask = repeatLayersMask;
 		} else {
@@ -201,10 +197,14 @@ export class LayeredCell {
 		 * Fixed at birth - rotation numbers are the stable keys of possible,
 		 * and filtering only shrinks the survivor set, so a table computed
 		 * for a map stays sound for any subset of it. Rows for directions
-		 * the polygon never uses stay zero: nothing can ever answer them */
+		 * the polygon never uses stay zero: nothing can ever answer them.
+		 * Single-layer cells skip the table: getAnsweringLayer resolves them
+		 * to layer 0 directly, so nothing descends into the table
+		 * @type {Uint32Array|undefined} */
+		this.answerRotations = undefined;
 		if (answerRotations !== undefined) {
 			this.answerRotations = answerRotations;
-		} else {
+		} else if (this.layers.length > 1) {
 			const layerCount = this.layers.length;
 			// grid direction space spanned by this shape: bit positions 0
 			// through the highest bit of the union of all its directions
@@ -409,6 +409,16 @@ export class LayeredCell {
 	 * @returns {Number}
 	 */
 	getAnsweringLayersMask(direction) {
+		const rotations = this.answerRotations;
+		if (rotations === undefined) {
+			// single-layer cell, no birth table: layer 0 answers iff any
+			// surviving rotation connects this direction. getAnsweringLayer
+			// answers single-layer cells directly and never descends here
+			for (let layers of this.possible.values()) {
+				if (layers[0] & direction) return 1;
+			}
+			return 0;
+		}
 		if (
 			this.answeringMaskCache === null ||
 			this.answeringCachePossible !== this.possible ||
@@ -432,7 +442,7 @@ export class LayeredCell {
 			answering = 0;
 			const layerCount = this.layers.length;
 			for (let i = 0; i < layerCount; i++) {
-				if (this.answerRotations[row * layerCount + i] & this.answeringSurvivors) {
+				if (rotations[row * layerCount + i] & this.answeringSurvivors) {
 					answering |= 1 << i;
 				}
 			}
@@ -448,6 +458,7 @@ export class LayeredCell {
 	 * @returns {Number|undefined}
 	 */
 	getAnsweringLayer(direction) {
+		if (this.layers.length === 1) return 0;
 		const answering = this.getAnsweringLayersMask(direction);
 		if (answering !== 0 && popcount(answering) === 1) {
 			return 31 - Math.clz32(answering);
