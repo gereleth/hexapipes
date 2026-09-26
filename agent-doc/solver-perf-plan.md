@@ -59,16 +59,19 @@ chain-multiplying per-cycle deltas overstates cumulative gains because it compou
 - faster getAnsweringLayer (birth tables+bitmasks, short path for single-layer cells)
 - avoidSlotLoops rework
 - ~~makeAGuess cell materialization cost~~ confirmed negligible
+- exception sentinels thrown by reference (2026-09-26)
 
 ## Remaining work
 
-1. **resolve/merge** — profile-guided
-2. **Solver clone cost** — Options in ascending effort: copy-on-write component registry (share the
-   Maps until first write; `resolveComponents`/`mergeComponents` are the only writers), lazy
-   registry clone on first mutation, mutation journal (highest risk, strictly gated on a fresh
-   profile).
+1. **Solver clone cost** — the lead on the 2026-09-26 refresh (clone complex ~29% + a share of GC 9%
+   on hexa[95], ~27% + 5.4% on hexa[42]). Options in ascending effort: copy-on-write component
+   registry (share the Maps until first write; `resolveComponents`/`mergeComponents` are the only
+   writers), lazy registry clone on first mutation, mutation journal (highest risk, strictly gated
+   on a fresh profile).
+2. **resolve/merge** — second at 12.8%/12.2%.
 3. **Demoted unless free**: neighbour table (≤0.9%), unionAt memo (≤0.8%), leftover `remove` array
-   reuse (once-per-pass filters).
+   reuse (once-per-pass filters), `iterate_directions` inlining (4.1% but spread over ~15 call sites
+   — call overhead only).
 
 ## Related but out of scope
 
@@ -265,3 +268,62 @@ The baseline scan pays parent-chain cloning into every trial clone for all scan 
 encoding defers that cloning to propagation time and only cells in the trial's propagation cone are
 ever copied — strictly less cloning, but the escaped cells are few and cloning is cheap next to
 propagation, so it nets zero. Dropped (not committed).
+
+### Profile refresh (2026-09-26): current solver after the re-baseline
+
+Re-ran `scratch/profile-driver.mjs` (hexa[42] p90, hexa[95] heavy; 3 reps, 100 µs) against the
+paired JSON regenerated 2026-09-26 at `9f4fee54` (0 capped, 0 disagreements, all counter deltas 0 —
+candidate == baseline, so this JSON is the fresh comparison base). Replay verified on both boards.
+Profiles: `/tmp/opencode/prof/hexagonal-{42,95}.cpuprofile`. Hexa[95] shares match the post-step-1
+snapshot within ~1 pt everywhere except dirty-processing (6.7 → 8.8%, expected from the
+dirty-on-materialization fix).
+
+| phase (self time)            | hexa[42] | hexa[95] | hexa[95] post-step-1 |
+| ---------------------------- | -------- | -------- | -------------------- |
+| clone (solver constructor)   | 21.4%    | 22.5%    | 22.5%                |
+| resolve/merge                | 12.2%    | 12.8%    | 13.5%                |
+| GC                           | 5.4%     | 9.0%     | 10.2%                |
+| loop-avoidance               | 10.5%    | 8.8%     | 8.2%                 |
+| dirty-processing             | 11.1%    | 8.8%     | 6.7%                 |
+| applyConstraints (+deadends) | 11.4%    | 9.4%     | 9.5%                 |
+| answering-scans              | 6.4%     | 7.7%     | 7.2%                 |
+| cell-init/getCell            | 9.2%     | 6.8%     | 7.0%                 |
+| cell.clone                   | 5.6%     | 6.7%     | 6.5%                 |
+| iterate_directions           | 3.7%     | 4.1%     | 3.6%                 |
+
+**Ordering conclusion: the clone complex, not resolve/merge, is the top remaining target** — 22.5%
+constructor + 6.7% cell.clone + a large share of the 9% GC on hexa[95] (the constructor's
+per-trial-clone component-registry copy: ~82 µs × 30 980 clones/rep), ~27% + 5.6% + 5.4% GC on
+hexa[42]. Remaining work reordered accordingly.
+
+**Side-find: `throw LoopDetectedException()` is missing `new`** (`solver-layers.js:903`, `:947`). In
+strict-mode ESM `this` is `undefined` inside the constructor, so the real value thrown on every loop
+detection is a `TypeError` (allocated with a stack capture at the `this.name` assignment) — ~1.9%
+constructor self time (651 ms) on hexa[95], absent from hexa[42]'s top-30 (tail-specific).
+Behaviorally neutral today: every catch site is a catch-all backtrack (`:1256`, `:1294`, `:1361`,
+`:1386`), nothing discriminates on type (no `instanceof`, no `.name` checks, no test references),
+and the counters matching baseline byte-for-byte confirms identical decisions. But it is a landmine
+— a genuine `TypeError` from any code defect inside propagation is indistinguishable from a loop
+backtrack and gets silently eaten. Fix: module-level singleton
+(`const LOOP_DETECTED = new LoopDetectedException()`, `throw LOOP_DETECTED`) — kills the per-throw
+allocation + stack capture. `IslandDetectedException` (`:1079`) and
+`NoOrientationsPossibleException` (`:514`) already use `new` (plain objects, no stack capture).
+
+### Landed: exception sentinels thrown by reference (2026-09-26)
+
+`LOOP_DETECTED`/`ISLAND_DETECTED` module-level singletons; both `LoopDetectedException` throw sites
+and the `IslandDetectedException` site throw the shared instances. `NoOrientationsPossibleException`
+keeps its per-throw `new` — it carries the cell index in its message and is not hot. `solver.js`
+(classic solver) already used `new` everywhere and is not the target; untouched. Caveat noted in the
+code: the singletons are safe only because catch sites never inspect or retain the thrown value —
+same assumption the catch-alls already made.
+
+Gates: unit + layered suites 268 green; paired benchmark (seed 20260921, 2×200) 0 capped, 0
+disagreements, all four work counters exactly 0-delta (min/max) on all 400 boards —
+decision-preserving; `npm run check` zero mentions of `solver-layers.js`; prettier clean. Wall time
+within-run paired: hexa mean −3.55 ms (177.1 → 173.6 ms), p50 −0.14 ms; square p50 +0.2 ms, mean
++2.89 ms (noise; square boards throw far less — trialClones mean 45 vs hexa 214). Re-profiled
+hexa[95]: `LoopDetectedException` gone from the top-functions list, wall −2.3% (rep mean 11.33 →
+11.06 s), phase shares otherwise stable (clone 22.9%, resolve/merge 10.7%, GC 9.7%); hexa[42]
+unchanged. The paired JSON regenerated by the gate run is the new comparison base (candidate side
+now includes the fix).

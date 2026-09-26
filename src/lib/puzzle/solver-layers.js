@@ -19,6 +19,12 @@ function IslandDetectedException() {
 	this.message = 'Island detected';
 }
 
+// Shared sentinels: thrown by reference so a throw allocates nothing (and
+// captures no stack). Catch sites backtrack on any of these without
+// inspecting them.
+const LOOP_DETECTED = new LoopDetectedException();
+const ISLAND_DETECTED = new IslandDetectedException();
+
 /**
  * Solving stage
  * initial: deductions made about the original puzzle
@@ -900,7 +906,7 @@ export class LayeredSolver {
 						this.avoidSubcellLoops(index, layerIndex, cell, component);
 						this.avoidIslandQueue.add(component);
 					} else if (otherComponent === component) {
-						throw LoopDetectedException();
+						throw LOOP_DETECTED;
 					} else {
 						otherComponent.subCells.set(
 							subCellId,
@@ -944,7 +950,7 @@ export class LayeredSolver {
 						this.avoidIslandQueue.add(component);
 						this.avoidSlotLoops(index, component);
 					} else if (otherComponent === component) {
-						throw LoopDetectedException();
+						throw LOOP_DETECTED;
 					} else {
 						this.mergeComponents(component, otherComponent, subCellId);
 						this.avoidIslandQueue.add(component);
@@ -1076,7 +1082,7 @@ export class LayeredSolver {
 					component.subCells.size === 0 &&
 					component.totalSubcells < this.totalSubcells
 				) {
-					throw new IslandDetectedException();
+					throw ISLAND_DETECTED;
 				} else if (component.slots.size === 1 && component.subCells.size === 0) {
 					const [[islandCell, islandConnections]] = component.slots.entries();
 					if (popcount(islandConnections) === 1) {
