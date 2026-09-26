@@ -27,24 +27,24 @@ Status: series in progress on the `layers` branch.
 
 ## Profiling tooling
 
-- `scratch-profile-driver.mjs` — replays the benchmark's exact PRNG draw order for any (seed, kind,
+- `scratch/profile-driver.mjs` — replays the benchmark's exact PRNG draw order for any (seed, kind,
   board index), cross-checks verdict + all four counters against the paired JSON (a replay bug
   almost surely mismatches a different board), then profiles N fresh `markAmbiguousTiles` runs via
   the inspector Profiler domain, so module loading and board replay stay out of the profile. Run via
   `npx vite-node` (resolves `$lib`); profiles land in `/tmp/opencode/prof/`.
-- `scratch-analyze-cpuprofile.mjs` — self-time per function and per phase bucket
+- `scratch/analyze-cpuprofile.mjs` — self-time per function and per phase bucket
   (innermost-matching-frame attribution). Two gotchas it works around: `Profiler.stop`'s fixed ~200
   ms serialization gets sampled into the profile (bucket `(node/profiler)`, excluded from
   percentages), and per-function total time is not well-defined — V8 nodes are unique per call path,
   so the same function has one node per call site, each with its own subtree total; self time is
   path-independent and exact, so the analyzer reports self-time and per-phase inclusive attribution
   only.
-- `scratch-dump-board.mjs` — dumps any benchmark board as JSON (seeded, replay verified): the
+- `scratch/dump-board.mjs` — dumps any benchmark board as JSON (seeded, replay verified): the
   benchmark tiles (solved orientation), a fresh `randomRotate` scramble (UI-importable), and solve
   facts for both.
 - Reference run: seed `20260921`, 2×200 boards — 0 capped, 0 disagreements, all counter deltas
   exactly 0 (candidate == baseline at the time). Its paired JSON is the series' comparison base;
-  `scratch-compare-bench.mjs` compares runs.
+  `scratch/compare-bench.mjs` compares runs.
 
 ## Noise methodology
 
@@ -75,7 +75,7 @@ chain-multiplying per-cycle deltas overstates cumulative gains because it compou
   Caveats: the patience loop would observe different `numAmbiguous` counts, so generated puzzles
   differ; needs its own correctness/quality analysis. Study material:
   `generator_stats/board_hexagonal_{95,42}_seed20260921.json` (regenerate with
-  `scratch-dump-board.mjs`).
+  `scratch/dump-board.mjs`).
 - Generator-side solver-state reuse across uniqueness-loop retries (instead of a fresh
   `LayeredSolver` per iteration).
 - New deduction rules (parity in narrow passages etc.) — the formalization gap is the blocker.
