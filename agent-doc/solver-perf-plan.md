@@ -54,15 +54,20 @@ counters (deterministic) for anything cross-session; for wall time prefer median
 tail-dominated — a single 13 s board moves it by ~5 ms); treat single-run deltas as indicative;
 chain-multiplying per-cycle deltas overstates cumulative gains because it compounds noise.
 
+## Done
+
+- faster getAnsweringLayer (birth tables+bitmasks, short path for single-layer cells)
+- avoidSlotLoops rework
+- ~~makeAGuess cell materialization cost~~ confirmed negligible
+
 ## Remaining work
 
-1. **makeAGuess** cell materialization cost
-2. **resolve/merge** — profile-guided
-3. **Solver clone cost** — Options in ascending effort: copy-on-write component registry (share the
+1. **resolve/merge** — profile-guided
+2. **Solver clone cost** — Options in ascending effort: copy-on-write component registry (share the
    Maps until first write; `resolveComponents`/`mergeComponents` are the only writers), lazy
    registry clone on first mutation, mutation journal (highest risk, strictly gated on a fresh
    profile).
-4. **Demoted unless free**: neighbour table (≤0.9%), unionAt memo (≤0.8%), leftover `remove` array
+3. **Demoted unless free**: neighbour table (≤0.9%), unionAt memo (≤0.8%), leftover `remove` array
    reuse (once-per-pass filters).
 
 ## Related but out of scope
@@ -223,29 +228,40 @@ metric, a small consistent square win.
 
 ### Side-find (2026-09-26): never dirty-processed cells (general solver fix, not a perf step)
 
-While trying a negative-count `solution` encoding for the makeAGuess materialization item (unsolved
-cells storing `UNSOLVED - possible.size`, written at the end of `processDirtyCell`), the paired
-benchmark drifted on 9/400 boards (counter-only; verdicts identical). Root cause was not the
-encoding: cells can be **materialized without ever being dirty-processed** — pure query paths call
-`getCell` without dirtying (`getAnsweringComponent`, `mergeComponents`'s `avoidSubcellLoops` arg,
-island branches, the `doShortTrials`/`makeAGuess` scans), and `processInitialDeductions`'
-`unsolved.has` skip treats "materialized" as "processed". Such a cell never ran `applyConstraints`,
-so its birth-derivable deadend directions/weights never reached its neighbours — the solver worked
-on incomplete info. The encoding turned this into wrong guesses because the never-written sentinel
-read as count 0.
+While trying a fix for the makeAGuess cell materialization cost item we discovered that cells can be
+**materialized without ever being dirty-processed** — pure query paths call `getCell` without
+dirtying (`getAnsweringComponent`, `mergeComponents`'s `avoidSubcellLoops` arg, island branches, the
+`doShortTrials`/`makeAGuess` scans), and `processInitialDeductions`' `unsolved.has` skip treats
+"materialized" as "processed". Such a cell never ran `applyConstraints`, so its birth-derivable
+deadend directions/weights never reached its neighbours — the solver worked on incomplete info.
 
-Fix (general correctness, user-directed): `getCell` adds the freshly born cell to `dirty` right
-after `doLocalDeductions`; that function's two conditional `dirty.add`s became redundant and were
-dropped. One add suffices: after initial deductions every root cell is materialized, so only the
-birth path can produce never-processed cells, and cells materialized mid-drain by queries are swept
-by that same drain. Clones only materialize via the parent path (already-processed cells).
-Regression test in `solver-layers.test.js` ("Dirty-processes every materialized cell") pins
-hardcoded generated tiles (4×4 wrap grid) whose pre-fix run leaves one such root cell (cell 10).
+Fix for general correctness: `getCell` adds the freshly born cell to `dirty` right after
+`doLocalDeductions`; that function's two conditional `dirty.add`s became redundant and were dropped.
+One add suffices: after initial deductions every root cell is materialized, so only the birth path
+can produce never-processed cells, and cells materialized mid-drain by queries are swept by that
+same drain. Clones only materialize via the parent path (already-processed cells). Regression test
+in `solver-layers.test.js` ("Dirty-processes every materialized cell") pins hardcoded generated
+tiles (4×4 wrap grid) whose pre-fix run leaves one such root cell (cell 10).
 
 Gates (decision-shifting vs the pre-fix snapshot, seed 20260921): 0 capped, 0 solvable/unique
 disagreements on 2×200 boards, fuzz (`FUZZ_SOLUTIONS=1 FUZZ_STABLE_RUNS=1000`) green; numAmbiguous
 moved on 1/400 boards (square, 102 → 100). Work counters shifted as expected — newly processed cells
 add passes but earlier deadend pruning removes search: square dirtyProcessings mean −485/board, hexa
-+63; square wall mean −5% (118.2 → 112.2 ms), hexa −1% (186.2 → 184.4 ms). The encoding itself was
-withdrawn from the working tree before committing this fix, so the commit contains only the
-skipped-dirty-processing change; the makeAGuess materialization item is open again.
++63; square wall mean −5% (118.2 → 112.2 ms), hexa −1% (186.2 → 184.4 ms).
+
+### Dropped: makeAGuess cell materialization cost (2026-09-26)
+
+`makeAGuess` in cloned solvers forces copying cells from parent just to check their possible size.
+Attempted fix: unsolved cells store `UNSOLVED - possible.size` in `solution`, written at the end of
+`processDirtyCell` loop.
+
+Baseline re-frozen at `9f4fee54` (dirty-on-materialization fix) per the re-baseline procedure, and
+the negative-count `solution` encoding reapplied on top. Decision-preserving: 3 paired runs (seed
+20260921, 2×200 boards) with 0 capped, 0 verdict diffs and all four work counters exactly 0-delta in
+every run. Wall time neutral: per-run mean deltas −2.1/+2.3/+0.1 ms square and −4.3/±0/±0 ms hexa,
+inside the ±4–6 pt noise bars.
+
+The baseline scan pays parent-chain cloning into every trial clone for all scan candidates; the
+encoding defers that cloning to propagation time and only cells in the trial's propagation cone are
+ever copied — strictly less cloning, but the escaped cells are few and cloning is cheap next to
+propagation, so it nets zero. Dropped (not committed).

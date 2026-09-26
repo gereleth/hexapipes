@@ -229,8 +229,7 @@ cells under lazy cloning (see search).
   whole trial tree: `iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`.
 - `makeAGuess(marked)`: MRV over `solution[]` entries — **not** `unsolved`, which is incomplete
   under lazy cloning — skipping solved and `AMBIGUOUS`-marked cells, early exit at 2, first
-  candidate rotation as the value. Returns `[-1, 0]` when no candidate remains. Materializing
-  candidate cells via `getCell` is a known cost of the lazy model.
+  candidate rotation as the value. Returns `[-1, 0]` when no candidate remains.
 - `doShortTrials(marked)` (root trial of `markAmbiguousTiles` only): probes each candidate rotation
   on a clone; a contradiction deletes that rotation from the real cell and re-dirties it.
   Round-robins the start cell via `shortTrialsIndex`; a `tested` set skips (cell, rotation) pairs
