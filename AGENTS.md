@@ -2,8 +2,18 @@
 
 Web-based logic puzzle game (pipes/Net variant), SvelteKit + Svelte 5 (repo is mid Svelte 3 → 5
 migration, runes are used in `.svelte.js` files). Prettier with tabs, JSDoc types everywhere, vitest
-for tests (`npm run test`, excludes dailies). The `layers` branch hosts an experimental puzzle
-variant developed across several sessions — detailed docs live in `agent-doc/`.
+for tests (see Tests). The `layers` branch hosts an experimental puzzle variant developed across
+several sessions — detailed docs live in `agent-doc/`.
+
+## Tests
+
+- Agents, one shot: `npx vitest run --exclude '**/dailies.test.js'` — the full suite minus dailies,
+  ~10 s.
+- `npm run test` runs the same exclusion, but in vitest **watch mode** — interactive, meant for
+  humans.
+- **Never run bare `npx vitest run`** or otherwise include `dailies.test.js` in a suite run.
+- Layered test suite:
+  `npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers.test.js`
 
 ## The "layers" variant
 
@@ -41,9 +51,6 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 - [layers-generator.md](agent-doc/layers-generator.md) — `pregenerate_layers`, startLayers reuse via
   `planReuse`, `LayeredGenerator` uniqueness loop, worker + `/generator-debug` tooling, convergence
   research; differences vs classic generator.
-
-Layered test suite:
-`npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers.test.js`
 
 ## Known quirks
 
