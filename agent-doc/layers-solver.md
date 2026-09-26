@@ -203,12 +203,12 @@ cell leaves `unsolved`, `totalUnsolved -= 1`; a `{index, rotation, final}` step 
 `processInitialDeductions` (start of every solve/marking run) counts `totalSubcells` (Σ layer counts
 over playable cells), dirties empty cells, then initializes playable cells one by one, draining
 propagation between inits and skipping empty-cell steps in the yield stream. Local deductions at
-cell init are outer walls from empty neighbours only. Classic's hexa/octa tileTypes tricks could be
-applied here too, but with layers the implementation gets more complicated while the set of boards
-where they yield useful conclusions shrinks — a deliberate skip for now. Classic's deadend-only init
-filter is superseded by the deadend facts. Gotcha: `totalUnsolved` counts **cells** and starts at
-`grid.total` (empty cells finalize during init), `totalSubcells` counts **sub-cells** of playable
-cells — different quantities with similar names.
+cell init are outer walls and walls from empty neighbours. Every cell is dirtied at init so it can
+tell its deadend facts to neighbours. Classic's hexa/octa tileTypes tricks could be applied here
+too, but with layers the implementation gets more complicated — a deliberate skip for now. Classic's
+deadend-only init filter is superseded by the deadend facts. Gotcha: `totalUnsolved` counts
+**cells** and starts at `grid.total` (empty cells finalize during init), `totalSubcells` counts
+**sub-cells** of playable cells — different quantities with similar names.
 
 Completion is `totalUnsolved === 0` — never `unsolved.size === 0`: `unsolved` only holds touched
 cells under lazy cloning (see search).

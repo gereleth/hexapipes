@@ -685,6 +685,11 @@ export class LayeredSolver {
 		cell = new LayeredCell(this.tiles[index], this.grid.polygon_at(index), index);
 		this.unsolved.set(index, cell);
 		this.doLocalDeductions(index, cell);
+		// a freshly born cell must be dirty-processed even when doLocalDeductions
+		// found nothing: its deadend and wall facts only reach neighbours via
+		// processDirtyCell, and query paths (getAnsweringComponent etc.)
+		// materialize cells without ever dirtying them
+		this.dirty.add(index);
 		return cell;
 	}
 
@@ -697,7 +702,6 @@ export class LayeredSolver {
 	doLocalDeductions(index, cell) {
 		if (cell.possible.size === 1) {
 			// either empty or fully connected, is solved right away
-			this.dirty.add(index);
 			return;
 		}
 		let walls = 0;
@@ -710,7 +714,6 @@ export class LayeredSolver {
 		// remove orientations that contradict outer walls
 		if (walls > 0) {
 			cell.addWall(walls);
-			this.dirty.add(index);
 		}
 	}
 
