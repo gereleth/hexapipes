@@ -377,3 +377,29 @@ ms (−16%); hexa p99 3358 → 2804 ms, max 11.5 → 8.6 s. Re-profiled hexa[95]
 10.7% → 9.7%, cell.clone 9.8% and cell-init/getCell 9.5% are the co-leads of what remains. hexa[42]:
 ~300 → ~230 ms/rep. The gated paired run regenerated the paired JSON (candidate = SoA solver) — the
 new comparison base.
+
+### Step 4b — drop Map insertion-order fidelity (2026-09-27, same branch)
+
+Follow-up simplification: with decision preservation already abandoned, the machinery that
+reproduced Map/Set iteration order served no remaining purpose. `slotOrder`/`slotOrderComp` deleted
+— slots now live only in `slotDirect` and iterate in numeric direction order (block-1 of
+`resolveComponents` and `pruneLoop` scan the cell's ND-wide row; `slotSet`/`slotRemove` are single
+O(1) writes maintaining `slotCount` for the `?.`-guard). The island queue's epoch/generation columns
+(`islandQSeqAt`, `islandCurSeq`, `islandEpoch`) deleted — `islandState` (0 never / 1 queued / 2
+deleted-with-reserved-position) is enough: a re-add reactivates the reserved position, so every
+component is visited at most once per flush without any sequence numbers. Two fewer arrays per
+solver, no append-scan, no order-preservation invariants left to maintain.
+
+Side-find: `generator-layers.test.js` "Mirrors growth events with startLayers reuse" is **inherently
+flaky** — it is unseeded, and over 200 seeded runs the `applyGrowthMoves` animation replay
+mismatches the generator on the SAME 5 seeds (56, 58, 94, 136, 159) pre-SoA and post-SoA alike (a
+`move` push can leave a direction duplicated in a cell the generator later resolved differently).
+Not a solver regression; worth fixing separately (seed it, or make the replay faithful).
+
+Gates, decision-shifting: solvable/unique 0 diffs on all 400 paired boards; fuzz
+`FUZZ_SOLUTIONS=1 FUZZ_STABLE_RUNS=1000` green; unit + layered suites 268 green; check/prettier
+clean. Wall, within-run paired: hexa mean 169.1 → 123.0 ms (−27%), square 105.4 → 80.4 ms (−24%).
+hexa[95] profile: clone (solver) down to 15.0% (fewer arrays to slice), GC 5.4%; the profile is now
+flat — no bucket above 15%, everything else 9-11% (answering-scans 10.4%, dirty-processing 10.2%,
+applyConstraints 9.9%, resolve/merge 9.9%, cell-init/getCell 9.8%, cell.clone 9.5%, loop-avoidance
+8.9%).

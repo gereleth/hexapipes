@@ -62,9 +62,9 @@ const ISLAND_DETECTED = new IslandDetectedException();
  *   (component.slots entries: cellIndex => direction mask). Append order
  *   reproduces Map insertion order.
  * - inverse indexes: subcellOwner/subcellNode (subcellId => owning
- *   component / its member node) and slotDirect + slotOrder/slotOrderComp +
- *   slotCount ((cell, direction) => component, plus the per-cell insertion
- *   order that the former inner Maps iterated in)
+ *   component / its member node) and slotDirect + slotCount
+ *   ((cell, direction) => component, flattened by direction bit position;
+ *   slots are iterated in numeric direction order)
  * All writes go through the helper methods; clone() slices the arrays.
  */
 
@@ -592,17 +592,12 @@ export class LayeredSolver {
 	slotNodeCount = 0;
 	slotNodeCapacity = 0;
 	islandQLen = 0;
-	islandEpoch = 0;
 	/** @type {Int32Array} */
 	subcellOwner;
 	/** @type {Int32Array} */
 	subcellNode;
 	/** @type {Int32Array} */
 	slotDirect;
-	/** @type {Int32Array} */
-	slotOrder;
-	/** @type {Int32Array} */
-	slotOrderComp;
 	/** @type {Int32Array} */
 	slotCount;
 	/** @type {Int32Array} */
@@ -637,12 +632,9 @@ export class LayeredSolver {
 	slotNodePrev;
 	/** @type {Int32Array} */
 	islandQ;
-	/** @type {Int32Array} */
-	islandQSeqAt;
-	/** @type {Int32Array} */
-	islandInQueue;
-	/** @type {Int32Array} */
-	islandCurSeq;
+	/** @type {Int32Array} - per component: 0 never queued, 1 queued, 2 queued
+	 * before and deleted (its islandQ position is stale but reserved) */
+	islandState;
 	/**
 	 *
 	 * @param {Number[][]} tiles
@@ -691,8 +683,6 @@ export class LayeredSolver {
 			this.subcellOwner = parent.subcellOwner.slice();
 			this.subcellNode = parent.subcellNode.slice();
 			this.slotDirect = parent.slotDirect.slice();
-			this.slotOrder = parent.slotOrder.slice();
-			this.slotOrderComp = parent.slotOrderComp.slice();
 			this.slotCount = parent.slotCount.slice();
 			this.compSubHead = sliceCapacity(parent.compSubHead, this.compCapacity);
 			this.compSubTail = sliceCapacity(parent.compSubTail, this.compCapacity);
@@ -710,13 +700,10 @@ export class LayeredSolver {
 			this.slotNodeNext = sliceCapacity(parent.slotNodeNext, this.slotNodeCapacity);
 			this.slotNodePrev = sliceCapacity(parent.slotNodePrev, this.slotNodeCapacity);
 			// the island queue starts empty in every solver, like the Set it
-			// replaced; flag columns are per-solver, indexed by component id
+			// replaced; state columns are per-solver, indexed by component id
 			this.islandQLen = 0;
-			this.islandEpoch = 0;
 			this.islandQ = new Int32Array(16);
-			this.islandQSeqAt = new Int32Array(16);
-			this.islandInQueue = new Int32Array(this.compCapacity);
-			this.islandCurSeq = new Int32Array(this.compCapacity);
+			this.islandState = new Int32Array(this.compCapacity);
 		} else {
 			let maxLayers = 0;
 			for (let i = 0; i < tiles.length; i++) {
@@ -740,8 +727,6 @@ export class LayeredSolver {
 			this.subcellOwner = new Int32Array(this.subcellCapacity);
 			this.subcellNode = new Int32Array(this.subcellCapacity);
 			this.slotDirect = new Int32Array(this.slotCapacity);
-			this.slotOrder = new Int32Array(this.slotCapacity);
-			this.slotOrderComp = new Int32Array(this.slotCapacity);
 			this.slotCount = new Int32Array(grid.total);
 			this.compSubHead = new Int32Array(this.compCapacity);
 			this.compSubTail = new Int32Array(this.compCapacity);
@@ -759,11 +744,8 @@ export class LayeredSolver {
 			this.slotNodeNext = new Int32Array(this.slotNodeCapacity);
 			this.slotNodePrev = new Int32Array(this.slotNodeCapacity);
 			this.islandQLen = 0;
-			this.islandEpoch = 0;
 			this.islandQ = new Int32Array(16);
-			this.islandQSeqAt = new Int32Array(16);
-			this.islandInQueue = new Int32Array(this.compCapacity);
-			this.islandCurSeq = new Int32Array(this.compCapacity);
+			this.islandState = new Int32Array(this.compCapacity);
 		}
 
 		/**
@@ -812,8 +794,7 @@ export class LayeredSolver {
 			this.compSubCount = growInt32(this.compSubCount, cap);
 			this.compSlotCount = growInt32(this.compSlotCount, cap);
 			this.compTotalSub = growInt32(this.compTotalSub, cap);
-			this.islandInQueue = growInt32(this.islandInQueue, cap);
-			this.islandCurSeq = growInt32(this.islandCurSeq, cap);
+			this.islandState = growInt32(this.islandState, cap);
 		}
 		const c = ++this.compCount;
 		this.compSubHead[c] = 0;
@@ -961,29 +942,18 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Register a (cell, direction) slot for comp in the cell's inner map:
-	 * slotDirect for point lookups and the per-cell ordered list for
-	 * iteration. Map.set semantics: a new direction appends, an existing
-	 * one updates in place.
+	 * Register a (cell, direction) slot for comp: one typed-array write,
+	 * plus the cell's live-slot count for the `?.`-style guards. Slots are
+	 * iterated in numeric direction order, so there is no insertion-order
+	 * bookkeeping.
 	 * @param {Number} cell
 	 * @param {Number} direction
 	 * @param {Number} comp
 	 */
 	slotSet(cell, direction, comp) {
-		const pos = this.dirPos(direction);
-		const base = cell * this.ND;
-		const count = this.slotCount[cell];
-		for (let j = 0; j < count; j++) {
-			if (this.slotOrder[base + j] === direction) {
-				this.slotOrderComp[base + j] = comp;
-				this.slotDirect[base + pos] = comp;
-				return;
-			}
-		}
-		this.slotOrder[base + count] = direction;
-		this.slotOrderComp[base + count] = comp;
-		this.slotCount[cell] = count + 1;
-		this.slotDirect[base + pos] = comp;
+		const idx = cell * this.ND + this.dirPos(direction);
+		if (this.slotDirect[idx] === 0) this.slotCount[cell] += 1;
+		this.slotDirect[idx] = comp;
 	}
 
 	/**
@@ -1002,25 +972,17 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Remove a direction from a cell's slot list and direct view
-	 * (innerMap.delete(direction); an emptied map is indistinguishable from
-	 * an absent one here, as in the original)
+	 * Remove a direction from a cell's slot row (innerMap.delete(direction);
+	 * an emptied map is indistinguishable from an absent one here, as in the
+	 * original)
 	 * @param {Number} cell
 	 * @param {Number} direction
 	 */
 	slotRemove(cell, direction) {
-		const base = cell * this.ND;
-		const count = this.slotCount[cell];
-		for (let j = 0; j < count; j++) {
-			if (this.slotOrder[base + j] === direction) {
-				for (let k = j + 1; k < count; k++) {
-					this.slotOrder[base + k - 1] = this.slotOrder[base + k];
-					this.slotOrderComp[base + k - 1] = this.slotOrderComp[base + k];
-				}
-				this.slotCount[cell] = count - 1;
-				this.slotDirect[base + this.dirPos(direction)] = 0;
-				return;
-			}
+		const idx = cell * this.ND + this.dirPos(direction);
+		if (this.slotDirect[idx] !== 0) {
+			this.slotDirect[idx] = 0;
+			this.slotCount[cell] -= 1;
 		}
 	}
 
@@ -1041,37 +1003,37 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * avoidIslandQueue.add: a Set keeps an existing member's position, so a
-	 * re-add while queued is a no-op; delete + re-add appends at the end.
+	 * avoidIslandQueue.add: a component is queued at most once per queue
+	 * generation. A re-add while queued is a no-op; delete + re-add
+	 * reactivates the component's reserved position.
 	 * @param {Number} comp
 	 */
 	islandAdd(comp) {
-		if (this.islandInQueue[comp]) return;
-		this.islandInQueue[comp] = 1;
-		this.islandCurSeq[comp] = ++this.islandEpoch;
-		if (this.islandQLen >= this.islandQ.length) {
-			const cap = this.islandQ.length * 2;
-			this.islandQ = growInt32(this.islandQ, cap);
-			this.islandQSeqAt = growInt32(this.islandQSeqAt, cap);
+		if (this.islandState[comp] === 1) return;
+		if (this.islandState[comp] === 0) {
+			if (this.islandQLen >= this.islandQ.length) {
+				const cap = this.islandQ.length * 2;
+				this.islandQ = growInt32(this.islandQ, cap);
+			}
+			this.islandQ[this.islandQLen] = comp;
+			this.islandQLen += 1;
 		}
-		this.islandQ[this.islandQLen] = comp;
-		this.islandQSeqAt[this.islandQLen] = this.islandCurSeq[comp];
-		this.islandQLen += 1;
+		this.islandState[comp] = 1;
 	}
 
 	/**
-	 * avoidIslandQueue.delete: the position goes stale; the membership flag
-	 * is what iteration checks
+	 * avoidIslandQueue.delete: the component's islandQ position goes stale
+	 * but stays reserved for a possible re-add
 	 * @param {Number} comp
 	 */
 	islandDelete(comp) {
-		this.islandInQueue[comp] = 0;
+		if (this.islandState[comp] === 1) this.islandState[comp] = 2;
 	}
 
 	/** avoidIslandQueue.clear */
 	islandClear() {
 		for (let i = 0; i < this.islandQLen; i++) {
-			this.islandInQueue[this.islandQ[i]] = 0;
+			this.islandState[this.islandQ[i]] = 0;
 		}
 		this.islandQLen = 0;
 	}
@@ -1276,9 +1238,9 @@ export class LayeredSolver {
 	pruneLoop(index, cell) {
 		if (cell.possible.size === 1) return;
 		const base = index * this.ND;
-		const count = this.slotCount[index];
-		for (let j = 0; j < count; j++) {
-			this.avoidSlotLoops(index, this.slotOrderComp[base + j]);
+		for (let pos = 0; pos < this.ND; pos++) {
+			const component = this.slotDirect[base + pos];
+			if (component !== 0) this.avoidSlotLoops(index, component);
 		}
 		for (let layerIndex of cell.layers.keys()) {
 			const subCellId = this.idOf(index, layerIndex);
@@ -1298,12 +1260,13 @@ export class LayeredSolver {
 		if (this.slotCount[index] > 0) {
 			const removedDirections = [];
 			const base = index * this.ND;
-			// live-length loop: merges repoint slot entries and can append new
-			// ones to this cell's ordered list mid-iteration; Map iteration
-			// would visit those too, so the length is re-read every step
-			for (let j = 0; j < this.slotCount[index]; j++) {
-				const direction = this.slotOrder[base + j];
-				const component = this.slotOrderComp[base + j];
+			// slots are iterated in numeric direction order over the fixed
+			// slotDirect row; entries repointed by merges mid-loop are read
+			// at visit time, like Map iteration did
+			for (let pos = 0; pos < this.ND; pos++) {
+				const component = this.slotDirect[base + pos];
+				if (component === 0) continue;
+				const direction = 1 << pos;
 				const layerIndex = cell.getAnsweringLayer(direction);
 				if (layerIndex !== undefined) {
 					removedDirections.push(direction);
@@ -1514,14 +1477,8 @@ export class LayeredSolver {
 
 			for (let i = 0; i < this.islandQLen; i++) {
 				const component = this.islandQ[i];
-				// skip stale positions (deleted entries; re-added components
-				// live at their new position with a fresh generation)
-				if (
-					!this.islandInQueue[component] ||
-					this.islandCurSeq[component] !== this.islandQSeqAt[i]
-				) {
-					continue;
-				}
+				// skip deleted entries (their positions stay reserved)
+				if (this.islandState[component] !== 1) continue;
 				if (
 					this.compSlotCount[component] === 0 &&
 					this.compSubCount[component] === 0 &&
