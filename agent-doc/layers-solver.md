@@ -127,21 +127,52 @@ is dropped and the sub-cell of this layer joins the component instead. Once a su
 connections are resolved new slots get created on the corresponding neighbours. A fully resolved
 sub-cell is dropped as well.
 
-State:
+State — the registry is a struct of typed arrays, not objects (perf rewrite of 2026-09; the
+measurement history lives in `agent-doc/solver-perf-plan.md`). A component is an integer id,
+bump-allocated per solver and never reused; `0` means "no component" (the old `undefined`), so all
+component comparisons are integer equality. Per solver:
 
-- `LayeredComponent {subCells: Map<subCellId, directions>, slots: Map<cellIndex, directions>, totalSubcells}`
-  — `totalSubcells` counts resolved sub-cell members only (the sealed mass for island checks).
-- `slotComponents: Map<cell, Map<direction, component>>` — the cell's open slot ends.
-- `subcellComponents: Map<subCellId, component>` — resolved memberships.
+- per-component columns: `compSubHead`/`compSubTail`, `compSlotHead`/`compSlotTail` — intrusive
+  doubly-linked member lists; `compSubCount`/`compSlotCount` (the old `Map.size`s); `compTotalSub` —
+  counts resolved sub-cell members only (the sealed mass for island checks);
+- member nodes: `subNode{Key,Val,Next,Prev}` and `slotNode{Key,Val,Next,Prev}` — the per-component
+  entries (key = sub-cell id / cell index, value = direction bitmask) threaded into their owner's
+  list; nodes are bump-allocated and never freed, unlinking only detaches;
+- inverse indexes: `subcellOwner`/`subcellNode` (sub-cell id → owning component / its member node)
+  and `slotDirect` — `(cell, direction)` flattened as `cell * ND + direction bit position` →
+  component, with `slotCount` per cell for the `?.`-style guards. Slots iterate in numeric direction
+  order over the fixed row; there is no insertion-order bookkeeping;
+- island queue: `islandQ` + per-component `islandState` (0 never queued / 1 queued / 2
+  deleted-with-reserved-position).
+
+Invariants that make the point lookups exact:
+
+- a live component's member-list keys are exactly the sub-cells (cells) whose registry entry points
+  at it. Merges therefore **move** entries — unlink from the absorbed component's list, append or
+  mask-merge into the survivor, re-register ownership — leaving the absorbed component empty; its id
+  is never reused, so a stale reference can never alias a fresh component. (The original Map-based
+  version copied entries and kept the absorbed object populated; that was measurable as never
+  influencing decisions — see `scratch/zombie-detector.mjs` and the plan doc — and move semantics is
+  what keeps the registry oracles exact.)
+- registry repoints (`slotRepoint`) mirror the original `slotComponents.get(cell)?.set(...)`: they
+  no-op when the cell has no open slot ends. An unconditional repoint would resurrect a slot
+  consumed long ago and create joins the semantics never allow;
+- all writes go through the helper methods (`compNew`, `sub*`, `slot*`, `mergeSlotMask`, `island*`).
+  `ND` — the bit width of `grid.DIRECTIONS`, the union of every direction bit any cell can use —
+  sizes the slot rows, which is what makes mixed grids (octa, rhombitrihexa, trihexa: cells with
+  different direction subsets of the same global orientations) safe. Watch out: typed arrays discard
+  out-of-bounds writes silently, so an under-sized row would corrupt lookups without an error —
+  `dirPos` guards the writers.
+
 - `addConnection(index, direction)` runs exactly once per edge, triggered by the `addedConnections`
   delta (the connection pushed into the neighbour makes re-derivation on its side impossible): it
   pushes the opposite connection into the neighbour, dirties it, and creates a fresh component
   holding a slot pair for the edge.
 - `getAnsweringComponent(index, direction)` — the component a connection in `direction` would join:
   the cell's own slot if one is registered, else — when the neighbour's answering layer is unique
-  across surviving states — the neighbour answerer sub-cell's component (`undefined` otherwise).
-  Callers exclude directions already known to the cell's own resolved sub-cells. Since state sets
-  only shrink, a unique answerer stays unique: slots and resolutions are never invalidated.
+  across surviving states — the neighbour answerer sub-cell's component (`0` otherwise). Callers
+  exclude directions already known to the cell's own resolved sub-cells. Since state sets only
+  shrink, a unique answerer stays unique: slots and resolutions are never invalidated.
 - `resolveComponents(index, cell)` runs on every stabilization pass of a dirty cell:
   1. **Slot resolution**: each own slot whose answering layer became unique swaps the slot for the
      answering sub-cell — join (register + `totalSubcells += 1` + island queue),
@@ -155,7 +186,8 @@ State:
   3. `pruneLoop` (loop-avoidance scan for this cell).
 - `mergeComponents(subcellComponent, slotComponent, subCellId)` — merges the slot-side component
   into the sub-cell-side one (argument order matters; the sub-cell component survives): consumes the
-  shared slot directions, adds up `totalSubcells`, re-keys all absorbed slots and sub-cells, and
+  shared slot directions, adds up `totalSubcells`, moves all absorbed slots and sub-cells over (the
+  absorbed component ends up empty), repoints the merge cell's still-registered absorbed slots, and
   rescans loop avoidance locally (`avoidSlotLoops` per absorbed slot end, `avoidSubcellLoops` per
   absorbed sub-cell).
 - **Loop avoidance** — facts are queued in `avoidLoopQueue` as `[cell, layerIndex|null, directions]`
@@ -167,8 +199,9 @@ State:
   - `avoidSlotLoops` — cell-level: collects directions whose answering component is the same; with ≥
     2 of them queues `forbidLayerBridge(directions)`, deleting every rotation where a single layer
     bridges two of the directions.
-- **Islands** — components are queued in `avoidIslandQueue` when their open ends change, flushed
-  after `resolveComponents`:
+- **Islands** — components are queued in the island queue when their open ends change (a component
+  is queued at most once per flush generation; deleting it reserves its position for a possible
+  re-add), flushed after `resolveComponents`:
   - open ends exhausted (`slots.size === 0 && subCells.size === 0`) while the component's mass is
     below the board's sub-cell total ⇒ `IslandDetectedException` — a sealed component can never gain
     another edge;
@@ -193,8 +226,8 @@ and per stabilization pass:
    connection deltas call `addConnection` per direction; deadend deltas push neighbour deadend facts
    (guarded, see the gap above);
 3. `resolveComponents(index, cell)`;
-4. flush `avoidLoopQueue` (each pruning that removed rotations re-dirties its cell), then flush
-   `avoidIslandQueue` (may throw `IslandDetectedException`); both queues cleared.
+4. flush `avoidLoopQueue` (each pruning that removed rotations re-dirties its cell), then flush the
+   island queue (may throw `IslandDetectedException`); both queues cleared.
 
 After stabilization: `final = possible.size === 1` — the winning rotation goes into `solution`, the
 cell leaves `unsolved`, `totalUnsolved -= 1`; a `{index, rotation, final}` step is returned
@@ -221,12 +254,13 @@ cells under lazy cloning (see search).
   and re-dirties it. `this.solution` is assigned from `solutions[0]` only after the search ends —
   during the search `this.solution` must keep its `UNSOLVED` markers for the resurrection guard and
   for guessing.
-- `clone()`: copies `solution`, `totalSubcells`/`totalUnsolved` and rebuilds the component registry
-  eagerly (two passes over `subcellComponents` then slot-only components; fresh Maps everywhere,
-  nothing shared with the parent), while **cells are cloned lazily**: the first `getCell` touch
-  walks up the parent chain, clones the parent's cell and skips `doLocalDeductions` (facts are
-  inherited). `stats` is shared by reference with the parent, so counters accumulate across the
-  whole trial tree: `iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`.
+- `clone()`: copies `solution`, `totalSubcells`/`totalUnsolved` and slices the component-registry
+  arrays eagerly — fixed inverse indexes whole, growable columns/lists at used length + headroom
+  (`sliceCapacity`; a plain `slice` on a shorter parent array would silently under-allocate, and
+  typed arrays discard out-of-bounds writes) — while **cells are cloned lazily**: the first
+  `getCell` touch walks up the parent chain, clones the parent's cell and skips `doLocalDeductions`
+  (facts are inherited). `stats` is shared by reference with the parent, so counters accumulate
+  across the whole trial tree: `iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`.
 - `makeAGuess(marked)`: MRV over `solution[]` entries — **not** `unsolved`, which is incomplete
   under lazy cloning — skipping solved and `AMBIGUOUS`-marked cells, early exit at 2, first
   candidate rotation as the value. Returns `[-1, 0]` when no candidate remains.
@@ -257,7 +291,10 @@ cells under lazy cloning (see search).
 
 Both harnesses compare the current solver against a frozen snapshot copy of this same file (their
 failure messages say how to recreate the snapshot after a fresh clone); snapshot mismatches mean the
-solver's behaviour changed.
+solver's behaviour changed. As of the 2026-09 SoA registry rewrite the current solver is
+**intentionally decision-shifted** vs the snapshot: work counters and occasional `numAmbiguous`
+values move, while `solvable`/`unique` and full solution lists still agree (gated per
+`agent-doc/solver-perf-plan.md`).
 
 - `solver-layers-fuzz.test.js` — the soundness gate for any solver change. Run with
   `FUZZ_SOLUTIONS=1` (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full
@@ -267,8 +304,9 @@ solver's behaviour changed.
 - `solver-layers-stats.test.js` — paired benchmark. Run with `BENCH_MARK_AMBIGUOUS=1` (`BENCH_SEED`
   for a reproducible sequence, `BENCH_MARK_AMBIGUOUS_RUNS` / `BENCH_MARK_AMBIGUOUS_CAP_MS` tune it):
   every fresh board runs through the snapshot and the current solver back-to-back; verdict
-  disagreements are soundness red flags, and work-counter mismatches fail in-run, so
-  behaviour-preserving changes get a free regression test. Output lands in `generator_stats/`.
+  disagreements (`solvable`/`unique`) are soundness red flags, while work-counter and `numAmbiguous`
+  mismatches are recorded as agreement flags — expected to change when the candidate intentionally
+  alters solver decisions. Output lands in `generator_stats/`.
 - The shared `stats` counters (`iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`)
   accumulate across each trial tree and are the deterministic work metric to compare between
   variants.
