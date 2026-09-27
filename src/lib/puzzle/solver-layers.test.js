@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { EtratGrid } from './grids/etratgrid';
 import { HexaGrid } from './grids/hexagrid';
+import { OctaGrid } from './grids/octagrid';
+import { RhombitrihexaGrid } from './grids/rhombitrihexagrid';
+import { SnubSquareGrid } from './grids/snubsquaregrid';
 import { SquareGrid } from './grids/squaregrid';
+import { TriangularGrid } from './grids/triangulargrid';
+import { TrihexaGrid } from './grids/trihexagrid';
 import { LayeredCell, LayeredSolver } from './solver-layers';
 import {
 	applyRotations,
@@ -526,5 +532,34 @@ describe('Test LayeredSolver loop avoidance', () => {
 		solver.processDirtyCell(6);
 		expect(cell6.possible.size).toEqual(2);
 		expect([...cell6.possible.keys()]).toEqual([0, 2]);
+	});
+});
+
+describe('Test LayeredSolver on every grid kind', () => {
+	it('Solves small pregenerated boards on all grid kinds', () => {
+		// The component registry sizes itself from grid.DIRECTIONS (the union
+		// of all direction bits); mixed grids have cells with different
+		// direction subsets, so exercise every grid kind. The layered suite
+		// otherwise only covers square + hexa.
+		/** @type {Array<[String, () => any]>} */
+		const cases = [
+			['square', () => new SquareGrid(4, 4, false)],
+			['square wrap', () => new SquareGrid(4, 4, true)],
+			['hexagonal', () => new HexaGrid(3, 3, false)],
+			['octagonal', () => new OctaGrid(4, 4, false)],
+			['rhombitrihexagonal', () => new RhombitrihexaGrid(3, 3, false)],
+			['trihexagonal', () => new TrihexaGrid(3, 3, false)],
+			['snub square', () => new SnubSquareGrid(4, 4, false)],
+			['triangular', () => new TriangularGrid(4, 4, false)],
+			['etrat', () => new EtratGrid(2, 2, false)]
+		];
+		for (const [name, makeGrid] of cases) {
+			const grid = makeGrid();
+			const layers = pregenerate_layers(grid, 0.6, 0.5, 0.25);
+			validateLayers(grid, layers);
+			const solver = new LayeredSolver(layers, grid);
+			const result = solver.markAmbiguousTiles(Math.max(100, 0.1 * grid.total));
+			expect(result.solvable, `${name} board must stay solvable`).toBe(true);
+		}
 	});
 });

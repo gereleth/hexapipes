@@ -51,12 +51,50 @@ const ISLAND_DETECTED = new IslandDetectedException();
  */
 
 /**
- * Component tracks connections between sub-cells
- * @typedef {Object} LayeredComponent
- * @property {Map<Number,Number>} subCells subCellId => known connection directions
- * @property {Map<Number,Number>} slots cellIndex => directions
- * @property {Number} totalSubcells
+ * Component tracks connections between sub-cells. Components are not
+ * objects: a component is an integer id (1-based, bump-allocated, never
+ * reused; 0 = none) into the solver's struct-of-arrays registry:
+ * - per-component columns: compSubHead/Tail, compSlotHead/Tail (intrusive
+ *   doubly-linked member lists), compSubCount, compSlotCount (Map.size),
+ *   compTotalSub (totalSubcells)
+ * - member nodes: subNode{Key,Val,Next,Prev} (component.subCells entries:
+ *   subcellId => direction mask) and slotNode{Key,Val,Next,Prev}
+ *   (component.slots entries: cellIndex => direction mask). Append order
+ *   reproduces Map insertion order.
+ * - inverse indexes: subcellOwner/subcellNode (subcellId => owning
+ *   component / its member node) and slotDirect + slotOrder/slotOrderComp +
+ *   slotCount ((cell, direction) => component, plus the per-cell insertion
+ *   order that the former inner Maps iterated in)
+ * All writes go through the helper methods; clone() slices the arrays.
  */
+
+/**
+ * Grows a typed array to newCapacity, preserving contents (the rest stays
+ * zeroed, which keeps fresh component ids all-zero-initialized)
+ * @param {Int32Array} arr
+ * @param {Number} newCapacity
+ * @returns {Int32Array}
+ */
+function growInt32(arr, newCapacity) {
+	const grown = new Int32Array(newCapacity);
+	grown.set(arr);
+	return grown;
+}
+
+/**
+ * Copies src into a fresh Int32Array of exactly newCapacity: truncates when
+ * src is longer, zero-extends when it is shorter. A plain slice() would
+ * silently return a SHORTER array when src is short, and later appends
+ * inside the clone would then write out of bounds - discarded silently.
+ * @param {Int32Array} src
+ * @param {Number} newCapacity
+ * @returns {Int32Array}
+ */
+function sliceCapacity(src, newCapacity) {
+	const out = new Int32Array(newCapacity);
+	out.set(src.subarray(0, Math.min(src.length, newCapacity)));
+	return out;
+}
 
 /**
  * Iterates directions present in a layer mask
@@ -542,6 +580,69 @@ const emptyCallback = (/**@type {SolverProgress} */ progress) => {};
 export class LayeredSolver {
 	UNSOLVED = -1;
 	AMBIGUOUS = -2;
+
+	// --- component registry (struct of arrays, see the typedef above) ---
+	ND = 0;
+	subcellCapacity = 0;
+	slotCapacity = 0;
+	compCount = 0;
+	compCapacity = 0;
+	subNodeCount = 0;
+	subNodeCapacity = 0;
+	slotNodeCount = 0;
+	slotNodeCapacity = 0;
+	islandQLen = 0;
+	islandEpoch = 0;
+	/** @type {Int32Array} */
+	subcellOwner;
+	/** @type {Int32Array} */
+	subcellNode;
+	/** @type {Int32Array} */
+	slotDirect;
+	/** @type {Int32Array} */
+	slotOrder;
+	/** @type {Int32Array} */
+	slotOrderComp;
+	/** @type {Int32Array} */
+	slotCount;
+	/** @type {Int32Array} */
+	compSubHead;
+	/** @type {Int32Array} */
+	compSubTail;
+	/** @type {Int32Array} */
+	compSlotHead;
+	/** @type {Int32Array} */
+	compSlotTail;
+	/** @type {Int32Array} */
+	compSubCount;
+	/** @type {Int32Array} */
+	compSlotCount;
+	/** @type {Int32Array} */
+	compTotalSub;
+	/** @type {Int32Array} */
+	subNodeKey;
+	/** @type {Int32Array} */
+	subNodeVal;
+	/** @type {Int32Array} */
+	subNodeNext;
+	/** @type {Int32Array} */
+	subNodePrev;
+	/** @type {Int32Array} */
+	slotNodeKey;
+	/** @type {Int32Array} */
+	slotNodeVal;
+	/** @type {Int32Array} */
+	slotNodeNext;
+	/** @type {Int32Array} */
+	slotNodePrev;
+	/** @type {Int32Array} */
+	islandQ;
+	/** @type {Int32Array} */
+	islandQSeqAt;
+	/** @type {Int32Array} */
+	islandInQueue;
+	/** @type {Int32Array} */
+	islandCurSeq;
 	/**
 	 *
 	 * @param {Number[][]} tiles
@@ -570,63 +671,99 @@ export class LayeredSolver {
 		/** @type {Set<Number>} */
 		this.dirty = new Set();
 
-		/**
-		 * @type {Map<Number, Map<Number, LayeredComponent>>}
-		 * cell index => (direction => component)
-		 */
-		this.slotComponents = new Map();
-
-		/**
-		 * @type {Map<Number, LayeredComponent>}
-		 * subcell index => component
-		 */
-		this.subcellComponents = new Map();
-
+		// --- component registry (struct of arrays, see the typedef above) ---
+		// Sizing: ND is the bit-width of the grid's DIRECTIONS (the union of
+		// every direction bit any cell can use; per-cell masks are subsets of
+		// it, so per-cell slot rows of width ND are enough). maxLayers comes
+		// from the actual tiles, not from num_directions. Growable arrays are
+		// sliced at used length + headroom in clones so their first append
+		// does not immediately grow-copy.
 		if (parent) {
-			// clone the components, what a headache
-			for (let [subcellId, component] of parent.subcellComponents) {
-				/** @type {LayeredComponent} */
-				const cloned = {
-					subCells: new Map(component.subCells),
-					slots: new Map(component.slots),
-					totalSubcells: component.totalSubcells
-				};
-				for (let [subcellId, directions] of cloned.subCells) {
-					this.subcellComponents.set(subcellId, cloned);
-				}
-				for (let [index, directions] of cloned.slots) {
-					if (!this.slotComponents.has(index)) {
-						this.slotComponents.set(index, new Map());
-					}
-					for (let direction of iterate_directions(directions)) {
-						this.slotComponents.get(index)?.set(direction, cloned);
-					}
-				}
+			this.ND = parent.ND;
+			this.subcellCapacity = parent.subcellCapacity;
+			this.slotCapacity = parent.slotCapacity;
+			this.compCount = parent.compCount;
+			this.compCapacity = this.compCount + (this.compCount >> 3) + 16;
+			this.subNodeCount = parent.subNodeCount;
+			this.subNodeCapacity = this.subNodeCount + (this.subNodeCount >> 3) + 16;
+			this.slotNodeCount = parent.slotNodeCount;
+			this.slotNodeCapacity = this.slotNodeCount + (this.slotNodeCount >> 3) + 16;
+			this.subcellOwner = parent.subcellOwner.slice();
+			this.subcellNode = parent.subcellNode.slice();
+			this.slotDirect = parent.slotDirect.slice();
+			this.slotOrder = parent.slotOrder.slice();
+			this.slotOrderComp = parent.slotOrderComp.slice();
+			this.slotCount = parent.slotCount.slice();
+			this.compSubHead = sliceCapacity(parent.compSubHead, this.compCapacity);
+			this.compSubTail = sliceCapacity(parent.compSubTail, this.compCapacity);
+			this.compSlotHead = sliceCapacity(parent.compSlotHead, this.compCapacity);
+			this.compSlotTail = sliceCapacity(parent.compSlotTail, this.compCapacity);
+			this.compSubCount = sliceCapacity(parent.compSubCount, this.compCapacity);
+			this.compSlotCount = sliceCapacity(parent.compSlotCount, this.compCapacity);
+			this.compTotalSub = sliceCapacity(parent.compTotalSub, this.compCapacity);
+			this.subNodeKey = sliceCapacity(parent.subNodeKey, this.subNodeCapacity);
+			this.subNodeVal = sliceCapacity(parent.subNodeVal, this.subNodeCapacity);
+			this.subNodeNext = sliceCapacity(parent.subNodeNext, this.subNodeCapacity);
+			this.subNodePrev = sliceCapacity(parent.subNodePrev, this.subNodeCapacity);
+			this.slotNodeKey = sliceCapacity(parent.slotNodeKey, this.slotNodeCapacity);
+			this.slotNodeVal = sliceCapacity(parent.slotNodeVal, this.slotNodeCapacity);
+			this.slotNodeNext = sliceCapacity(parent.slotNodeNext, this.slotNodeCapacity);
+			this.slotNodePrev = sliceCapacity(parent.slotNodePrev, this.slotNodeCapacity);
+			// the island queue starts empty in every solver, like the Set it
+			// replaced; flag columns are per-solver, indexed by component id
+			this.islandQLen = 0;
+			this.islandEpoch = 0;
+			this.islandQ = new Int32Array(16);
+			this.islandQSeqAt = new Int32Array(16);
+			this.islandInQueue = new Int32Array(this.compCapacity);
+			this.islandCurSeq = new Int32Array(this.compCapacity);
+		} else {
+			let maxLayers = 0;
+			for (let i = 0; i < tiles.length; i++) {
+				if (tiles[i].length > maxLayers) maxLayers = tiles[i].length;
 			}
-			for (let [index, direction_components] of parent.slotComponents) {
-				// /** @type {Map<Number, LayeredComponent>} */
-				// const cloned = new Map();
-				for (let [direction, component] of direction_components) {
-					if (component.subCells.size > 0) continue; // already processed in the subcell loop
-					if (this.slotComponents.get(index)?.has(direction)) continue;
-					// now it's a component with no subcells, just slots
-					// and we haven't seen its slots before, so clone it
-					/** @type {LayeredComponent} */
-					const cloned = {
-						subCells: new Map(component.subCells),
-						slots: new Map(component.slots),
-						totalSubcells: component.totalSubcells
-					};
-					for (let [cloneIndex, cloneDirections] of cloned.slots) {
-						if (!this.slotComponents.has(cloneIndex)) {
-							this.slotComponents.set(cloneIndex, new Map());
-						}
-						for (let direction of iterate_directions(cloneDirections)) {
-							this.slotComponents.get(cloneIndex)?.set(direction, cloned);
-						}
-					}
-				}
-			}
+			this.ND =
+				32 -
+				Math.clz32(
+					grid.DIRECTIONS.reduce((/** @type {Number} */ a, /** @type {Number} */ b) => a | b, 0)
+				);
+			this.subcellCapacity = grid.total * maxLayers;
+			this.slotCapacity = grid.total * this.ND;
+			// components are born in addConnection (at most one per directed
+			// edge) and are never freed
+			this.compCapacity = this.slotCapacity + 16;
+			this.compCount = 0;
+			this.subNodeCapacity = this.subcellCapacity + 16;
+			this.subNodeCount = 0;
+			this.slotNodeCapacity = this.slotCapacity + 16;
+			this.slotNodeCount = 0;
+			this.subcellOwner = new Int32Array(this.subcellCapacity);
+			this.subcellNode = new Int32Array(this.subcellCapacity);
+			this.slotDirect = new Int32Array(this.slotCapacity);
+			this.slotOrder = new Int32Array(this.slotCapacity);
+			this.slotOrderComp = new Int32Array(this.slotCapacity);
+			this.slotCount = new Int32Array(grid.total);
+			this.compSubHead = new Int32Array(this.compCapacity);
+			this.compSubTail = new Int32Array(this.compCapacity);
+			this.compSlotHead = new Int32Array(this.compCapacity);
+			this.compSlotTail = new Int32Array(this.compCapacity);
+			this.compSubCount = new Int32Array(this.compCapacity);
+			this.compSlotCount = new Int32Array(this.compCapacity);
+			this.compTotalSub = new Int32Array(this.compCapacity);
+			this.subNodeKey = new Int32Array(this.subNodeCapacity);
+			this.subNodeVal = new Int32Array(this.subNodeCapacity);
+			this.subNodeNext = new Int32Array(this.subNodeCapacity);
+			this.subNodePrev = new Int32Array(this.subNodeCapacity);
+			this.slotNodeKey = new Int32Array(this.slotNodeCapacity);
+			this.slotNodeVal = new Int32Array(this.slotNodeCapacity);
+			this.slotNodeNext = new Int32Array(this.slotNodeCapacity);
+			this.slotNodePrev = new Int32Array(this.slotNodeCapacity);
+			this.islandQLen = 0;
+			this.islandEpoch = 0;
+			this.islandQ = new Int32Array(16);
+			this.islandQSeqAt = new Int32Array(16);
+			this.islandInQueue = new Int32Array(this.compCapacity);
+			this.islandCurSeq = new Int32Array(this.compCapacity);
 		}
 
 		/**
@@ -642,9 +779,301 @@ export class LayeredSolver {
 
 		/** @type {any[][]} cells to process components for */
 		this.avoidLoopQueue = [];
+	}
 
-		/** @type {Set<LayeredComponent>} */
-		this.avoidIslandQueue = new Set();
+	// --- component registry helpers: the only writers of the arrays above ---
+
+	/**
+	 * Bit position of a single-bit direction mask. Throws on directions
+	 * outside the grid's DIRECTIONS width - unlike a Map, a typed array
+	 * write out of bounds would be silently discarded.
+	 * @param {Number} direction
+	 * @returns {Number}
+	 */
+	dirPos(direction) {
+		const pos = 31 - Math.clz32(direction);
+		if (pos >= this.ND) throw `Direction ${direction} outside the grid's DIRECTIONS width`;
+		return pos;
+	}
+
+	/**
+	 * Allocate a component id (bump allocator - ids are never reused, so a
+	 * stale id can never alias a fresh component)
+	 * @returns {Number}
+	 */
+	compNew() {
+		if (this.compCount + 1 >= this.compCapacity) {
+			this.compCapacity *= 2;
+			const cap = this.compCapacity;
+			this.compSubHead = growInt32(this.compSubHead, cap);
+			this.compSubTail = growInt32(this.compSubTail, cap);
+			this.compSlotHead = growInt32(this.compSlotHead, cap);
+			this.compSlotTail = growInt32(this.compSlotTail, cap);
+			this.compSubCount = growInt32(this.compSubCount, cap);
+			this.compSlotCount = growInt32(this.compSlotCount, cap);
+			this.compTotalSub = growInt32(this.compTotalSub, cap);
+			this.islandInQueue = growInt32(this.islandInQueue, cap);
+			this.islandCurSeq = growInt32(this.islandCurSeq, cap);
+		}
+		const c = ++this.compCount;
+		this.compSubHead[c] = 0;
+		this.compSubTail[c] = 0;
+		this.compSlotHead[c] = 0;
+		this.compSlotTail[c] = 0;
+		this.compSubCount[c] = 0;
+		this.compSlotCount[c] = 0;
+		this.compTotalSub[c] = 0;
+		return c;
+	}
+
+	/**
+	 * Append a member-subcell entry to comp's list - component.subCells.set
+	 * of a new key (Map.set of an existing key goes through subcellNode)
+	 * @param {Number} comp
+	 * @param {Number} subcellId
+	 * @param {Number} val - direction bitmask
+	 * @returns {Number} node id
+	 */
+	subAppend(comp, subcellId, val) {
+		if (this.subNodeCount + 1 >= this.subNodeCapacity) {
+			this.subNodeCapacity *= 2;
+			const cap = this.subNodeCapacity;
+			this.subNodeKey = growInt32(this.subNodeKey, cap);
+			this.subNodeVal = growInt32(this.subNodeVal, cap);
+			this.subNodeNext = growInt32(this.subNodeNext, cap);
+			this.subNodePrev = growInt32(this.subNodePrev, cap);
+		}
+		const n = ++this.subNodeCount;
+		this.subNodeKey[n] = subcellId;
+		this.subNodeVal[n] = val;
+		const tail = this.compSubTail[comp];
+		this.subNodePrev[n] = tail;
+		this.subNodeNext[n] = 0;
+		if (tail === 0) this.compSubHead[comp] = n;
+		else this.subNodeNext[tail] = n;
+		this.compSubTail[comp] = n;
+		this.compSubCount[comp] += 1;
+		return n;
+	}
+
+	/**
+	 * Detach a member-subcell node from comp's list (Map.delete keeps no
+	 * trace of the key's position; the node itself is never freed)
+	 * @param {Number} comp
+	 * @param {Number} n
+	 */
+	unlinkSubNode(comp, n) {
+		const prev = this.subNodePrev[n];
+		const next = this.subNodeNext[n];
+		if (prev === 0) this.compSubHead[comp] = next;
+		else this.subNodeNext[prev] = next;
+		if (next === 0) this.compSubTail[comp] = prev;
+		else this.subNodePrev[next] = prev;
+		this.compSubCount[comp] -= 1;
+	}
+
+	/**
+	 * Read comp's direction mask for subcellId, 0 if absent. Exact for
+	 * registry-live components (the only kind read point-wise): the entry
+	 * belongs to comp iff comp owns the subcell.
+	 * @param {Number} comp
+	 * @param {Number} subcellId
+	 * @returns {Number}
+	 */
+	subGetVal(comp, subcellId) {
+		if (this.subcellOwner[subcellId] === comp) {
+			return this.subNodeVal[this.subcellNode[subcellId]];
+		}
+		return 0;
+	}
+
+	/**
+	 * Remove subcellId's membership entry from its owner's list and registry
+	 * @param {Number} comp
+	 * @param {Number} subcellId
+	 */
+	subDelete(comp, subcellId) {
+		const n = this.subcellNode[subcellId];
+		if (n === 0) return;
+		this.unlinkSubNode(comp, n);
+		this.subcellOwner[subcellId] = 0;
+		this.subcellNode[subcellId] = 0;
+	}
+
+	/**
+	 * Append a slot entry to comp's list (component.slots.set of a new key)
+	 * @param {Number} comp
+	 * @param {Number} cellIndex
+	 * @param {Number} val - direction bitmask
+	 * @returns {Number} node id
+	 */
+	slotNodeAppend(comp, cellIndex, val) {
+		if (this.slotNodeCount + 1 >= this.slotNodeCapacity) {
+			this.slotNodeCapacity *= 2;
+			const cap = this.slotNodeCapacity;
+			this.slotNodeKey = growInt32(this.slotNodeKey, cap);
+			this.slotNodeVal = growInt32(this.slotNodeVal, cap);
+			this.slotNodeNext = growInt32(this.slotNodeNext, cap);
+			this.slotNodePrev = growInt32(this.slotNodePrev, cap);
+		}
+		const n = ++this.slotNodeCount;
+		this.slotNodeKey[n] = cellIndex;
+		this.slotNodeVal[n] = val;
+		const tail = this.compSlotTail[comp];
+		this.slotNodePrev[n] = tail;
+		this.slotNodeNext[n] = 0;
+		if (tail === 0) this.compSlotHead[comp] = n;
+		else this.slotNodeNext[tail] = n;
+		this.compSlotTail[comp] = n;
+		this.compSlotCount[comp] += 1;
+		return n;
+	}
+
+	/**
+	 * Detach a slot node from comp's list (the node is never freed)
+	 * @param {Number} comp
+	 * @param {Number} n
+	 */
+	unlinkSlotNode(comp, n) {
+		const prev = this.slotNodePrev[n];
+		const next = this.slotNodeNext[n];
+		if (prev === 0) this.compSlotHead[comp] = next;
+		else this.slotNodeNext[prev] = next;
+		if (next === 0) this.compSlotTail[comp] = prev;
+		else this.slotNodePrev[next] = prev;
+		this.compSlotCount[comp] -= 1;
+	}
+
+	/**
+	 * Find comp's slot-list node for a cell, 0 if absent. Linear scan; the
+	 * lists are frontier-sized.
+	 * @param {Number} comp
+	 * @param {Number} cellIndex
+	 * @returns {Number} node id
+	 */
+	slotMember(comp, cellIndex) {
+		let n = this.compSlotHead[comp];
+		while (n !== 0) {
+			if (this.slotNodeKey[n] === cellIndex) return n;
+			n = this.slotNodeNext[n];
+		}
+		return 0;
+	}
+
+	/**
+	 * Register a (cell, direction) slot for comp in the cell's inner map:
+	 * slotDirect for point lookups and the per-cell ordered list for
+	 * iteration. Map.set semantics: a new direction appends, an existing
+	 * one updates in place.
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @param {Number} comp
+	 */
+	slotSet(cell, direction, comp) {
+		const pos = this.dirPos(direction);
+		const base = cell * this.ND;
+		const count = this.slotCount[cell];
+		for (let j = 0; j < count; j++) {
+			if (this.slotOrder[base + j] === direction) {
+				this.slotOrderComp[base + j] = comp;
+				this.slotDirect[base + pos] = comp;
+				return;
+			}
+		}
+		this.slotOrder[base + count] = direction;
+		this.slotOrderComp[base + count] = comp;
+		this.slotCount[cell] = count + 1;
+		this.slotDirect[base + pos] = comp;
+	}
+
+	/**
+	 * slotComponents.get(cell)?.set(direction, comp): no-op when the cell
+	 * has no slot list at all. Repointing only ever updates or extends
+	 * EXISTING slot maps - it must not resurrect slots for cells whose map
+	 * was already deleted (their slots resolved long ago), which would
+	 * create joins the original never performed.
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @param {Number} comp
+	 */
+	slotRepoint(cell, direction, comp) {
+		if (this.slotCount[cell] === 0) return;
+		this.slotSet(cell, direction, comp);
+	}
+
+	/**
+	 * Remove a direction from a cell's slot list and direct view
+	 * (innerMap.delete(direction); an emptied map is indistinguishable from
+	 * an absent one here, as in the original)
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 */
+	slotRemove(cell, direction) {
+		const base = cell * this.ND;
+		const count = this.slotCount[cell];
+		for (let j = 0; j < count; j++) {
+			if (this.slotOrder[base + j] === direction) {
+				for (let k = j + 1; k < count; k++) {
+					this.slotOrder[base + k - 1] = this.slotOrder[base + k];
+					this.slotOrderComp[base + k - 1] = this.slotOrderComp[base + k];
+				}
+				this.slotCount[cell] = count - 1;
+				this.slotDirect[base + this.dirPos(direction)] = 0;
+				return;
+			}
+		}
+	}
+
+	/**
+	 * comp.slots.set(cell, existing | dirs): OR into an existing entry or
+	 * append a new one (Map.set semantics)
+	 * @param {Number} comp
+	 * @param {Number} cellIndex
+	 * @param {Number} dirs - direction bitmask
+	 */
+	mergeSlotMask(comp, cellIndex, dirs) {
+		const n = this.slotMember(comp, cellIndex);
+		if (n !== 0) {
+			this.slotNodeVal[n] |= dirs;
+		} else {
+			this.slotNodeAppend(comp, cellIndex, dirs);
+		}
+	}
+
+	/**
+	 * avoidIslandQueue.add: a Set keeps an existing member's position, so a
+	 * re-add while queued is a no-op; delete + re-add appends at the end.
+	 * @param {Number} comp
+	 */
+	islandAdd(comp) {
+		if (this.islandInQueue[comp]) return;
+		this.islandInQueue[comp] = 1;
+		this.islandCurSeq[comp] = ++this.islandEpoch;
+		if (this.islandQLen >= this.islandQ.length) {
+			const cap = this.islandQ.length * 2;
+			this.islandQ = growInt32(this.islandQ, cap);
+			this.islandQSeqAt = growInt32(this.islandQSeqAt, cap);
+		}
+		this.islandQ[this.islandQLen] = comp;
+		this.islandQSeqAt[this.islandQLen] = this.islandCurSeq[comp];
+		this.islandQLen += 1;
+	}
+
+	/**
+	 * avoidIslandQueue.delete: the position goes stale; the membership flag
+	 * is what iteration checks
+	 * @param {Number} comp
+	 */
+	islandDelete(comp) {
+		this.islandInQueue[comp] = 0;
+	}
+
+	/** avoidIslandQueue.clear */
+	islandClear() {
+		for (let i = 0; i < this.islandQLen; i++) {
+			this.islandInQueue[this.islandQ[i]] = 0;
+		}
+		this.islandQLen = 0;
 	}
 
 	/**
@@ -737,39 +1166,26 @@ export class LayeredSolver {
 		this.dirty.add(neighbour);
 		// add connection can only be called once per edge between two cells
 
-		// Add a component between them
-		/**@type {LayeredComponent} */
-		const component = {
-			subCells: new Map(),
-			slots: new Map([
-				[index, direction],
-				[neighbour, opposite]
-			]),
-			totalSubcells: 0
-		};
-		if (!this.slotComponents.has(index)) {
-			this.slotComponents.set(index, new Map([[direction, component]]));
-		} else {
-			this.slotComponents.get(index)?.set(direction, component);
-		}
-		if (!this.slotComponents.has(neighbour)) {
-			this.slotComponents.set(neighbour, new Map([[opposite, component]]));
-		} else {
-			this.slotComponents.get(neighbour)?.set(opposite, component);
-		}
+		// Add a component between them, with two open slots (insertion
+		// order [index, neighbour] matches the old Map literal)
+		const component = this.compNew();
+		this.slotNodeAppend(component, index, direction);
+		this.slotNodeAppend(component, neighbour, opposite);
+		this.slotSet(index, direction, component);
+		this.slotSet(neighbour, opposite, component);
 	}
 
 	/**
-	 * Return the component the cell at index would join if it connects
-	 * in direction
+	 * Return the component id the cell at index would join if it connects
+	 * in direction (0 = none)
 	 * @param {Number} index
 	 * @param {Number} direction
-	 * @returns {LayeredComponent|undefined}
+	 * @returns {Number}
 	 */
 	getAnsweringComponent(index, direction) {
 		// see if we have a slot in this direction
-		const slotComp = this.slotComponents.get(index)?.get(direction);
-		if (slotComp) return slotComp;
+		const slotComp = this.slotDirect[index * this.ND + (31 - Math.clz32(direction))];
+		if (slotComp !== 0) return slotComp;
 		// see if some subcell of ours controls this direction
 		// do we need this? or do callers take care of not asking about known directions?
 
@@ -778,25 +1194,23 @@ export class LayeredSolver {
 		const opposite = this.grid.OPPOSITE.get(direction) || 0;
 		const neighbourCell = this.getCell(neighbour);
 		const layerIndex = neighbourCell.getAnsweringLayer(opposite);
-		// console.log('neighbour', neighbour, 'direction', opposite, 'answering', layerIndex);
 		if (layerIndex !== undefined) {
 			const subcellId = this.idOf(neighbour, layerIndex);
-			// console.log(subcellId, this.subcellComponents);
-			return this.subcellComponents.get(subcellId);
+			return this.subcellOwner[subcellId];
 		}
-		return undefined;
+		return 0;
 	}
 	/**
 	 * See if we can deduce any walls when a subcell joins a component
 	 * @param {Number} index
 	 * @param {Number} layerIndex
 	 * @param {LayeredCell} cell
-	 * @param {LayeredComponent} component
+	 * @param {Number} component - component id
 	 */
 	avoidSubcellLoops(index, layerIndex, cell, component) {
 		const subCellId = this.idOf(index, layerIndex);
 		const potential = cell.getLayerPotentialConnections(layerIndex);
-		const known = component.subCells.get(subCellId) || 0;
+		const known = this.subGetVal(component, subCellId);
 		for (let direction of iterate_directions(potential & ~known)) {
 			const answering = this.getAnsweringComponent(index, direction);
 			if (answering === component) {
@@ -808,7 +1222,7 @@ export class LayeredSolver {
 	/**
 	 * See if we can rule out some orientations of cell layers
 	 * @param {Number} index
-	 * @param {LayeredComponent} component
+	 * @param {Number} component - component id
 	 */
 	avoidSlotLoops(index, component) {
 		const cell = this.getCell(index);
@@ -821,7 +1235,8 @@ export class LayeredSolver {
 		let directions = cell.polygon.fully_connected & ~cell.walls;
 		for (let layerIndex of cell.layers.keys()) {
 			const subcellId = this.idOf(index, layerIndex);
-			directions &= ~(this.subcellComponents.get(subcellId)?.subCells.get(subcellId) || 0);
+			const owner = this.subcellOwner[subcellId];
+			if (owner !== 0) directions &= ~this.subNodeVal[this.subcellNode[subcellId]];
 			// detect solved layers to avoid resurrecting neighbours: layers
 			// without repeated masks differ between any two surviving
 			// rotations, so they can only be solved when possible.size === 1,
@@ -860,16 +1275,15 @@ export class LayeredSolver {
 	 */
 	pruneLoop(index, cell) {
 		if (cell.possible.size === 1) return;
-		const ourSlots = this.slotComponents.get(index);
-		if (ourSlots !== undefined) {
-			for (let [direction, component] of ourSlots) {
-				this.avoidSlotLoops(index, component);
-			}
+		const base = index * this.ND;
+		const count = this.slotCount[index];
+		for (let j = 0; j < count; j++) {
+			this.avoidSlotLoops(index, this.slotOrderComp[base + j]);
 		}
 		for (let layerIndex of cell.layers.keys()) {
 			const subCellId = this.idOf(index, layerIndex);
-			const component = this.subcellComponents.get(subCellId);
-			if (component === undefined) continue;
+			const component = this.subcellOwner[subCellId];
+			if (component === 0) continue;
 			this.avoidSubcellLoops(index, layerIndex, cell, component);
 		}
 	}
@@ -881,101 +1295,108 @@ export class LayeredSolver {
 	 */
 	resolveComponents(index, cell) {
 		// see if our slots resolved to some layer
-		const ourSlots = this.slotComponents.get(index);
-		if (ourSlots !== undefined) {
+		if (this.slotCount[index] > 0) {
 			const removedDirections = [];
-			for (let [direction, component] of ourSlots) {
+			const base = index * this.ND;
+			// live-length loop: merges repoint slot entries and can append new
+			// ones to this cell's ordered list mid-iteration; Map iteration
+			// would visit those too, so the length is re-read every step
+			for (let j = 0; j < this.slotCount[index]; j++) {
+				const direction = this.slotOrder[base + j];
+				const component = this.slotOrderComp[base + j];
 				const layerIndex = cell.getAnsweringLayer(direction);
 				if (layerIndex !== undefined) {
 					removedDirections.push(direction);
 					const subCellId = this.idOf(index, layerIndex);
-					const otherComponent = this.subcellComponents.get(subCellId);
-					if (otherComponent === undefined) {
-						this.subcellComponents.set(subCellId, component);
-						// component.slots.delete(index);
-						const slotsLeft = (component.slots.get(index) || 0) & ~direction;
+					const otherComponent = this.subcellOwner[subCellId];
+					if (otherComponent === 0) {
+						this.subcellOwner[subCellId] = component;
+						const node = this.slotMember(component, index);
+						const slotsLeft = (node !== 0 ? this.slotNodeVal[node] : 0) & ~direction;
 						if (slotsLeft === 0) {
-							component.slots.delete(index);
+							// Map.delete of an absent key no-ops; guard the same way
+							if (node !== 0) this.unlinkSlotNode(component, node);
 						} else {
-							component.slots.set(index, slotsLeft);
+							this.slotNodeVal[node] = slotsLeft;
 						}
-						component.subCells.set(subCellId, direction);
-						component.totalSubcells += 1;
+						this.subcellNode[subCellId] = this.subAppend(component, subCellId, direction);
+						this.compTotalSub[component] += 1;
 						// subcell joined a component - check if it has
 						// any neighbours already in component
 						this.avoidSubcellLoops(index, layerIndex, cell, component);
-						this.avoidIslandQueue.add(component);
+						this.islandAdd(component);
 					} else if (otherComponent === component) {
 						throw LOOP_DETECTED;
 					} else {
-						otherComponent.subCells.set(
-							subCellId,
-							(otherComponent.subCells.get(subCellId) || 0) | direction
-						);
+						this.subNodeVal[this.subcellNode[subCellId]] |= direction;
 						this.mergeComponents(otherComponent, component, subCellId);
-						this.avoidIslandQueue.add(otherComponent);
-						this.avoidIslandQueue.delete(component); // so we don't process stale components later
+						this.islandAdd(otherComponent);
+						this.islandDelete(component); // so we don't process stale components later
 					}
 				}
 			}
-			removedDirections.forEach((d) => ourSlots.delete(d));
-			if (ourSlots.size === 0) {
-				this.slotComponents.delete(index);
+			for (let d of removedDirections) {
+				this.slotRemove(index, d);
 			}
+			// an emptied slot list needs no cleanup: count 0 behaves like the
+			// deleted inner Map did
 		}
 		// for our subcells in components see if there are new definite connections to neighbours
 		// and creat new slots
 		for (let layerIndex of cell.layers.keys()) {
 			const subCellId = this.idOf(index, layerIndex);
-			const component = this.subcellComponents.get(subCellId);
-			if (component === undefined) continue;
+			const component = this.subcellOwner[subCellId];
+			if (component === 0) continue;
 			const connections = cell.getLayerDefiniteConnections(layerIndex);
-			const known = component.subCells.get(subCellId);
-			if (known === undefined) throw 'Component does not have subcell that links it';
+			const node = this.subcellNode[subCellId];
+			if (node === 0) throw 'Component does not have subcell that links it';
+			const known = this.subNodeVal[node];
 			const newDirections = connections & ~known;
 			if (newDirections > 0) {
-				component.subCells.set(subCellId, connections);
+				this.subNodeVal[node] = connections;
 				for (let direction of iterate_directions(newDirections)) {
 					const { neighbour } = this.grid.find_neighbour(index, direction);
 					const opposite = this.grid.OPPOSITE.get(direction) || 0;
-					let neighbourSlots = this.slotComponents.get(neighbour);
-					if (neighbourSlots === undefined) {
-						neighbourSlots = new Map();
-						this.slotComponents.set(neighbour, neighbourSlots);
-					}
-					const otherComponent = neighbourSlots.get(opposite);
-					if (otherComponent === undefined) {
-						neighbourSlots.set(opposite, component);
-						component.slots.set(neighbour, (component.slots.get(neighbour) || 0) | opposite);
-						this.avoidIslandQueue.add(component);
+					const otherComponent = this.slotDirect[neighbour * this.ND + (31 - Math.clz32(opposite))];
+					if (otherComponent === 0) {
+						this.slotSet(neighbour, opposite, component);
+						this.mergeSlotMask(component, neighbour, opposite);
+						this.islandAdd(component);
 						this.avoidSlotLoops(index, component);
 					} else if (otherComponent === component) {
 						throw LOOP_DETECTED;
 					} else {
 						this.mergeComponents(component, otherComponent, subCellId);
-						this.avoidIslandQueue.add(component);
-						this.avoidIslandQueue.delete(otherComponent); // so we don't process stale entries later
+						this.islandAdd(component);
+						this.islandDelete(otherComponent); // so we don't process stale entries later
 					}
 				}
 			}
 			if (popcount(connections) === cell.layerPopcounts[layerIndex]) {
-				component.subCells.delete(subCellId);
-				this.subcellComponents.delete(subCellId);
+				this.subDelete(component, subCellId);
 			}
 		}
 		this.pruneLoop(index, cell);
 	}
 
 	/**
-	 * Merge components after a slot and a subcell connect in cell at index
-	 * @param {LayeredComponent} subcellComponent
-	 * @param {LayeredComponent} slotComponent
+	 * Merge components after a slot and a subcell connect in cell at index.
+	 * The absorbed component's entries are MOVED to the survivor and the
+	 * absorbed is left empty (cleanup semantics; measured decision-identical
+	 * to the original leak-preserving Maps on the benchmark corpus - see
+	 * scratch/zombie-detector.mjs and the plan doc). This keeps the global
+	 * invariant that a live component's list keys are exactly the subcells /
+	 * cells its registry entries point at, which the registry oracles below
+	 * rely on.
+	 * @param {Number} subcellComponent - surviving component id
+	 * @param {Number} slotComponent - absorbed component id
 	 * @param {Number} subCellId
 	 */
 	mergeComponents(subcellComponent, slotComponent, subCellId) {
 		const index = subCellId % this.grid.total;
-		const subCellDirections = subcellComponent.subCells.get(subCellId) || 0;
-		const slotDirections = slotComponent.slots.get(index) || 0;
+		const subCellDirections = this.subGetVal(subcellComponent, subCellId);
+		const slotNode = this.slotMember(slotComponent, index);
+		const slotDirections = slotNode !== 0 ? this.slotNodeVal[slotNode] : 0;
 		const slotsLeft = slotDirections & ~subCellDirections;
 		if (
 			subCellDirections === 0 ||
@@ -985,26 +1406,41 @@ export class LayeredSolver {
 			throw 'Invalid merge';
 		}
 		if (slotsLeft === 0) {
-			slotComponent.slots.delete(index);
+			this.unlinkSlotNode(slotComponent, slotNode);
 		} else {
-			slotComponent.slots.set(index, slotsLeft);
+			this.slotNodeVal[slotNode] = slotsLeft;
 		}
-		subcellComponent.totalSubcells += slotComponent.totalSubcells;
-		for (let [joinIndex, directions] of slotComponent.slots) {
-			subcellComponent.slots.set(
-				joinIndex,
-				(subcellComponent.slots.get(joinIndex) || 0) | directions
-			);
+		this.compTotalSub[subcellComponent] += this.compTotalSub[slotComponent];
+		// move the absorbed's slot entries, in list order (the original
+		// iterated its Map in insertion order)
+		for (let n = this.compSlotHead[slotComponent]; n !== 0; ) {
+			const next = this.slotNodeNext[n];
+			const joinIndex = this.slotNodeKey[n];
+			const directions = this.slotNodeVal[n];
+			this.unlinkSlotNode(slotComponent, n);
+			this.mergeSlotMask(subcellComponent, joinIndex, directions);
 			for (let direction of iterate_directions(directions)) {
-				this.slotComponents.get(joinIndex)?.set(direction, subcellComponent);
+				this.slotRepoint(joinIndex, direction, subcellComponent);
 			}
 			this.avoidSlotLoops(joinIndex, subcellComponent);
+			n = next;
 		}
-		for (let [joinSubCellId, connections] of slotComponent.subCells) {
-			subcellComponent.subCells.set(joinSubCellId, connections);
-			this.subcellComponents.set(joinSubCellId, subcellComponent);
+		// move the absorbed's subcell entries
+		for (let n = this.compSubHead[slotComponent]; n !== 0; ) {
+			const next = this.subNodeNext[n];
+			const joinSubCellId = this.subNodeKey[n];
+			const connections = this.subNodeVal[n];
+			this.unlinkSubNode(slotComponent, n);
+			if (this.subcellOwner[joinSubCellId] === subcellComponent) {
+				this.subNodeVal[this.subcellNode[joinSubCellId]] = connections;
+			} else {
+				const newNode = this.subAppend(subcellComponent, joinSubCellId, connections);
+				this.subcellOwner[joinSubCellId] = subcellComponent;
+				this.subcellNode[joinSubCellId] = newNode;
+			}
 			const [joinIndex, joinLayer] = this.indexLayerOf(joinSubCellId);
 			this.avoidSubcellLoops(joinIndex, joinLayer, this.getCell(joinIndex), subcellComponent);
+			n = next;
 		}
 	}
 
@@ -1076,21 +1512,32 @@ export class LayeredSolver {
 			}
 			this.avoidLoopQueue.length = 0;
 
-			for (let component of this.avoidIslandQueue) {
+			for (let i = 0; i < this.islandQLen; i++) {
+				const component = this.islandQ[i];
+				// skip stale positions (deleted entries; re-added components
+				// live at their new position with a fresh generation)
 				if (
-					component.slots.size === 0 &&
-					component.subCells.size === 0 &&
-					component.totalSubcells < this.totalSubcells
+					!this.islandInQueue[component] ||
+					this.islandCurSeq[component] !== this.islandQSeqAt[i]
+				) {
+					continue;
+				}
+				if (
+					this.compSlotCount[component] === 0 &&
+					this.compSubCount[component] === 0 &&
+					this.compTotalSub[component] < this.totalSubcells
 				) {
 					throw ISLAND_DETECTED;
-				} else if (component.slots.size === 1 && component.subCells.size === 0) {
-					const [[islandCell, islandConnections]] = component.slots.entries();
+				} else if (this.compSlotCount[component] === 1 && this.compSubCount[component] === 0) {
+					const head = this.compSlotHead[component];
+					const islandCell = this.slotNodeKey[head];
+					const islandConnections = this.slotNodeVal[head];
 					if (popcount(islandConnections) === 1) {
 						const c = this.getCell(islandCell);
 						const deadendsBefore = c.neighbourDeadends;
 						// override weight because component size is exact at this point
 						c.addNeighbourDeadend(islandConnections, 0);
-						c.neighbourDeadendWeights.set(islandConnections, component.totalSubcells);
+						c.neighbourDeadendWeights.set(islandConnections, this.compTotalSub[component]);
 						if (c.neighbourDeadends !== deadendsBefore) {
 							this.dirty.add(islandCell);
 						}
@@ -1100,12 +1547,14 @@ export class LayeredSolver {
 					// continuing another one should be valid.
 					// Deadend machinery treats all deadends as independent => doesn't work for this case
 					// Valid handling is not implemented yet
-				} else if (component.slots.size === 0 && component.subCells.size === 1) {
-					const [[islandSubCell, islandConnections]] = component.subCells.entries();
+				} else if (this.compSlotCount[component] === 0 && this.compSubCount[component] === 1) {
+					const head = this.compSubHead[component];
+					const islandSubCell = this.subNodeKey[head];
+					const islandConnections = this.subNodeVal[head];
 					const islandCell = islandSubCell % this.grid.total;
 					const c = this.getCell(islandCell);
 					const deadendsBefore = c.neighbourDeadends;
-					let weight = component.totalSubcells - 1; // don't count this subcell itself
+					let weight = this.compTotalSub[component] - 1; // don't count this subcell itself
 					for (let direction of iterate_directions(islandConnections)) {
 						c.addNeighbourDeadend(direction, weight);
 						c.neighbourDeadendWeights.set(direction, weight);
@@ -1117,7 +1566,7 @@ export class LayeredSolver {
 					}
 				}
 			}
-			this.avoidIslandQueue.clear();
+			this.islandClear();
 		}
 		const final = cell.possible.size === 1;
 		const [rotation] = cell.possible.keys();
