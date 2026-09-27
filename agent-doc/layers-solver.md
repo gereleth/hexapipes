@@ -129,19 +129,20 @@ sub-cell is dropped as well.
 
 State — the registry is a struct of typed arrays, not objects (perf rewrite of 2026-09; the
 measurement history lives in `agent-doc/solver-perf-plan.md`). A component is an integer id,
-bump-allocated per solver and never reused; `0` means "no component" (the old `undefined`), so all
-component comparisons are integer equality. Per solver:
+bump-allocated per solver and never reused; `0` means "no component", so all component comparisons
+are integer equality. Per solver:
 
 - per-component columns: `compSubHead`/`compSubTail`, `compSlotHead`/`compSlotTail` — intrusive
-  doubly-linked member lists; `compSubCount`/`compSlotCount` (the old `Map.size`s); `compTotalSub` —
-  counts resolved sub-cell members only (the sealed mass for island checks);
+  doubly-linked member lists; `compSubCount`/`compSlotCount` — live member counts, read by the
+  island checks; `compTotalSub` — counts resolved sub-cell members only (the sealed mass for island
+  checks);
 - member nodes: `subNode{Key,Val,Next,Prev}` and `slotNode{Key,Val,Next,Prev}` — the per-component
   entries (key = sub-cell id / cell index, value = direction bitmask) threaded into their owner's
   list; nodes are bump-allocated and never freed, unlinking only detaches;
 - inverse indexes: `subcellOwner`/`subcellNode` (sub-cell id → owning component / its member node)
   and `slotDirect` — `(cell, direction)` flattened as `cell * ND + direction bit position` →
-  component, with `slotCount` per cell for the `?.`-style guards. Slots iterate in numeric direction
-  order over the fixed row; there is no insertion-order bookkeeping;
+  component, with `slotCount` per cell (number of open slot ends) guarding merge-time repoints.
+  Slots iterate in numeric direction order over the fixed row;
 - island queue: `islandQ` + per-component `islandState` (0 never queued / 1 queued / 2
   deleted-with-reserved-position).
 

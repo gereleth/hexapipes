@@ -55,16 +55,19 @@ const ISLAND_DETECTED = new IslandDetectedException();
  * objects: a component is an integer id (1-based, bump-allocated, never
  * reused; 0 = none) into the solver's struct-of-arrays registry:
  * - per-component columns: compSubHead/Tail, compSlotHead/Tail (intrusive
- *   doubly-linked member lists), compSubCount, compSlotCount (Map.size),
- *   compTotalSub (totalSubcells)
- * - member nodes: subNode{Key,Val,Next,Prev} (component.subCells entries:
- *   subcellId => direction mask) and slotNode{Key,Val,Next,Prev}
- *   (component.slots entries: cellIndex => direction mask). Append order
- *   reproduces Map insertion order.
+ *   doubly-linked member lists), compSubCount, compSlotCount (live member
+ *   counts, read by the island checks), compTotalSub (resolved sub-cell
+ *   mass, the sealed weight for island detection)
+ * - member nodes: subNode{Key,Val,Next,Prev} (a component's resolved
+ *   sub-cell members: subcellId => direction mask) and
+ *   slotNode{Key,Val,Next,Prev} (a component's open slot ends: cellIndex =>
+ *   direction mask). Nodes are pooled and never freed; unlinking only
+ *   detaches a node from its list.
  * - inverse indexes: subcellOwner/subcellNode (subcellId => owning
  *   component / its member node) and slotDirect + slotCount
  *   ((cell, direction) => component, flattened by direction bit position;
- *   slots are iterated in numeric direction order)
+ *   slotCount per cell = number of open slot ends; slots are iterated in
+ *   numeric direction order)
  * All writes go through the helper methods; clone() slices the arrays.
  */
 
@@ -699,8 +702,8 @@ export class LayeredSolver {
 			this.slotNodeVal = sliceCapacity(parent.slotNodeVal, this.slotNodeCapacity);
 			this.slotNodeNext = sliceCapacity(parent.slotNodeNext, this.slotNodeCapacity);
 			this.slotNodePrev = sliceCapacity(parent.slotNodePrev, this.slotNodeCapacity);
-			// the island queue starts empty in every solver, like the Set it
-			// replaced; state columns are per-solver, indexed by component id
+			// the island queue starts empty in every solver; its state column
+			// is per-solver, indexed by component id
 			this.islandQLen = 0;
 			this.islandQ = new Int32Array(16);
 			this.islandState = new Int32Array(this.compCapacity);
@@ -808,8 +811,11 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Append a member-subcell entry to comp's list - component.subCells.set
-	 * of a new key (Map.set of an existing key goes through subcellNode)
+	 * Append a new resolved-member entry (subcellId => direction bitmask)
+	 * to comp's list and return the node id. The caller registers ownership
+	 * by setting subcellOwner/subcellNode for the sub-cell. A member whose
+	 * entry already exists must be updated in place through its
+	 * subcellNode back-pointer instead (never append twice).
 	 * @param {Number} comp
 	 * @param {Number} subcellId
 	 * @param {Number} val - direction bitmask
@@ -838,8 +844,8 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Detach a member-subcell node from comp's list (Map.delete keeps no
-	 * trace of the key's position; the node itself is never freed)
+	 * Detach a member-subcell node from comp's list. The node stays in the
+	 * pool (ids are never reused) but is no longer part of any list.
 	 * @param {Number} comp
 	 * @param {Number} n
 	 */
@@ -854,9 +860,9 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Read comp's direction mask for subcellId, 0 if absent. Exact for
-	 * registry-live components (the only kind read point-wise): the entry
-	 * belongs to comp iff comp owns the subcell.
+	 * Read comp's direction mask for subcellId, 0 if comp does not own it.
+	 * Exact because of the ownership invariant: a live component's member
+	 * list holds exactly the sub-cells whose subcellOwner entry points at it.
 	 * @param {Number} comp
 	 * @param {Number} subcellId
 	 * @returns {Number}
@@ -882,7 +888,10 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Append a slot entry to comp's list (component.slots.set of a new key)
+	 * Append a new open-slot-end entry (cellIndex => direction bitmask) to
+	 * comp's slot list and return the node id. An entry for a cell that
+	 * already has one must be merged in place via slotMember instead
+	 * (never append twice for the same cell).
 	 * @param {Number} comp
 	 * @param {Number} cellIndex
 	 * @param {Number} val - direction bitmask
@@ -943,9 +952,8 @@ export class LayeredSolver {
 
 	/**
 	 * Register a (cell, direction) slot for comp: one typed-array write,
-	 * plus the cell's live-slot count for the `?.`-style guards. Slots are
-	 * iterated in numeric direction order, so there is no insertion-order
-	 * bookkeeping.
+	 * keeping the cell's live-slot count up to date for slotRepoint's guard.
+	 * Callers iterate a cell's slots in numeric direction order over its row.
 	 * @param {Number} cell
 	 * @param {Number} direction
 	 * @param {Number} comp
@@ -957,11 +965,10 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * slotComponents.get(cell)?.set(direction, comp): no-op when the cell
-	 * has no slot list at all. Repointing only ever updates or extends
-	 * EXISTING slot maps - it must not resurrect slots for cells whose map
-	 * was already deleted (their slots resolved long ago), which would
-	 * create joins the original never performed.
+	 * Repoint a (cell, direction) slot to comp during a merge. No-op when
+	 * the cell has no open slot ends: a merge may only touch slots that
+	 * still exist. Creating a slot here would resurrect a long-resolved
+	 * end and fabricate a join that never happened.
 	 * @param {Number} cell
 	 * @param {Number} direction
 	 * @param {Number} comp
@@ -972,9 +979,9 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Remove a direction from a cell's slot row (innerMap.delete(direction);
-	 * an emptied map is indistinguishable from an absent one here, as in the
-	 * original)
+	 * Remove a direction from a cell's slot row. An all-zero row (count 0)
+	 * means the cell has no open slot ends, the same as never having had
+	 * one.
 	 * @param {Number} cell
 	 * @param {Number} direction
 	 */
@@ -987,8 +994,8 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * comp.slots.set(cell, existing | dirs): OR into an existing entry or
-	 * append a new one (Map.set semantics)
+	 * OR `dirs` into comp's open-slot-end entry for cellIndex — updating the
+	 * existing entry in place, or appending a new entry if there is none.
 	 * @param {Number} comp
 	 * @param {Number} cellIndex
 	 * @param {Number} dirs - direction bitmask
@@ -1003,9 +1010,9 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * avoidIslandQueue.add: a component is queued at most once per queue
-	 * generation. A re-add while queued is a no-op; delete + re-add
-	 * reactivates the component's reserved position.
+	 * Queue a component for the next island check. A component is in the
+	 * queue at most once per generation: a re-add while queued is a no-op,
+	 * and delete + re-add reactivates the component's reserved position.
 	 * @param {Number} comp
 	 */
 	islandAdd(comp) {
@@ -1022,15 +1029,15 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * avoidIslandQueue.delete: the component's islandQ position goes stale
-	 * but stays reserved for a possible re-add
+	 * Unqueue a component: its islandQ position goes stale but stays
+	 * reserved for a possible re-add before the next flush
 	 * @param {Number} comp
 	 */
 	islandDelete(comp) {
 		if (this.islandState[comp] === 1) this.islandState[comp] = 2;
 	}
 
-	/** avoidIslandQueue.clear */
+	/** Empty the island queue and release all reserved positions */
 	islandClear() {
 		for (let i = 0; i < this.islandQLen; i++) {
 			this.islandState[this.islandQ[i]] = 0;
@@ -1128,8 +1135,7 @@ export class LayeredSolver {
 		this.dirty.add(neighbour);
 		// add connection can only be called once per edge between two cells
 
-		// Add a component between them, with two open slots (insertion
-		// order [index, neighbour] matches the old Map literal)
+		// Add a component between them, with two open slot ends
 		const component = this.compNew();
 		this.slotNodeAppend(component, index, direction);
 		this.slotNodeAppend(component, neighbour, opposite);
@@ -1262,7 +1268,7 @@ export class LayeredSolver {
 			const base = index * this.ND;
 			// slots are iterated in numeric direction order over the fixed
 			// slotDirect row; entries repointed by merges mid-loop are read
-			// at visit time, like Map iteration did
+			// at visit time
 			for (let pos = 0; pos < this.ND; pos++) {
 				const component = this.slotDirect[base + pos];
 				if (component === 0) continue;
@@ -1277,7 +1283,8 @@ export class LayeredSolver {
 						const node = this.slotMember(component, index);
 						const slotsLeft = (node !== 0 ? this.slotNodeVal[node] : 0) & ~direction;
 						if (slotsLeft === 0) {
-							// Map.delete of an absent key no-ops; guard the same way
+							// nothing left at this cell - drop the end; an absent
+							// entry no-ops
 							if (node !== 0) this.unlinkSlotNode(component, node);
 						} else {
 							this.slotNodeVal[node] = slotsLeft;
@@ -1301,8 +1308,8 @@ export class LayeredSolver {
 			for (let d of removedDirections) {
 				this.slotRemove(index, d);
 			}
-			// an emptied slot list needs no cleanup: count 0 behaves like the
-			// deleted inner Map did
+			// an emptied slot row needs no cleanup: count 0 means the cell has
+			// no open ends
 		}
 		// for our subcells in components see if there are new definite connections to neighbours
 		// and creat new slots
@@ -1344,13 +1351,12 @@ export class LayeredSolver {
 
 	/**
 	 * Merge components after a slot and a subcell connect in cell at index.
-	 * The absorbed component's entries are MOVED to the survivor and the
-	 * absorbed is left empty (cleanup semantics; measured decision-identical
-	 * to the original leak-preserving Maps on the benchmark corpus - see
-	 * scratch/zombie-detector.mjs and the plan doc). This keeps the global
-	 * invariant that a live component's list keys are exactly the subcells /
-	 * cells its registry entries point at, which the registry oracles below
-	 * rely on.
+	 * All of the absorbed component's members and slot ends are MOVED to the
+	 * survivor and the absorbed is left empty (its id is never reused, so
+	 * stale references can never alias a live component). Moving - rather
+	 * than copying - is what maintains the invariant that a live component's
+	 * list keys are exactly the sub-cells / cells its registry entries point
+	 * at, which subGetVal, subcellNode and slotDirect lookups rely on.
 	 * @param {Number} subcellComponent - surviving component id
 	 * @param {Number} slotComponent - absorbed component id
 	 * @param {Number} subCellId
@@ -1374,8 +1380,7 @@ export class LayeredSolver {
 			this.slotNodeVal[slotNode] = slotsLeft;
 		}
 		this.compTotalSub[subcellComponent] += this.compTotalSub[slotComponent];
-		// move the absorbed's slot entries, in list order (the original
-		// iterated its Map in insertion order)
+		// move the absorbed's slot ends, in list order, to the survivor
 		for (let n = this.compSlotHead[slotComponent]; n !== 0; ) {
 			const next = this.slotNodeNext[n];
 			const joinIndex = this.slotNodeKey[n];
