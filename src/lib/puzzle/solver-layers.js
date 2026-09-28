@@ -539,14 +539,11 @@ export class LayeredSolver {
 		this.dirty = new Set();
 
 		// components whose open ends changed and are due an island check.
-		// Starts empty in every solver (clones are only created from
-		// makeAGuess/doShortTrials, outside processDirtyCell's drain window,
-		// so the parent's set is always empty when copying would happen)
+		// Starts empty in every solver
 		/** @type {Set<Number>} */
 		this.islandChecks = new Set();
 
-		// components are born in addConnection; the registry owns their rows,
-		// member lists and queues (see ComponentsRegistry)
+		// Components registry tracks connected subtrees
 		if (parent) {
 			this.components = parent.components.clone();
 		} else {
@@ -610,9 +607,7 @@ export class LayeredSolver {
 		this.unsolved.set(index, cell);
 		this.doLocalDeductions(index, cell);
 		// a freshly born cell must be dirty-processed even when doLocalDeductions
-		// found nothing: its deadend and wall facts only reach neighbours via
-		// processDirtyCell, and query paths (getAnsweringComponent etc.)
-		// materialize cells without ever dirtying them
+		// found nothing so that its deadend facts reach neighbours
 		this.dirty.add(index);
 		return cell;
 	}
@@ -655,7 +650,7 @@ export class LayeredSolver {
 		this.dirty.add(neighbour);
 		// add connection can only be called once per edge between two cells
 
-		// Add a component between them, with two open slot ends
+		// Add a component between them, with two open slots
 		const component = this.components.create();
 		this.components.addSlot(component, index, direction);
 		this.components.addSlot(component, neighbour, opposite);
@@ -678,7 +673,8 @@ export class LayeredSolver {
 		const neighbourCell = this.getCell(neighbour);
 		const layerIndex = neighbourCell.getAnsweringLayer(opposite);
 		if (layerIndex !== undefined) {
-			return this.components.getSubcellComponent(this.grid.subcellId(neighbour, layerIndex));
+			const subcellId = this.grid.subcellId(neighbour, layerIndex);
+			return this.components.getSubcellComponent(subcellId);
 		}
 		return 0;
 	}
@@ -805,7 +801,7 @@ export class LayeredSolver {
 			});
 		}
 		// for our subcells in components see if there are new definite connections to neighbours
-		// and creat new slots
+		// and create new slots
 		for (let layerIndex of cell.layers.keys()) {
 			const subCellId = this.grid.subcellId(index, layerIndex);
 			const component = this.components.getSubcellComponent(subCellId);
@@ -923,8 +919,7 @@ export class LayeredSolver {
 						throw ISLAND_DETECTED;
 					}
 				} else if (slots === 1 && subcells === 0) {
-					// exactly one opening left; slotCount === 1 subsumes the old
-					// popcount === 1 guard - one slot is one direction
+					// exactly one opening left
 					this.components.forEachComponentSlot(component, (cellIndex, directions) => {
 						const c = this.getCell(cellIndex);
 						const deadendsBefore = c.neighbourDeadends;
