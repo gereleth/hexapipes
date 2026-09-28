@@ -680,20 +680,15 @@ export class LayeredSolver {
 	 */
 	getAnsweringComponent(index, direction) {
 		// see if we have a slot in this direction
-		const slotComp =
-			this.components.slotDirect[index * this.components.ND + (31 - Math.clz32(direction))];
+		const slotComp = this.components.getSlotComponent(index, direction);
 		if (slotComp !== 0) return slotComp;
-		// see if some subcell of ours controls this direction
-		// do we need this? or do callers take care of not asking about known directions?
-
 		// ask the neighbour
 		const { neighbour } = this.grid.find_neighbour(index, direction);
 		const opposite = this.grid.OPPOSITE.get(direction) || 0;
 		const neighbourCell = this.getCell(neighbour);
 		const layerIndex = neighbourCell.getAnsweringLayer(opposite);
 		if (layerIndex !== undefined) {
-			const subcellId = this.grid.subcellId(neighbour, layerIndex);
-			return this.components.subcellOwner[subcellId];
+			return this.components.getSubcellComponent(this.grid.subcellId(neighbour, layerIndex));
 		}
 		return 0;
 	}
@@ -707,7 +702,7 @@ export class LayeredSolver {
 	avoidSubcellLoops(index, layerIndex, cell, component) {
 		const subCellId = this.grid.subcellId(index, layerIndex);
 		const potential = cell.getLayerPotentialConnections(layerIndex);
-		const known = this.components.subGetVal(component, subCellId);
+		const known = this.components.getSubcellDirections(subCellId, component);
 		for (let direction of iterate_directions(potential & ~known)) {
 			const answering = this.getAnsweringComponent(index, direction);
 			if (answering === component) {
@@ -732,9 +727,9 @@ export class LayeredSolver {
 		let directions = cell.polygon.fully_connected & ~cell.walls;
 		for (let layerIndex of cell.layers.keys()) {
 			const subcellId = this.grid.subcellId(index, layerIndex);
-			const owner = this.components.subcellOwner[subcellId];
-			if (owner !== 0)
-				directions &= ~this.components.subNodeVal[this.components.subcellNode[subcellId]];
+			// subtract what this cell's subcells already contribute; an unowned
+			// subcell contributes nothing
+			directions &= ~this.components.getSubcellDirections(subcellId);
 			// detect solved layers to avoid resurrecting neighbours: layers
 			// without repeated masks differ between any two surviving
 			// rotations, so they can only be solved when possible.size === 1,
@@ -773,14 +768,12 @@ export class LayeredSolver {
 	 */
 	pruneLoop(index, cell) {
 		if (cell.possible.size === 1) return;
-		const base = index * this.components.ND;
-		for (let pos = 0; pos < this.components.ND; pos++) {
-			const component = this.components.slotDirect[base + pos];
-			if (component !== 0) this.avoidSlotLoops(index, component);
-		}
+		this.components.forEachSlot(index, (direction, component) =>
+			this.avoidSlotLoops(index, component)
+		);
 		for (let layerIndex of cell.layers.keys()) {
 			const subCellId = this.grid.subcellId(index, layerIndex);
-			const component = this.components.subcellOwner[subCellId];
+			const component = this.components.getSubcellComponent(subCellId);
 			if (component === 0) continue;
 			this.avoidSubcellLoops(index, layerIndex, cell, component);
 		}
@@ -793,52 +786,45 @@ export class LayeredSolver {
 	 */
 	resolveComponents(index, cell) {
 		// see if our slots resolved to some layer
-		if (this.components.slotCount[index] > 0) {
+		if (this.components.hasOpenSlots(index)) {
+			/** @type {Number[]} */
 			const removedDirections = [];
-			const base = index * this.components.ND;
-			// slots are iterated in numeric direction order over the fixed
-			// slotDirect row; entries repointed by merges mid-loop are read
-			// at visit time
-			for (let pos = 0; pos < this.components.ND; pos++) {
-				const component = this.components.slotDirect[base + pos];
-				if (component === 0) continue;
-				const direction = 1 << pos;
+			this.components.forEachSlot(index, (direction, component) => {
 				const layerIndex = cell.getAnsweringLayer(direction);
-				if (layerIndex !== undefined) {
-					removedDirections.push(direction);
-					const subCellId = this.grid.subcellId(index, layerIndex);
-					const otherComponent = this.components.subcellOwner[subCellId];
-					if (otherComponent === 0) {
-						this.components.subcellOwner[subCellId] = component;
-						const node = this.components.slotMember(component, index);
-						const slotsLeft = (node !== 0 ? this.components.slotNodeVal[node] : 0) & ~direction;
-						if (slotsLeft === 0) {
-							// nothing left at this cell - drop the end; an absent
-							// entry no-ops
-							if (node !== 0) this.components.unlinkSlotNode(component, node);
-						} else {
-							this.components.slotNodeVal[node] = slotsLeft;
-						}
-						this.components.subcellNode[subCellId] = this.components.subAppend(
-							component,
-							subCellId,
-							direction
-						);
-						this.components.compTotalSub[component] += 1;
-						// subcell joined a component - check if it has
-						// any neighbours already in component
-						this.avoidSubcellLoops(index, layerIndex, cell, component);
-						this.components.islandAdd(component);
-					} else if (otherComponent === component) {
-						throw LOOP_DETECTED;
+				if (layerIndex === undefined) return;
+				removedDirections.push(direction);
+				const subCellId = this.grid.subcellId(index, layerIndex);
+				const otherComponent = this.components.getSubcellComponent(subCellId);
+				if (otherComponent === 0) {
+					this.components.subcellOwner[subCellId] = component;
+					const node = this.components.slotMember(component, index);
+					const slotsLeft = (node !== 0 ? this.components.slotNodeVal[node] : 0) & ~direction;
+					if (slotsLeft === 0) {
+						// nothing left at this cell - drop the end; an absent
+						// entry no-ops
+						if (node !== 0) this.components.unlinkSlotNode(component, node);
 					} else {
-						this.components.subNodeVal[this.components.subcellNode[subCellId]] |= direction;
-						this.mergeComponents(otherComponent, component, subCellId);
-						this.components.islandAdd(otherComponent);
-						this.components.islandDelete(component); // so we don't process stale components later
+						this.components.slotNodeVal[node] = slotsLeft;
 					}
+					this.components.subcellNode[subCellId] = this.components.subAppend(
+						component,
+						subCellId,
+						direction
+					);
+					this.components.compTotalSub[component] += 1;
+					// subcell joined a component - check if it has
+					// any neighbours already in component
+					this.avoidSubcellLoops(index, layerIndex, cell, component);
+					this.components.islandAdd(component);
+				} else if (otherComponent === component) {
+					throw LOOP_DETECTED;
+				} else {
+					this.components.subNodeVal[this.components.subcellNode[subCellId]] |= direction;
+					this.mergeComponents(otherComponent, component, subCellId);
+					this.components.islandAdd(otherComponent);
+					this.components.islandDelete(component); // so we don't process stale components later
 				}
-			}
+			});
 			for (let d of removedDirections) {
 				this.components.slotRemove(index, d);
 			}
@@ -849,7 +835,7 @@ export class LayeredSolver {
 		// and creat new slots
 		for (let layerIndex of cell.layers.keys()) {
 			const subCellId = this.grid.subcellId(index, layerIndex);
-			const component = this.components.subcellOwner[subCellId];
+			const component = this.components.getSubcellComponent(subCellId);
 			if (component === 0) continue;
 			const connections = cell.getLayerDefiniteConnections(layerIndex);
 			const node = this.components.subcellNode[subCellId];
@@ -861,10 +847,7 @@ export class LayeredSolver {
 				for (let direction of iterate_directions(newDirections)) {
 					const { neighbour } = this.grid.find_neighbour(index, direction);
 					const opposite = this.grid.OPPOSITE.get(direction) || 0;
-					const otherComponent =
-						this.components.slotDirect[
-							neighbour * this.components.ND + (31 - Math.clz32(opposite))
-						];
+					const otherComponent = this.components.getSlotComponent(neighbour, opposite);
 					if (otherComponent === 0) {
 						this.components.slotSet(neighbour, opposite, component);
 						this.components.mergeSlotMask(component, neighbour, opposite);

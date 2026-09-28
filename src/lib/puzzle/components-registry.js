@@ -208,6 +208,75 @@ export class ComponentsRegistry {
 		return new ComponentsRegistry(this.grid, 0, this);
 	}
 
+	// --- queries: the solver asks state questions; only the helpers below
+	// write ---
+
+	/**
+	 * Whether the cell has any open slot ends
+	 * @param {Number} cellIndex
+	 * @returns {Boolean}
+	 */
+	hasOpenSlots(cellIndex) {
+		return this.slotCount[cellIndex] > 0;
+	}
+
+	/**
+	 * The component holding an open slot at (cell, direction), 0 = none
+	 * @param {Number} cellIndex
+	 * @param {Number} direction
+	 * @returns {Number}
+	 */
+	getSlotComponent(cellIndex, direction) {
+		return this.slotDirect[cellIndex * this.ND + this.dirPos(direction)];
+	}
+
+	/**
+	 * The component that owns a sub-cell, 0 = none
+	 * @param {Number} subcellId
+	 * @returns {Number}
+	 */
+	getSubcellComponent(subcellId) {
+		return this.subcellOwner[subcellId];
+	}
+
+	/**
+	 * Direction mask a component has recorded for a sub-cell, 0 when
+	 * unowned. Without `component`, reads the owner; with it, asserts
+	 * ownership matches first (cheap stale-id tripwire).
+	 * @param {Number} subcellId
+	 * @param {Number|undefined} component
+	 * @returns {Number}
+	 */
+	getSubcellDirections(subcellId, component = undefined) {
+		const owner = this.subcellOwner[subcellId];
+		if (component !== undefined && owner !== component) {
+			throw `Component ${component} does not own subcell ${subcellId} (owner ${owner})`;
+		}
+		if (owner === 0) return 0;
+		return this.subNodeVal[this.subcellNode[subcellId]];
+	}
+
+	/**
+	 * Visits every open slot of the cell exactly once, in ascending numeric
+	 * direction order. The set of visited positions is fixed for the
+	 * duration of the callback loop - merges mid-loop only repoint entries,
+	 * never open slots. The `component` passed to the callback is read at
+	 * visit time: repoints are observed as the survivor's id, never a stale
+	 * absorbed id. Slots close only through resolution and merges, and only
+	 * at the cell where the resolution happened - a slot the callback body
+	 * resolves is closed at its own visit, an entry the loop has already
+	 * read and will never revisit.
+	 * @param {Number} cellIndex
+	 * @param {(direction: Number, component: Number) => void} cb
+	 */
+	forEachSlot(cellIndex, cb) {
+		const base = cellIndex * this.ND;
+		for (let pos = 0; pos < this.ND; pos++) {
+			const component = this.slotDirect[base + pos];
+			if (component !== 0) cb(1 << pos, component);
+		}
+	}
+
 	// --- registry helpers: the only writers of the arrays above ---
 
 	/**
