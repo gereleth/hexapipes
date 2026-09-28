@@ -85,6 +85,26 @@ export class AbstractGrid {
 	}
 
 	/**
+	 * Sub-cell id for a layer of a cell: the shared encoding of the layers
+	 * family (game, generator, solver each used to keep a private copy)
+	 * @param {Number} cell
+	 * @param {Number} layer
+	 * @returns {Number}
+	 */
+	subcellId(cell, layer) {
+		return cell + layer * this.total;
+	}
+
+	/**
+	 * Cell index and layer of a sub-cell id
+	 * @param {Number} id
+	 * @returns {Number[]} - [cell, layer]
+	 */
+	cellLayerOf(id) {
+		return [id % this.total, Math.floor(id / this.total)];
+	}
+
+	/**
 	 * Makes cell at index empty
 	 * @param {Number} index
 	 */

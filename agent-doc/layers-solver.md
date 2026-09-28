@@ -112,7 +112,7 @@ direction, carry mass, and propagate through neighbouring cells.
 ## Components: slots and sub-cells
 
 The solved board must be one tree over all sub-cells (sub-cell id = `cell + layer * grid.total`, see
-`idOf`/`indexLayerOf`). Tree edges are cell-edge pairs — the "at most one layer per cell+direction"
+`AbstractGrid.subcellId`/`cellLayerOf`). Tree edges are cell-edge pairs — the "at most one layer per cell+direction"
 invariant makes `(cell, direction)` a unique key. The crux vs classic: components often cannot say
 _which_ sub-cell of a cell joined, because the answering layer is not yet uniquely determined. Hence
 components track two kinds of members:

@@ -107,7 +107,7 @@ function findBackSubCell(grid, startLayers, cell, backDirection) {
 	}
 	for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
 		if ((cellLayers[layerIndex] & backDirection) > 0) {
-			return cell + layerIndex * grid.total;
+			return grid.subcellId(cell, layerIndex);
 		}
 	}
 	return -1;
@@ -198,10 +198,8 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		const queue = [startId];
 		while (queue.length > 0) {
 			const current = /** @type {Number} */ (queue.pop());
-			const currentCell = current % total;
-			const layerMask = /** @type {Number[]} */ (startLayers[currentCell])[
-				Math.floor(current / total)
-			];
+			const [currentCell, currentLayer] = grid.cellLayerOf(current);
+			const layerMask = /** @type {Number[]} */ (startLayers[currentCell])[currentLayer];
 			let bits = layerMask;
 			while (bits > 0) {
 				const direction = bits & -bits;
@@ -237,7 +235,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 	for (let cell of keepable) {
 		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
 		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-			allSubCells.add(cell + layerIndex * total);
+			allSubCells.add(grid.subcellId(cell, layerIndex));
 		}
 	}
 	/** @type {Set<Number>[]} sets of sub-cell ids (cell + layer * total) */
@@ -264,7 +262,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
 		const result = [];
 		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-			if (!component.has(cell + layerIndex * total)) {
+			if (!component.has(grid.subcellId(cell, layerIndex))) {
 				continue;
 			}
 			let mask = cellLayers[layerIndex];
@@ -313,7 +311,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		/** @type {Set<Number>} cells hosting live sub-cells */
 		const liveCells = new Set();
 		for (let id of live) {
-			liveCells.add(id % total);
+			liveCells.add(grid.cellLayerOf(id)[0]);
 		}
 		for (let cell of liveCells) {
 			const pruned = pruneCellLayers(cell, live);
@@ -342,7 +340,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			for (let rest = index; rest < components.length; rest++) {
 				stats.tooSmallLostSubCells += components[rest].size;
 				for (let id of components[rest]) {
-					const cell = id % total;
+					const cell = grid.cellLayerOf(id)[0];
 					if (!cells.has(cell)) {
 						cells.set(cell, { role: 'dissolved', layers: [] });
 					}
@@ -353,7 +351,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		/** @type {Set<Number>} cells hosting this island's sub-cells */
 		const islandCells = new Set();
 		for (let id of component) {
-			islandCells.add(id % total);
+			islandCells.add(grid.cellLayerOf(id)[0]);
 		}
 		// carve the island around cells already claimed by bigger
 		// components instead of dissolving it: bigger components win
@@ -384,7 +382,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			/** @type {Set<Number>} sub-cells of this island not at claimed cells */
 			const carved = new Set();
 			for (let id of component) {
-				if (!claimed.has(id % total)) {
+				if (!claimed.has(grid.cellLayerOf(id)[0])) {
 					carved.add(id);
 				}
 			}
@@ -410,7 +408,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			if (piece.size < minIslandSize) {
 				stats.fragmentLostSubCells += piece.size;
 				for (let id of piece) {
-					const cell = id % total;
+					const cell = grid.cellLayerOf(id)[0];
 					if (!cells.has(cell)) {
 						cells.set(cell, { role: 'dissolved', layers: [] });
 					}
@@ -420,7 +418,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			/** @type {Set<Number>} cells hosting this piece's sub-cells */
 			const pieceCells = new Set();
 			for (let id of piece) {
-				pieceCells.add(id % total);
+				pieceCells.add(grid.cellLayerOf(id)[0]);
 			}
 			let pieceConflict = false;
 			for (let cell of pieceCells) {
@@ -432,7 +430,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			if (pieceConflict) {
 				stats.fragmentLostSubCells += piece.size;
 				for (let id of piece) {
-					const cell = id % total;
+					const cell = grid.cellLayerOf(id)[0];
 					if (!cells.has(cell)) {
 						cells.set(cell, { role: 'dissolved', layers: [] });
 					}

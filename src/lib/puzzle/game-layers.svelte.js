@@ -191,37 +191,9 @@ export class LayeredPipesGame {
 		while (this.grid.emptyCells.has(this.firstValidIndex)) {
 			this.firstValidIndex += 1;
 		}
-		this.firstValidId = this.idOf(this.firstValidIndex, 0);
+		this.firstValidId = this.grid.subcellId(this.firstValidIndex, 0);
 
 		this.initializeBoard();
-	}
-
-	/**
-	 * Sub-cell id for a layer of a cell
-	 * @param {Number} cell
-	 * @param {Number} layer
-	 * @returns {Number}
-	 */
-	idOf(cell, layer) {
-		return cell + layer * this.total;
-	}
-
-	/**
-	 * Grid cell index of a sub-cell id
-	 * @param {Number} id
-	 * @returns {Number}
-	 */
-	cellOf(id) {
-		return id % this.total;
-	}
-
-	/**
-	 * Layer number of a sub-cell id
-	 * @param {Number} id
-	 * @returns {Number}
-	 */
-	layerOf(id) {
-		return Math.floor(id / this.total);
 	}
 
 	/**
@@ -283,7 +255,7 @@ export class LayeredPipesGame {
 		// create components and fill in connections data
 		this.tileStates.forEach((state, cell) => {
 			for (let layer = 0; layer < state.layers.length; layer++) {
-				const id = this.idOf(cell, layer);
+				const id = this.grid.subcellId(cell, layer);
 				const connections = new Set();
 				this.connections.set(id, connections);
 				for (let direction of this.layerDirections(cell, layer)) {
@@ -297,7 +269,7 @@ export class LayeredPipesGame {
 						state.hasDisconnects[layer] = true;
 						continue;
 					}
-					connections.add(this.idOf(neighbour, backLayer));
+					connections.add(this.grid.subcellId(neighbour, backLayer));
 				}
 			}
 		});
@@ -306,7 +278,7 @@ export class LayeredPipesGame {
 		for (let cell = 0; cell < this.total; cell++) {
 			const state = this.tileStates[cell];
 			for (let layer = 0; layer < state.layers.length; layer++) {
-				const id = this.idOf(cell, layer);
+				const id = this.grid.subcellId(cell, layer);
 				if (checked.has(id)) {
 					continue;
 				}
@@ -320,8 +292,7 @@ export class LayeredPipesGame {
 				let loop = false;
 				while (toCheck.size > 0) {
 					const [index] = toCheck;
-					const tileCell = this.cellOf(index);
-					const tileLayer = this.layerOf(index);
+					const [tileCell, tileLayer] = this.grid.cellLayerOf(index);
 					const tileState = this.tileStates[tileCell];
 					toCheck.delete(index);
 					checked.add(index);
@@ -350,13 +321,14 @@ export class LayeredPipesGame {
 				if (loop) {
 					const loopTiles = this.detectLoops(component.tiles);
 					for (let loopTile of loopTiles) {
-						this.tileStates[this.cellOf(loopTile)].isPartOfLoop[this.layerOf(loopTile)] = true;
+						const [cell, layer] = this.grid.cellLayerOf(loopTile);
+						this.tileStates[cell].isPartOfLoop[layer] = true;
 					}
 				}
 				if (component.openEnds.size === 0) {
 					for (let islandTile of component.tiles) {
-						this.tileStates[this.cellOf(islandTile)].isPartOfIsland[this.layerOf(islandTile)] =
-							true;
+						const [cell, layer] = this.grid.cellLayerOf(islandTile);
+						this.tileStates[cell].isPartOfIsland[layer] = true;
 					}
 				}
 			}
@@ -458,7 +430,7 @@ export class LayeredPipesGame {
 	 */
 	handleConnections(cell, dirIn, dirOut) {
 		dirOut.forEach(({ layer, direction }) => {
-			const id = this.idOf(cell, layer);
+			const id = this.grid.subcellId(cell, layer);
 			const tileConnections = this.connections.get(id);
 			if (tileConnections === undefined) {
 				throw `Could not find connections data for tile ${id}`;
@@ -472,7 +444,7 @@ export class LayeredPipesGame {
 				// this connection wasn't mutual, nothing is stored
 				return;
 			}
-			const neighbourId = this.idOf(neighbour, backLayer);
+			const neighbourId = this.grid.subcellId(neighbour, backLayer);
 			tileConnections.delete(neighbourId);
 			const neighbourConnections = this.connections.get(neighbourId);
 			if (neighbourConnections === undefined) {
@@ -488,7 +460,7 @@ export class LayeredPipesGame {
 			this.setTileDisconnects(neighbour, backLayer, true);
 		});
 		dirIn.forEach(({ layer, direction }) => {
-			const id = this.idOf(cell, layer);
+			const id = this.grid.subcellId(cell, layer);
 			const tileConnections = this.connections.get(id);
 			if (tileConnections === undefined) {
 				throw `Could not find connections data for tile ${id}`;
@@ -504,7 +476,7 @@ export class LayeredPipesGame {
 				this.setTileDisconnects(cell, layer, true);
 				return;
 			}
-			const neighbourId = this.idOf(neighbour, backLayer);
+			const neighbourId = this.grid.subcellId(neighbour, backLayer);
 			if (tileConnections.has(neighbourId)) {
 				// already connected
 				return;
@@ -557,7 +529,7 @@ export class LayeredPipesGame {
 		if (hasDisconnects === undefined) {
 			newHasDisconnects = this.computeLayerDisconnects(cell, layer);
 		}
-		const id = this.idOf(cell, layer);
+		const id = this.grid.subcellId(cell, layer);
 		this.tileStates[cell].hasDisconnects[layer] = newHasDisconnects;
 		const component = this.components.get(id);
 		if (component === undefined) {
@@ -566,7 +538,8 @@ export class LayeredPipesGame {
 		if (newHasDisconnects) {
 			if (component.openEnds.size === 0) {
 				for (let index of component.tiles) {
-					this.tileStates[this.cellOf(index)].isPartOfIsland[this.layerOf(index)] = false;
+					const [cell, layer] = this.grid.cellLayerOf(index);
+					this.tileStates[cell].isPartOfIsland[layer] = false;
 				}
 			}
 			component.openEnds.add(id);
@@ -576,7 +549,8 @@ export class LayeredPipesGame {
 			this.openEnds.delete(id);
 			if (component.openEnds.size === 0 && component.tiles.size < this.totalSubCells) {
 				for (let index of component.tiles) {
-					this.tileStates[this.cellOf(index)].isPartOfIsland[this.layerOf(index)] = true;
+					const [cell, layer] = this.grid.cellLayerOf(index);
+					this.tileStates[cell].isPartOfIsland[layer] = true;
 				}
 			}
 		}
@@ -648,7 +622,8 @@ export class LayeredPipesGame {
 			// its a loop
 			const loopTiles = this.detectLoops(fromComponent.tiles);
 			for (let tile of fromComponent.tiles) {
-				this.tileStates[this.cellOf(tile)].isPartOfLoop[this.layerOf(tile)] = loopTiles.has(tile);
+				const [cell, layer] = this.grid.cellLayerOf(tile);
+				this.tileStates[cell].isPartOfLoop[layer] = loopTiles.has(tile);
 			}
 			return;
 		}
@@ -665,7 +640,8 @@ export class LayeredPipesGame {
 			}
 			if (constantComponent.color !== newColor) {
 				constantComponent.tiles.forEach((tile) => {
-					this.tileStates[this.cellOf(tile)].colors[this.layerOf(tile)] = newColor;
+					const [cell, layer] = this.grid.cellLayerOf(tile);
+					this.tileStates[cell].colors[layer] = newColor;
 				});
 			}
 			constantComponent.color = newColor;
@@ -673,8 +649,8 @@ export class LayeredPipesGame {
 		for (let changedTile of changedComponent.tiles) {
 			this.components.set(changedTile, constantComponent);
 			constantComponent.tiles.add(changedTile);
-			this.tileStates[this.cellOf(changedTile)].colors[this.layerOf(changedTile)] =
-				constantComponent.color;
+			const [changedCell, changedLayer] = this.grid.cellLayerOf(changedTile);
+			this.tileStates[changedCell].colors[changedLayer] = constantComponent.color;
 		}
 		for (let changedTile of changedComponent.openEnds) {
 			constantComponent.openEnds.add(changedTile);
@@ -818,7 +794,8 @@ export class LayeredPipesGame {
 			// it was a loop or maybe it still is
 			const loopTiles = this.detectLoops(bigComponent.tiles);
 			for (let tile of bigComponent.tiles) {
-				this.tileStates[this.cellOf(tile)].isPartOfLoop[this.layerOf(tile)] = loopTiles.has(tile);
+				const [cell, layer] = this.grid.cellLayerOf(tile);
+				this.tileStates[cell].isPartOfLoop[layer] = loopTiles.has(tile);
 			}
 			return;
 		}
@@ -837,7 +814,8 @@ export class LayeredPipesGame {
 			if (bigComponent.openEnds.delete(tileIndex)) {
 				newComponent.openEnds.add(tileIndex);
 			}
-			this.tileStates[this.cellOf(tileIndex)].colors[this.layerOf(tileIndex)] = newComponent.color;
+			const [cell, layer] = this.grid.cellLayerOf(tileIndex);
+			this.tileStates[cell].colors[layer] = newComponent.color;
 		}
 	}
 

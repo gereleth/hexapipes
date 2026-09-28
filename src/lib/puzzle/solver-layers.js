@@ -1046,27 +1046,6 @@ export class LayeredSolver {
 	}
 
 	/**
-	 * Sub-cell id for a layer of a cell at index
-	 * @param {Number} index
-	 * @param {Number} layer
-	 * @returns {Number}
-	 */
-	idOf(index, layer) {
-		return index + layer * this.grid.total;
-	}
-
-	/**
-	 * Cell index and layer from a subcellId
-	 * @param {Number} subcellId
-	 * @returns {Number[]}
-	 */
-	indexLayerOf(subcellId) {
-		const index = subcellId % this.grid.total;
-		const layer = Math.floor(subcellId / this.grid.total);
-		return [index, layer];
-	}
-
-	/**
 	 * Returns the cell at index. Initializes the cell if necessary.
 	 * Throws should never happen when the solver is working correctly
 	 * @param {Number} index
@@ -1163,7 +1142,7 @@ export class LayeredSolver {
 		const neighbourCell = this.getCell(neighbour);
 		const layerIndex = neighbourCell.getAnsweringLayer(opposite);
 		if (layerIndex !== undefined) {
-			const subcellId = this.idOf(neighbour, layerIndex);
+			const subcellId = this.grid.subcellId(neighbour, layerIndex);
 			return this.subcellOwner[subcellId];
 		}
 		return 0;
@@ -1176,7 +1155,7 @@ export class LayeredSolver {
 	 * @param {Number} component - component id
 	 */
 	avoidSubcellLoops(index, layerIndex, cell, component) {
-		const subCellId = this.idOf(index, layerIndex);
+		const subCellId = this.grid.subcellId(index, layerIndex);
 		const potential = cell.getLayerPotentialConnections(layerIndex);
 		const known = this.subGetVal(component, subCellId);
 		for (let direction of iterate_directions(potential & ~known)) {
@@ -1202,7 +1181,7 @@ export class LayeredSolver {
 		}
 		let directions = cell.polygon.fully_connected & ~cell.walls;
 		for (let layerIndex of cell.layers.keys()) {
-			const subcellId = this.idOf(index, layerIndex);
+			const subcellId = this.grid.subcellId(index, layerIndex);
 			const owner = this.subcellOwner[subcellId];
 			if (owner !== 0) directions &= ~this.subNodeVal[this.subcellNode[subcellId]];
 			// detect solved layers to avoid resurrecting neighbours: layers
@@ -1249,7 +1228,7 @@ export class LayeredSolver {
 			if (component !== 0) this.avoidSlotLoops(index, component);
 		}
 		for (let layerIndex of cell.layers.keys()) {
-			const subCellId = this.idOf(index, layerIndex);
+			const subCellId = this.grid.subcellId(index, layerIndex);
 			const component = this.subcellOwner[subCellId];
 			if (component === 0) continue;
 			this.avoidSubcellLoops(index, layerIndex, cell, component);
@@ -1276,7 +1255,7 @@ export class LayeredSolver {
 				const layerIndex = cell.getAnsweringLayer(direction);
 				if (layerIndex !== undefined) {
 					removedDirections.push(direction);
-					const subCellId = this.idOf(index, layerIndex);
+					const subCellId = this.grid.subcellId(index, layerIndex);
 					const otherComponent = this.subcellOwner[subCellId];
 					if (otherComponent === 0) {
 						this.subcellOwner[subCellId] = component;
@@ -1314,7 +1293,7 @@ export class LayeredSolver {
 		// for our subcells in components see if there are new definite connections to neighbours
 		// and creat new slots
 		for (let layerIndex of cell.layers.keys()) {
-			const subCellId = this.idOf(index, layerIndex);
+			const subCellId = this.grid.subcellId(index, layerIndex);
 			const component = this.subcellOwner[subCellId];
 			if (component === 0) continue;
 			const connections = cell.getLayerDefiniteConnections(layerIndex);
@@ -1406,7 +1385,7 @@ export class LayeredSolver {
 				this.subcellOwner[joinSubCellId] = subcellComponent;
 				this.subcellNode[joinSubCellId] = newNode;
 			}
-			const [joinIndex, joinLayer] = this.indexLayerOf(joinSubCellId);
+			const [joinIndex, joinLayer] = this.grid.cellLayerOf(joinSubCellId);
 			this.avoidSubcellLoops(joinIndex, joinLayer, this.getCell(joinIndex), subcellComponent);
 			n = next;
 		}
