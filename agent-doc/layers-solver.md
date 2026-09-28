@@ -128,6 +128,18 @@ is dropped and the sub-cell of this layer joins the component instead. Once a su
 connections are resolved new slots get created on the corresponding neighbours. A fully resolved
 sub-cell is dropped as well.
 
+The dropping is load-bearing, not housekeeping. The island shapes below are phrased in live-member
+counts (`slotCount === 0 && subcellCount === 0` sealed, `slots === 1 && subcells === 0` one opening,
+`slots === 0 && subcells === 1` one member) and only hold while fully resolved members actually
+leave — a sealed component would otherwise sit there with `subcellCount > 0` forever and never be
+detected. The registry's hot paths also scale with the frontier: merge moves the absorbed's member
+lists and fires a loop-avoidance hook per moved member, and `slotMember` scans them linearly — cheap
+only while the lists stay boundary-sized. What removal no longer buys in the SoA registry is memory:
+member nodes are pooled and never freed (the Map-era entry-release motivation is gone).
+Correspondingly, `removeSubcell` deliberately leaves `totalSubcellCount` untouched — the cumulative
+mass is what island deadend weights price — and a cleared `subcellOwner` doubles as state: it is
+what the next attach decision's `getSubcellComponent === 0` arm reads.
+
 State — the registry lives in `src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the
 split of 2026-09 out of the solver; the SoA perf rewrite it extracted is documented in
 `agent-doc/solver-perf-plan.md`). The solver holds it as `this.components` and only says _what
