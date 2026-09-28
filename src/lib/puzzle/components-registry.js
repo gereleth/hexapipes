@@ -48,6 +48,20 @@ function sliceCapacity(src, newCapacity) {
 }
 
 /**
+ * Iterates directions present in a layer mask
+ * @param {Number} mask
+ * @yields {Number}
+ */
+export function* iterate_directions(mask) {
+	let bits = mask;
+	while (bits > 0) {
+		const direction = bits & -bits;
+		yield direction;
+		bits ^= direction;
+	}
+}
+
+/**
  * The component registry of a LayeredSolver: the only writer of its arrays.
  * The solver asks state questions and requests transitions; rows, lists,
  * counts and queues are private bookkeeping.
@@ -376,6 +390,96 @@ export class ComponentsRegistry {
 		this.unlinkSubNode(comp, n);
 		this.subcellOwner[subcellId] = 0;
 		this.subcellNode[subcellId] = 0;
+	}
+
+	/**
+	 * Absorbs `keep` <- `absorb` after the two met at `subcellId` via
+	 * `direction`. First ORs `direction` into keep's record for the
+	 * sub-cell - the overlap validation and the absorbed's leftovers both
+	 * derive from that mask (idempotent when the mask already records the
+	 * direction). Then moves the absorbed's slot ends and sub-cell
+	 * memberships to the survivor, repoints rows, closes the row entries
+	 * for the directions it strips from the absorbed's record at the merge
+	 * cell (clearing an already-closed entry no-ops), and accumulates the
+	 * cumulative sub-cell count. All of the absorbed's members and slot
+	 * ends are MOVED - the absorbed is left empty, and its id is never
+	 * reused, so stale references can never alias a live component. Moving
+	 * - rather than copying - is what maintains the invariant that a live
+	 * component's list keys are exactly the sub-cells / cells its registry
+	 * entries point at, which getSubcellDirections and the row lookups rely
+	 * on. The callbacks let the solver run its loop-avoidance heuristics
+	 * over moved members without the registry knowing what avoidance is.
+	 * Throws 'Invalid merge' when the masks don't overlap - validation is
+	 * data-only, so it stays.
+	 * @param {Number} keep - surviving component id
+	 * @param {Number} absorb - absorbed component id
+	 * @param {Number} subcellId
+	 * @param {Number} direction
+	 * @param {(cellIndex: Number, survivor: Number) => void} onSlotCellMoved
+	 * @param {(subcellId: Number, survivor: Number) => void} onSubcellMoved
+	 */
+	merge(keep, absorb, subcellId, direction, onSlotCellMoved, onSubcellMoved) {
+		const cellIndex = subcellId % this.total;
+		if (this.subcellOwner[subcellId] !== keep) throw 'Invalid merge';
+		const keepNode = this.subcellNode[subcellId];
+		this.subNodeVal[keepNode] |= direction;
+		const subCellDirections = this.subNodeVal[keepNode];
+		const slotNode = this.slotMember(absorb, cellIndex);
+		const slotDirections = slotNode !== 0 ? this.slotNodeVal[slotNode] : 0;
+		const slotsLeft = slotDirections & ~subCellDirections;
+		if (
+			subCellDirections === 0 ||
+			slotDirections === 0 ||
+			(slotDirections & subCellDirections) === 0
+		) {
+			throw 'Invalid merge';
+		}
+		if (slotsLeft === 0) {
+			this.unlinkSlotNode(absorb, slotNode);
+		} else {
+			this.slotNodeVal[slotNode] = slotsLeft;
+		}
+		// close the row entries the merge consumes at the merge cell: the
+		// directions stripped from the absorbed's record there (its leftover
+		// slots, if any, stay open and get repointed below). Manual bit loop
+		// - merges are hot and a generator allocation per merge shows up in
+		// the benchmark
+		let stripped = slotDirections & subCellDirections;
+		while (stripped) {
+			const d = stripped & -stripped;
+			stripped ^= d;
+			this.slotRemove(cellIndex, d);
+		}
+		this.compTotalSub[keep] += this.compTotalSub[absorb];
+		// move the absorbed's slot ends, in list order, to the survivor
+		for (let n = this.compSlotHead[absorb]; n !== 0; ) {
+			const next = this.slotNodeNext[n];
+			const joinIndex = this.slotNodeKey[n];
+			const directions = this.slotNodeVal[n];
+			this.unlinkSlotNode(absorb, n);
+			this.mergeSlotMask(keep, joinIndex, directions);
+			for (let d of iterate_directions(directions)) {
+				this.slotRepoint(joinIndex, d, keep);
+			}
+			onSlotCellMoved(joinIndex, keep);
+			n = next;
+		}
+		// move the absorbed's sub-cell entries
+		for (let n = this.compSubHead[absorb]; n !== 0; ) {
+			const next = this.subNodeNext[n];
+			const joinSubCellId = this.subNodeKey[n];
+			const connections = this.subNodeVal[n];
+			this.unlinkSubNode(absorb, n);
+			if (this.subcellOwner[joinSubCellId] === keep) {
+				this.subNodeVal[this.subcellNode[joinSubCellId]] = connections;
+			} else {
+				const newNode = this.subAppend(keep, joinSubCellId, connections);
+				this.subcellOwner[joinSubCellId] = keep;
+				this.subcellNode[joinSubCellId] = newNode;
+			}
+			onSubcellMoved(joinSubCellId, keep);
+			n = next;
+		}
 	}
 
 	// --- registry helpers: the only writers of the arrays above ---

@@ -1,4 +1,4 @@
-import { ComponentsRegistry } from './components-registry';
+import { ComponentsRegistry, iterate_directions } from './components-registry';
 
 /* Constraint Violation Exceptions */
 
@@ -51,20 +51,6 @@ const ISLAND_DETECTED = new IslandDetectedException();
  * @property {Number} guessed
  * @property {Number} ambiguous
  */
-
-/**
- * Iterates directions present in a layer mask
- * @param {Number} mask
- * @yields {Number}
- */
-function* iterate_directions(mask) {
-	let bits = mask;
-	while (bits > 0) {
-		const direction = bits & -bits;
-		yield direction;
-		bits ^= direction;
-	}
-}
 
 /**
  * Counts total directions in a layer mask
@@ -592,6 +578,20 @@ export class LayeredSolver {
 
 		/** @type {any[][]} cells to process components for */
 		this.avoidLoopQueue = [];
+
+		// merge hooks: the registry moves absorbed members and hands each one
+		// back so the solver can run its loop-avoidance heuristics over it.
+		// Created once per solver instance instead of per merge - merges are
+		// hot
+		/** @type {(cellIndex: Number, component: Number) => void} */
+		this.mergedSlotCellHook = (cellIndex, component) => {
+			this.avoidSlotLoops(cellIndex, component);
+		};
+		/** @type {(subcellId: Number, component: Number) => void} */
+		this.mergedSubcellHook = (subcellId, component) => {
+			const [index, layer] = this.grid.cellLayerOf(subcellId);
+			this.avoidSubcellLoops(index, layer, this.getCell(index), component);
+		};
 	}
 
 	/**
@@ -799,13 +799,14 @@ export class LayeredSolver {
 				} else if (otherComponent === component) {
 					throw LOOP_DETECTED;
 				} else {
-					this.components.subNodeVal[this.components.subcellNode[subCellId]] |= direction;
-					this.mergeComponents(otherComponent, component, subCellId);
-					// the resolved slot's end at this cell is consumed by the
-					// merge (the absorbed's record was stripped of it): close the
-					// row entry - after the merge, so its repoints still see the
-					// cell's remaining open ends
-					this.components.slotRemove(index, direction);
+					this.components.merge(
+						otherComponent,
+						component,
+						subCellId,
+						direction,
+						this.mergedSlotCellHook,
+						this.mergedSubcellHook
+					);
 					this.components.islandAdd(otherComponent);
 					this.components.islandDelete(component); // so we don't process stale components later
 				}
@@ -833,7 +834,14 @@ export class LayeredSolver {
 					} else if (otherComponent === component) {
 						throw LOOP_DETECTED;
 					} else {
-						this.mergeComponents(component, otherComponent, subCellId);
+						this.components.merge(
+							component,
+							otherComponent,
+							subCellId,
+							direction,
+							this.mergedSlotCellHook,
+							this.mergedSubcellHook
+						);
 						this.components.islandAdd(component);
 						this.components.islandDelete(otherComponent); // so we don't process stale entries later
 					}
@@ -844,69 +852,6 @@ export class LayeredSolver {
 			}
 		}
 		this.pruneLoop(index, cell);
-	}
-
-	/**
-	 * Merge components after a slot and a subcell connect in cell at index.
-	 * All of the absorbed component's members and slot ends are MOVED to the
-	 * survivor and the absorbed is left empty (its id is never reused, so
-	 * stale references can never alias a live component). Moving - rather
-	 * than copying - is what maintains the invariant that a live component's
-	 * list keys are exactly the sub-cells / cells its registry entries point
-	 * at, which subGetVal, subcellNode and slotDirect lookups rely on.
-	 * @param {Number} subcellComponent - surviving component id
-	 * @param {Number} slotComponent - absorbed component id
-	 * @param {Number} subCellId
-	 */
-	mergeComponents(subcellComponent, slotComponent, subCellId) {
-		const index = subCellId % this.grid.total;
-		const subCellDirections = this.components.subGetVal(subcellComponent, subCellId);
-		const slotNode = this.components.slotMember(slotComponent, index);
-		const slotDirections = slotNode !== 0 ? this.components.slotNodeVal[slotNode] : 0;
-		const slotsLeft = slotDirections & ~subCellDirections;
-		if (
-			subCellDirections === 0 ||
-			slotDirections === 0 ||
-			(slotDirections & subCellDirections) === 0
-		) {
-			throw 'Invalid merge';
-		}
-		if (slotsLeft === 0) {
-			this.components.unlinkSlotNode(slotComponent, slotNode);
-		} else {
-			this.components.slotNodeVal[slotNode] = slotsLeft;
-		}
-		this.components.compTotalSub[subcellComponent] += this.components.compTotalSub[slotComponent];
-		// move the absorbed's slot ends, in list order, to the survivor
-		for (let n = this.components.compSlotHead[slotComponent]; n !== 0; ) {
-			const next = this.components.slotNodeNext[n];
-			const joinIndex = this.components.slotNodeKey[n];
-			const directions = this.components.slotNodeVal[n];
-			this.components.unlinkSlotNode(slotComponent, n);
-			this.components.mergeSlotMask(subcellComponent, joinIndex, directions);
-			for (let direction of iterate_directions(directions)) {
-				this.components.slotRepoint(joinIndex, direction, subcellComponent);
-			}
-			this.avoidSlotLoops(joinIndex, subcellComponent);
-			n = next;
-		}
-		// move the absorbed's subcell entries
-		for (let n = this.components.compSubHead[slotComponent]; n !== 0; ) {
-			const next = this.components.subNodeNext[n];
-			const joinSubCellId = this.components.subNodeKey[n];
-			const connections = this.components.subNodeVal[n];
-			this.components.unlinkSubNode(slotComponent, n);
-			if (this.components.subcellOwner[joinSubCellId] === subcellComponent) {
-				this.components.subNodeVal[this.components.subcellNode[joinSubCellId]] = connections;
-			} else {
-				const newNode = this.components.subAppend(subcellComponent, joinSubCellId, connections);
-				this.components.subcellOwner[joinSubCellId] = subcellComponent;
-				this.components.subcellNode[joinSubCellId] = newNode;
-			}
-			const [joinIndex, joinLayer] = this.grid.cellLayerOf(joinSubCellId);
-			this.avoidSubcellLoops(joinIndex, joinLayer, this.getCell(joinIndex), subcellComponent);
-			n = next;
-		}
 	}
 
 	/**
