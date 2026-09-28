@@ -324,8 +324,10 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 	validateLayers(grid, solvedTiles);
 	const tiles = randomRotate(solvedTiles, grid);
 
-	const baselineResult = enumerate(new BaselineSolver(copyTiles(tiles), grid));
-	const currentResult = enumerate(new AltLayeredSolver(copyTiles(tiles), grid));
+	const baselineSolver = new BaselineSolver(copyTiles(tiles), grid);
+	const currentSolver = new AltLayeredSolver(copyTiles(tiles), grid);
+	const baselineResult = enumerate(baselineSolver);
+	const currentResult = enumerate(currentSolver);
 
 	if (baselineResult.capped || currentResult.capped) {
 		console.warn(
@@ -334,6 +336,8 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 		);
 		return 'capped';
 	}
+	// registry invariants of the current solver after a full enumeration
+	currentSolver.components.validate();
 	console.log(
 		`[${label}] run ${runIndex}: solutions baseline=${baselineResult.solutions.length} ` +
 			`current=${currentResult.solutions.length} (baseline ${baselineResult.elapsedMs.toFixed(0)} ms, ` +
@@ -355,7 +359,9 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 	if (diffs.length === 0 && baselineResult.solutions.length === 1) {
 		const solution = baselineResult.solutions[0];
 		const baselineMark = new BaselineSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
-		const currentMark = new AltLayeredSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
+		const currentMarkSolver = new AltLayeredSolver(copyTiles(tiles), grid);
+		const currentMark = currentMarkSolver.markAmbiguousTiles(0);
+		currentMarkSolver.components.validate();
 		diffs.push(...uniqueResultDiffs('baseline', solution, baselineMark));
 		diffs.push(...uniqueResultDiffs('current', solution, currentMark));
 	}

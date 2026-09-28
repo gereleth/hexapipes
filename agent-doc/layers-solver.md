@@ -1,11 +1,12 @@
 # Layers variant: solver (`LayeredSolver`)
 
-Files: `src/lib/puzzle/solver-layers.js` (`LayeredCell`, `LayeredSolver`). Classic counterpart:
-`solver.js` (`Solver`). Tests: `solver-layers.test.js`; safety nets: `solver-layers-fuzz.test.js`
-(solution-equivalence fuzz) and `solver-layers-stats.test.js` (paired benchmark) — both env-gated,
-described in the harness section below. Consumers: `Puzzle.svelte` (solve animation + stats
-readout), `LayeredGenerator` (uniqueness/patience loop), `worker-layers.js` + `/generator-debug`
-(progress messages).
+Files: `src/lib/puzzle/solver-layers.js` (`LayeredCell`, `LayeredSolver`) and
+`src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the component registry the solver
+drives). Classic counterpart: `solver.js` (`Solver`). Tests: `solver-layers.test.js`; safety nets:
+`solver-layers-fuzz.test.js` (solution-equivalence fuzz) and `solver-layers-stats.test.js` (paired
+benchmark) — both env-gated, described in the harness section below. Consumers: `Puzzle.svelte`
+(solve animation + stats readout), `LayeredGenerator` (uniqueness/patience loop), `worker-layers.js`
+and `/generator-debug` (progress messages).
 
 Boards are assumed to have a single connected playable region — grids with disconnected areas are
 not supported.
@@ -112,10 +113,10 @@ direction, carry mass, and propagate through neighbouring cells.
 ## Components: slots and sub-cells
 
 The solved board must be one tree over all sub-cells (sub-cell id = `cell + layer * grid.total`, see
-`AbstractGrid.subcellId`/`cellLayerOf`). Tree edges are cell-edge pairs — the "at most one layer per cell+direction"
-invariant makes `(cell, direction)` a unique key. The crux vs classic: components often cannot say
-_which_ sub-cell of a cell joined, because the answering layer is not yet uniquely determined. Hence
-components track two kinds of members:
+`AbstractGrid.subcellId`/`cellLayerOf`). Tree edges are cell-edge pairs — the "at most one layer per
+cell+direction" invariant makes `(cell, direction)` a unique key. The crux vs classic: components
+often cannot say _which_ sub-cell of a cell joined, because the answering layer is not yet uniquely
+determined. Hence components track two kinds of members:
 
 - **Slot** — an unresolved `(cell, direction)` pair, a promise: whichever layer of `cell` ends up
   using `direction` will join the slot's component.
@@ -127,70 +128,76 @@ is dropped and the sub-cell of this layer joins the component instead. Once a su
 connections are resolved new slots get created on the corresponding neighbours. A fully resolved
 sub-cell is dropped as well.
 
-State — the registry is a struct of typed arrays, not objects (perf rewrite of 2026-09; the
-measurement history lives in `agent-doc/solver-perf-plan.md`). A component is an integer id,
-bump-allocated per solver and never reused; `0` means "no component", so all component comparisons
-are integer equality. Per solver:
+State — the registry lives in `src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the
+split of 2026-09 out of the solver; the SoA perf rewrite it extracted is documented in
+`agent-doc/solver-perf-plan.md`). The solver holds it as `this.components` and only says _what
+happened_ — a slot resolved, two components met — while the registry decides _how_ it is recorded:
+rows, lists, counts and queues are its private bookkeeping, and it is the only writer of its arrays.
+Internally it is a struct of typed arrays: a component is an integer id, bump-allocated per solver
+and never reused; `0` means "no component", so all component comparisons are integer equality.
 
-- per-component columns: `compSubHead`/`compSubTail`, `compSlotHead`/`compSlotTail` — intrusive
-  doubly-linked member lists; `compSubCount`/`compSlotCount` — live member counts, read by the
-  island checks; `compTotalSub` — counts resolved sub-cell members only (the sealed mass for island
-  checks);
-- member nodes: `subNode{Key,Val,Next,Prev}` and `slotNode{Key,Val,Next,Prev}` — the per-component
-  entries (key = sub-cell id / cell index, value = direction bitmask) threaded into their owner's
-  list; nodes are bump-allocated and never freed, unlinking only detaches;
-- inverse indexes: `subcellOwner`/`subcellNode` (sub-cell id → owning component / its member node)
-  and `slotDirect` — `(cell, direction)` flattened as `cell * ND + direction bit position` →
-  component, with `slotCount` per cell (number of open slot ends) guarding merge-time repoints.
-  Slots iterate in numeric direction order over the fixed row;
-- island queue: `islandQ` + per-component `islandState` (0 never queued / 1 queued / 2
-  deleted-with-reserved-position).
+Queries (the solver asks state questions): `hasOpenSlots(cell)`,
+`getSlotComponent(cell, direction)`, `getSubcellComponent(subcellId)`,
+`getSubcellDirections(subcellId, component?)` (the recorded mask, with an optional ownership
+assert), `forEachSlot(cell, cb)` (every open slot of the cell exactly once, in ascending numeric
+direction order; entries repointed by merges mid-loop are read at visit time), `slotCount(comp)` /
+`subcellCount(comp)` / `totalSubcellCount(comp)` and the per-component iterators
+`forEachComponentSlot` / `forEachComponentSubcell` (island classification reads these). Beware the
+vocabulary: a component's slots at one cell are aggregated into a single record with a direction
+bitmask — the record count is not a slot count; `slotCount(comp)` sums masks so it counts slots.
+Only `validate()` (fuzz-gated) is allowed to look at records.
 
-Invariants that make the point lookups exact:
+Mutations (the solver requests transitions): `create()` (bump-allocated id),
+`addSlot(comp, cell, direction)` (open one slot; row entry and per-cell record update together so
+the two indexes cannot drift), `attachSubcell(comp, subcellId, direction)` (a slot resolved into a
+concrete sub-cell: claim ownership, close the resolved slot, append the member node, bump the
+cumulative count), `setSubcellDirections(subcellId, mask)`, `removeSubcell(comp, subcellId)` (fully
+determined layer; leaves the cumulative count untouched — island deadend weights depend on it), and
+`merge(keep, absorb, subcellId, direction, onSlotCellMoved, onSubcellMoved)`. `merge` does the
+direction OR itself (idempotent when the mask already records it), validates the overlap
+(`'Invalid merge'` otherwise), closes the row entries it consumes at the merge cell, and **moves**
+the absorbed's slots and sub-cell memberships to the survivor — the absorbed ends up empty; its id
+is never reused, so a stale reference can never alias a fresh component. (The original Map-based
+version copied entries and kept the absorbed object populated; that was measurable as never
+influencing decisions — see `scratch/zombie-detector.mjs` and the plan docs — and move semantics is
+what keeps the registry's point lookups exact: a live component's member-list keys are exactly the
+sub-cells (cells) whose registry entries point at it.) The two callbacks hand each moved member back
+to the solver, which binds them once per instance (`mergedSlotCellHook`/`mergedSubcellHook`) so its
+loop-avoidance heuristics follow moved members without the registry knowing what avoidance is.
 
-- a live component's member-list keys are exactly the sub-cells (cells) whose registry entry points
-  at it. Merges therefore **move** entries — unlink from the absorbed component's list, append or
-  mask-merge into the survivor, re-register ownership — leaving the absorbed component empty; its id
-  is never reused, so a stale reference can never alias a fresh component. (The original Map-based
-  version copied entries and kept the absorbed object populated; that was measurable as never
-  influencing decisions — see `scratch/zombie-detector.mjs` and the plan doc — and move semantics is
-  what keeps the registry oracles exact.)
-- registry repoints (`slotRepoint`) mirror the original `slotComponents.get(cell)?.set(...)`: they
-  no-op when the cell has no open slot ends. An unconditional repoint would resurrect a slot
-  consumed long ago and create joins the semantics never allow;
-- all writes go through the helper methods (`compNew`, `sub*`, `slot*`, `mergeSlotMask`, `island*`).
-  `ND` — the bit width of `grid.DIRECTIONS`, the union of every direction bit any cell can use —
-  sizes the slot rows, which is what makes mixed grids (octa, rhombitrihexa, trihexa: cells with
-  different direction subsets of the same global orientations) safe. Watch out: typed arrays discard
-  out-of-bounds writes silently, so an under-sized row would corrupt lookups without an error —
-  `dirPos` guards the writers.
+Structural notes: `ND` — the bit width of `grid.DIRECTIONS`, the union of every direction bit any
+cell can use — sizes the slot rows, which is what makes mixed grids (octa, rhombitrihexa, trihexa:
+cells with different direction subsets of the same global orientations) safe. Watch out: typed
+arrays discard out-of-bounds writes silently, so an under-sized row would corrupt lookups without an
+error — `dirPos` guards the writers. `clone()` slices all arrays at used length + headroom
+(`sliceCapacity`; a plain `slice` on a shorter parent array would silently under-allocate).
+`validate()` (called by the fuzz test after full enumerations) asserts the invariants above: row
+counts vs `cellSlotCount`, the two-way membership contract for slots and sub-cells, member counts,
+and `subcellOwner`/`subcellNode` being zero together.
 
 - `addConnection(index, direction)` runs exactly once per edge, triggered by the `addedConnections`
   delta (the connection pushed into the neighbour makes re-derivation on its side impossible): it
-  pushes the opposite connection into the neighbour, dirties it, and creates a fresh component
-  holding a slot pair for the edge.
+  pushes the opposite connection into the neighbour, dirties it, and does `create()` + two
+  `addSlot`s — a fresh component holding a slot pair for the edge.
 - `getAnsweringComponent(index, direction)` — the component a connection in `direction` would join:
-  the cell's own slot if one is registered, else — when the neighbour's answering layer is unique
-  across surviving states — the neighbour answerer sub-cell's component (`0` otherwise). Callers
-  exclude directions already known to the cell's own resolved sub-cells. Since state sets only
-  shrink, a unique answerer stays unique: slots and resolutions are never invalidated.
+  the cell's own slot if one is registered (`getSlotComponent`), else — when the neighbour's
+  answering layer is unique across surviving states — the neighbour answerer sub-cell's component
+  (`getSubcellComponent`, `0` otherwise). Callers exclude directions already known to the cell's own
+  resolved sub-cells. Since state sets only shrink, a unique answerer stays unique: slots and
+  resolutions are never invalidated.
 - `resolveComponents(index, cell)` runs on every stabilization pass of a dirty cell:
-  1. **Slot resolution**: each own slot whose answering layer became unique swaps the slot for the
-     answering sub-cell — join (register + `totalSubcells += 1` + island queue),
+  1. **Slot resolution**: `forEachSlot` walks the cell's open slots; each one whose answering layer
+     became unique (`getAnsweringLayer`) either `attachSubcell`s (join + island queue), throws
      `LoopDetectedException` when the sub-cell is already in the same component (two certain edges
-     of one sub-cell into one component is a cycle in every solution), or `mergeComponents` when it
-     sits in another one.
+     of one sub-cell into one component is a cycle in every solution), or `merge`s when it sits in
+     another one — the survivor's component, the slot's component absorbed.
   2. **Sub-cell resolution**: for each own sub-cell already in a component, newly definite per-layer
-     connections (`getLayerDefiniteConnections`) create slots on the neighbours — same
-     join/loop/merge trichotomy on the neighbour side, and the creating cell gets an immediate
-     `avoidSlotLoops` rescan (a new slot can complete a bridge).
+     connections (`getLayerDefiniteConnections`) are recorded via `setSubcellDirections` and create
+     slots on the neighbours (`addSlot`) — same join/loop/merge trichotomy on the neighbour side
+     (the `merge`'s OR is an idempotent no-op there), and the creating cell gets an immediate
+     `avoidSlotLoops` rescan (a new slot can complete a bridge). A fully determined sub-cell
+     (`popcount(connections) === layerPopcounts[layer]`) is dropped via `removeSubcell`.
   3. `pruneLoop` (loop-avoidance scan for this cell).
-- `mergeComponents(subcellComponent, slotComponent, subCellId)` — merges the slot-side component
-  into the sub-cell-side one (argument order matters; the sub-cell component survives): consumes the
-  shared slot directions, adds up `totalSubcells`, moves all absorbed slots and sub-cells over (the
-  absorbed component ends up empty), repoints the merge cell's still-registered absorbed slots, and
-  rescans loop avoidance locally (`avoidSlotLoops` per absorbed slot end, `avoidSubcellLoops` per
-  absorbed sub-cell).
 - **Loop avoidance** — facts are queued in `avoidLoopQueue` as `[cell, layerIndex|null, directions]`
   and flushed right after `resolveComponents` (prunings must not run mid-resolution, merges queue
   more of them):
@@ -200,17 +207,18 @@ Invariants that make the point lookups exact:
   - `avoidSlotLoops` — cell-level: collects directions whose answering component is the same; with ≥
     2 of them queues `forbidLayerBridge(directions)`, deleting every rotation where a single layer
     bridges two of the directions.
-- **Islands** — components are queued in the island queue when their open ends change (a component
-  is queued at most once per flush generation; deleting it reserves its position for a possible
-  re-add), flushed after `resolveComponents`:
-  - open ends exhausted (`slots.size === 0 && subCells.size === 0`) while the component's mass is
+- **Islands** — island checks are puzzle policy, so they stay in the solver: component ids whose
+  open ends changed are queued in a plain `Set` (`this.islandChecks`, same add/delete/clear
+  discipline the typed-array queue had), flushed after `resolveComponents`; the classification reads
+  `slotCount`/`subcellCount`/`totalSubcellCount` and iterates members through the registry:
+  - open ends exhausted (`slotCount === 0 && subcellCount === 0`) while the component's mass is
     below the board's sub-cell total ⇒ `IslandDetectedException` — a sealed component can never gain
     another edge;
-  - one slot end left with a single direction: the hosting cell gets an exact-weight deadend fact
-    (`weight = component.totalSubcells`, exact at this point) — answering that direction with a
-    deadend would seal the whole component;
+  - exactly one open slot (one slot is one direction — the count subsumes the old popcount guard):
+    the hosting cell gets an exact-weight deadend fact (`weight = totalSubcellCount`, exact at this
+    point) — answering that direction with a deadend would seal the whole component;
   - one sub-cell member left: its cell gets the same fact per known connection direction, carrying
-    `totalSubcells - 1` on the first direction only (don't double-count the island; it doesn't
+    `totalSubcellCount - 1` on the first direction only (don't double-count the island; it doesn't
     matter which direction carries the weight);
   - 2+ slot directions into one cell are **not handled** — one escaping strand suffices, and the
     deadend machinery treats facts as independent; implementing this is future work.
@@ -255,13 +263,14 @@ cells under lazy cloning (see search).
   and re-dirties it. `this.solution` is assigned from `solutions[0]` only after the search ends —
   during the search `this.solution` must keep its `UNSOLVED` markers for the resurrection guard and
   for guessing.
-- `clone()`: copies `solution`, `totalSubcells`/`totalUnsolved` and slices the component-registry
-  arrays eagerly — fixed inverse indexes whole, growable columns/lists at used length + headroom
-  (`sliceCapacity`; a plain `slice` on a shorter parent array would silently under-allocate, and
-  typed arrays discard out-of-bounds writes) — while **cells are cloned lazily**: the first
-  `getCell` touch walks up the parent chain, clones the parent's cell and skips `doLocalDeductions`
-  (facts are inherited). `stats` is shared by reference with the parent, so counters accumulate
-  across the whole trial tree: `iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`.
+- `clone()`: copies `solution` and `totalSubcells`/`totalUnsolved`, and clones the component
+  registry eagerly (`parent.components.clone()` — fixed inverse indexes whole, growable
+  columns/lists at used length + headroom; a plain `slice` on a shorter parent array would silently
+  under-allocate, and typed arrays discard out-of-bounds writes) — while **cells are cloned
+  lazily**: the first `getCell` touch walks up the parent chain, clones the parent's cell and skips
+  `doLocalDeductions` (facts are inherited). `stats` is shared by reference with the parent, so
+  counters accumulate across the whole trial tree: `iterations`, `trialClones`, `shortTrials`,
+  `dirtyProcessings`.
 - `makeAGuess(marked)`: MRV over `solution[]` entries — **not** `unsolved`, which is incomplete
   under lazy cloning — skipping solved and `AMBIGUOUS`-marked cells, early exit at 2, first
   candidate rotation as the value. Returns `[-1, 0]` when no candidate remains.
@@ -300,8 +309,10 @@ values move, while `solvable`/`unique` and full solution lists still agree (gate
 - `solver-layers-fuzz.test.js` — the soundness gate for any solver change. Run with
   `FUZZ_SOLUTIONS=1` (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full
   `solve(true)` solution list must match the snapshot's, every solution must pass `validateLayers`,
-  and `markAmbiguousTiles` must report unique boards exactly. Failing boards are saved as JSON
-  reproducers into `generator_stats/`.
+  and `markAmbiguousTiles` must report unique boards exactly. The current solver's
+  `ComponentsRegistry.validate()` runs after each full enumeration and each unique-board marking,
+  asserting the registry's structural invariants. Failing boards are saved as JSON reproducers into
+  `generator_stats/`.
 - `solver-layers-stats.test.js` — paired benchmark. Run with `BENCH_MARK_AMBIGUOUS=1` (`BENCH_SEED`
   for a reproducible sequence, `BENCH_MARK_AMBIGUOUS_RUNS` / `BENCH_MARK_AMBIGUOUS_CAP_MS` tune it):
   every fresh board runs through the snapshot and the current solver back-to-back; verdict

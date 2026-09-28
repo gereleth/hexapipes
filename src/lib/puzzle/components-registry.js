@@ -743,4 +743,98 @@ export class ComponentsRegistry {
 			this.slotNodeAppend(comp, cellIndex, dirs);
 		}
 	}
+
+	/**
+	 * Debug-gated invariant check; called by the fuzz test, never from
+	 * production code. Asserts, per component id 1..compCount (live and
+	 * absorbed alike - absorbed ones simply have empty lists):
+	 * 1. cellSlotCount[cell] equals the number of non-zero entries in the
+	 *    cell's slotDirect row (an all-zero row is indistinguishable from
+	 *    never having had ends);
+	 * 2. a component's slot records are per-cell unique with non-empty
+	 *    masks, every mask bit's row entry points back at the component,
+	 *    and every row entry pointing at the component is covered by its
+	 *    record for that cell - the "moving, not copying" membership
+	 *    contract that makes the point lookups exact;
+	 * 3. subcell list keys are exactly the subcells whose subcellOwner
+	 *    points at the component, with matching subcellNode back-pointers;
+	 * 4. the member counts match the live lists, and the cumulative
+	 *    subcell count never dropped below the live members (it only
+	 *    grows);
+	 * 5. subcellOwner and subcellNode are 0 together - an owned subcell
+	 *    always has a member node and vice versa.
+	 * Note the record count (compSlotCount) is NOT a slot count - records
+	 * aggregate a component's slots per cell; the public slotCount(comp)
+	 * sums masks.
+	 */
+	validate() {
+		const { ND, total } = this;
+		for (let cell = 0; cell < total; cell++) {
+			let count = 0;
+			for (let pos = 0; pos < ND; pos++) {
+				if (this.slotDirect[cell * ND + pos] !== 0) count += 1;
+			}
+			if (count !== this.cellSlotCount[cell]) {
+				throw `validate: cellSlotCount[${cell}] = ${this.cellSlotCount[cell]}, row has ${count} open ends`;
+			}
+		}
+		for (let comp = 1; comp <= this.compCount; comp++) {
+			let records = 0;
+			/** @type {Map<Number, Number>} */
+			const cellMasks = new Map();
+			for (let n = this.compSlotHead[comp]; n !== 0; n = this.slotNodeNext[n]) {
+				const cell = this.slotNodeKey[n];
+				const mask = this.slotNodeVal[n];
+				if (mask === 0) {
+					throw `validate: comp ${comp} has an empty slot record at cell ${cell}`;
+				}
+				if (cellMasks.has(cell)) {
+					throw `validate: comp ${comp} has two slot records for cell ${cell}`;
+				}
+				cellMasks.set(cell, mask);
+				for (let d of iterate_directions(mask)) {
+					if (this.getSlotComponent(cell, d) !== comp) {
+						throw `validate: comp ${comp} record at cell ${cell} claims direction ${d}, whose row entry points at ${this.getSlotComponent(cell, d)}`;
+					}
+				}
+				records += 1;
+			}
+			for (let cell = 0; cell < total; cell++) {
+				const owned = cellMasks.get(cell) || 0;
+				for (let pos = 0; pos < ND; pos++) {
+					if (this.slotDirect[cell * ND + pos] === comp && (owned & (1 << pos)) === 0) {
+						throw `validate: row (cell ${cell}, direction bit ${pos}) points at comp ${comp}, whose record mask ${owned} does not include it`;
+					}
+				}
+			}
+			if (records !== this.compSlotCount[comp]) {
+				throw `validate: compSlotCount[${comp}] = ${this.compSlotCount[comp]}, list holds ${records} records`;
+			}
+			let members = 0;
+			for (let n = this.compSubHead[comp]; n !== 0; n = this.subNodeNext[n]) {
+				const id = this.subNodeKey[n];
+				if (this.subcellOwner[id] !== comp) {
+					throw `validate: comp ${comp} lists subcell ${id}, whose owner is ${this.subcellOwner[id]}`;
+				}
+				if (this.subcellNode[id] !== n) {
+					throw `validate: subcellNode back-pointer mismatch for subcell ${id}`;
+				}
+				if (this.subNodeVal[n] === 0) {
+					throw `validate: comp ${comp} member subcell ${id} has an empty direction mask`;
+				}
+				members += 1;
+			}
+			if (members !== this.compSubCount[comp]) {
+				throw `validate: compSubCount[${comp}] = ${this.compSubCount[comp]}, list holds ${members} members`;
+			}
+			if (this.compTotalSub[comp] < members) {
+				throw `validate: compTotalSub[${comp}] = ${this.compTotalSub[comp]} is below the ${members} live members`;
+			}
+		}
+		for (let id = 0; id < this.subcellCapacity; id++) {
+			if ((this.subcellOwner[id] === 0) !== (this.subcellNode[id] === 0)) {
+				throw `validate: subcell ${id} has owner ${this.subcellOwner[id]} but node ${this.subcellNode[id]}`;
+			}
+		}
+	}
 }

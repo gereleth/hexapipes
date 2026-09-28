@@ -403,3 +403,36 @@ hexa[95] profile: clone (solver) down to 15.0% (fewer arrays to slice), GC 5.4%;
 flat — no bucket above 15%, everything else 9-11% (answering-scans 10.4%, dirty-processing 10.2%,
 applyConstraints 9.9%, resolve/merge 9.9%, cell-init/getCell 9.8%, cell.clone 9.5%, loop-avoidance
 8.9%).
+
+### Steps 0-6 — ComponentsRegistry split (2026-09-28, `soa-registry` branch)
+
+The registry refactor of `agent-doc/registry-split-plan.md`, steps 0-6, all landed on this branch:
+grid codec (`subcellId`/`cellLayerOf` on `AbstractGrid`), verbatim extraction of
+`ComponentsRegistry`, query API, compound mutations, `merge` with solver-bound hooks, island checks
+as a solver-owned `Set`, and fuzz-gated `validate()`. Doc rewrite in `agent-doc/layers-solver.md`.
+
+Gates per step: full suites (268 green), paired benchmark vs the frozen snapshot (seed 20260921,
+2×200), fuzz vs the snapshot at `FUZZ_STABLE_RUNS=1000` (13 000 boards, ~65 s per run),
+`npm run check` + prettier. Decision preservation was judged **candidate-side vs the previous
+commit** (the snapshot comparison is decision-shifted by design since step 4): all four work
+counters exactly 0-delta on every one of the 400 boards after every step, 0 verdict diffs
+throughout. One real bug caught by the unit suite mid-step-3 (dropping the deferred cleanup left the
+merge arm's resolved slot open → `'Invalid merge'` on revisit).
+
+Wall time moved within the noise bars for steps 0-2; measured drift-free via within-run
+candidate-minus-baseline deltas across same-window A/B runs:
+
+- step 3 (compound mutations): slightly faster — hexa mean −4.1 ms, square −1.3 ms (the
+  `removedDirections` cleanup pass disappeared).
+- step 4 (`merge` + hooks): ~+1.5 ms square / +2-3 ms hexa per board — the per-moved-member callback
+  boundary (~1% of hexa[95] profile time in hook frames). A per-merge generator allocation in the
+  strip-closure loop was caught and replaced with a manual bit loop before settling.
+- step 5 (island Set): ~+5 ms per board on both grids (hexa within-run paired −40 → −35 ms) — the
+  de-optimization the split plan flagged ("the typed-array queue becomes a Set — the benchmark gate
+  will say whether that matters"). The gate says it matters; the trade was accepted for the
+  structure. Recovery option if it ever matters again: a maintained exact per-component slot column
+  (O(1) `slotCount`), with `validate()` extended to pin it against the record masks.
+
+Noise methodology note: single-run wall comparisons across minutes drift several percent here (the
+frozen baseline's own mean moved +1.4-3.3% between runs with identical code); the work counters stay
+the only cross-run-deterministic signal, with same-window A/B runs for wall time.
