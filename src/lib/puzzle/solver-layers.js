@@ -664,11 +664,9 @@ export class LayeredSolver {
 		// add connection can only be called once per edge between two cells
 
 		// Add a component between them, with two open slot ends
-		const component = this.components.compNew();
-		this.components.slotNodeAppend(component, index, direction);
-		this.components.slotNodeAppend(component, neighbour, opposite);
-		this.components.slotSet(index, direction, component);
-		this.components.slotSet(neighbour, opposite, component);
+		const component = this.components.create();
+		this.components.addSlot(component, index, direction);
+		this.components.addSlot(component, neighbour, opposite);
 	}
 
 	/**
@@ -787,31 +785,13 @@ export class LayeredSolver {
 	resolveComponents(index, cell) {
 		// see if our slots resolved to some layer
 		if (this.components.hasOpenSlots(index)) {
-			/** @type {Number[]} */
-			const removedDirections = [];
 			this.components.forEachSlot(index, (direction, component) => {
 				const layerIndex = cell.getAnsweringLayer(direction);
 				if (layerIndex === undefined) return;
-				removedDirections.push(direction);
 				const subCellId = this.grid.subcellId(index, layerIndex);
 				const otherComponent = this.components.getSubcellComponent(subCellId);
 				if (otherComponent === 0) {
-					this.components.subcellOwner[subCellId] = component;
-					const node = this.components.slotMember(component, index);
-					const slotsLeft = (node !== 0 ? this.components.slotNodeVal[node] : 0) & ~direction;
-					if (slotsLeft === 0) {
-						// nothing left at this cell - drop the end; an absent
-						// entry no-ops
-						if (node !== 0) this.components.unlinkSlotNode(component, node);
-					} else {
-						this.components.slotNodeVal[node] = slotsLeft;
-					}
-					this.components.subcellNode[subCellId] = this.components.subAppend(
-						component,
-						subCellId,
-						direction
-					);
-					this.components.compTotalSub[component] += 1;
+					this.components.attachSubcell(component, subCellId, direction);
 					// subcell joined a component - check if it has
 					// any neighbours already in component
 					this.avoidSubcellLoops(index, layerIndex, cell, component);
@@ -821,15 +801,15 @@ export class LayeredSolver {
 				} else {
 					this.components.subNodeVal[this.components.subcellNode[subCellId]] |= direction;
 					this.mergeComponents(otherComponent, component, subCellId);
+					// the resolved slot's end at this cell is consumed by the
+					// merge (the absorbed's record was stripped of it): close the
+					// row entry - after the merge, so its repoints still see the
+					// cell's remaining open ends
+					this.components.slotRemove(index, direction);
 					this.components.islandAdd(otherComponent);
 					this.components.islandDelete(component); // so we don't process stale components later
 				}
 			});
-			for (let d of removedDirections) {
-				this.components.slotRemove(index, d);
-			}
-			// an emptied slot row needs no cleanup: count 0 means the cell has
-			// no open ends
 		}
 		// for our subcells in components see if there are new definite connections to neighbours
 		// and creat new slots
@@ -838,19 +818,16 @@ export class LayeredSolver {
 			const component = this.components.getSubcellComponent(subCellId);
 			if (component === 0) continue;
 			const connections = cell.getLayerDefiniteConnections(layerIndex);
-			const node = this.components.subcellNode[subCellId];
-			if (node === 0) throw 'Component does not have subcell that links it';
-			const known = this.components.subNodeVal[node];
+			const known = this.components.getSubcellDirections(subCellId, component);
 			const newDirections = connections & ~known;
 			if (newDirections > 0) {
-				this.components.subNodeVal[node] = connections;
+				this.components.setSubcellDirections(subCellId, connections);
 				for (let direction of iterate_directions(newDirections)) {
 					const { neighbour } = this.grid.find_neighbour(index, direction);
 					const opposite = this.grid.OPPOSITE.get(direction) || 0;
 					const otherComponent = this.components.getSlotComponent(neighbour, opposite);
 					if (otherComponent === 0) {
-						this.components.slotSet(neighbour, opposite, component);
-						this.components.mergeSlotMask(component, neighbour, opposite);
+						this.components.addSlot(component, neighbour, opposite);
 						this.components.islandAdd(component);
 						this.avoidSlotLoops(index, component);
 					} else if (otherComponent === component) {
@@ -863,7 +840,7 @@ export class LayeredSolver {
 				}
 			}
 			if (popcount(connections) === cell.layerPopcounts[layerIndex]) {
-				this.components.subDelete(component, subCellId);
+				this.components.removeSubcell(component, subCellId);
 			}
 		}
 		this.pruneLoop(index, cell);

@@ -108,6 +108,8 @@ export class ComponentsRegistry {
 	islandState;
 	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} */
 	grid;
+	/** @type {Number} - grid.total, for turning subcellIds back into cells */
+	total;
 
 	/**
 	 *
@@ -117,6 +119,7 @@ export class ComponentsRegistry {
 	 */
 	constructor(grid, maxLayers, parent = undefined) {
 		this.grid = grid;
+		this.total = grid.total;
 		// Sizing: ND is the bit-width of the grid's DIRECTIONS (the union of
 		// every direction bit any cell can use; per-cell masks are subsets of
 		// it, so per-cell slot rows of width ND are enough). maxLayers comes
@@ -277,27 +280,15 @@ export class ComponentsRegistry {
 		}
 	}
 
-	// --- registry helpers: the only writers of the arrays above ---
-
-	/**
-	 * Bit position of a single-bit direction mask. Throws on directions
-	 * outside the grid's DIRECTIONS width - unlike a Map, a typed array
-	 * write out of bounds would be silently discarded.
-	 * @param {Number} direction
-	 * @returns {Number}
-	 */
-	dirPos(direction) {
-		const pos = 31 - Math.clz32(direction);
-		if (pos >= this.ND) throw `Direction ${direction} outside the grid's DIRECTIONS width`;
-		return pos;
-	}
+	// --- mutations: the solver says what happened; the registry decides how
+	// it is recorded ---
 
 	/**
 	 * Allocate a component id (bump allocator - ids are never reused, so a
 	 * stale id can never alias a fresh component)
 	 * @returns {Number}
 	 */
-	compNew() {
+	create() {
 		if (this.compCount + 1 >= this.compCapacity) {
 			this.compCapacity *= 2;
 			const cap = this.compCapacity;
@@ -319,6 +310,87 @@ export class ComponentsRegistry {
 		this.compSlotCount[c] = 0;
 		this.compTotalSub[c] = 0;
 		return c;
+	}
+
+	/**
+	 * Open one slot: `direction` becomes an unresolved half-connection of
+	 * comp at the cell. Updates the cell's row entry and comp's per-cell
+	 * record together, so the two indexes cannot drift.
+	 * @param {Number} comp
+	 * @param {Number} cellIndex
+	 * @param {Number} direction
+	 */
+	addSlot(comp, cellIndex, direction) {
+		this.slotSet(cellIndex, direction, comp);
+		this.mergeSlotMask(comp, cellIndex, direction);
+	}
+
+	/**
+	 * A slot resolved into a concrete sub-cell: claim ownership, close the
+	 * resolved slot - clear the cell's row entry and drop `direction` from
+	 * comp's record for the cell (the record goes away when its mask empties;
+	 * comp's other slots at the same cell survive) - append the sub-cell
+	 * node, bump the cumulative sub-cell count.
+	 * @param {Number} comp
+	 * @param {Number} subcellId
+	 * @param {Number} direction
+	 */
+	attachSubcell(comp, subcellId, direction) {
+		const cellIndex = subcellId % this.total;
+		this.subcellOwner[subcellId] = comp;
+		const node = this.slotMember(comp, cellIndex);
+		const slotsLeft = (node !== 0 ? this.slotNodeVal[node] : 0) & ~direction;
+		if (slotsLeft === 0) {
+			// nothing left at this cell - drop the end; an absent entry no-ops
+			if (node !== 0) this.unlinkSlotNode(comp, node);
+		} else {
+			this.slotNodeVal[node] = slotsLeft;
+		}
+		this.subcellNode[subcellId] = this.subAppend(comp, subcellId, direction);
+		this.compTotalSub[comp] += 1;
+		this.slotRemove(cellIndex, direction);
+	}
+
+	/**
+	 * Replace the recorded mask of an owned sub-cell with the cell's
+	 * definite connections
+	 * @param {Number} subcellId
+	 * @param {Number} mask
+	 */
+	setSubcellDirections(subcellId, mask) {
+		const node = this.subcellNode[subcellId];
+		if (node === 0) throw 'Component does not have subcell that links it';
+		this.subNodeVal[node] = mask;
+	}
+
+	/**
+	 * Drop a sub-cell's membership when its layer is fully determined.
+	 * Leaves the cumulative sub-cell count untouched - island deadend
+	 * weights depend on it.
+	 * @param {Number} comp
+	 * @param {Number} subcellId
+	 */
+	removeSubcell(comp, subcellId) {
+		const n = this.subcellNode[subcellId];
+		if (n === 0) return;
+		this.unlinkSubNode(comp, n);
+		this.subcellOwner[subcellId] = 0;
+		this.subcellNode[subcellId] = 0;
+	}
+
+	// --- registry helpers: the only writers of the arrays above ---
+
+	/**
+	 * Bit position of a single-bit direction mask. Throws on directions
+	 * outside the grid's DIRECTIONS width - unlike a Map, a typed array
+	 * write out of bounds would be silently discarded.
+	 * @param {Number} direction
+	 * @returns {Number}
+	 */
+	dirPos(direction) {
+		const pos = 31 - Math.clz32(direction);
+		if (pos >= this.ND) throw `Direction ${direction} outside the grid's DIRECTIONS width`;
+		return pos;
 	}
 
 	/**
@@ -383,19 +455,6 @@ export class ComponentsRegistry {
 			return this.subNodeVal[this.subcellNode[subcellId]];
 		}
 		return 0;
-	}
-
-	/**
-	 * Remove subcellId's membership entry from its owner's list and registry
-	 * @param {Number} comp
-	 * @param {Number} subcellId
-	 */
-	subDelete(comp, subcellId) {
-		const n = this.subcellNode[subcellId];
-		if (n === 0) return;
-		this.unlinkSubNode(comp, n);
-		this.subcellOwner[subcellId] = 0;
-		this.subcellNode[subcellId] = 0;
 	}
 
 	/**
