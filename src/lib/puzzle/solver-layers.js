@@ -1,4 +1,4 @@
-import { ComponentsRegistry, iterate_directions } from './components-registry';
+import { ComponentsRegistry, iterate_directions, popcount } from './components-registry';
 
 /* Constraint Violation Exceptions */
 
@@ -51,21 +51,6 @@ const ISLAND_DETECTED = new IslandDetectedException();
  * @property {Number} guessed
  * @property {Number} ambiguous
  */
-
-/**
- * Counts total directions in a layer mask
- * @param {Number} mask
- * @returns {Number}
- */
-function popcount(mask) {
-	let count = 0;
-	let bits = mask;
-	while (bits > 0) {
-		bits ^= bits & -bits;
-		count += 1;
-	}
-	return count;
-}
 
 /**
  * Returns a canonical id for a rotation state: the sorted list of layer masks.
@@ -553,6 +538,13 @@ export class LayeredSolver {
 		/** @type {Set<Number>} */
 		this.dirty = new Set();
 
+		// components whose open ends changed and are due an island check.
+		// Starts empty in every solver (clones are only created from
+		// makeAGuess/doShortTrials, outside processDirtyCell's drain window,
+		// so the parent's set is always empty when copying would happen)
+		/** @type {Set<Number>} */
+		this.islandChecks = new Set();
+
 		// components are born in addConnection; the registry owns their rows,
 		// member lists and queues (see ComponentsRegistry)
 		if (parent) {
@@ -795,7 +787,7 @@ export class LayeredSolver {
 					// subcell joined a component - check if it has
 					// any neighbours already in component
 					this.avoidSubcellLoops(index, layerIndex, cell, component);
-					this.components.islandAdd(component);
+					this.islandChecks.add(component);
 				} else if (otherComponent === component) {
 					throw LOOP_DETECTED;
 				} else {
@@ -807,8 +799,8 @@ export class LayeredSolver {
 						this.mergedSlotCellHook,
 						this.mergedSubcellHook
 					);
-					this.components.islandAdd(otherComponent);
-					this.components.islandDelete(component); // so we don't process stale components later
+					this.islandChecks.add(otherComponent);
+					this.islandChecks.delete(component); // so we don't process stale components later
 				}
 			});
 		}
@@ -829,7 +821,7 @@ export class LayeredSolver {
 					const otherComponent = this.components.getSlotComponent(neighbour, opposite);
 					if (otherComponent === 0) {
 						this.components.addSlot(component, neighbour, opposite);
-						this.components.islandAdd(component);
+						this.islandChecks.add(component);
 						this.avoidSlotLoops(index, component);
 					} else if (otherComponent === component) {
 						throw LOOP_DETECTED;
@@ -842,8 +834,8 @@ export class LayeredSolver {
 							this.mergedSlotCellHook,
 							this.mergedSubcellHook
 						);
-						this.components.islandAdd(component);
-						this.components.islandDelete(otherComponent); // so we don't process stale entries later
+						this.islandChecks.add(component);
+						this.islandChecks.delete(otherComponent); // so we don't process stale entries later
 					}
 				}
 			}
@@ -922,64 +914,51 @@ export class LayeredSolver {
 			}
 			this.avoidLoopQueue.length = 0;
 
-			for (let i = 0; i < this.components.islandQLen; i++) {
-				const component = this.components.islandQ[i];
-				// skip deleted entries (their positions stay reserved)
-				if (this.components.islandState[component] !== 1) continue;
-				if (
-					this.components.compSlotCount[component] === 0 &&
-					this.components.compSubCount[component] === 0 &&
-					this.components.compTotalSub[component] < this.totalSubcells
-				) {
-					throw ISLAND_DETECTED;
-				} else if (
-					this.components.compSlotCount[component] === 1 &&
-					this.components.compSubCount[component] === 0
-				) {
-					const head = this.components.compSlotHead[component];
-					const islandCell = this.components.slotNodeKey[head];
-					const islandConnections = this.components.slotNodeVal[head];
-					if (popcount(islandConnections) === 1) {
-						const c = this.getCell(islandCell);
+			for (const component of this.islandChecks) {
+				const slots = this.components.slotCount(component);
+				const subcells = this.components.subcellCount(component);
+				if (slots === 0 && subcells === 0) {
+					// a sealed component holding every subcell is just the finished puzzle
+					if (this.components.totalSubcellCount(component) < this.totalSubcells) {
+						throw ISLAND_DETECTED;
+					}
+				} else if (slots === 1 && subcells === 0) {
+					// exactly one opening left; slotCount === 1 subsumes the old
+					// popcount === 1 guard - one slot is one direction
+					this.components.forEachComponentSlot(component, (cellIndex, directions) => {
+						const c = this.getCell(cellIndex);
 						const deadendsBefore = c.neighbourDeadends;
 						// override weight because component size is exact at this point
-						c.addNeighbourDeadend(islandConnections, 0);
-						c.neighbourDeadendWeights.set(
-							islandConnections,
-							this.components.compTotalSub[component]
-						);
+						c.addNeighbourDeadend(directions, 0);
+						c.neighbourDeadendWeights.set(directions, this.components.totalSubcellCount(component));
 						if (c.neighbourDeadends !== deadendsBefore) {
-							this.dirty.add(islandCell);
+							this.dirty.add(cellIndex);
 						}
-					}
+					});
 					// 2+ island connections into the same cell should be handled differently.
 					// It's enough for one strand to escape, so sealing one connection and
 					// continuing another one should be valid.
 					// Deadend machinery treats all deadends as independent => doesn't work for this case
 					// Valid handling is not implemented yet
-				} else if (
-					this.components.compSlotCount[component] === 0 &&
-					this.components.compSubCount[component] === 1
-				) {
-					const head = this.components.compSubHead[component];
-					const islandSubCell = this.components.subNodeKey[head];
-					const islandConnections = this.components.subNodeVal[head];
-					const islandCell = islandSubCell % this.grid.total;
-					const c = this.getCell(islandCell);
-					const deadendsBefore = c.neighbourDeadends;
-					let weight = this.components.compTotalSub[component] - 1; // don't count this subcell itself
-					for (let direction of iterate_directions(islandConnections)) {
-						c.addNeighbourDeadend(direction, weight);
-						c.neighbourDeadendWeights.set(direction, weight);
-						weight = 0; // prevent double-counting of island
-						// it doesn't matter which direction carries the weight
-					}
-					if (c.neighbourDeadends !== deadendsBefore) {
-						this.dirty.add(islandCell);
-					}
+				} else if (slots === 0 && subcells === 1) {
+					this.components.forEachComponentSubcell(component, (subcellId, directions) => {
+						const [index] = this.grid.cellLayerOf(subcellId);
+						const c = this.getCell(index);
+						const deadendsBefore = c.neighbourDeadends;
+						let weight = this.components.totalSubcellCount(component) - 1; // don't count this subcell itself
+						for (let direction of iterate_directions(directions)) {
+							c.addNeighbourDeadend(direction, weight);
+							c.neighbourDeadendWeights.set(direction, weight);
+							weight = 0; // prevent double-counting of island
+							// it doesn't matter which direction carries the weight
+						}
+						if (c.neighbourDeadends !== deadendsBefore) {
+							this.dirty.add(index);
+						}
+					});
 				}
 			}
-			this.components.islandClear();
+			this.islandChecks.clear();
 		}
 		const final = cell.possible.size === 1;
 		const [rotation] = cell.possible.keys();

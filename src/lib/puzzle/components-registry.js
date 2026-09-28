@@ -62,6 +62,21 @@ export function* iterate_directions(mask) {
 }
 
 /**
+ * Counts total directions in a mask
+ * @param {Number} mask
+ * @returns {Number}
+ */
+export function popcount(mask) {
+	let count = 0;
+	let bits = mask;
+	while (bits > 0) {
+		bits ^= bits & -bits;
+		count += 1;
+	}
+	return count;
+}
+
+/**
  * The component registry of a LayeredSolver: the only writer of its arrays.
  * The solver asks state questions and requests transitions; rows, lists,
  * counts and queues are private bookkeeping.
@@ -76,7 +91,6 @@ export class ComponentsRegistry {
 	subNodeCapacity = 0;
 	slotNodeCount = 0;
 	slotNodeCapacity = 0;
-	islandQLen = 0;
 	/** @type {Int32Array} */
 	subcellOwner;
 	/** @type {Int32Array} */
@@ -84,7 +98,7 @@ export class ComponentsRegistry {
 	/** @type {Int32Array} */
 	slotDirect;
 	/** @type {Int32Array} */
-	slotCount;
+	cellSlotCount;
 	/** @type {Int32Array} */
 	compSubHead;
 	/** @type {Int32Array} */
@@ -115,11 +129,6 @@ export class ComponentsRegistry {
 	slotNodeNext;
 	/** @type {Int32Array} */
 	slotNodePrev;
-	/** @type {Int32Array} */
-	islandQ;
-	/** @type {Int32Array} - per component: 0 never queued, 1 queued, 2 queued
-	 * before and deleted (its islandQ position is stale but reserved) */
-	islandState;
 	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} */
 	grid;
 	/** @type {Number} - grid.total, for turning subcellIds back into cells */
@@ -153,7 +162,7 @@ export class ComponentsRegistry {
 			this.subcellOwner = parent.subcellOwner.slice();
 			this.subcellNode = parent.subcellNode.slice();
 			this.slotDirect = parent.slotDirect.slice();
-			this.slotCount = parent.slotCount.slice();
+			this.cellSlotCount = parent.cellSlotCount.slice();
 			this.compSubHead = sliceCapacity(parent.compSubHead, this.compCapacity);
 			this.compSubTail = sliceCapacity(parent.compSubTail, this.compCapacity);
 			this.compSlotHead = sliceCapacity(parent.compSlotHead, this.compCapacity);
@@ -169,11 +178,6 @@ export class ComponentsRegistry {
 			this.slotNodeVal = sliceCapacity(parent.slotNodeVal, this.slotNodeCapacity);
 			this.slotNodeNext = sliceCapacity(parent.slotNodeNext, this.slotNodeCapacity);
 			this.slotNodePrev = sliceCapacity(parent.slotNodePrev, this.slotNodeCapacity);
-			// the island queue starts empty in every solver; its state column
-			// is per-solver, indexed by component id
-			this.islandQLen = 0;
-			this.islandQ = new Int32Array(16);
-			this.islandState = new Int32Array(this.compCapacity);
 		} else {
 			this.ND =
 				32 -
@@ -193,7 +197,7 @@ export class ComponentsRegistry {
 			this.subcellOwner = new Int32Array(this.subcellCapacity);
 			this.subcellNode = new Int32Array(this.subcellCapacity);
 			this.slotDirect = new Int32Array(this.slotCapacity);
-			this.slotCount = new Int32Array(grid.total);
+			this.cellSlotCount = new Int32Array(grid.total);
 			this.compSubHead = new Int32Array(this.compCapacity);
 			this.compSubTail = new Int32Array(this.compCapacity);
 			this.compSlotHead = new Int32Array(this.compCapacity);
@@ -209,9 +213,6 @@ export class ComponentsRegistry {
 			this.slotNodeVal = new Int32Array(this.slotNodeCapacity);
 			this.slotNodeNext = new Int32Array(this.slotNodeCapacity);
 			this.slotNodePrev = new Int32Array(this.slotNodeCapacity);
-			this.islandQLen = 0;
-			this.islandQ = new Int32Array(16);
-			this.islandState = new Int32Array(this.compCapacity);
 		}
 	}
 
@@ -234,7 +235,7 @@ export class ComponentsRegistry {
 	 * @returns {Boolean}
 	 */
 	hasOpenSlots(cellIndex) {
-		return this.slotCount[cellIndex] > 0;
+		return this.cellSlotCount[cellIndex] > 0;
 	}
 
 	/**
@@ -313,7 +314,6 @@ export class ComponentsRegistry {
 			this.compSubCount = growInt32(this.compSubCount, cap);
 			this.compSlotCount = growInt32(this.compSlotCount, cap);
 			this.compTotalSub = growInt32(this.compTotalSub, cap);
-			this.islandState = growInt32(this.islandState, cap);
 		}
 		const c = ++this.compCount;
 		this.compSubHead[c] = 0;
@@ -482,6 +482,67 @@ export class ComponentsRegistry {
 		}
 	}
 
+	/**
+	 * Open slots of comp - sums the per-cell record masks, so it counts
+	 * slots, not records (two slots at one cell share a record and count
+	 * twice). Island classification.
+	 * @param {Number} comp
+	 * @returns {Number}
+	 */
+	slotCount(comp) {
+		const records = this.compSlotCount[comp];
+		if (records === 0) return 0;
+		const head = this.compSlotHead[comp];
+		if (records === 1) return popcount(this.slotNodeVal[head]);
+		let count = 0;
+		for (let n = head; n !== 0; n = this.slotNodeNext[n]) {
+			count += popcount(this.slotNodeVal[n]);
+		}
+		return count;
+	}
+
+	/**
+	 * Live member sub-cells of comp. Island classification.
+	 * @param {Number} comp
+	 * @returns {Number}
+	 */
+	subcellCount(comp) {
+		return this.compSubCount[comp];
+	}
+
+	/**
+	 * Cumulative sub-cells ever joined by comp - deliberately not
+	 * decremented by removeSubcell: island deadend weights depend on it.
+	 * @param {Number} comp
+	 * @returns {Number}
+	 */
+	totalSubcellCount(comp) {
+		return this.compTotalSub[comp];
+	}
+
+	/**
+	 * Iterates comp's open-slot records (a record = the component's slots at
+	 * one cell, aggregated into a direction bitmask)
+	 * @param {Number} comp
+	 * @param {(cellIndex: Number, directions: Number) => void} cb
+	 */
+	forEachComponentSlot(comp, cb) {
+		for (let n = this.compSlotHead[comp]; n !== 0; n = this.slotNodeNext[n]) {
+			cb(this.slotNodeKey[n], this.slotNodeVal[n]);
+		}
+	}
+
+	/**
+	 * Iterates comp's live member sub-cells the same way
+	 * @param {Number} comp
+	 * @param {(subcellId: Number, directions: Number) => void} cb
+	 */
+	forEachComponentSubcell(comp, cb) {
+		for (let n = this.compSubHead[comp]; n !== 0; n = this.subNodeNext[n]) {
+			cb(this.subNodeKey[n], this.subNodeVal[n]);
+		}
+	}
+
 	// --- registry helpers: the only writers of the arrays above ---
 
 	/**
@@ -634,7 +695,7 @@ export class ComponentsRegistry {
 	 */
 	slotSet(cell, direction, comp) {
 		const idx = cell * this.ND + this.dirPos(direction);
-		if (this.slotDirect[idx] === 0) this.slotCount[cell] += 1;
+		if (this.slotDirect[idx] === 0) this.cellSlotCount[cell] += 1;
 		this.slotDirect[idx] = comp;
 	}
 
@@ -648,7 +709,7 @@ export class ComponentsRegistry {
 	 * @param {Number} comp
 	 */
 	slotRepoint(cell, direction, comp) {
-		if (this.slotCount[cell] === 0) return;
+		if (this.cellSlotCount[cell] === 0) return;
 		this.slotSet(cell, direction, comp);
 	}
 
@@ -663,7 +724,7 @@ export class ComponentsRegistry {
 		const idx = cell * this.ND + this.dirPos(direction);
 		if (this.slotDirect[idx] !== 0) {
 			this.slotDirect[idx] = 0;
-			this.slotCount[cell] -= 1;
+			this.cellSlotCount[cell] -= 1;
 		}
 	}
 
@@ -681,41 +742,5 @@ export class ComponentsRegistry {
 		} else {
 			this.slotNodeAppend(comp, cellIndex, dirs);
 		}
-	}
-
-	/**
-	 * Queue a component for the next island check. A component is in the
-	 * queue at most once per generation: a re-add while queued is a no-op,
-	 * and delete + re-add reactivates the component's reserved position.
-	 * @param {Number} comp
-	 */
-	islandAdd(comp) {
-		if (this.islandState[comp] === 1) return;
-		if (this.islandState[comp] === 0) {
-			if (this.islandQLen >= this.islandQ.length) {
-				const cap = this.islandQ.length * 2;
-				this.islandQ = growInt32(this.islandQ, cap);
-			}
-			this.islandQ[this.islandQLen] = comp;
-			this.islandQLen += 1;
-		}
-		this.islandState[comp] = 1;
-	}
-
-	/**
-	 * Unqueue a component: its islandQ position goes stale but stays
-	 * reserved for a possible re-add before the next flush
-	 * @param {Number} comp
-	 */
-	islandDelete(comp) {
-		if (this.islandState[comp] === 1) this.islandState[comp] = 2;
-	}
-
-	/** Empty the island queue and release all reserved positions */
-	islandClear() {
-		for (let i = 0; i < this.islandQLen; i++) {
-			this.islandState[this.islandQ[i]] = 0;
-		}
-		this.islandQLen = 0;
 	}
 }
