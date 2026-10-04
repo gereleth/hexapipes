@@ -101,10 +101,15 @@ function syncFrontierList(list, cell, member) {
 }
 
 /**
- * Number of subtrees grown simultaneously on fresh boards,
+ * Number of subtrees grown simultaneously on fresh boards, scaling with
+ * the board size: three on small boards, one more per 50 tiles,
  * see pregenerate_layers_multitree
+ * @param {Number} total
+ * @returns {Number}
  */
-const SUBTREE_COUNT = 5;
+function subtreeCountFor(total) {
+	return Math.max(3, Math.floor(total / 50));
+}
 
 /**
  * Layered tiles for pregeneration reuse: a keepable cell holds its solved
@@ -911,7 +916,9 @@ export function pregenerate_layers_growthtree(
 
 /**
  * Multi-subtree layered growth of fresh boards.
- * SUBTREE_COUNT subtrees grow simultaneously, each like a classic growing
+ * The subtree count scales with the board size (subtreeCountFor): three on
+ * small boards, one more per 50 tiles. The subtrees grow simultaneously,
+ * each like a classic growing
  * tree from its own random seed cell: a branchingAmount roll picks between
  * extending deadend layers (corridor-like) and branching busy cells
  * (Prim-like spread), per subtree. Edges are exclusive — a subtree never
@@ -1002,7 +1009,7 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 	};
 	const opposite = grid.OPPOSITE;
 	const checkFullyConnected = grid.KIND !== 'triangular';
-	const treeCount = Math.min(SUBTREE_COUNT, unvisited.size);
+	const treeCount = Math.min(subtreeCountFor(total), unvisited.size);
 
 	/** @type {Subtree[]} */
 	const trees = [];

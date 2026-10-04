@@ -901,10 +901,15 @@ describe('Test layered growth events', () => {
 
 describe('Test multi-subtree growth', () => {
 	it('Joins the subtrees with merge events on fresh boards', () => {
-		const grids = [new SquareGrid(4, 4, false), new HexaGrid(3, 3, false)];
+		const grids = [
+			new SquareGrid(4, 4, false),
+			new HexaGrid(3, 3, false),
+			// 225 tiles => 4 subtrees, exercises the size-based scaling
+			new SquareGrid(15, 15, false)
+		];
 		for (const grid of grids) {
 			const playable = grid.total - grid.emptyCells.size;
-			const expectedMerges = Math.min(5, playable) - 1;
+			const expectedMerges = Math.min(Math.max(3, Math.floor(grid.total / 50)), playable) - 1;
 			/** @type {import('./generator-layers').GrowthMove[]} */
 			const moves = [];
 			const tiles = pregenerate_layers(grid, 0.6, 0.5, 0, [], 3, (move) => moves.push(move));

@@ -149,10 +149,11 @@ random from `unvisited` and seeded with a zero layer.
 ### Multi-subtree growth of fresh boards (experiment, `pregenerate_layers_multitree`)
 
 Runs whenever `startLayers` has no reusable cell (empty, all-null, or wrong-length).
-`SUBTREE_COUNT = 5` (module const) subtrees grow simultaneously, each seeded on a distinct random
-cell, each growing like a classic GrowingTree with per-subtree `extending`/`branching` frontier
-lists (same `branchingAmount` roll and corridor-vs-spread semantics as the single tree) plus a
-per-subtree `lastResort` tier for fully-connected demotion. Differences to the single tree:
+`min(playable, max(3, floor(total / 50)))` subtrees grow simultaneously (`subtreeCountFor`: three on
+small boards, one more per 50 tiles), each seeded on a distinct random cell, each growing like a
+classic GrowingTree with per-subtree `extending`/`branching` frontier lists (same `branchingAmount`
+roll and corridor-vs-spread semantics as the single tree) plus a per-subtree `lastResort` tier for
+fully-connected demotion. Differences to the single tree:
 
 - **Edges are exclusive across subtrees**: a subtree never carves an edge another subtree took. A
   layer bitmask bit _is_ the edge to the neighbour, so per-edge exclusivity directly yields the
@@ -193,10 +194,11 @@ per-subtree `lastResort` tier for fully-connected demotion. Differences to the s
   preferred, as during growth).
 - `avoidObvious` and `reuseMinCount` are ignored by this strategy (no border demotion tiers, no
   islands); `layeringAmount 0` keeps the subtrees disjoint, and the merges alone turn the result
-  into a classic one-layer-per-cell board. Measured (default knobs, 20 boards): squares end at
-  ~1.2–1.3 sub-cells/cell (~22–27% multi-layer cells) — the in-board spare rule caps
-  interpenetration on 4-direction cells — while hex reaches ~1.6–1.7 (~50% multi-layer). The
-  `branchingAmount` knob still shifts deadend ratios (square 23%→34%, hex 22%→46% for b=0→1).
+  into a classic one-layer-per-cell board. Measured (default knobs, 20 boards): 10×10 squares (3
+  subtrees) end at ~1.16 sub-cells/cell (~16% multi-layer cells), hex 7×6 (3 subtrees) at ~1.50
+  (~45% multi-layer), 20×20 squares (8 subtrees) at ~1.21 (~21%) — the in-board spare rule caps
+  interpenetration on 4-direction cells, and smaller subtree counts mean fewer cross-tree entries.
+  The `branchingAmount` knob still shifts deadend ratios (square 21%→35%, hex 19%→48% for b=0→1).
 
 Event stream: `seed` per subtree, `move` per growth move, `merge` events (bits set on **both**
 endpoints' existing layers — no layer is pushed), `demote`/`pop` bookkeeping. The merge event
