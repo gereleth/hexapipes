@@ -9,6 +9,12 @@ scrambling, startLayers reuse, `LayeredGenerator` modes, worker smoke tests, gro
 
 ## `pregenerate_layers(grid, layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount, onMove)`
 
+Dispatcher over two growth strategies, both producing a single spanning tree over all sub-cells: a
+`startLayers` array of the right length with at least one reusable (non-null) cell runs the
+single-tree growth with island absorption (`pregenerate_layers_growthtree`, described in this
+section and the reuse section below); everything else — fresh boards — runs the experimental
+multi-subtree growth (`pregenerate_layers_multitree`, own section below). The single-tree strategy:
+
 GrowingTree maze growth over cells, but the growing frontier is split by the kind of growth a cell
 offers (see `branchingAmount` below). Layers variant twists:
 
@@ -140,12 +146,72 @@ previous solver iteration certified them; new layers can only attach to them fro
 If no live seed exists (fresh board or nothing keepable), the start cell is chosen uniformly at
 random from `unvisited` and seeded with a zero layer.
 
+### Multi-subtree growth of fresh boards (experiment, `pregenerate_layers_multitree`)
+
+Runs whenever `startLayers` has no reusable cell (empty, all-null, or wrong-length).
+`SUBTREE_COUNT = 5` (module const) subtrees grow simultaneously, each seeded on a distinct random
+cell, each growing like a classic GrowingTree with per-subtree `extending`/`branching` frontier
+lists (same `branchingAmount` roll and corridor-vs-spread semantics as the single tree) plus a
+per-subtree `lastResort` tier for fully-connected demotion. Differences to the single tree:
+
+- **Edges are exclusive across subtrees**: a subtree never carves an edge another subtree took. A
+  layer bitmask bit _is_ the edge to the neighbour, so per-edge exclusivity directly yields the
+  per-cell "at most one layer per direction" invariant — no separate bookkeeping needed.
+- A subtree enters a cell at most once and owns **exactly one layer per cell it occupies**
+  (`layerAt` map). Entering a cell another subtree occupies pushes a fresh layer (a new sub-cell for
+  the entering subtree) — that is how layers form; gated per direction by `layeringAmount` like
+  revisit moves above (unvisited cells are always allowed). Own cells are never re-entered (that
+  would close a cycle within the subtree).
+- Frontier kind is unambiguous per subtree (its single layer's degree decides), so the legacy
+  layer-picking step disappears. Demotion to `lastResort` is permanent (tier cells are not re-synced
+  into primary after moving), mirroring `updateFrontier`'s early return.
+- **Stop condition: every playable cell visited by some subtree** — not by every subtree. Dead
+  subtrees (empty frontier lists) are skipped.
+- **Opening round**: right after seeding, every subtree makes one forced expansion into an unvisited
+  neighbour (random order per attempt, skipped when a seed has no unvisited neighbour, on tiny
+  boards). Without it a subtree could lose the opening race — never picked while its seed cell gets
+  saturated by a busy co-tenant — and sit out the whole game as a never-grown mask-0 seed, easily
+  sealed off from every merge connection (each expansion into an unvisited cell may spend a mixed
+  cell's last in-board spare, see below). Targets are unvisited only and ungated, so
+  `layeringAmount 0` keeps its meaning.
+- **Spare-direction rule**: a _mixed_ cell (hosting several subtrees, tracked in `owners` aligned
+  with the cell's layer indices) must always keep a **spare in-board** free direction — layering
+  entries need ≥ 2 in-board free directions at the target, and non-expansion growth out of a mixed
+  cell needs ≥ 2 too. Expansion into unvisited cells is always allowed (blocking it would wall off
+  unvisited pockets behind frozen mixed cells). This keeps the components' free-edge graph connected
+  at stop time, which is what the merge phase needs. Two failure classes remain possible on dense
+  boards (an unvisited pocket walled in by frozen mixed cells; a grown subtree whose every boundary
+  cell got drained to zero spares) — both are random and rare, so **a failed attempt is simply
+  retried on a fresh board** (`pregenerate_layers_multitree_attempt`, up to 20 tries); only the
+  successful attempt's events are reported, keeping event replays exact.
+- **Merge phase**: union-find over subtrees; while more than one component exists, collect free
+  edges between cells hosting different components and carve one at random, attaching the two cells'
+  layers owned by the respective components. Exactly `subtreeCount − 1` merges, no loops
+  (same-component pairs excluded). Each merge (except the last) is only taken if the remaining
+  components stay connected through free edges — consuming a shared bridge edge could otherwise
+  strand a component. Fully-connected-making merge unions are a last resort (normal candidates
+  preferred, as during growth).
+- `avoidObvious` and `reuseMinCount` are ignored by this strategy (no border demotion tiers, no
+  islands); `layeringAmount 0` keeps the subtrees disjoint, and the merges alone turn the result
+  into a classic one-layer-per-cell board. Measured (default knobs, 20 boards): squares end at
+  ~1.2–1.3 sub-cells/cell (~22–27% multi-layer cells) — the in-board spare rule caps
+  interpenetration on 4-direction cells — while hex reaches ~1.6–1.7 (~50% multi-layer). The
+  `branchingAmount` knob still shifts deadend ratios (square 23%→34%, hex 22%→46% for b=0→1).
+
+Event stream: `seed` per subtree, `move` per growth move, `merge` events (bits set on **both**
+endpoints' existing layers — no layer is pushed), `demote`/`pop` bookkeeping. The merge event
+carries `neighbourLayerIndex` in addition to the move fields.
+
 ### `GrowthMove` events
 
-`onMove` callback mirrors every board mutation exactly (`seed`/`move`/`absorb`); `demote`/`pop` are
-frontier bookkeeping without board effects. `erase` is still in the typedef (and handled by the
-debug page) but currently never emitted — its only emitter, an island-dissolve fallback, was
-removed. Event-mirroring fidelity is asserted by tests (apply events == returned tiles).
+`onMove` callback mirrors every board mutation exactly (`seed`/`move`/`absorb`, and `merge` on the
+multi-subtree strategy); `demote`/`pop` are frontier bookkeeping without board effects. `erase` is
+still in the typedef (and handled by the debug page) but currently never emitted — its only emitter,
+an island-dissolve fallback, was removed. Event-mirroring fidelity is asserted by tests (apply
+events == returned tiles). History: the single-tree strategy's `seed` events used to pass the reused
+cell's layer array **by reference** — a later push onto that cell mutated the already-emitted
+payload, so replays double-counted the push (found via the multi-subtree-era replay tests; seed
+events now snapshot).
 
 ## `LayeredGenerator`
 
@@ -201,6 +267,10 @@ iteration as `startLayers` (`keptCount` = how many cells that was). Per iteratio
 - `debug-stop`.
 - `growth-start`: one `pregenerate_layers` run with `options.startLayers`/`reuseMinCount`, streaming
   a `growth-move` message per `GrowthMove` event, then `growth-done`.
+  `options.strategy: 'single-tree'` bypasses the dispatcher and runs the legacy growth on a fresh
+  board (the debug page's strategy select — for A/B-watching the two growth algorithms; note the
+  "grow from survivors" checkbox only has an effect from iteration 2 onward, the first iteration has
+  no survivors by definition).
 
 Worker smoke tests shim `globalThis.postMessage`/`onmessage` and import the worker module directly
 (module cache means the handler from the first import persists across tests).

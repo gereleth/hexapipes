@@ -35,6 +35,10 @@ function applyGrowthMoves(grid, board, moves) {
 			const back = grid.OPPOSITE.get(move.direction) || 0;
 			board[move.fromNode][move.layerIndex] |= move.direction;
 			board[move.neighbour][0] |= back;
+		} else if (move.type === 'merge') {
+			const back = grid.OPPOSITE.get(move.direction) || 0;
+			board[move.fromNode][move.layerIndex] |= move.direction;
+			board[move.neighbour][move.neighbourLayerIndex] |= back;
 		}
 	}
 }
@@ -891,6 +895,25 @@ describe('Test layered growth events', () => {
 			const board = Array.from({ length: grid.total }, () => []);
 			applyGrowthMoves(grid, board, moves);
 			expect(board).toStrictEqual(tiles);
+		}
+	});
+});
+
+describe('Test multi-subtree growth', () => {
+	it('Joins the subtrees with merge events on fresh boards', () => {
+		const grids = [new SquareGrid(4, 4, false), new HexaGrid(3, 3, false)];
+		for (const grid of grids) {
+			const playable = grid.total - grid.emptyCells.size;
+			const expectedMerges = Math.min(5, playable) - 1;
+			/** @type {import('./generator-layers').GrowthMove[]} */
+			const moves = [];
+			const tiles = pregenerate_layers(grid, 0.6, 0.5, 0, [], 3, (move) => moves.push(move));
+			expect(moves.filter((move) => move.type === 'merge').length).toBe(expectedMerges);
+			/** @type {Number[][]} */
+			const board = Array.from({ length: grid.total }, () => []);
+			applyGrowthMoves(grid, board, moves);
+			expect(board).toStrictEqual(tiles);
+			validateLayers(grid, tiles);
 		}
 	});
 });

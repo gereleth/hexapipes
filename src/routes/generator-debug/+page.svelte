@@ -50,6 +50,8 @@
 	let growthPlaying = $state(false);
 	let growthSpeed = $state(4);
 	let growthSeedFromSnapshot = $state(false);
+	/** @type {'auto'|'single-tree'} */
+	let growthStrategy = $state('auto');
 	/** @type {ReturnType<typeof setInterval>|undefined} */
 	let growthTimer;
 	let growthCarry = 0;
@@ -328,7 +330,14 @@
 		w.postMessage({
 			command: 'growth-start',
 			grid: growthGrid.export(),
-			options: { layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount: 3 }
+			options: {
+				layeringAmount,
+				branchingAmount,
+				avoidObvious,
+				startLayers,
+				reuseMinCount: 3,
+				strategy: growthStrategy
+			}
 		});
 		boardMode = 'growth';
 	}
@@ -357,6 +366,11 @@
 			for (let cell of move.islandCells) {
 				growthVisited.add(cell);
 			}
+			growthHighlightCells = [move.fromNode, move.neighbour];
+		} else if (move.type === 'merge') {
+			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
+			growthLayers[move.fromNode][move.layerIndex] |= move.direction;
+			growthLayers[move.neighbour][move.neighbourLayerIndex] |= backDirection;
 			growthHighlightCells = [move.fromNode, move.neighbour];
 		} else {
 			growthHighlightCells = [];
@@ -530,6 +544,13 @@
 		</div>
 		<div class="row">
 			<button onclick={grow} disabled={generatorState === 'stepping'}>Grow</button>
+			<label>
+				strategy
+				<select bind:value={growthStrategy}>
+					<option value="auto">auto</option>
+					<option value="single-tree">single tree (legacy)</option>
+				</select>
+			</label>
 			<label>
 				<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's
 				survivors
