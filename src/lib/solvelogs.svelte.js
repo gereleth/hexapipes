@@ -417,8 +417,15 @@ export function getSolves(path, isDaily = false) {
 	if (solvesStores.has(storeName)) {
 		return solvesStores.get(storeName);
 	} else {
-		const store = new SolvesLog(storeName, isDaily);
+		/** @type {SolvesLog | undefined} */
+		let store;
+		// the log is cached for the whole session and outlives the component
+		// that first requested it, so its stats derived and saving effect must
+		// not be owned by that component - they would go inert on navigation
+		$effect.root(() => {
+			store = new SolvesLog(storeName, isDaily);
+		});
 		solvesStores.set(storeName, store);
-		return store;
+		return /** @type {SolvesLog} */ (store);
 	}
 }
