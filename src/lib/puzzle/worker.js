@@ -1,21 +1,21 @@
-import { Generator } from '$lib/puzzle/generator';
-import { Solver } from '$lib/puzzle/solver';
-import { createGrid } from '$lib/puzzle/grids/grids';
+import { Generator } from '#lib/puzzle/generator.js';
+import { Solver } from '#lib/puzzle/solver.js';
+import { createGrid } from '#lib/puzzle/grids/grids.js';
 
 /**
  *
- * @param {import('$lib/puzzle/grids/grids').GridOptions} grid
- * @param {import('$lib/puzzle/generator').GeneratorOptions} options
+ * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
+ * @param {import('#lib/puzzle/generator.js').GeneratorOptions} options
  */
 function generate(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	const gen = new Generator(grid_);
-	/** @param {import('$lib/puzzle/generator').GeneratorProgress} gen_progress */
+	/** @param {import('#lib/puzzle/generator.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
-	/** @param {import('$lib/puzzle/solver').SolverProgress} progress */
+	/** @param {import('#lib/puzzle/solver.js').SolverProgress} progress */
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};

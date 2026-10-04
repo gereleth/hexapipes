@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 
 	onMount(async () => {
-		await goto(`/${page.params.grid}/5`, { replaceState: true });
+		await goto(`/${page.params.grid}/5`, { replace: true });
 	});
 </script>
 

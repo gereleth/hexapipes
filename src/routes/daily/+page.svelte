@@ -2,16 +2,16 @@
 	import { run } from 'svelte/legacy';
 
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { page } from '$app/state';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import Timer, { formatTime } from '$lib/Timer.svelte';
-	import Stats from '$lib/Stats.svelte';
-	import { settings } from '$lib/stores';
-	import { getSolves } from '$lib/solvelogs.svelte';
-	import { createGrid } from '$lib/puzzle/grids/grids';
-	import Instructions from '$lib/Instructions.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
+	import Timer, { formatTime } from '#lib/Timer.svelte';
+	import Stats from '#lib/Stats.svelte';
+	import { settings } from '#lib/stores.js';
+	import { getSolves } from '#lib/solvelogs.svelte.js';
+	import { createGrid } from '#lib/puzzle/grids/grids.js';
+	import Instructions from '#lib/Instructions.svelte';
 
 	/**
 	 * @typedef {Object} Props
@@ -23,20 +23,20 @@
 
 	let grid = createGrid(data.grid || 'hexagonal', data.width, data.height, data.wrap, data.tiles);
 
-	/** @type {import('$lib/solvelogs.svelte').Solve}*/
+	/** @type {import('#lib/solvelogs.svelte.js').Solve}*/
 	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1
 	});
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default|undefined}*/
+	/** @type {import('#lib/puzzle/Puzzle.svelte').default|undefined}*/
 	let puzzle = $state();
 	let solved = $state(false);
 	let progressStoreName = '/daily_progress';
 	let pathname = '/daily';
 
-	/** @type {import('$lib/solvelogs.svelte').SolvesLog|undefined}*/
+	/** @type {import('#lib/solvelogs.svelte.js').SolvesLog|undefined}*/
 	let solvesLog = $state();
 	let stats = $state();
 	let savedProgress = $state(undefined);
@@ -129,7 +129,7 @@
 	let shareButtonIcon = $state('📋');
 	/**
 	 *
-	 * @param {import('$lib/solvelogs.svelte').Solve} solve
+	 * @param {import('#lib/solvelogs.svelte.js').Solve} solve
 	 * @param {boolean} showTimer
 	 */
 	function formatShareText(solve, showTimer) {
@@ -187,10 +187,10 @@
 </div>
 
 <Puzzle
-	{grid}
+	grid={grid}
 	tiles={data.tiles}
-	{savedProgress}
-	{progressStoreName}
+	savedProgress={savedProgress}
+	progressStoreName={progressStoreName}
 	bind:this={puzzle}
 	finished={stop}
 	started={start}
@@ -218,7 +218,7 @@
 	</div>
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
-		{startOver}
+		startOver={startOver}
 		download={() => puzzle?.download()}
 		includeNewPuzzleButton={false}
 	/>
@@ -233,9 +233,9 @@
 		</div>
 	</div>
 {/if}
-<div class="timings">
-	<Timer {solve} />
-</div>
+
+<div class="timings"><Timer solve={solve} /></div>
+
 {#if solvesLog}
 	<div class="stats">
 		<Stats stats={solvesLog.stats} previousStats={solvesLog.previousStats} />

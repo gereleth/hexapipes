@@ -1,9 +1,9 @@
 <script>
-	import { settings } from '$lib/stores';
+	import { settings } from '#lib/stores.js';
 	import { onMount } from 'svelte';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import { createGrid } from '$lib/puzzle/grids/grids';
-	import GridsExamples from '$lib/header/GridsExamples.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import { createGrid } from '#lib/puzzle/grids/grids.js';
+	import GridsExamples from '#lib/header/GridsExamples.svelte';
 
 	const hexGrid = createGrid('hexagonal', 4, 4, false);
 	const hexWrapGrid = createGrid('hexagonal', 4, 4, true);

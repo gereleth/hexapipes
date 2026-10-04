@@ -1,6 +1,6 @@
-import { TransformedPolygonTile } from '$lib/puzzle/grids/polygonutils';
+import { TransformedPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
 import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from './hexagrid';
-import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
+import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 const DIRA = 1;
 const DIRB = 2;
@@ -233,8 +233,8 @@ export class CubeGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
-	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
+	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		const { xmin, ymin, width, height } = box;

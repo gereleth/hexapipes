@@ -1,15 +1,15 @@
 <script>
 	import { onMount } from 'svelte';
-	import { getSolves } from '$lib/solvelogs.svelte';
+	import { getSolves } from '#lib/solvelogs.svelte.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
-	import Stats from '$lib/Stats.svelte';
+	import Stats from '#lib/Stats.svelte';
 	import PuzzleInstanceWrapper from './PuzzleInstanceWrapper.svelte';
 
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('$lib/puzzle/grids/grids').GridCategory} category
+	 * @property {import('#lib/puzzle/grids/grids.js').GridCategory} category
 	 * @property {Number} size
 	 * @property {Number} puzzleId
 	 * @property {Number} width
@@ -20,14 +20,14 @@
 	/** @type {Props} */
 	let { category, size, puzzleId, width, height, tiles = [] } = $props();
 
-	/** @type {import('$lib/solvelogs.svelte').SolvesLog|undefined}*/
+	/** @type {import('#lib/solvelogs.svelte.js').SolvesLog|undefined}*/
 	let solvesLog = $state();
 
 	let pathname = $derived(`/${category}/${size}/${puzzleId}`);
 	let progressStoreName = $derived(pathname + '_progress');
 	let instanceStoreName = $derived(`/${category}/${size}` + '_instance');
 	let wrap = $derived(category.endsWith('-wrap'));
-	let gridKind = /**@type {import('$lib/puzzle/grids/grids').GridKind}*/ $derived(
+	let gridKind = /**@type {import('#lib/puzzle/grids/grids.js').GridKind}*/ $derived(
 		category.split('-')[0]
 	);
 
@@ -38,7 +38,7 @@
 			solves.length > 0 && solves[0].puzzleId !== -1 && solves[0].elapsedTime === -1;
 		if (haveUnfinishedBusiness) {
 			const id = solves[0].puzzleId;
-			goto(`/${category}/${size}/${id}`, { replaceState: true });
+			goto(`/${category}/${size}/${id}`, { replace: true });
 		}
 	});
 </script>

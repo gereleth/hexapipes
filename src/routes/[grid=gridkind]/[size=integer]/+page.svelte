@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/state';
-	import PuzzleKindWrapper from '$lib/puzzleWrapper/PuzzleKindWrapper.svelte';
+	import PuzzleKindWrapper from '#lib/puzzleWrapper/PuzzleKindWrapper.svelte';
 </script>
 
 {#key page.url.pathname}

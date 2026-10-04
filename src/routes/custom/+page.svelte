@@ -1,13 +1,13 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { createGrid, randomGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
-	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
-	import Instructions from '$lib/Instructions.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
+	import { createGrid, randomGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
+	import GeneratorComponent from '#lib/puzzle/GeneratorComponent.svelte';
+	import Instructions from '#lib/Instructions.svelte';
 
 	let generatorState = $state('idle');
-	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
+	/** @type {import('#lib/puzzle/grids/grids.js').GridKind}*/
 	let gridKind = $state('hexagonal');
 	let width = $state(5);
 	let height = $state(5);
@@ -16,17 +16,17 @@
 	let avoidObvious = $state(0.0);
 	let avoidStraights = $state(0.0);
 	let autosolve = $state(false);
-	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
+	/** @type {import('#lib/puzzle/generator.js').SolutionsNumber}*/
 	let solutionsNumber = $state('unique');
 	let errorMessage = $state('');
 
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default|undefined}*/
+	/** @type {import('#lib/puzzle/Puzzle.svelte').default|undefined}*/
 	let puzzle = $state();
-	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
+	/** @type {import('#lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
 	let generatorComponent = $state();
 	let solved = $state(false);
 
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined}*/
+	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined}*/
 	let grid = $state();
 	/** @type {Number[]}*/
 	let tiles = $state([]);

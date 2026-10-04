@@ -1,5 +1,5 @@
 <script>
-	import { settings } from '$lib/stores';
+	import { settings } from '#lib/stores.js';
 	/**
 	 * @typedef {Object} Props
 	 * @property {boolean} [clockwise]

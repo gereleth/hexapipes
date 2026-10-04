@@ -1,4 +1,4 @@
-import { settings } from '$lib/stores';
+import { settings } from '#lib/stores.js';
 import { get } from 'svelte/store';
 import normalizeWheel from 'normalize-wheel';
 
@@ -16,7 +16,7 @@ import normalizeWheel from 'normalize-wheel';
 /**
  * Attaches mouse/touch controls to the game area
  * @param {HTMLElement} node
- * @param {import('$lib/puzzle/game.svelte').PipesGame} game
+ * @param {import('#lib/puzzle/game.svelte.js').PipesGame} game
  * @returns
  */
 export function controls(node, game) {
@@ -32,7 +32,7 @@ export function controls(node, game) {
 	});
 
 	/**
-	 * @type {import('$lib/stores').Settings}
+	 * @type {import('#lib/stores.js').Settings}
 	 */
 	settings.loadFromLocalStorage();
 	let currentSettings = get(settings);

@@ -1,18 +1,18 @@
 <script>
 	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
-	import { settings } from '$lib/stores';
-	import { controls } from '$lib/puzzle/controls';
-	import Tile from '$lib/puzzle/Tile.svelte';
+	import { settings } from '#lib/stores.js';
+	import { controls } from '#lib/puzzle/controls.js';
+	import Tile from '#lib/puzzle/Tile.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { PipesGame } from '$lib/puzzle/game.svelte.js';
+	import { PipesGame } from '#lib/puzzle/game.svelte.js';
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @property {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @property {Number[]} [tiles]
-	 * @property {import('$lib/puzzle/game.svelte').Progress|undefined} [savedProgress]
+	 * @property {import('#lib/puzzle/game.svelte.js').Progress|undefined} [savedProgress]
 	 * @property {string} [progressStoreName]
 	 * @property {Number|undefined} [preferredPxPerCell]
 	 * @property {boolean} [showSolveButton]
@@ -206,7 +206,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {import('$lib/puzzle/solver').Solver|undefined}
+	 * @type {import('#lib/puzzle/solver.js').Solver|undefined}
 	 */
 	let solver;
 	/**

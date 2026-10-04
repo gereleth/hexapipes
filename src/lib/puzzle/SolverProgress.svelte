@@ -2,7 +2,7 @@
 	
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('$lib/puzzle/solver').SolverProgress} progress
+	 * @property {import('#lib/puzzle/solver.js').SolverProgress} progress
 	 */
 
 	/** @type {Props} */

@@ -1,3 +1,5 @@
+import { defineParams } from '@sveltejs/kit/params';
+
 const pattern = new RegExp(
 	'^hexagonal$|^hexagonal-wrap$|' +
 		'^square$|^square-wrap$|' +
@@ -11,7 +13,21 @@ const pattern = new RegExp(
 		'^triangular$|^triangular-wrap$|'
 );
 
-/** @type {import('@sveltejs/kit').ParamMatcher} */
-export function match(param) {
+/**
+ * @param {string} param
+ */
+function matchGridkind(param) {
 	return pattern.test(param);
 }
+
+/**
+ * @param {string} param
+ */
+function matchInteger(param) {
+	return /^\d+$/.test(param);
+}
+
+export const params = defineParams({
+	gridkind: (param) => (matchGridkind(param) ? param : undefined),
+	integer: (param) => (matchInteger(param) ? param : undefined)
+});

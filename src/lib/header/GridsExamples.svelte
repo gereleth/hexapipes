@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/state';
-	import { gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
+	import { gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 	import ExamplePuzzle from './ExamplePuzzle.svelte';
 </script>
 

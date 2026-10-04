@@ -3,7 +3,7 @@
 
 	/** @typedef {Object} Props
 	 * @property {number} i - tile index
-	 * @property {import('$lib/puzzle/game.svelte').PipesGame} game
+	 * @property {import('#lib/puzzle/game.svelte.js').PipesGame} game
 	 * @property {number} [cx]
 	 * @property {number} [cy]
 	 */
@@ -15,7 +15,7 @@
 	 * @property {Number} x2
 	 * @property {Number} y1
 	 * @property {Number} y2
-	 * @property {import('$lib/puzzle/game.svelte').EdgeMark} edgemark
+	 * @property {import('#lib/puzzle/game.svelte.js').EdgeMark} edgemark
 	 * @property {Number} direction
 	 */
 

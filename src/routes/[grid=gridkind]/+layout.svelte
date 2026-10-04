@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
-	import Instructions from '$lib/Instructions.svelte';
-	import { gridInfo } from '$lib/puzzle/grids/grids';
+	import Instructions from '#lib/Instructions.svelte';
+	import { gridInfo } from '#lib/puzzle/grids/grids.js';
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('svelte').Snippet} [children]

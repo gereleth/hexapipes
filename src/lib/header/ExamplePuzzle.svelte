@@ -1,5 +1,5 @@
 <script>
-	import ExampleTile from '$lib/header/ExampleTile.svelte';
+	import ExampleTile from '#lib/header/ExampleTile.svelte';
 
 	
 	/**

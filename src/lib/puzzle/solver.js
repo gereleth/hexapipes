@@ -1,5 +1,5 @@
-import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
-import { OctaGrid } from '$lib/puzzle/grids/octagrid';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 
 /* Constraint Violation Exceptions */
 
@@ -49,7 +49,7 @@ function IslandDetectedException() {
 
 /**
  * @constructor
- * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
+ * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile} polygon
  * @param {Number} initial - initial orientation
  */
 export function Cell(polygon, initial) {
@@ -196,7 +196,7 @@ const emptyCallback = (/**@type {SolverProgress} */ progress) => {};
 /**
  * @constructor
  * @param {Number[]} tiles - tile index in grid
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  */
 export function Solver(tiles, grid) {
 	let self = this;
@@ -339,7 +339,7 @@ export function Solver(tiles, grid) {
 		const possibleBefore = cell.possible.size;
 
 		// collect neighbour tile types
-		/** @type {(import('$lib/puzzle/grids/polygonutils').TileType|null)[]} */
+		/** @type {(import('#lib/puzzle/grids/polygonutils.js').TileType|null)[]} */
 		const neighbourTiles = [];
 		const full = polygon.fully_connected;
 		let walls = 0;

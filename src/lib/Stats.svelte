@@ -1,9 +1,9 @@
 <script>
-	import { formatTime } from '$lib/Timer.svelte';
-	import { settings } from '$lib/stores';
+	import { formatTime } from '#lib/Timer.svelte';
+	import { settings } from '#lib/stores.js';
 	/** @typedef {Object} Props
-	 * @property {import('$lib/solvelogs.svelte').SolveStats} stats
-	 * @property {import('$lib/solvelogs.svelte').SolveStats} previousStats
+	 * @property {import('#lib/solvelogs.svelte.js').SolveStats} stats
+	 * @property {import('#lib/solvelogs.svelte.js').SolveStats} previousStats
 	 */
 	/** @type {Props}*/
 	const { stats, previousStats } = $props();

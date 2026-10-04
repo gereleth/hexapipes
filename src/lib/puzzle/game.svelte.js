@@ -123,7 +123,7 @@ export class PipesGame {
 
 	/**
 	 * @constructor
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {Number[]} tiles
 	 * @param {Progress|undefined} savedProgress
 	 */

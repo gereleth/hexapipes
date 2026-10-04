@@ -1,4 +1,4 @@
-import { Cell, Solver } from '$lib/puzzle/solver';
+import { Cell, Solver } from '#lib/puzzle/solver.js';
 
 /**
  * @typedef {'unique'|'multiple'|'whatever'} SolutionsNumber
@@ -32,7 +32,7 @@ function getRandomElement(array) {
 /**
  * Randomize tile rotations
  * @param {Number[]} tiles
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {Number[]}
  */
 function randomRotate(tiles, grid) {
@@ -50,7 +50,7 @@ function randomRotate(tiles, grid) {
 export class Generator {
 	/**
 	 * @constructor
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {Number} [reuse_tiles_min_count = 3] minimum count of connected tiles to leave when erasing ambiguities.
 	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous tiles did not decrease in this many iterations
 	 */
@@ -179,7 +179,7 @@ export class Generator {
 		/** @type {Map<Number, Number>} tile index => tile walls */
 		const borders = new Map();
 		/**
-		 * @type {Map<import('$lib/puzzle/grids/polygonutils').RegularPolygonTile, Map<Number, Set<Number>>>}
+		 * @type {Map<import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile, Map<Number, Set<Number>>>}
 		 * polygon => (tile walls => set of forbidden types-orientations) */
 		const polygonForbidden = new Map();
 		/** @type {Map<Number, Set<Number>>} tile index => forbidden orientations */

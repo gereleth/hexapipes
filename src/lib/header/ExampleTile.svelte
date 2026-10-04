@@ -6,7 +6,7 @@
 	 * @typedef {Object} Props
 	 * @property {Number} i
 	 * @property {Number} tile
-	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @property {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @property {number} [cx]
 	 * @property {number} [cy]
 	 */
