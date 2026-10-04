@@ -16,8 +16,7 @@
 		"bench": "vitest bench"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^3.0.0",
-		"@sveltejs/adapter-vercel": "^4.0.0",
+		"@sveltejs/adapter-vercel": "^6.3.4",
 		"@sveltejs/kit": "^2.5.27",
 		"@sveltejs/vite-plugin-svelte": "^4.0.0",
 		"@testing-library/svelte": "^5.2.0",
@@ -33,10 +32,12 @@
 		"vite": "^5.4.4",
 		"vitest": "^1.2.0"
 	},
+	"overrides": {
+		"cookie": "^0.7.0"
+	},
 	"type": "module",
 	"dependencies": {
 		"@fontsource/fira-mono": "^4.5.0",
-		"cookie": "^0.4.1",
 		"normalize-wheel": "^1.0.1",
 		"randomcolor": "0.6.2",
 		"transformation-matrix": "^2.15.0"
