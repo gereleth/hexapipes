@@ -50,8 +50,6 @@
 	let growthPlaying = $state(false);
 	let growthSpeed = $state(4);
 	let growthSeedFromSnapshot = $state(false);
-	/** @type {'auto'|'single-tree'} */
-	let growthStrategy = $state('auto');
 	/** @type {ReturnType<typeof setInterval>|undefined} */
 	let growthTimer;
 	let growthCarry = 0;
@@ -330,14 +328,7 @@
 		w.postMessage({
 			command: 'growth-start',
 			grid: growthGrid.export(),
-			options: {
-				layeringAmount,
-				branchingAmount,
-				avoidObvious,
-				startLayers,
-				reuseMinCount: 3,
-				strategy: growthStrategy
-			}
+			options: { layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount: 3 }
 		});
 		boardMode = 'growth';
 	}
@@ -544,13 +535,6 @@
 		</div>
 		<div class="row">
 			<button onclick={grow} disabled={generatorState === 'stepping'}>Grow</button>
-			<label>
-				strategy
-				<select bind:value={growthStrategy}>
-					<option value="auto">auto</option>
-					<option value="single-tree">single tree (legacy)</option>
-				</select>
-			</label>
 			<label>
 				<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's
 				survivors

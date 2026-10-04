@@ -1,8 +1,4 @@
-import {
-	LayeredGenerator,
-	pregenerate_layers,
-	pregenerate_layers_growthtree
-} from '$lib/puzzle/generator-layers';
+import { LayeredGenerator, pregenerate_layers } from '$lib/puzzle/generator-layers';
 import { LayeredSolver } from '$lib/puzzle/solver-layers';
 import { createGrid } from '$lib/puzzle/grids/grids';
 
@@ -128,29 +124,21 @@ function debugStop() {
  * @param {Number} [options.avoidObvious]
  * @param {(Number[]|null)[]} [options.startLayers]
  * @param {Number} [options.reuseMinCount]
- * @param {String} [options.strategy] - 'single-tree' forces the legacy
- * growth on a fresh board, anything else routes by startLayers
  */
 function growthStart(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	/** @param {import('$lib/puzzle/generator-layers').GrowthMove} move */
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
-	const layering = options.layeringAmount ?? 0.6;
-	const branching = options.branchingAmount ?? 0.5;
-	const avoid = options.avoidObvious ?? 0;
-	const grownTiles =
-		options.strategy === 'single-tree'
-			? pregenerate_layers_growthtree(grid_, layering, branching, avoid, [], 3, onMove)
-			: pregenerate_layers(
-					grid_,
-					layering,
-					branching,
-					avoid,
-					options.startLayers || [],
-					options.reuseMinCount ?? 3,
-					onMove
-				);
+	const grownTiles = pregenerate_layers(
+		grid_,
+		options.layeringAmount ?? 0.6,
+		options.branchingAmount ?? 0.5,
+		options.avoidObvious ?? 0,
+		options.startLayers || [],
+		options.reuseMinCount ?? 3,
+		onMove
+	);
 	postMessage({ msg: 'growth-done', tiles: grownTiles });
 }
 

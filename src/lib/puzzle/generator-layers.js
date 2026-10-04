@@ -66,26 +66,6 @@ function popcount(mask) {
 }
 
 /**
- * Checks if a cell hosts a deadend layer (one with at most one connection):
- * growing from such a layer extends a path instead of branching the tree
- * @param {Number[]} cellLayers
- * @returns {boolean}
- */
-function hasDeadendLayer(cellLayers) {
-	return cellLayers.some((layer) => popcount(layer) <= 1);
-}
-
-/**
- * Checks if a cell hosts a branched layer (one with at least two connections):
- * growing from such a layer forks the tree instead of extending a path
- * @param {Number[]} cellLayers
- * @returns {boolean}
- */
-function hasBranchedLayer(cellLayers) {
-	return cellLayers.some((layer) => popcount(layer) >= 2);
-}
-
-/**
  * Adds or removes one cell from one frontier list
  * @param {Number[]} list
  * @param {Number} cell
@@ -102,8 +82,9 @@ function syncFrontierList(list, cell, member) {
 
 /**
  * Number of subtrees grown simultaneously on fresh boards, scaling with
- * the board size: three on small boards, one more per 50 tiles,
- * see pregenerate_layers_multitree
+ * the board size: three on small boards, one more per 50 tiles.
+ * Reused components count toward it, fresh subtrees top it up,
+ * see pregenerate_layers_attempt
  * @param {Number} total
  * @returns {Number}
  */
@@ -478,8 +459,9 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 
 /**
  * A pregeneration growth event, see pregenerate_layers.
- * seed/erase/move/absorb/merge mirror the board mutations exactly,
- * demote/pop are frontier bookkeeping without board effects
+ * seed/move/merge mirror the board mutations exactly, demote/pop are
+ * frontier bookkeeping without board effects; erase/absorb are handled by
+ * the replay helpers and the debug page but currently never emitted
  * @typedef {{type: 'seed', cell: Number, role: String, layers: Number[]}|
  * {type: 'erase', cell: Number}|
  * {type: 'move', fromNode: Number, layerIndex: Number, direction: Number, neighbour: Number}|
@@ -490,10 +472,12 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  */
 
 /**
- * Frontier lists of one subtree split by growth kind, and the layer the
- * subtree owns per occupied cell. A subtree enters a cell at most once,
- * so it owns exactly one layer per cell it occupies
- * @typedef {{extending: Number[], branching: Number[], lastResort: Number[], layerAt: Map<Number, Number>}} Subtree
+ * Frontier lists of one subtree split by growth kind, holding sub-cell ids
+ * (cell + layer * total): each entry's kind is its own layer's degree. A
+ * reused component can host several sub-cells per cell (through-paths), so
+ * entries — not cells — are the frontier unit. `cells` is the set of cells
+ * the subtree occupies, for the own-tree move check
+ * @typedef {{extending: Number[], branching: Number[], lastResort: Number[], cells: Set<Number>}} Subtree
  */
 
 /**
@@ -507,21 +491,22 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * layers within a cell never connect to each other.
  * A direction can be used by at most one layer of a cell.
  * The result is always a single spanning tree over all sub-cells.
- * Fresh boards grow several subtrees simultaneously and merge them at the
- * end (see pregenerate_layers_multitree). Boards with reusable startLayers
- * grow a single tree that absorbs dormant islands of reused cells
- * (see pregenerate_layers_growthtree).
+ * Fresh boards grow `min(playable, max(3, floor(total / 50)))` subtrees
+ * simultaneously and merge them at the end (see
+ * pregenerate_layers_attempt). Boards with reusable startLayers grow their
+ * reused components as subtrees among them (see planReuse): the components
+ * keep their certified internal structure and simply keep growing, and the
+ * merge phase connects everything into one tree.
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {Number} layeringAmount - probability of growing into an already
  * occupied cell, values in range [0,1], 0 produces classic puzzles.
  * @param {Number} branchingAmount - value in range [0, 1], low values grow
- * by extending deadend layers (long corridor-like paths), high values grow
- * by branching layers of busy cells (Prim-like spread over the board)
+ * by extending deadend sub-cells (long corridor-like paths), high values grow
+ * by branching busy sub-cells (Prim-like spread over the board)
  * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders.
- * Ignored by the multi-subtree growth of fresh boards.
+ * Not applied by this growth.
  * @param {StartLayers} startLayers - solved layers of non-ambiguous cells, null for cells to regenerate.
- * A startLayers array with reusable cells switches to the single-tree
- * growth with island absorption.
+ * Reusable regions become growing subtrees.
  * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant when erasing ambiguities
  * @param {(move: GrowthMove) => void} [onMove] - reports growth events for animations,
  * each board mutation is mirrored by an event
@@ -536,432 +521,18 @@ export function pregenerate_layers(
 	reuseMinCount = 3,
 	onMove = undefined
 ) {
-	if (startLayers.length === grid.total && startLayers.some((cell) => Array.isArray(cell))) {
-		// reuse requested: single-tree growth with dormant island absorption
-		return pregenerate_layers_growthtree(
-			grid,
-			layeringAmount,
-			branchingAmount,
-			avoidObvious,
-			startLayers,
-			reuseMinCount,
-			onMove
-		);
-	}
-	return pregenerate_layers_multitree(grid, layeringAmount, branchingAmount, onMove);
-}
-
-/**
- * Single-tree layered growth with startLayers reuse.
- * Growing into an already visited cell adds a new layer there,
- * so the graph of sub-cells (cell + layer) always stays a tree.
- * The visited frontier is split by growth kind: cells hosting a deadend
- * layer extend a path, cells hosting a branched layer fork the tree,
- * and a cell can belong to both lists at once. A branchingAmount roll
- * picks which set to grow from (and which layer to grow when a cell hosts
- * both kinds), low values produce long corridor-like paths, high values
- * spread like Prim's algorithm.
- * Moves that would make any tile's layers union fully connected are a last resort.
- * Moves that would make a border tile's layers union an obvious
- * (orientation forced by the border walls) shape are demoted too.
- * Non-null startLayers regions of connected keepable cells are reused
- * verbatim (pruned to their internal edges): the largest one seeds the
- * growing tree, smaller ones stay dormant as islands until the tree grows
- * into them and absorbs them with a single connection. Layers of reused
- * components that end up without connections (e.g. they only connected
- * to ambiguous cells) are dropped.
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
- * @param {Number} layeringAmount - probability of growing into a visited cell again, values in range [0,1]
- * @param {Number} branchingAmount
- * @param {Number} avoidObvious
- * @param {StartLayers} startLayers
- * @param {Number} reuseMinCount
- * @param {(move: GrowthMove) => void} [onMove]
- * @returns {LayeredTiles} - unrandomized layered tiles
- */
-export function pregenerate_layers_growthtree(
-	grid,
-	layeringAmount,
-	branchingAmount,
-	avoidObvious,
-	startLayers,
-	reuseMinCount,
-	onMove
-) {
-	const total = grid.total;
-
-	/** @type {LayeredTiles} */
-	const layers = [];
-	for (let i = 0; i < total; i++) {
-		layers.push([]);
-	}
-
-	/** @type {Set<Number>} A set of unvisited cells */
-	const unvisited = new Set([...Array(total).keys()]);
-	for (let index of grid.emptyCells) {
-		unvisited.delete(index);
-	}
-	if (unvisited.size === 0) {
-		return layers;
-	}
-
-	const emit = /** @param {GrowthMove} move */ (move) => onMove?.(move);
-
-	/** @type {Number[]} visited cells hosting a deadend layer, growing from them extends a path */
-	const extending = [];
-	/** @type {Number[]} visited cells hosting a branched layer, growing from them forks the tree */
-	const branching = [];
-	/** @type {Number[]} cells whose only remaining moves make some tile's layers union an obvious shape */
-	const avoiding = [];
-	/** @type {Number[]} cells whose only remaining moves make some tile's layers union fully connected */
-	const lastResort = [];
-	/** @type {Set<Number>} cells listed in extending and/or branching */
-	const primaryCells = new Set();
-
-	/**
-	 * Syncs a cell's frontier memberships with its layers: it belongs in
-	 * extending while it hosts a deadend layer and in branching while it
-	 * hosts a branched layer, possibly in both at once. Cells sitting in
-	 * a demotion tier are left alone unless newly visited.
-	 * @param {Number} cell
-	 * @param {boolean} newlyVisited - the cell was not on the board before this move
-	 */
-	const updateFrontier = (cell, newlyVisited) => {
-		if (!primaryCells.has(cell) && !newlyVisited) {
-			return;
-		}
-		const wantsExtend = hasDeadendLayer(layers[cell]);
-		const wantsBranch = hasBranchedLayer(layers[cell]);
-		syncFrontierList(extending, cell, wantsExtend);
-		syncFrontierList(branching, cell, wantsBranch);
-		if (wantsExtend || wantsBranch) {
-			primaryCells.add(cell);
-		} else {
-			primaryCells.delete(cell);
-		}
-	};
-
-	/**
-	 * Removes a cell from all frontier lists (primary and demotion tiers).
-	 * Popped cells must leave the demotion tiers too: a tier cell whose
-	 * remaining moves are all disregarded would otherwise be picked and
-	 * popped forever (its situation can only get worse as neighbours grow),
-	 * spinning the growth loop instead of terminating.
-	 * @param {Number} cell
-	 */
-	const removeFromFrontier = (cell) => {
-		syncFrontierList(extending, cell, false);
-		syncFrontierList(branching, cell, false);
-		syncFrontierList(avoiding, cell, false);
-		syncFrontierList(lastResort, cell, false);
-		primaryCells.delete(cell);
-	};
-
-	/** @type {Map<Number, Set<Number>>} cell index => cells of the dormant island containing it */
-	const islands = new Map();
-
-	/** @type {Set<Number>} cells we reused that have been visited */
-	const liveFromBefore = new Set();
-
-	// reuse non-ambiguous portions of startLayers
-	if (startLayers.length === total) {
-		const plan = planReuse(grid, startLayers, reuseMinCount);
-		for (let [cell, cellPlan] of plan.cells) {
-			if (cellPlan.layers.length === 0) {
-				continue;
-			}
-			layers[cell] = cellPlan.layers;
-			// the event must snapshot the layers: the board keeps the
-			// cellPlan array and later pushes would mutate a shared payload
-			emit({ type: 'seed', cell, role: cellPlan.role, layers: [...cellPlan.layers] });
-			if (cellPlan.role === 'live') {
-				updateFrontier(cell, true);
-				unvisited.delete(cell);
-				liveFromBefore.add(cell);
-			} else if (cellPlan.role === 'island') {
-				islands.set(cell, /** @type {Set<Number>} */ (plan.islands.get(cell)));
-			}
-		}
-	}
-
-	/** @type {Map<Number, Set<Number>>} tile index => forbidden union masks */
-	const tileForbidden = new Map();
-	if (avoidObvious > 0) {
-		/** @type {Map<import('$lib/puzzle/grids/polygonutils').RegularPolygonTile, Map<Number, Set<Number>>>}
-		 * polygon => (tile walls => set of forbidden types-orientations) */
-		const polygonForbidden = new Map();
-		for (let tileIndex of unvisited) {
-			const polygon = grid.polygon_at(tileIndex);
-			let walls = 0;
-			for (let direction of polygon.directions) {
-				const { empty } = grid.find_neighbour(tileIndex, direction);
-				if (empty) {
-					walls += direction;
-				}
-			}
-			if (walls === 0) {
-				continue;
-			}
-			const forbidden = polygonForbidden.get(polygon) || new Map();
-			if (!polygonForbidden.has(polygon)) {
-				polygonForbidden.set(polygon, forbidden);
-			}
-			let wallForbidden = forbidden.get(walls);
-			if (!wallForbidden) {
-				wallForbidden = new Set();
-				forbidden.set(walls, wallForbidden);
-				/** @type {Map<String, Number[]>} shape string => orientations respecting the walls */
-				const orientationsByShape = new Map();
-				for (let orientation of polygon.tileTypes.keys()) {
-					if ((orientation & walls) > 0) {
-						continue;
-					}
-					const str = polygon.tileTypes.get(orientation)?.str || '';
-					const orientations = orientationsByShape.get(str) || [];
-					if (orientations.length === 0) {
-						orientationsByShape.set(str, orientations);
-					}
-					orientations.push(orientation);
-				}
-				for (let orientations of orientationsByShape.values()) {
-					if (orientations.length === 1) {
-						wallForbidden.add(orientations[0]);
-					}
-				}
-			}
-			if (wallForbidden.size > 0) {
-				tileForbidden.set(tileIndex, wallForbidden);
-			}
-		}
-	}
-
-	if (extending.length === 0 && branching.length === 0) {
-		const startIndex = [...unvisited][Math.floor(Math.random() * unvisited.size)];
-		unvisited.delete(startIndex);
-		// create the first layer on starting tile
-		layers[startIndex].push(0);
-		updateFrontier(startIndex, true);
-		emit({ type: 'seed', cell: startIndex, role: 'start', layers: [0] });
-	}
-
-	const checkFullyConnected = grid.KIND !== 'triangular';
-
-	while (unvisited.size > 0) {
-		// roll which kind of growth to use: extending a deadend layer
-		// (corridor-like) or branching a busy cell (Prim-like spread)
-		const useBranch = Math.random() < branchingAmount;
-		/** @type {Number[]} */
-		let sourceList = extending;
-		let fromNode = -1;
-		for (let nodes of useBranch
-			? [branching, extending, avoiding, lastResort]
-			: [extending, branching, avoiding, lastResort]) {
-			if (nodes.length === 0) {
-				continue;
-			}
-			sourceList = nodes;
-			fromNode = getRandomElement(nodes);
-			break;
-		}
-		if (fromNode === -1) {
-			throw 'Error in layered pregeneration: no frontier cells left while unvisited cells remain';
-		}
-
-		const polygon = grid.polygon_at(fromNode);
-		const cellLayers = layers[fromNode];
-		const used = usedDirections(cellLayers);
-		const opposite = grid.OPPOSITE;
-
-		/** @type {{direction: Number, neighbour: Number}[]} */
-		const moves = [];
-		/** @type {{direction: Number, neighbour: Number}[]} */
-		const obviousMoves = [];
-		/** @type {{direction: Number, neighbour: Number}[]} */
-		const fullyConnectedMoves = [];
-		for (let direction of polygon.directions) {
-			if ((used & direction) > 0) {
-				continue;
-			}
-			const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
-			if (empty) {
-				continue;
-			}
-			if (!unvisited.has(neighbour) && Math.random() > layeringAmount) {
-				continue;
-			}
-			if (
-				(liveFromBefore.has(fromNode) && liveFromBefore.has(neighbour)) ||
-				islands.get(fromNode)?.has(neighbour)
-			) {
-				// don't break what we reused
-				continue;
-			}
-			const backDirection = opposite.get(direction) || 0;
-			const neighbourUsed = usedDirections(layers[neighbour]);
-			if ((neighbourUsed & backDirection) > 0) {
-				throw 'Error in layered pregeneration: neighbour already connects back';
-			}
-			const fullyConnected =
-				checkFullyConnected &&
-				((used | direction) === polygon.fully_connected ||
-					(neighbourUsed | backDirection) === polygon.fully_connected);
-			if (fullyConnected && !unvisited.has(neighbour)) {
-				// completely disregard moves that make a tile fully connected
-				// without reaching unvisited places
-				continue;
-			}
-			let obvious = false;
-			if (
-				!fullyConnected &&
-				(tileForbidden.has(fromNode) || tileForbidden.has(neighbour)) &&
-				Math.random() < avoidObvious
-			) {
-				const nogo = tileForbidden.get(fromNode);
-				const neighbourNogo = tileForbidden.get(neighbour);
-				obvious = Boolean(
-					(nogo && nogo.has(used | direction)) ||
-						(neighbourNogo && neighbourNogo.has(neighbourUsed | backDirection))
-				);
-				if (obvious && !unvisited.has(neighbour)) {
-					// completely disregard moves that make a tile obvious
-					// without reaching unvisited places
-					continue;
-				}
-			}
-			const move = { direction, neighbour };
-			if (fullyConnected) {
-				fullyConnectedMoves.push(move);
-			} else if (obvious) {
-				obviousMoves.push(move);
-			} else {
-				moves.push(move);
-			}
-		}
-
-		const bestMoves =
-			moves.length > 0 ? moves : obviousMoves.length > 0 ? obviousMoves : fullyConnectedMoves;
-		if (bestMoves.length === 0) {
-			// no usable moves left, remove the cell from the frontier
-			emit({ type: 'pop', fromNode });
-			removeFromFrontier(fromNode);
-			continue;
-		}
-		// demotion needs another primary cell to try instead, otherwise
-		// the only frontier cell would just demote instead of moving on
-		const fromPrimary = sourceList === extending || sourceList === branching;
-		const otherPrimaryCells = primaryCells.size - (fromPrimary ? 1 : 0);
-		if (bestMoves === fullyConnectedMoves && otherPrimaryCells > 0) {
-			// wants to make a fully connected union, try other cells first
-			emit({ type: 'demote', fromNode, tier: 'lastResort' });
-			removeFromFrontier(fromNode);
-			lastResort.push(fromNode);
-			continue;
-		}
-		if (bestMoves === obviousMoves && otherPrimaryCells > 0) {
-			// wants to make an obvious tile, try other cells first
-			emit({ type: 'demote', fromNode, tier: 'avoiding' });
-			removeFromFrontier(fromNode);
-			avoiding.push(fromNode);
-			continue;
-		}
-
-		const { direction, neighbour } = getRandomElement(bestMoves);
-		// a free direction is free for every layer of the cell, so the layer
-		// to grow is picked after the direction, matching the rolled kind of
-		// growth: extend a deadend layer, or branch a busy one
-		/** @type {Number[]} */
-		const deadendLayers = [];
-		/** @type {Number[]} */
-		const branchedLayers = [];
-		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-			const connections = popcount(cellLayers[layerIndex]);
-			(connections <= 1 ? deadendLayers : branchedLayers).push(layerIndex);
-		}
-		const preferredLayers = useBranch ? branchedLayers : deadendLayers;
-		const otherLayers = useBranch ? deadendLayers : branchedLayers;
-		const layerIndex = getRandomElement(preferredLayers.length > 0 ? preferredLayers : otherLayers);
-		cellLayers[layerIndex] |= direction;
-		updateFrontier(fromNode, false);
-		const island = unvisited.has(neighbour) ? islands.get(neighbour) : undefined;
-		if (island !== undefined) {
-			// growing into a dormant island: absorb it by extending one of its
-			// existing layers with the new connection. Pushing a fresh layer
-			// would not connect to the island's sub-cells (layers within a
-			// cell never connect to each other)
-			layers[neighbour][0] |= opposite.get(direction) || 0;
-			for (let cell of island) {
-				unvisited.delete(cell);
-				updateFrontier(cell, true);
-			}
-			emit({
-				type: 'absorb',
-				fromNode,
-				layerIndex,
-				direction,
-				neighbour,
-				islandCells: [...island]
-			});
-		} else {
-			layers[neighbour].push(opposite.get(direction) || 0);
-			const fresh = unvisited.has(neighbour);
-			if (fresh) {
-				unvisited.delete(neighbour);
-			}
-			updateFrontier(neighbour, fresh);
-			emit({ type: 'move', fromNode, layerIndex, direction, neighbour });
-		}
-	}
-	return layers;
-}
-
-/**
- * Multi-subtree layered growth of fresh boards.
- * The subtree count scales with the board size (subtreeCountFor): three on
- * small boards, one more per 50 tiles. The subtrees grow simultaneously,
- * each like a classic growing
- * tree from its own random seed cell: a branchingAmount roll picks between
- * extending deadend layers (corridor-like) and branching busy cells
- * (Prim-like spread), per subtree. Edges are exclusive — a subtree never
- * uses an edge another subtree already took. Since a layer bitmask bit is
- * exactly the edge to the neighbouring cell, this also means at most one
- * layer of a cell can point in any given direction. A subtree may enter a
- * cell that another subtree occupies: that pushes a fresh layer there (a
- * new sub-cell for the entering subtree), which is how the board becomes
- * layered. Entering other subtrees' cells is gated by layeringAmount,
- * unvisited cells are always allowed. Fully-connected unions are a last
- * resort: such moves are demoted to a per-subtree tier like in the single
- * tree growth. An opening round gives every subtree one forced expansion
- * into an unvisited cell, so none can be sealed off before it ever grew.
- * Growth stops once every playable cell is visited by some subtree. The
- * subtrees are then joined into one tree: neighbouring cells whose
- * subtrees sit in different components get a free edge carved between
- * them, subtreeCount - 1 times, so no loops are introduced. Fully-connected
- * merge unions are a last resort too, and a merge is only taken when the
- * remaining components stay connected through free edges.
- * To keep the merging possible at all, mixed cells (several subtrees share
- * a cell) always keep a spare in-board free direction: layering entries and
- * non-expansion growth from shared cells must leave one. Growing can still
- * seal a subtree away from all merge connections on dense boards (rare,
- * random), so a failed attempt is simply retried on a fresh board and only
- * the successful attempt's events are reported.
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
- * @param {Number} layeringAmount - probability of growing into a cell another subtree occupies,
- * values in range [0,1]; 0 keeps the subtrees disjoint (a classic single-layer board after merging)
- * @param {Number} branchingAmount - value in range [0, 1], rolled per subtree move
- * @param {(move: GrowthMove) => void} [onMove] - reports growth events for animations
- * @returns {LayeredTiles} - unrandomized layered tiles
- */
-function pregenerate_layers_multitree(grid, layeringAmount, branchingAmount, onMove) {
 	// only the successful attempt's events are reported, so replays of the
 	// event stream mirror the returned board exactly
 	/** @type {GrowthMove[]} */
 	const attemptMoves = [];
 	for (let attempt = 0; ; attempt++) {
 		try {
-			const tiles = pregenerate_layers_multitree_attempt(
+			const tiles = pregenerate_layers_attempt(
 				grid,
 				layeringAmount,
 				branchingAmount,
+				startLayers,
+				reuseMinCount,
 				attemptMoves
 			);
 			for (let move of attemptMoves) {
@@ -978,15 +549,26 @@ function pregenerate_layers_multitree(grid, layeringAmount, branchingAmount, onM
 }
 
 /**
- * Runs one multi-subtree growth attempt, see pregenerate_layers_multitree.
- * Throws when the growth stalls or the subtrees cannot be merged
+ * Runs one growth attempt, see pregenerate_layers. Reusable startLayers
+ * components become growing subtrees, fresh ones are seeded until the
+ * size-based subtree count is reached. Throws when the growth stalls or
+ * the subtrees cannot be merged
  * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
  * @param {Number} layeringAmount
  * @param {Number} branchingAmount
+ * @param {StartLayers} startLayers
+ * @param {Number} reuseMinCount
  * @param {GrowthMove[]} attemptMoves - collects the attempt's growth events
  * @returns {LayeredTiles} - unrandomized layered tiles
  */
-function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmount, attemptMoves) {
+function pregenerate_layers_attempt(
+	grid,
+	layeringAmount,
+	branchingAmount,
+	startLayers,
+	reuseMinCount,
+	attemptMoves
+) {
 	const total = grid.total;
 
 	/** @type {LayeredTiles} */
@@ -1009,43 +591,36 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 	};
 	const opposite = grid.OPPOSITE;
 	const checkFullyConnected = grid.KIND !== 'triangular';
-	const treeCount = Math.min(subtreeCountFor(total), unvisited.size);
 
 	/** @type {Subtree[]} */
 	const trees = [];
-	for (let i = 0; i < treeCount; i++) {
-		trees.push({ extending: [], branching: [], lastResort: [], layerAt: new Map() });
-	}
 
 	/** @type {Map<Number, Number[]>} cell index => owning subtree ids, aligned with layers[cell] */
 	const owners = new Map();
 
 	/**
-	 * Syncs a cell's primary frontier memberships within one subtree: the
-	 * kind of the subtree's own layer decides between extending and
-	 * branching. Only called for cells the subtree may grow from.
+	 * Syncs a sub-cell's primary frontier memberships within one subtree:
+	 * the kind of the sub-cell's own layer decides between extending and
+	 * branching. Only called for sub-cells the subtree may grow from.
 	 * @param {Subtree} tree
-	 * @param {Number} cell
+	 * @param {Number} subCell
 	 */
-	const syncTreeFrontier = (tree, cell) => {
-		const layerIndex = tree.layerAt.get(cell);
-		if (layerIndex === undefined) {
-			return;
-		}
+	const syncTreeFrontier = (tree, subCell) => {
+		const [cell, layerIndex] = grid.cellLayerOf(subCell);
 		const wantsExtend = popcount(layers[cell][layerIndex]) <= 1;
-		syncFrontierList(tree.extending, cell, wantsExtend);
-		syncFrontierList(tree.branching, cell, !wantsExtend);
+		syncFrontierList(tree.extending, subCell, wantsExtend);
+		syncFrontierList(tree.branching, subCell, !wantsExtend);
 	};
 
 	/**
-	 * Removes a cell from all of one subtree's frontier lists
+	 * Removes a sub-cell from all of one subtree's frontier lists
 	 * @param {Subtree} tree
-	 * @param {Number} cell
+	 * @param {Number} subCell
 	 */
-	const removeFromTreeFrontier = (tree, cell) => {
-		syncFrontierList(tree.extending, cell, false);
-		syncFrontierList(tree.branching, cell, false);
-		syncFrontierList(tree.lastResort, cell, false);
+	const removeFromTreeFrontier = (tree, subCell) => {
+		syncFrontierList(tree.extending, subCell, false);
+		syncFrontierList(tree.branching, subCell, false);
+		syncFrontierList(tree.lastResort, subCell, false);
 	};
 
 	/**
@@ -1068,32 +643,31 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 	};
 
 	/**
-	 * Applies one growth move: extends the subtree's layer at fromNode and
-	 * pushes a fresh layer at the neighbour (fresh or occupied alike, that
-	 * is always a new sub-cell for this subtree)
+	 * Applies one growth move: extends the subtree's layer at the source
+	 * sub-cell and pushes a fresh layer at the neighbour cell (fresh or
+	 * occupied alike, that is always a new sub-cell for this subtree)
 	 * @param {Subtree} tree
 	 * @param {Number} treeIndex
-	 * @param {Number} fromNode
+	 * @param {Number} fromSubCell
 	 * @param {Number} direction
 	 * @param {Number} neighbour
-	 * @param {boolean} syncSource - whether the source cell's frontier kind
-	 * should be re-synced (demoted tier cells are left alone)
+	 * @param {boolean} syncSource - whether the source sub-cell's frontier
+	 * kind should be re-synced (demoted tier cells are left alone)
 	 */
-	const applyMove = (tree, treeIndex, fromNode, direction, neighbour, syncSource) => {
-		// the subtree owns exactly one layer here, and the direction is
-		// free for every layer of the cell
-		const layerIndex = /** @type {Number} */ (tree.layerAt.get(fromNode));
+	const applyMove = (tree, treeIndex, fromSubCell, direction, neighbour, syncSource) => {
+		// the direction is free for every layer of the cell
+		const [fromNode, layerIndex] = grid.cellLayerOf(fromSubCell);
 		layers[fromNode][layerIndex] |= direction;
 		if (syncSource) {
-			syncTreeFrontier(tree, fromNode);
+			syncTreeFrontier(tree, fromSubCell);
 		}
 		layers[neighbour].push(opposite.get(direction) || 0);
 		const fresh = unvisited.has(neighbour);
 		if (fresh) {
 			unvisited.delete(neighbour);
 		}
-		tree.layerAt.set(neighbour, layers[neighbour].length - 1);
-		syncTreeFrontier(tree, neighbour);
+		tree.cells.add(neighbour);
+		syncTreeFrontier(tree, grid.subcellId(neighbour, layers[neighbour].length - 1));
 		const neighbourOwners = owners.get(neighbour);
 		if (neighbourOwners) {
 			neighbourOwners.push(treeIndex);
@@ -1104,37 +678,39 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 	};
 
 	/**
-	 * Makes one growth move for a subtree: picks a frontier cell by the
-	 * rolled growth kind, then a random valid direction. Cells whose every
-	 * remaining move makes a fully-connected union are demoted to the
-	 * subtree's lastResort tier (if another primary cell can be tried
-	 * instead); cells without any remaining move leave the frontier.
+	 * Makes one growth move for a subtree: picks a frontier sub-cell by the
+	 * rolled growth kind, then a random valid direction of its cell.
+	 * Sub-cells whose every remaining move makes a fully-connected union
+	 * are demoted to the subtree's lastResort tier (if another primary
+	 * sub-cell can be tried instead); sub-cells without any remaining move
+	 * leave the frontier.
 	 * @param {Subtree} tree
 	 * @param {Number} treeIndex
 	 * @returns {boolean} whether a move was made
 	 */
 	const growTree = (tree, treeIndex) => {
 		for (;;) {
-			// roll which kind of growth to use: extending a deadend layer
-			// (corridor-like) or branching a busy cell (Prim-like spread)
+			// roll which kind of growth to use: extending a deadend sub-cell
+			// (corridor-like) or branching a busy one (Prim-like spread)
 			const useBranch = Math.random() < branchingAmount;
 			const tiers = useBranch
 				? [tree.branching, tree.extending, tree.lastResort]
 				: [tree.extending, tree.branching, tree.lastResort];
 			let sourceList = tree.lastResort;
-			let fromNode = -1;
+			let fromSubCell = -1;
 			for (let nodes of tiers) {
 				if (nodes.length === 0) {
 					continue;
 				}
 				sourceList = nodes;
-				fromNode = getRandomElement(nodes);
+				fromSubCell = getRandomElement(nodes);
 				break;
 			}
-			if (fromNode === -1) {
+			if (fromSubCell === -1) {
 				return false;
 			}
 			const fromPrimary = sourceList !== tree.lastResort;
+			const fromNode = grid.cellLayerOf(fromSubCell)[0];
 
 			const polygon = grid.polygon_at(fromNode);
 			const used = usedDirections(layers[fromNode]);
@@ -1142,7 +718,7 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 			// in-board free direction for the final merge connections —
 			// but expanding into unvisited cells stays always allowed,
 			// otherwise mixed cells could wall off unvisited pockets
-			const mixedSource = /** @type {Number[]} */ (owners.get(fromNode)).length > 1;
+			const mixedSource = new Set(/** @type {Number[]} */ (owners.get(fromNode))).size > 1;
 			const sourceSpares = mixedSource ? inBoardFreeDirections(fromNode) : 2;
 
 			/** @type {{direction: Number, neighbour: Number}[]} */
@@ -1157,7 +733,7 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 				if (empty) {
 					continue;
 				}
-				if (tree.layerAt.has(neighbour)) {
+				if (tree.cells.has(neighbour)) {
 					// own subtree: connecting would close a cycle
 					continue;
 				}
@@ -1201,13 +777,14 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 
 			const bestMoves = moves.length > 0 ? moves : fullyConnectedMoves;
 			if (bestMoves.length === 0) {
-				// no usable moves left, remove the cell from the frontier
+				// no usable moves left, remove the sub-cell from the frontier
 				emit({ type: 'pop', fromNode });
-				removeFromTreeFrontier(tree, fromNode);
+				removeFromTreeFrontier(tree, fromSubCell);
 				continue;
 			}
-			// demotion needs another primary cell to try instead, otherwise
-			// the only frontier cell would just demote instead of moving on
+			// demotion needs another primary sub-cell to try instead,
+			// otherwise the only frontier entry would just demote instead of
+			// moving on
 			if (
 				fromPrimary &&
 				bestMoves === fullyConnectedMoves &&
@@ -1215,50 +792,120 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 			) {
 				// wants to make a fully connected union, try other cells first
 				emit({ type: 'demote', fromNode, tier: 'lastResort' });
-				syncFrontierList(sourceList, fromNode, false);
-				tree.lastResort.push(fromNode);
+				syncFrontierList(sourceList, fromSubCell, false);
+				tree.lastResort.push(fromSubCell);
 				continue;
 			}
 
 			const { direction, neighbour } = getRandomElement(bestMoves);
-			applyMove(tree, treeIndex, fromNode, direction, neighbour, fromPrimary);
+			applyMove(tree, treeIndex, fromSubCell, direction, neighbour, fromPrimary);
 			return true;
 		}
 	};
 
-	// seed every subtree on its own distinct random cell
-	/** @type {Number[]} */
-	const playable = [...unvisited];
-	/** @type {Number[]} seed cell per subtree */
-	const seedCells = [];
-	for (let i = 0; i < treeCount; i++) {
-		const pick = i + Math.floor(Math.random() * (playable.length - i));
-		[playable[i], playable[pick]] = [playable[pick], playable[i]];
-		const cell = playable[i];
-		unvisited.delete(cell);
-		layers[cell].push(0);
-		trees[i].layerAt.set(cell, 0);
-		syncTreeFrontier(trees[i], cell);
-		owners.set(cell, [i]);
-		seedCells.push(cell);
-		emit({ type: 'seed', cell, role: 'start', layers: [0] });
+	// reused startLayers components become the first subtrees: their cells
+	// and layers are claimed up front (pruned to intra-component edges by
+	// planReuse), each sub-cell joins its component's frontier, and the
+	// component keeps growing like any freshly seeded one
+	if (startLayers.length === total) {
+		const plan = planReuse(grid, startLayers, reuseMinCount);
+		/** @type {Map<Set<Number>, Number[]>} island piece cell set => piece cells */
+		const islandGroups = new Map();
+		for (let [cell, cellPlan] of plan.cells) {
+			if (cellPlan.role === 'island') {
+				const piece = /** @type {Set<Number>} */ (plan.islands.get(cell));
+				const group = islandGroups.get(piece);
+				if (group) {
+					group.push(cell);
+				} else {
+					islandGroups.set(piece, [cell]);
+				}
+			}
+		}
+		/** @type {Number[][]} cell groups per reused component, live first */
+		const reusedGroups = [[]];
+		for (let [cell, cellPlan] of plan.cells) {
+			if (cellPlan.role === 'live') {
+				reusedGroups[0].push(cell);
+			}
+		}
+		for (let group of islandGroups.values()) {
+			reusedGroups.push(group);
+		}
+		for (let group of reusedGroups) {
+			if (group.length === 0) {
+				continue;
+			}
+			const treeIndex = trees.length;
+			/** @type {Subtree} */
+			const tree = { extending: [], branching: [], lastResort: [], cells: new Set() };
+			trees.push(tree);
+			for (let cell of group) {
+				const cellPlan = /** @type {{role: String, layers: Number[]}} */ (plan.cells.get(cell));
+				layers[cell] = cellPlan.layers;
+				owners.set(
+					cell,
+					cellPlan.layers.map(() => treeIndex)
+				);
+				unvisited.delete(cell);
+				tree.cells.add(cell);
+				for (let layerIndex = 0; layerIndex < cellPlan.layers.length; layerIndex++) {
+					syncTreeFrontier(tree, grid.subcellId(cell, layerIndex));
+				}
+				// the event must snapshot the layers: the board keeps the
+				// cellPlan array and later pushes would mutate a shared payload
+				emit({ type: 'seed', cell, role: cellPlan.role, layers: [...cellPlan.layers] });
+			}
+		}
 	}
 
-	// opening round: every subtree gets one forced expansion into an
+	// fresh subtrees top the count up: three on small boards, one more per
+	// 50 tiles, seeded on distinct random unvisited cells
+	const freshCount = Math.min(Math.max(0, subtreeCountFor(total) - trees.length), unvisited.size);
+	const freshStart = trees.length;
+	/** @type {Number[]} seed sub-cell per fresh subtree */
+	const seedCells = [];
+	{
+		/** @type {Number[]} */
+		const playable = [...unvisited];
+		for (let i = 0; i < freshCount; i++) {
+			const pick = i + Math.floor(Math.random() * (playable.length - i));
+			[playable[i], playable[pick]] = [playable[pick], playable[i]];
+			const cell = playable[i];
+			unvisited.delete(cell);
+			layers[cell].push(0);
+			const treeIndex = trees.length;
+			/** @type {Subtree} */
+			const tree = { extending: [], branching: [], lastResort: [], cells: new Set() };
+			trees.push(tree);
+			tree.cells.add(cell);
+			const seedId = grid.subcellId(cell, 0);
+			syncTreeFrontier(tree, seedId);
+			owners.set(cell, [treeIndex]);
+			seedCells.push(seedId);
+			emit({ type: 'seed', cell, role: 'start', layers: [0] });
+		}
+	}
+
+	// opening round: every fresh subtree gets one forced expansion into an
 	// unvisited cell, so none can lose the opening race and sit out the
 	// whole game as a never-grown mask-0 seed that is easily sealed off
 	// from all merge connections by its busy co-tenants. Targets are
 	// unvisited only (ungated), so layeringAmount 0 keeps its meaning
 	{
 		/** @type {Number[]} */
-		const order = trees.map((_, i) => i);
+		const order = [];
+		for (let i = freshStart; i < trees.length; i++) {
+			order.push(i);
+		}
 		for (let i = order.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1));
 			[order[i], order[j]] = [order[j], order[i]];
 		}
 		for (const treeIndex of order) {
 			const tree = trees[treeIndex];
-			const cell = seedCells[treeIndex];
+			const seedId = seedCells[treeIndex - freshStart];
+			const cell = grid.cellLayerOf(seedId)[0];
 			/** @type {Number[]} */
 			const directions = [];
 			for (let direction of grid.polygon_at(cell).directions) {
@@ -1270,7 +917,7 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 			if (directions.length > 0) {
 				const direction = /** @type {Number} */ (getRandomElement(directions));
 				const neighbour = /** @type {Number} */ (grid.find_neighbour(cell, direction).neighbour);
-				applyMove(tree, treeIndex, cell, direction, neighbour, true);
+				applyMove(tree, treeIndex, seedId, direction, neighbour, true);
 			}
 		}
 	}
@@ -1280,7 +927,7 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 	while (unvisited.size > 0) {
 		/** @type {Number[]} */
 		const growing = [];
-		for (let i = 0; i < treeCount; i++) {
+		for (let i = 0; i < trees.length; i++) {
 			if (alive[i]) {
 				growing.push(i);
 			}
@@ -1393,7 +1040,7 @@ function pregenerate_layers_multitree_attempt(grid, layeringAmount, branchingAmo
 		return seen.size === roots.size;
 	};
 
-	for (let mergesLeft = treeCount - 1; mergesLeft > 0; mergesLeft--) {
+	for (let mergesLeft = trees.length - 1; mergesLeft > 0; mergesLeft--) {
 		/** @type {MergeCandidate[]} */
 		const candidates = [];
 		/** @type {MergeCandidate[]} */
