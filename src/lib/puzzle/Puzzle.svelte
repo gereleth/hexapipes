@@ -123,7 +123,10 @@
 		} else {
 			svgWidth = maxPixelWidth;
 		}
-		svgHeight = Math.min(maxPixelHeight, pxPerCell * $viewBox.height);
+		// clamp the viewBox height to the grid extent, otherwise a previous
+		// shrink would permanently cap how tall the svg can grow back
+		const maxGridHeight = grid.YMAX - grid.YMIN;
+		svgHeight = Math.min(maxPixelHeight, pxPerCell * Math.max($viewBox.height, maxGridHeight));
 		$viewBox.width = svgWidth / pxPerCell;
 		$viewBox.height = svgHeight / pxPerCell;
 		// center grid if the puzzle fully fits inside bounds
