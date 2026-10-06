@@ -273,8 +273,8 @@
 				<li>
 					<a href="/custom">Custom puzzle page</a> now has a "branching" control. Low branching values
 					create puzzles with long winding corridors, high branching leads to lots of intersections and
-					deadends. This affects puzzle difficulty: try a wrap puzzle with low branching if you want
-					something evil.
+					deadends. This affects puzzle difficulty: try a wrap puzzle with low branching if you want something
+					evil.
 				</li>
 			</ul>
 		</li>

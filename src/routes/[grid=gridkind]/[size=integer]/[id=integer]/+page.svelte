@@ -2,7 +2,6 @@
 	import { page } from '$app/state';
 	import PuzzleKindWrapper from '#lib/puzzleWrapper/PuzzleKindWrapper.svelte';
 
-	
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('./$types').PageData} data

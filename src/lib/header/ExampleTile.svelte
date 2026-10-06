@@ -1,7 +1,4 @@
 <script>
-	
-	
-	
 	/**
 	 * @typedef {Object} Props
 	 * @property {Number} i
@@ -12,13 +9,7 @@
 	 */
 
 	/** @type {Props} */
-	let {
-		i,
-		tile,
-		grid,
-		cx = 0,
-		cy = 0
-	} = $props();
+	let { i, tile, grid, cx = 0, cy = 0 } = $props();
 
 	const bgColor = '#ddd';
 

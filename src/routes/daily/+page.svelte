@@ -187,10 +187,10 @@
 </div>
 
 <Puzzle
-	grid={grid}
+	{grid}
 	tiles={data.tiles}
-	savedProgress={savedProgress}
-	progressStoreName={progressStoreName}
+	{savedProgress}
+	{progressStoreName}
 	bind:this={puzzle}
 	finished={stop}
 	started={start}
@@ -218,7 +218,7 @@
 	</div>
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
-		startOver={startOver}
+		{startOver}
 		download={() => puzzle?.download()}
 		includeNewPuzzleButton={false}
 	/>
@@ -234,7 +234,7 @@
 	</div>
 {/if}
 
-<div class="timings"><Timer solve={solve} /></div>
+<div class="timings"><Timer {solve} /></div>
 
 {#if solvesLog}
 	<div class="stats">

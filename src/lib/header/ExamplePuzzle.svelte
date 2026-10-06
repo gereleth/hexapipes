@@ -1,7 +1,6 @@
 <script>
 	import ExampleTile from '#lib/header/ExampleTile.svelte';
 
-	
 	/**
 	 * @typedef {Object} Props
 	 * @property {any} grid
@@ -11,12 +10,7 @@
 	 */
 
 	/** @type {Props} */
-	let {
-		grid,
-		tiles,
-		svgWidth = 200,
-		svgHeight = 200
-	} = $props();
+	let { grid, tiles, svgWidth = 200, svgHeight = 200 } = $props();
 
 	const viewBox = $state({
 		xmin: grid.XMIN,
