@@ -227,9 +227,13 @@
 			{#if solved}
 				Solved!
 			{/if}
-			<a href="/{page.params.grid}/{page.params.size}" data-sveltekit-noscroll onclick={newPuzzle}
-				>Next puzzle</a
+			<a
+				href="/{page.params.grid}/{page.params.size}"
+				data-sveltekit-reset="false"
+				onclick={newPuzzle}
 			>
+				Next puzzle
+			</a>
 		{/if}
 	</div>
 	<PuzzleButtons
