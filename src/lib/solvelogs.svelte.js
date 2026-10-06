@@ -181,7 +181,6 @@ export class SolvesLog {
 	/**@type {Solve[]} */
 	solves = $state([]);
 	/** @type {SolveStats} */
-	previousstats = $state(defaultStats);
 	stats = $derived(_calculateStats(this.solves, this.isDaily));
 
 	/**
