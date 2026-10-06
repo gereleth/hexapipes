@@ -58,11 +58,16 @@
 	let pxPerCell = $state();
 	let solved = $state(false);
 	let mounted = $state(false);
+	// in order to disable onDestroy saving from a skipped puzzle
+	let progressSavesEnabled = $state(true);
 
 	/**
 	 * @param {{ data: any; name: String }} progressData
 	 */
 	function saveProgress(progressData) {
+		if (!progressSavesEnabled) {
+			return;
+		}
 		const { data, name } = progressData;
 		const dataStr = JSON.stringify(data);
 		window.localStorage.setItem(name, dataStr);
@@ -74,6 +79,7 @@
 	}
 
 	function start() {
+		progressSavesEnabled = true;
 		solve = solvesLog.reportStart(puzzleId);
 	}
 
@@ -125,6 +131,7 @@
 	function newPuzzle() {
 		if (!solved) {
 			solvesLog.skip();
+			progressSavesEnabled = false;
 			window.localStorage.removeItem(progressStoreName);
 			window.localStorage.removeItem(instanceStoreName);
 		}
