@@ -160,7 +160,7 @@
 	 * @param {number} timeout ms
 	 */
 	function createThrottle(callback, timeout) {
-		/** @type {number|null}*/
+		/** @type {ReturnType<typeof setTimeout>|null}*/
 		let throttleTimer = null;
 		const throttle = (callback, timeout) => {
 			if (throttleTimer !== null) return;
