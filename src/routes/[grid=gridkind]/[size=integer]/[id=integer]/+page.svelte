@@ -1,6 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import PuzzleKindWrapper from '#lib/puzzleWrapper/PuzzleKindWrapper.svelte';
+	import { asGridCategory } from '#lib/puzzle/grids/grids.js';
 
 	/**
 	 * @typedef {Object} Props
@@ -21,7 +22,7 @@
 	width={data.width}
 	height={data.height}
 	tiles={data.tiles}
-	category={page.params.grid}
+	category={asGridCategory(page.params.grid)}
 	size={Number(page.params.size)}
 	puzzleId={Number(page.params.id)}
 />

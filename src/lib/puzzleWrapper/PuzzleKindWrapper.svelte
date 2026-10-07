@@ -3,6 +3,7 @@
 	import { getSolves } from '#lib/solvelogs.svelte.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { parseGridCategory } from '#lib/puzzle/grids/grids.js';
 
 	import Stats from '#lib/Stats.svelte';
 	import PuzzleInstanceWrapper from './PuzzleInstanceWrapper.svelte';
@@ -26,10 +27,7 @@
 	let pathname = $derived(`/${category}/${size}/${puzzleId}`);
 	let progressStoreName = $derived(pathname + '_progress');
 	let instanceStoreName = $derived(`/${category}/${size}` + '_instance');
-	let wrap = $derived(category.endsWith('-wrap'));
-	let gridKind = /**@type {import('#lib/puzzle/grids/grids.js').GridKind}*/ $derived(
-		category.split('-')[0]
-	);
+	let { kind: gridKind, wrap } = $derived(parseGridCategory(category));
 
 	onMount(() => {
 		solvesLog = getSolves(page.url.pathname);
