@@ -18,7 +18,15 @@ import { Cell, Solver } from '#lib/puzzle/solver.js';
  * @property {SolutionsNumber} solutionsNumber
  */
 
-const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
+/**
+ * @typedef {(progress: GeneratorProgress) => void} GeneratorProgressCallback
+ */
+
+/**
+ * @typedef {(progress: import('#lib/puzzle/solver.js').SolverProgress) => void} SolverProgressCallback
+ */
+
+const emptyCallback = () => {};
 
 /**
  * Returns a random element from an array
@@ -53,6 +61,8 @@ export class Generator {
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {Number} [reuse_tiles_min_count = 3] minimum count of connected tiles to leave when erasing ambiguities.
 	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous tiles did not decrease in this many iterations
+	 * @param {SolverProgressCallback} [solver_progress_callback=emptyCallback]
+	 * @param {GeneratorProgressCallback} [generator_progress_callback=emptyCallback]
 	 */
 	constructor(
 		grid,
@@ -60,8 +70,8 @@ export class Generator {
 		uniqueness_patience = 5,
 		max_uniqueness_iterations = 100,
 		max_attempts = 100,
-		solver_progress_callback = undefined,
-		generator_progress_callback = undefined
+		solver_progress_callback = emptyCallback,
+		generator_progress_callback = emptyCallback
 	) {
 		this.grid = grid;
 		this.reuse_tiles_min_count = reuse_tiles_min_count;
@@ -69,7 +79,7 @@ export class Generator {
 		this.max_attempts = max_attempts;
 		this.max_uniqueness_iterations = max_uniqueness_iterations;
 		this.solver_progress_callback = solver_progress_callback;
-		this.generator_progress_callback = generator_progress_callback || emptyCallback;
+		this.generator_progress_callback = generator_progress_callback;
 	}
 
 	/**
@@ -112,7 +122,7 @@ export class Generator {
 			const to_check = new Set(unvisited);
 			const components = [];
 			while (to_check.size > 0) {
-				const index = to_check.values().next().value;
+				const index = /** @type {Number} */ (to_check.values().next().value);
 				to_check.delete(index);
 				if (startTiles[index] < 0) {
 					// ambiguous tile, ignore it
@@ -126,7 +136,7 @@ export class Generator {
 				const to_visit = new Set([index]);
 				const component = new Set();
 				while (to_visit.size > 0) {
-					const i = to_visit.values().next().value;
+					const i = /** @type {Number} */ (to_visit.values().next().value);
 					to_visit.delete(i);
 					to_check.delete(i);
 					component.add(i);
@@ -393,13 +403,9 @@ export class Generator {
 				let ambiguous = this.grid.total;
 				while (iteration < this.max_uniqueness_iterations) {
 					iteration += 1;
-					if (this.generator_progress_callback) {
-						this.generator_progress_callback({ attempt, iteration });
-					}
+					this.generator_progress_callback({ attempt, iteration });
 					const solver = new Solver(tiles, this.grid);
-					if (this.solver_progress_callback) {
-						solver.progress_callback = this.solver_progress_callback;
-					}
+					solver.progress_callback = this.solver_progress_callback;
 					const { solvable, marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
 						Math.min(ambiguous, ambiguousLimit)
 					);
@@ -439,14 +445,10 @@ export class Generator {
 			let attempt = 0;
 			while (attempt < this.max_attempts) {
 				attempt += 1;
-				if (this.generator_progress_callback) {
-					this.generator_progress_callback({ attempt, iteration: 1 });
-				}
+				this.generator_progress_callback({ attempt, iteration: 1 });
 				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
 				const solver = new Solver(tiles, this.grid);
-				if (this.solver_progress_callback) {
-					solver.progress_callback = this.solver_progress_callback;
-				}
+				solver.progress_callback = this.solver_progress_callback;
 				const { unique } = solver.markAmbiguousTiles(1);
 				if (!unique) {
 					return randomRotate(tiles, this.grid);
