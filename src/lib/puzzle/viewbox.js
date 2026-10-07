@@ -18,6 +18,9 @@ import { writable } from 'svelte/store';
  * @property {String} key
  */
 
+/**
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ */
 export function createViewBox(grid) {
 	const initial = {
 		xmin: grid.XMIN,
@@ -74,7 +77,7 @@ export function createViewBox(grid) {
 	/** @type {ViewBox} */
 	let lastBox;
 
-	const visibleTiles = writable([]);
+	const visibleTiles = writable(/** @type {VisibleTile[]} */ ([]));
 
 	subscribe((box) => {
 		lastBox = box;

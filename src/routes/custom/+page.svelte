@@ -82,9 +82,13 @@
 		generatorState = 'idle';
 	}
 
+	/**
+	 * @param {ProgressEvent<FileReader>} event
+	 */
 	function importPuzzle(event) {
 		try {
-			const data = JSON.parse(event.target.result);
+			const reader = /** @type {FileReader} */ (event.target);
+			const data = JSON.parse(/** @type {string} */ (reader.result));
 
 			const w = Number(data.width);
 			if (isNaN(w) || w < 2 || !Number.isInteger(w)) {
@@ -101,6 +105,7 @@
 			if (!data.tiles) {
 				throw 'Tiles list not found';
 			}
+			/** @type {Number[]} */
 			const t = data.tiles;
 			t.forEach((tile, index) => {
 				if (isNaN(tile)) {
@@ -131,8 +136,12 @@
 		}
 	}
 
+	/**
+	 * @param {Event} event
+	 */
 	function importFromFile(event) {
-		const files = event.target.files;
+		const input = /** @type {HTMLInputElement} */ (event.target);
+		const files = input.files;
 		if (files === null || files.length <= 0) {
 			// no data selected
 			return false;
