@@ -69,7 +69,7 @@ export function createViewBox(grid) {
 		return { xmin, ymin, width, height };
 	}
 
-	/** @type {NodeJS.Timer|null} */
+	/** @type {ReturnType<typeof setTimeout>|null} */
 	let visibleTilesTimeoutId = null;
 	/** @type {ViewBox} */
 	let lastBox;
