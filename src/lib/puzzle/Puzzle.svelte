@@ -41,17 +41,22 @@
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
 	// if a user navigates between puzzles directly via back/forward buttons
+	// svelte-ignore state_referenced_locally
 	const myProgressName = progressStoreName;
 
 	let svgWidth = $state(500);
 	let svgHeight = $state(500);
 
+	// built once per mount: every caller remounts Puzzle inside {#key} on puzzle change
+	// svelte-ignore state_referenced_locally
 	const game = new PipesGame(grid, tiles, savedProgress);
 
 	const pxPerCell = 60;
 
 	const viewBox = game.viewBox;
+	// svelte-ignore state_referenced_locally
 	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, 500 / pxPerCell);
+	// svelte-ignore state_referenced_locally
 	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, 500 / pxPerCell);
 	const visibleTiles = viewBox.visibleTiles;
 
