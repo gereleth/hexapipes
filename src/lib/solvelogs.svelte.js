@@ -399,6 +399,24 @@ export class SolvesLog {
 		this.solves.unshift(solve);
 		// this.save();
 	}
+
+	/**
+	 * Drop the newest solve if it's an unfinished legacy static instance (numeric id > 0)
+	 * Those puzzles were retired; the visitor just gets a fresh one
+	 * Dropping the solve means we don't interrupt their streak by refusing to provide
+	 * that particular instance.
+	 */
+	popUnfinishedLegacyInstance() {
+		const solve = this.solves[0];
+		if (
+			solve &&
+			typeof solve.puzzleId === 'number' &&
+			solve.puzzleId > 0 &&
+			solve.elapsedTime === -1
+		) {
+			this.solves.shift();
+		}
+	}
 }
 
 const solvesStores = new Map();

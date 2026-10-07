@@ -1,7 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
 	import { getSolves } from '#lib/solvelogs.svelte.js';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { parseGridCategory } from '#lib/puzzle/grids/grids.js';
 
@@ -31,13 +30,8 @@
 
 	onMount(() => {
 		solvesLog = getSolves(page.url.pathname);
-		const solves = solvesLog.solves;
-		const haveUnfinishedBusiness =
-			solves.length > 0 && solves[0].puzzleId !== -1 && solves[0].elapsedTime === -1;
-		if (haveUnfinishedBusiness) {
-			const id = solves[0].puzzleId;
-			goto(`/${category}/${size}/${id}`, { replace: true });
-		}
+		// drop a stale unfinished solve for a retired static instance, if any
+		solvesLog.popUnfinishedLegacyInstance();
 	});
 </script>
 
