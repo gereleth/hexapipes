@@ -50,6 +50,8 @@
 	/** @type {Puzzle|undefined}*/
 	let puzzle = $state();
 
+	// grid props are fixed per mount: pages remount this wrapper via {#key} on navigation
+	// svelte-ignore state_referenced_locally
 	let grid = createGrid(gridKind, width, height, wrap);
 
 	/** @type {import('#lib/puzzle/game.svelte.js').Progress|undefined} */

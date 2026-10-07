@@ -12,6 +12,8 @@
 	/** @type {Props} */
 	let { grid, tiles, svgWidth = 200, svgHeight = 200 } = $props();
 
+	// the example is static, all props are constants
+	// svelte-ignore state_referenced_locally
 	const viewBox = $state({
 		xmin: grid.XMIN,
 		width: grid.XMAX - grid.XMIN,
@@ -19,18 +21,25 @@
 		height: grid.YMAX - grid.YMIN
 	});
 
+	// svelte-ignore state_referenced_locally
 	const wpx = svgWidth / viewBox.width;
+	// svelte-ignore state_referenced_locally
 	const hpx = svgHeight / viewBox.height;
 	let pxPerCell = Math.min(wpx, hpx);
+	// svelte-ignore state_referenced_locally
 	viewBox.width = svgWidth / pxPerCell;
+	// svelte-ignore state_referenced_locally
 	viewBox.height = svgHeight / pxPerCell;
+	// svelte-ignore state_referenced_locally
 	if (viewBox.width > grid.XMAX - grid.XMIN) {
 		viewBox.xmin = (grid.XMAX + grid.XMIN - viewBox.width) * 0.5;
 	}
+	// svelte-ignore state_referenced_locally
 	if (viewBox.height > grid.YMAX - grid.YMIN) {
 		viewBox.ymin = (grid.YMAX + grid.YMIN - viewBox.height) * 0.5;
 	}
 
+	// svelte-ignore state_referenced_locally
 	const visibleTiles = grid.getVisibleTiles(viewBox);
 </script>
 

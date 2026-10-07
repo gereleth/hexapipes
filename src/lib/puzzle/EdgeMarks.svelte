@@ -26,7 +26,10 @@
 	 * @property {VisibleMark} mark
 	 */
 
+	// tile geometry is fixed per instance, game/i never change
+	// svelte-ignore state_referenced_locally
 	const tileState = game.tileStates[i];
+	// svelte-ignore state_referenced_locally
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 
 	// /** @type {VisibleMark[]} */
@@ -35,6 +38,7 @@
 	// /** @type {ReflectedMark[]} */
 	// let reflectedEdgeMarks = [];
 
+	// svelte-ignore state_referenced_locally
 	const width = game.grid.EDGEMARK_WIDTH;
 
 	let { visibleEdgeMarks, reflectedEdgeMarks } = $derived.by(() => {
