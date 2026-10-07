@@ -21,6 +21,8 @@
 	/** @type {Props} */
 	let { data } = $props();
 
+	// data is fixed per mount: nothing re-runs load for /daily, "Next puzzle" after midnight is a full reload
+	// svelte-ignore state_referenced_locally
 	let grid = createGrid(data.grid || 'hexagonal', data.width, data.height, data.wrap, data.tiles);
 
 	/** @type {import('#lib/solvelogs.svelte.js').Solve}*/
@@ -42,6 +44,7 @@
 	let savedProgress = $state(undefined);
 	let shareText = $state('');
 
+	// svelte-ignore state_referenced_locally
 	const nextPuzzleAt = new Date(data.date).valueOf() + 24 * 60 * 60 * 1000;
 	function formatTimeLeft() {
 		const now = new Date().valueOf();
@@ -67,6 +70,7 @@
 		const progress = window.localStorage.getItem(progressStoreName);
 		if (progress !== null) {
 			const parsed = JSON.parse(progress);
+			// svelte-ignore state_referenced_locally
 			if (parsed.date === data.date) {
 				savedProgress = parsed.progress;
 			}
