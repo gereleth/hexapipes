@@ -1,5 +1,5 @@
 import { TransformedPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
-import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from './hexagrid';
+import { HexaGrid, EAST, NORTHEAST, NORTHWEST, WEST, SOUTHWEST, SOUTHEAST } from './hexagrid.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 const DIRA = 1;

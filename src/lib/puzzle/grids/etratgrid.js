@@ -1,6 +1,6 @@
 import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
-import { HexaGrid } from './hexagrid';
+import { HexaGrid } from './hexagrid.js';
 
 const EAST = 1;
 const NORTH = 2;
