@@ -157,3 +157,8 @@ BFS from it sees no loop and no unreached tiles.
   details: see layers-solver doc.
 - `measureSolveTime` runs a full `solve(true)` for the stats readout, so heavy boards freeze the UI
   before animating — same exposure as classic.
+- `controls` (`controls.js`) and `EdgeMarks.svelte` type their `game` as the union
+  `PipesGame | LayeredPipesGame` — the layered game structurally lacks classic's
+  `initializes`/`totalTiles`, so the plain `PipesGame` type doesn't accept it. Both consumers only
+  touch the common API (`grid`, `viewBox`, `rotateTile`, `toggleLocked`, `toggleEdgeMark`,
+  `tileStates`). Don't "fix" the union by adding classic-only members to `LayeredPipesGame`.

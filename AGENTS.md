@@ -1,17 +1,15 @@
 # AGENTS.md
 
-Web-based logic puzzle game (pipes/Net variant), SvelteKit + Svelte 5 (repo is mid Svelte 3 → 5
-migration, runes are used in `.svelte.js` files). Prettier with tabs, JSDoc types everywhere, vitest
-for tests (see Tests). The `layers` branch hosts an experimental puzzle variant developed across
-several sessions — detailed docs live in `agent-doc/`.
+Web-based logic puzzle game (pipes/Net variant), SvelteKit + Svelte 5, runes in `.svelte` components
+and `.svelte.js` modules. Imports use the `#lib` package alias with explicit `.js` extensions (the
+`imports` field in `package.json`). Prettier with tabs, JSDoc types everywhere, vitest for tests
+(see Tests). The `layers` branch hosts an experimental puzzle variant developed across several
+sessions — detailed docs live in `agent-doc/`.
 
 ## Tests
 
-- Agents, one shot: `npx vitest run --exclude '**/dailies.test.js'` — the full suite minus dailies,
-  ~10 s.
-- `npm run test` runs the same exclusion, but in vitest **watch mode** — interactive, meant for
-  humans.
-- **Never run bare `npx vitest run`** or otherwise include `dailies.test.js` in a suite run.
+- Agents, one shot: `npx vitest run` — the full suite, ~25 s.
+- `npm run test` is the same suite in vitest **watch mode** — interactive, meant for humans.
 - Layered test suite:
   `npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers.test.js`
 
@@ -54,6 +52,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 
 ## Known quirks
 
-- Repo-wide `npm run check` reports ~42 pre-existing svelte-check errors from the migration; only
-  worry about new ones in touched files. `npm run lint` has 2 pre-existing warnings (`src/app.html`,
-  `src/routes/app.css`).
+- `npm run check` reports 0 errors and 18 warnings, all benign `state_referenced_locally` init
+  captures (annotate with `// svelte-ignore` only where the compiler needs it, as in
+  `Puzzle.svelte`); only worry about check findings you introduce in touched files. `npm run lint`
+  is clean.

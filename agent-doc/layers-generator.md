@@ -254,12 +254,12 @@ regression from active islands observed yet. Research continues on the `/generat
 
 ## Differences vs classic generator at a glance
 
-| Aspect            | classic                         | layered                                             |
-| ----------------- | ------------------------------- | --------------------------------------------------- |
-| revisit handling  | avoided (merges would loop)     | new layer on revisit, `layeringAmount` gate         |
+| Aspect            | classic                        | layered                                             |
+| ----------------- | ------------------------------ | --------------------------------------------------- |
+| revisit handling  | avoided (merges would loop)    | new layer on revisit, `layeringAmount` gate         |
 | branchingAmount   | Prim↔backtracker over frontier | extend-deadend vs branch lists (classic rule broke) |
-| fully-connected   | aesthetic demotion              | demotion + hard disregard when not reaching fresh   |
-| obvious avoidance | per-tile tileTypes + straights  | not ported (parameter accepted, unused)             |
-| reuse             | keepable tiles verbatim         | sub-cell components grown as subtrees, merged       |
-| uniqueness loop   | patience over ambiguous counts  | + limit cap, cap-saturation rule                    |
-| observability     | progress callbacks              | + `uniqueIterations` snapshots, GrowthMove events   |
+| fully-connected   | aesthetic demotion             | demotion + hard disregard when not reaching fresh   |
+| obvious avoidance | per-tile tileTypes + straights | not ported (parameter accepted, unused)             |
+| reuse             | keepable tiles verbatim        | sub-cell components grown as subtrees, merged       |
+| uniqueness loop   | patience over ambiguous counts | + limit cap, cap-saturation rule                    |
+| observability     | progress callbacks             | + `uniqueIterations` snapshots, GrowthMove events   |
