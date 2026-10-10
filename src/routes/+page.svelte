@@ -125,6 +125,25 @@
 	<h2>Changelog</h2>
 	<ul>
 		<li>
+			<em>2026-10-10</em> Still alive! I migrated this project to Svelte 5 and SvelteKit 3, fixed
+			some bugs and retired old static puzzle instances.
+			<ul>
+				<li>
+					Old hexagonal puzzle instances are deleted. Links to them (like /hexagonal/7/42) will now
+					redirect to a fresh puzzle of the same kind and size (like /hexagonal/7).
+				</li>
+				<li>
+					Fixed a bug where "skip a puzzle and refresh page" resulted in new puzzle loading with old
+					puzzle's progress and looking all mismatched.
+				</li>
+				<li>Fixed a resizing bug where a puzzle's height wouldn't grow with window height.</li>
+				<li>
+					Panning is now prevented if the puzzle fits fully inside view. It should now be impossible
+					to pan a small instance fully out of view.
+				</li>
+			</ul>
+		</li>
+		<li>
 			<em>2025-06-18</em> Coming out of a long hiatus with a couple of new grids! Check out a mix of
 			hexagons, squares and triangles on a
 			<a href="/rhombitrihexagonal/5">rhombitrihexagonal grid</a>
