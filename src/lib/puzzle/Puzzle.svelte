@@ -44,8 +44,8 @@
 	// svelte-ignore state_referenced_locally
 	const myProgressName = progressStoreName;
 
-	let svgWidth = $state(500);
-	let svgHeight = $state(500);
+	let svgWidth = $state(300);
+	let svgHeight = $state(300);
 
 	// built once per mount: every caller remounts Puzzle inside {#key} on puzzle change
 	// svelte-ignore state_referenced_locally
