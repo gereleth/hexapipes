@@ -18,6 +18,9 @@ import { writable } from 'svelte/store';
  * @property {String} key
  */
 
+/**
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ */
 export function createViewBox(grid) {
 	const initial = {
 		xmin: grid.XMIN,
@@ -41,10 +44,10 @@ export function createViewBox(grid) {
 		let ymin = box.ymin;
 		let width = box.width;
 		let height = box.height;
-		const dw = box.width - (grid.XMAX - grid.XMIN);
-		const dh = box.height - (grid.YMAX - grid.YMIN);
+		let dw = box.width - (grid.XMAX - grid.XMIN);
+		let dh = box.height - (grid.YMAX - grid.YMIN);
+		// zoomed too far out, bring them back
 		if (dw > 0 && dh > 0) {
-			// zoomed too far out, bring them back
 			if (dw <= dh) {
 				width = box.width - dw;
 				height = box.height - (dw * box.height) / box.width;
@@ -52,29 +55,34 @@ export function createViewBox(grid) {
 				height = box.height - dh;
 				width = box.width - (dh * box.width) / box.height;
 			}
-			xmin = 0.5 * (grid.XMIN + grid.XMAX) - width / 2;
-			ymin = 0.5 * (grid.YMIN + grid.YMAX) - height / 2;
+		}
+		dw = width - (grid.XMAX - grid.XMIN);
+		dh = height - (grid.YMAX - grid.YMIN);
+		if (dw < 0) {
+			// zoomed in horizontally, don't allow bounds to leave [XMIN, XMAX]
+			xmin = Math.max(grid.XMIN, xmin);
+			xmin = Math.min(xmin, grid.XMAX - width);
 		} else {
-			if (dw < 0) {
-				// zoomed in horizontally, don't allow bounds to leave [XMIN, XMAX]
-				xmin = Math.max(grid.XMIN, xmin);
-				xmin = Math.min(xmin, grid.XMAX - width);
-			}
-			if (dh < 0) {
-				// zoomed in vertically, don't allow bounds to leave [YMIN, YMAX]
-				ymin = Math.max(grid.YMIN, ymin);
-				ymin = Math.min(ymin, grid.YMAX - height);
-			}
+			// full grid width fits inside view, keep grid center in view center
+			xmin = 0.5 * (grid.XMIN + grid.XMAX) - width / 2;
+		}
+		if (dh < 0) {
+			// zoomed in vertically, don't allow bounds to leave [YMIN, YMAX]
+			ymin = Math.max(grid.YMIN, ymin);
+			ymin = Math.min(ymin, grid.YMAX - height);
+		} else {
+			// full grid height fits inside view, keep grid center in view center
+			ymin = 0.5 * (grid.YMIN + grid.YMAX) - height / 2;
 		}
 		return { xmin, ymin, width, height };
 	}
 
-	/** @type {NodeJS.Timer|null} */
+	/** @type {ReturnType<typeof setTimeout>|null} */
 	let visibleTilesTimeoutId = null;
 	/** @type {ViewBox} */
 	let lastBox;
 
-	const visibleTiles = writable([]);
+	const visibleTiles = writable(/** @type {VisibleTile[]} */ ([]));
 
 	subscribe((box) => {
 		lastBox = box;

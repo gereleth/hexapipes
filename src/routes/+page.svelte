@@ -1,14 +1,14 @@
 <script>
-	import { settings } from '$lib/stores';
+	import { settings } from '#lib/stores.js';
 	import { onMount } from 'svelte';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import { createGrid } from '$lib/puzzle/grids/grids';
-	import GridsExamples from '$lib/header/GridsExamples.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import { createGrid } from '#lib/puzzle/grids/grids.js';
+	import GridsExamples from '#lib/header/GridsExamples.svelte';
 
 	const hexGrid = createGrid('hexagonal', 4, 4, false);
 	const hexWrapGrid = createGrid('hexagonal', 4, 4, true);
-	let hexSolved = false;
-	let hexWrapSolved = false;
+	let hexSolved = $state(false);
+	let hexWrapSolved = $state(false);
 
 	onMount(() => {
 		settings.loadFromLocalStorage();
@@ -82,7 +82,7 @@
 <Puzzle
 	grid={hexGrid}
 	tiles={[1, 57, 2, 24, 40, 25, 10, 2, 4, 49, 22, 8, 48, 32, 5, 4]}
-	on:solved={() => (hexSolved = true)}
+	finished={() => (hexSolved = true)}
 />
 <div class="container">
 	<p class="congrat" class:hidden={!hexSolved}>
@@ -114,7 +114,7 @@
 <Puzzle
 	grid={hexWrapGrid}
 	tiles={[2, 27, 18, 2, 34, 2, 8, 1, 8, 16, 45, 1, 6, 48, 53, 9]}
-	on:solved={() => (hexWrapSolved = true)}
+	finished={() => (hexWrapSolved = true)}
 />
 
 <p class="congrat" class:hidden={!hexWrapSolved}>
@@ -124,6 +124,25 @@
 <div class="container">
 	<h2>Changelog</h2>
 	<ul>
+		<li>
+			<em>2026-10-10</em> Still alive! I migrated this project to Svelte 5 and SvelteKit 3, fixed
+			some bugs and retired old static puzzle instances.
+			<ul>
+				<li>
+					Old hexagonal puzzle instances are deleted. Links to them (like /hexagonal/7/42) will now
+					redirect to a fresh puzzle of the same kind and size (like /hexagonal/7).
+				</li>
+				<li>
+					Fixed a bug where "skip a puzzle and refresh page" resulted in new puzzle loading with old
+					puzzle's progress and looking all mismatched.
+				</li>
+				<li>Fixed a resizing bug where a puzzle's height wouldn't grow with window height.</li>
+				<li>
+					Panning is now prevented if the puzzle fits fully inside view. It should now be impossible
+					to pan a small instance fully out of view.
+				</li>
+			</ul>
+		</li>
 		<li>
 			<em>2025-06-18</em> Coming out of a long hiatus with a couple of new grids! Check out a mix of
 			hexagons, squares and triangles on a
@@ -273,8 +292,8 @@
 				<li>
 					<a href="/custom">Custom puzzle page</a> now has a "branching" control. Low branching values
 					create puzzles with long winding corridors, high branching leads to lots of intersections and
-					deadends. This affects puzzle difficulty: try a wrap puzzle with low branching if you want
-					something evil.
+					deadends. This affects puzzle difficulty: try a wrap puzzle with low branching if you want something
+					evil.
 				</li>
 			</ul>
 		</li>

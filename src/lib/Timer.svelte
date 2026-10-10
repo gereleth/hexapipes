@@ -1,4 +1,4 @@
-<script context="module">
+<script module>
 	/** Format duration in ms into "_d hh:mm:ss.sss"
 	 * @param {Number} time - duration in ms
 	 * @param {Boolean} includeMs - whether to include milliseconds in output
@@ -15,7 +15,7 @@
 		}
 		let timeStr = new Date(time).toISOString().substring(11, includeMs ? 23 : 19);
 		// cut off zero hours
-		if (timeStr.startsWith('00:')) {
+		if (days === 0 && timeStr.startsWith('00:')) {
 			timeStr = timeStr.slice(3);
 		}
 		result += timeStr;
@@ -24,24 +24,32 @@
 </script>
 
 <script>
-	import { settings } from '$lib/stores';
-	/** @type {import('$lib/stores').Solve} */
-	export let solve = {
-		puzzleId: -1,
-		startedAt: -1,
-		pausedAt: -1,
-		elapsedTime: -1,
-		error: undefined
-	};
+	import { settings } from '#lib/stores.js';
 
 	/**
-	 * @type {NodeJS.Timer}
+	 * @typedef {Object} Props
+	 * @property {import('#lib/solvelogs.svelte.js').Solve} [solve]
+	 */
+
+	/** @type {Props} */
+	let {
+		solve = {
+			puzzleId: -1,
+			startedAt: -1,
+			pausedAt: -1,
+			elapsedTime: -1,
+			error: undefined
+		}
+	} = $props();
+
+	/**
+	 * @type {ReturnType<typeof setTimeout>}
 	 */
 	let timerId;
-	let elapsed = 0;
+	let elapsed = $state(0);
 
 	/**
-	 * @param {import('$lib/stores').Solve} solve
+	 * @param {import('#lib/solvelogs.svelte.js').Solve} solve
 	 */
 	function toggleTimer(solve) {
 		clearInterval(timerId);
@@ -59,7 +67,9 @@
 		}
 	}
 
-	$: toggleTimer(solve);
+	$effect(() => {
+		toggleTimer(solve);
+	});
 </script>
 
 <div class="timer">

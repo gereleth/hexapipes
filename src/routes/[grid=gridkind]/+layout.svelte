@@ -1,19 +1,24 @@
 <script>
-	import { page } from '$app/stores';
-	import Instructions from '$lib/Instructions.svelte';
-	import { gridInfo } from '$lib/puzzle/grids/grids';
+	import { page } from '$app/state';
+	import Instructions from '#lib/Instructions.svelte';
+	import { gridInfo, parseGridCategory } from '#lib/puzzle/grids/grids.js';
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('svelte').Snippet} [children]
+	 */
 
-	$: category = $page.params.grid;
-	$: gridKind = category.split('-')[0];
-	$: wrap = category.split('-')[1] === 'wrap';
-	$: info = gridInfo[gridKind];
-	$: title = `${info.title} ` + (wrap ? ' Wrap' : '') + ' Pipes';
-	$: sizes = info.sizes;
+	/** @type {Props} */
+	let { children } = $props();
+
+	let { kind: gridKind, wrap } = $derived(parseGridCategory(page.params.grid));
+	let info = $derived(gridInfo[gridKind]);
+	let title = $derived(`${info.title} ` + (wrap ? ' Wrap' : '') + ' Pipes');
+	let sizes = $derived(info.sizes);
 </script>
 
 <svelte:head>
 	<title>
-		{$page.params.size}x{$page.params.size}
+		{page.params.size}x{page.params.size}
 		{title} Puzzle
 	</title>
 </svelte:head>
@@ -38,8 +43,8 @@
 		<span> Size:</span>
 		{#each sizes as size}
 			<a
-				href="/{$page.params.grid}/{size}"
-				class:active={$page.url.pathname.includes(`/${$page.params.grid}/${size}`)}
+				href="/{page.params.grid}/{size}"
+				class:active={page.url.pathname.includes(`/${page.params.grid}/${size}`)}
 			>
 				{size}x{size}
 			</a>
@@ -48,12 +53,12 @@
 </div>
 
 <div class="info container">
-	<h2>{$page.params.size}x{$page.params.size} {title} Puzzle</h2>
+	<h2>{page.params.size}x{page.params.size} {title} Puzzle</h2>
 
 	<p>Rotate the tiles so that all pipes are connected with no loops.</p>
 </div>
 
-<slot />
+{@render children?.()}
 
 <Instructions />
 

@@ -1,4 +1,5 @@
-import { settings } from '$lib/stores';
+import { settings } from '#lib/stores.js';
+import { get } from 'svelte/store';
 import normalizeWheel from 'normalize-wheel';
 
 /**
@@ -14,8 +15,8 @@ import normalizeWheel from 'normalize-wheel';
 
 /**
  * Attaches mouse/touch controls to the game area
- * @param {HTMLElement} node
- * @param {import('$lib/puzzle/game').PipesGame} game
+ * @param {Element & GlobalEventHandlers} node
+ * @param {import('#lib/puzzle/game.svelte.js').PipesGame} game
  * @returns
  */
 export function controls(node, game) {
@@ -31,10 +32,10 @@ export function controls(node, game) {
 	});
 
 	/**
-	 * @type {import('$lib/stores').Settings}
+	 * @type {import('#lib/stores.js').Settings}
 	 */
-	let currentSettings;
 	settings.loadFromLocalStorage();
+	let currentSettings = get(settings);
 	const unsubscribeSettings = settings.subscribe((s) => {
 		currentSettings = s;
 	});
@@ -84,7 +85,7 @@ export function controls(node, game) {
 		node.dispatchEvent(new CustomEvent('save'));
 	}
 
-	/** @type {NodeJS.Timer|undefined} */
+	/** @type {ReturnType<typeof setTimeout>} */
 	let edgeMarkTimer;
 	/**
 	 *
@@ -266,8 +267,8 @@ export function controls(node, game) {
 				if (leftButton) {
 					const { tileX, tileY } = mouseDownOrigin;
 					const timesRotate = game.grid.clickOrientTile(
-						tileState.data.tile,
-						tileState.data.rotations,
+						tileState.tile,
+						tileState.rotations,
 						x - tileX,
 						y - tileY,
 						tileIndex
@@ -354,7 +355,7 @@ export function controls(node, game) {
 	let ongoingTouches = [];
 	/**@type {'idle'|'touchdown'|'zoom_pan'|'panning'|'locking'|'unlocking'} */
 	let touchState = 'idle';
-	/** @type {NodeJS.Timer|undefined} */
+	/** @type {ReturnType<typeof setTimeout>} */
 	let touchTimer;
 	/**
 	 *
@@ -561,8 +562,8 @@ export function controls(node, game) {
 					} else if (currentSettings.controlMode === 'orient_lock') {
 						const { tileX, tileY } = t;
 						const timesRotate = game.grid.clickOrientTile(
-							tileState.data.tile,
-							tileState.data.rotations,
+							tileState.tile,
+							tileState.rotations,
 							x - tileX,
 							y - tileY,
 							tileIndex

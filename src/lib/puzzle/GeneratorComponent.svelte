@@ -1,23 +1,25 @@
 <script>
-	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import Worker from '$lib/puzzle/worker.js?worker';
-	import SolverProgress from '$lib/puzzle/SolverProgress.svelte';
+	import Worker from '#lib/puzzle/worker.js?worker';
+	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
 
-	/**@type {NodeJS.Timeout|undefined}*/
+	// callbacks for different generation outcomes
+	let { canceled, generated, errored } = $props();
+
+	/** @type {ReturnType<typeof setTimeout>} */
 	let timer;
 	/** @type {Worker|null} */
 	let worker = null;
-	let showGenProgress = false;
+	let showGenProgress = $state(false);
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
-	/** @type {import('$lib/puzzle/solver').SolverProgress[]}*/
-	let solverProgressItems = [];
-	const dispatch = createEventDispatcher();
+	/** @type {import('#lib/puzzle/solver.js').SolverProgress[]}*/
+	let solverProgressItems = $state([]);
 
 	/**
 	 *
-	 * @param {import('$lib/puzzle/generator').GeneratorOptions} options
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/generator.js').GeneratorOptions} options
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 */
 	export function generate(options, grid) {
 		worker = new Worker();
@@ -36,7 +38,7 @@
 	export function cancel() {
 		worker?.terminate();
 		showGenProgress = false;
-		dispatch('cancel');
+		canceled();
 	}
 
 	/**
@@ -45,11 +47,11 @@
 	 */
 	function onWorkerMessage(event) {
 		if (event.data.msg === 'generated') {
-			dispatch('generated', { tiles: event.data.tiles });
+			generated({ tiles: event.data.tiles });
 			showGenProgress = false;
 			clearTimeout(timer);
 		} else if (event.data.msg === 'error') {
-			dispatch('error', event.data.error);
+			errored(event.data.error);
 			showGenProgress = false;
 			clearTimeout(timer);
 		} else if (event.data.msg === 'generator_progress') {
@@ -72,7 +74,7 @@
 			rgba(170,255,170,1) 0%, 
 			rgba(255,255,255,0) 100%);"
 		>
-			Generating a puzzle... <button on:click={cancel}>Cancel</button>
+			Generating a puzzle... <button onclick={cancel}>Cancel</button>
 		</div>
 		{#each solverProgressItems as solverProgress, i (solverProgressItems.length - i)}
 			<SolverProgress progress={solverProgress} />

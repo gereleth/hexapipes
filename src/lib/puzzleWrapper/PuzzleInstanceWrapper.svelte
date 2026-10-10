@@ -1,79 +1,93 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
-	import { createGrid } from '$lib/puzzle/grids/grids';
-	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import Timer from '$lib/Timer.svelte';
+	import { createGrid } from '#lib/puzzle/grids/grids.js';
+	import GeneratorComponent from '#lib/puzzle/GeneratorComponent.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
+	import Timer from '#lib/Timer.svelte';
 	import { goto } from '$app/navigation';
 
-	/** @type {import('$lib/puzzle/grids/grids').GridKind} */
-	export let gridKind;
-	/** @type {Number} */
-	export let width;
-	/** @type {Number} */
-	export let height;
-	/** @type {Boolean} */
-	export let wrap;
-	/** @type {Number[]} */
-	export let tiles;
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('#lib/puzzle/grids/grids.js').GridKind} gridKind
+	 * @property {Number} width
+	 * @property {Number} height
+	 * @property {Boolean} wrap
+	 * @property {Number[]} tiles
+	 * @property {any} [puzzleId]
+	 * @property {String} progressStoreName
+	 * @property {String} instanceStoreName
+	 * @property {import('#lib/solvelogs.svelte.js').SolvesLog} solvesLog
+	 */
 
-	export let puzzleId = -1;
-	/** @type {String}*/
-	export let progressStoreName;
-	/** @type {String}*/
-	export let instanceStoreName;
-	/** @type {import('$lib/stores').SolvesStore}*/
-	export let solves;
+	/** @type {Props} */
+	let {
+		gridKind,
+		width,
+		height,
+		wrap,
+		tiles = $bindable(),
+		puzzleId = -1,
+		progressStoreName,
+		instanceStoreName,
+		solvesLog
+	} = $props();
 
-	/** @type {import('$lib/stores').Solve} */
-	let solve = {
+	/** @type {import('#lib/solvelogs.svelte.js').Solve} */
+	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
-		elapsedTime: -1,
-		error: undefined
-	};
+		elapsedTime: -1
+	});
 
-	let genId = 0;
+	let genId = $state(0);
 
-	/** @type {GeneratorComponent} */
-	let generatorComponent;
-	/** @type {Puzzle}*/
-	let puzzle;
+	/** @type {GeneratorComponent|undefined} */
+	let generatorComponent = $state();
+	/** @type {Puzzle|undefined}*/
+	let puzzle = $state();
 
+	// grid props are fixed per mount: pages remount this wrapper via {#key} on navigation
+	// svelte-ignore state_referenced_locally
 	let grid = createGrid(gridKind, width, height, wrap);
 
-	/** @type {import('$lib/puzzle/game').Progress|undefined} */
-	let savedProgress;
+	/** @type {import('#lib/puzzle/game.svelte.js').Progress|undefined} */
+	let savedProgress = $state();
 	/** @type {Number|undefined}*/
-	let pxPerCell;
-	let solved = false;
-	let mounted = false;
+	let pxPerCell = $state();
+	let solved = $state(false);
+	let mounted = $state(false);
+	// in order to disable onDestroy saving from a skipped puzzle
+	let progressSavesEnabled = $state(true);
 
 	/**
-	 * @param {{ detail: { data: any; name: String; }; }} event
+	 * @param {{ data: any; name: String }} progressData
 	 */
-	function saveProgress(event) {
-		const { data, name } = event.detail;
+	function saveProgress(progressData) {
+		if (!progressSavesEnabled) {
+			return;
+		}
+		const { data, name } = progressData;
 		const dataStr = JSON.stringify(data);
 		window.localStorage.setItem(name, dataStr);
 	}
 
 	function startOver() {
 		solved = false;
-		puzzle.startOver();
+		puzzle?.startOver();
 	}
 
 	function start() {
-		solve = solves.reportStart(puzzleId);
+		progressSavesEnabled = true;
+		solve = solvesLog.reportStart(puzzleId);
 	}
 
 	function stop() {
 		solved = true;
-		solve = solves.reportFinish(puzzleId);
+		solve = solvesLog.reportFinish(puzzleId);
 		window.localStorage.removeItem(progressStoreName);
 		if (puzzleId === -1) {
 			window.localStorage.removeItem(instanceStoreName);
@@ -81,7 +95,7 @@
 	}
 
 	function pause() {
-		solves.pause(puzzleId);
+		solvesLog.pause(puzzleId);
 	}
 
 	function generatePuzzle() {
@@ -105,7 +119,7 @@
 		} else if (gridKind === 'triangular') {
 			branchingAmount = 0;
 		}
-		generatorComponent.generate(
+		generatorComponent?.generate(
 			{
 				branchingAmount,
 				avoidObvious,
@@ -118,25 +132,26 @@
 
 	function newPuzzle() {
 		if (!solved) {
-			solves.skip();
+			solvesLog.skip();
+			progressSavesEnabled = false;
 			window.localStorage.removeItem(progressStoreName);
 			window.localStorage.removeItem(instanceStoreName);
 		}
 		if (puzzleId !== -1) {
-			goto(`/${$page.params.grid}/${$page.params.size}`, { replaceState: true });
+			goto(`/${page.params.grid}/${page.params.size}`, { replace: true });
 		} else {
-			pxPerCell = puzzle.reportPxPerCell();
+			pxPerCell = puzzle?.reportPxPerCell();
 			generatePuzzle();
 		}
 	}
 
 	/**
-	 * @param {{detail: {tiles: Number[]}}} event
+	 * @param {{tiles: Number[]}} data
 	 */
-	function onGenerated(event) {
-		tiles = event.detail.tiles;
+	function onGenerated(data) {
+		tiles = data.tiles;
 		genId += 1;
-		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles: tiles }));
+		window.localStorage.setItem(instanceStoreName, JSON.stringify({ tiles }));
 	}
 
 	onMount(() => {
@@ -171,12 +186,12 @@
 
 		function handleVisibilityChange() {
 			if (document.visibilityState === 'visible') {
-				const result = solves.unpause(puzzleId);
+				const result = solvesLog.unpause(puzzleId);
 				if (result !== undefined) {
 					solve = result;
 				}
 			} else {
-				const result = solves.pause(puzzleId);
+				const result = solvesLog.pause(puzzleId);
 				if (result !== undefined) {
 					solve = result;
 				}
@@ -192,9 +207,9 @@
 <div class="container">
 	<GeneratorComponent
 		bind:this={generatorComponent}
-		on:generated={onGenerated}
-		on:error={() => {}}
-		on:cancel={() => {}}
+		generated={onGenerated}
+		errored={() => {}}
+		canceled={() => {}}
 	/>
 </div>
 
@@ -207,10 +222,10 @@
 			{progressStoreName}
 			preferredPxPerCell={pxPerCell}
 			bind:this={puzzle}
-			on:start={start}
-			on:solved={stop}
-			on:progress={saveProgress}
-			on:pause={pause}
+			started={start}
+			finished={stop}
+			progress={saveProgress}
+			paused={pause}
 		/>
 	{/key}
 {/if}
@@ -222,17 +237,19 @@
 				Solved!
 			{/if}
 			<a
-				href="/{$page.params.grid}/{$page.params.size}"
-				data-sveltekit-noscroll
-				on:click={newPuzzle}>Next puzzle</a
+				href="/{page.params.grid}/{page.params.size}"
+				data-sveltekit-reset="false"
+				onclick={newPuzzle}
 			>
+				Next puzzle
+			</a>
 		{/if}
 	</div>
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
-		on:startOver={startOver}
-		on:newPuzzle={newPuzzle}
-		on:download={puzzle.download}
+		{startOver}
+		{newPuzzle}
+		download={() => puzzle?.download()}
 	/>
 </div>
 

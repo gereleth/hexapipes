@@ -1,33 +1,33 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 </script>
 
 <header>
-	<div class="corner" />
+	<div class="corner"></div>
 
 	<nav>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
 			<path d="M0,0 L1,2 C1.5,3 1.5,3 2,3 L2,0 Z" />
 		</svg>
 		<ul>
-			<li class:active={$page.url.pathname === '/'}>
+			<li class:active={page.url.pathname === '/'}>
 				<a data-sveltekit-preload-data href="/">Home</a>
 			</li>
-			<li class:active={$page.url.pathname === '/daily'}>
+			<li class:active={page.url.pathname === '/daily'}>
 				<a data-sveltekit-preload-data href="/daily">Daily</a>
 			</li>
 			<li
-				class:active={$page.url.pathname.startsWith('/hexagonal') ||
-					$page.url.pathname.startsWith('/square') ||
-					$page.url.pathname.startsWith('/octagonal') ||
-					$page.url.pathname.startsWith('/etrat') ||
-					$page.url.pathname.startsWith('/cube') ||
-					$page.url.pathname.startsWith('/trihexagonal') ||
-					$page.url.pathname.startsWith('/snubsquare') ||
-					$page.url.pathname.startsWith('/rhombitrihexagonal') ||
-					$page.url.pathname.startsWith('/triangular') ||
-					$page.url.pathname.startsWith('/custom') ||
-					$page.url.pathname.startsWith('/play')}
+				class:active={page.url.pathname.startsWith('/hexagonal') ||
+					page.url.pathname.startsWith('/square') ||
+					page.url.pathname.startsWith('/octagonal') ||
+					page.url.pathname.startsWith('/etrat') ||
+					page.url.pathname.startsWith('/cube') ||
+					page.url.pathname.startsWith('/trihexagonal') ||
+					page.url.pathname.startsWith('/snubsquare') ||
+					page.url.pathname.startsWith('/rhombitrihexagonal') ||
+					page.url.pathname.startsWith('/triangular') ||
+					page.url.pathname.startsWith('/custom') ||
+					page.url.pathname.startsWith('/play')}
 			>
 				<a data-sveltekit-preload-data href="/play">Play</a>
 			</li>
@@ -37,7 +37,7 @@
 		</svg>
 	</nav>
 
-	<div class="corner" />
+	<div class="corner"></div>
 </header>
 
 <style>

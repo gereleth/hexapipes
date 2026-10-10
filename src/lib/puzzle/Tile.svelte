@@ -1,64 +1,71 @@
 <script>
-	import { gridInfo } from './grids/grids';
-
-	/** @type {Number} i*/
-	export let i;
-
 	/**
-	 * @type {import('$lib/puzzle/game').PipesGame} game
+	 * @typedef {Object} Props
+	 * @property {import('#lib/puzzle/game.svelte.js').PipesGame} game
+	 * @property {Number} i
+	 * @property {Number} [cx]
+	 * @property {Number} [cy]
+	 * @property {boolean} [solved]
+	 * @property {import('#lib/stores.js').ControlMode} [controlMode]
 	 */
-	export let game;
-	export let cx = 0;
-	export let cy = 0;
-	export let solved = false;
-	export let controlMode = 'rotate_lock';
 
-	let state = game.tileStates[i];
-	const disconnectStrokeWidthScale = game.disconnectStrokeWidthScale;
-	const disconnectStrokeColor = game.disconnectStrokeColor;
+	/** @type {Props} */
+	let { i, game, cx = 0, cy = 0, solved = false, controlMode = 'rotate_lock' } = $props();
+
+	// tile geometry is fixed per instance, game/i never change
+	// svelte-ignore state_referenced_locally
+	let data = game.tileStates[i];
+	// svelte-ignore state_referenced_locally
 	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
 
-	let bgColor = '#aaa';
-	let strokeColor = '#888';
-	let strokeWidth = game.grid.STROKE_WIDTH;
-	let outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
+	// svelte-ignore state_referenced_locally
+	const myDirections = game.grid.getDirections(data.tile, 0, i);
 
-	const myDirections = game.grid.getDirections($state.tile, 0, i);
+	// svelte-ignore state_referenced_locally
+	const [guideX, guideY] = game.grid.getGuideDotPosition(data.tile, i);
 
-	const [guideX, guideY] = game.grid.getGuideDotPosition($state.tile, i);
-
+	// svelte-ignore state_referenced_locally
 	const pipeWidth = game.grid.PIPE_WIDTH;
 
-	let path = game.grid.getPipesPath($state.tile, i);
+	// svelte-ignore state_referenced_locally
+	let path = game.grid.getPipesPath(data.tile, i);
+	// svelte-ignore state_referenced_locally
 	const isSink = myDirections.length === 1;
 
+	// svelte-ignore state_referenced_locally
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
-	/**
-	 * Choose tile background color
-	 * @param {Boolean} locked
-	 * @param {Boolean} isPartOfLoop
-	 */
-	function chooseBgColor(locked, isPartOfLoop) {
-		if (isPartOfLoop) {
-			bgColor = locked ? '#f99' : '#fbb';
-		} else {
-			bgColor = locked ? '#bbb' : '#ddd';
-		}
-	}
 
-	$: if ($state.hasDisconnects) {
-		strokeColor = $disconnectStrokeColor;
-		strokeWidth = game.grid.STROKE_WIDTH * $disconnectStrokeWidthScale;
-	} else if ($state.isPartOfIsland) {
-		strokeColor = '#b55';
-		strokeWidth = game.grid.STROKE_WIDTH;
-	} else {
-		strokeColor = '#888';
-		strokeWidth = game.grid.STROKE_WIDTH;
-	}
-	$: chooseBgColor($state.locked, $state.isPartOfLoop);
-	$: outlineWidth = 2 * strokeWidth + game.grid.PIPE_WIDTH;
-	$: style = game.grid.polygon_at(i).style || undefined;
+	let bgColor = $derived.by(() => {
+		if (data.isPartOfLoop) {
+			return data.locked ? '#f99' : '#fbb';
+		} else {
+			return data.locked ? '#bbb' : '#ddd';
+		}
+	});
+
+	let { strokeColor, strokeWidth } = $derived.by(() => {
+		if (data.hasDisconnects) {
+			return {
+				strokeColor: game.disconnectStrokeColor,
+				strokeWidth: game.grid.STROKE_WIDTH * game.disconnectStrokeWidthScale
+			};
+		} else if (data.isPartOfIsland) {
+			return {
+				strokeColor: '#b55',
+				strokeWidth: game.grid.STROKE_WIDTH
+			};
+		} else {
+			return {
+				strokeColor: '#888',
+				strokeWidth: game.grid.STROKE_WIDTH
+			};
+		}
+	});
+
+	let outlineWidth = $derived(2 * strokeWidth + game.grid.PIPE_WIDTH);
+
+	// svelte-ignore state_referenced_locally
+	const style = game.grid.polygon_at(i).style || undefined;
 </script>
 
 <g class="tile" transform="translate({cx},{cy})" {style}>
@@ -74,7 +81,7 @@
 	<!-- Pipe shape -->
 	<g
 		class="pipe"
-		style="transform: {tile_transform} rotate({game.grid.getAngle($state.rotations, i)}rad)"
+		style="transform: {tile_transform} rotate({game.grid.getAngle(data.rotations, i)}rad)"
 	>
 		<!-- Pipe outline -->
 		<path
@@ -90,7 +97,7 @@
 				cx="0"
 				cy="0"
 				r={game.grid.SINK_RADIUS}
-				fill={$state.color}
+				fill={data.color}
 				stroke={strokeColor}
 				stroke-width={strokeWidth}
 				class="sink"
@@ -100,12 +107,12 @@
 		<path
 			class="inside"
 			d={path}
-			stroke={$state.color}
+			stroke={data.color}
 			stroke-width={pipeWidth}
 			stroke-linejoin={game.grid.LINE_JOIN}
 			stroke-linecap="round"
 		/>
-		{#if controlMode === 'orient_lock' && !$state.locked && !solved}
+		{#if controlMode === 'orient_lock' && !data.locked && !solved}
 			<!-- Guide dot -->
 			<circle
 				cx={guideX}

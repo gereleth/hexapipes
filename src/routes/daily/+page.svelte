@@ -1,37 +1,50 @@
 <script>
+	import { run } from 'svelte/legacy';
+
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import Timer, { formatTime } from '$lib/Timer.svelte';
-	import Stats from '$lib/Stats.svelte';
-	import { getSolves, getStats, settings } from '$lib/stores';
-	import { createGrid } from '$lib/puzzle/grids/grids';
-	import Instructions from '$lib/Instructions.svelte';
+	import { browser } from '$app/env';
+	import { page } from '$app/state';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
+	import Timer, { formatTime } from '#lib/Timer.svelte';
+	import Stats from '#lib/Stats.svelte';
+	import { settings } from '#lib/stores.js';
+	import { getSolves } from '#lib/solvelogs.svelte.js';
+	import { createGrid } from '#lib/puzzle/grids/grids.js';
+	import Instructions from '#lib/Instructions.svelte';
 
-	/** @type {import('./$types').PageData} */
-	export let data;
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('./$types').PageData} data
+	 */
 
+	/** @type {Props} */
+	let { data } = $props();
+
+	// data is fixed per mount: nothing re-runs load for /daily, "Next puzzle" after midnight is a full reload
+	// svelte-ignore state_referenced_locally
 	let grid = createGrid(data.grid || 'hexagonal', data.width, data.height, data.wrap, data.tiles);
 
-	let solve = {
+	/** @type {import('#lib/solvelogs.svelte.js').Solve}*/
+	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1
-	};
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
-	let puzzle;
-	let solved = false;
+	});
+	/** @type {import('#lib/puzzle/Puzzle.svelte').default|undefined}*/
+	let puzzle = $state();
+	let solved = $state(false);
 	let progressStoreName = '/daily_progress';
 	let pathname = '/daily';
 
-	let solves;
-	let stats;
-	let savedProgress = undefined;
-	let shareText = '';
+	/** @type {import('#lib/solvelogs.svelte.js').SolvesLog|undefined}*/
+	let solvesLog = $state();
+	let stats = $state();
+	let savedProgress = $state(undefined);
+	let shareText = $state('');
 
+	// svelte-ignore state_referenced_locally
 	const nextPuzzleAt = new Date(data.date).valueOf() + 24 * 60 * 60 * 1000;
 	function formatTimeLeft() {
 		const now = new Date().valueOf();
@@ -49,15 +62,15 @@
 			return `${seconds} second` + (seconds > 1 ? 's' : '');
 		}
 	}
-	let timeTillNextPuzzle = formatTimeLeft();
+	let timeTillNextPuzzle = $state(formatTimeLeft());
 
 	if (browser) {
-		solves = getSolves(pathname);
-		stats = getStats(pathname);
+		solvesLog = getSolves(pathname);
 
 		const progress = window.localStorage.getItem(progressStoreName);
 		if (progress !== null) {
 			const parsed = JSON.parse(progress);
+			// svelte-ignore state_referenced_locally
 			if (parsed.date === data.date) {
 				savedProgress = parsed.progress;
 			}
@@ -65,33 +78,46 @@
 	}
 
 	function start() {
-		solve = solves.reportStart(data.date);
+		if (solvesLog) {
+			solve = solvesLog.reportStart(data.date);
+		}
 	}
 
 	function stop() {
 		solved = true;
-		solve = solves.reportFinish(data.date);
+		if (solvesLog) {
+			solve = solvesLog.reportFinish(data.date);
+		}
 	}
 
-	function saveProgress(event) {
-		const dataStr = JSON.stringify({
-			date: data.date,
-			progress: event.detail.data
-		});
-		window.localStorage.setItem(event.detail.name, dataStr);
+	/**
+	 * @param {{name: string, data: any}} progressData
+	 */
+	function saveProgress(progressData) {
+		if (browser) {
+			const { name, data: progress } = progressData;
+			const dataStr = JSON.stringify({
+				date: data.date,
+				progress
+			});
+			window.localStorage.setItem(name, dataStr);
+		}
 	}
 
 	function startOver() {
 		solved = false;
-		puzzle.startOver();
+		puzzle?.startOver();
 	}
 
 	onMount(() => {
 		function handleVisibilityChange() {
+			if (solvesLog === undefined) {
+				return;
+			}
 			if (document.visibilityState === 'visible') {
-				solve = solves.unpause(data.date);
+				solve = solvesLog.unpause(data.date);
 			} else {
-				solve = solves.pause(data.date);
+				solve = solvesLog.pause(data.date);
 			}
 		}
 		document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -104,25 +130,35 @@
 		};
 	});
 
-	let shareButtonIcon = '📋';
+	let shareButtonIcon = $state('📋');
+	/**
+	 *
+	 * @param {import('#lib/solvelogs.svelte.js').Solve} solve
+	 * @param {boolean} showTimer
+	 */
 	function formatShareText(solve, showTimer) {
+		if (!solvesLog) {
+			return;
+		}
 		let streak = '';
-		if ($stats.streak > 1) {
-			streak = ` - ${$stats.streak} days streak`;
+		if (solvesLog.stats.streak > 1) {
+			streak = ` - ${solvesLog.stats.streak} days streak`;
 		}
 		if (showTimer) {
 			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it in ${formatTime(
 				solve.elapsedTime,
 				false
-			)}${streak}!\n${$page.url}`;
+			)}${streak}!\n${page.url}`;
 		} else {
-			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it${streak}!\n${$page.url}`;
+			shareText = `Daily #hexapipes puzzle ${data.date}\nSolved it${streak}!\n${page.url}`;
 		}
 	}
 
-	$: if (browser) {
-		formatShareText(solve, $settings.showTimer);
-	}
+	run(() => {
+		if (browser) {
+			formatShareText(solve, $settings.showTimer);
+		}
+	});
 
 	function copyShareText() {
 		navigator.clipboard.writeText(shareText).then(
@@ -160,10 +196,10 @@
 	{savedProgress}
 	{progressStoreName}
 	bind:this={puzzle}
-	on:solved={stop}
-	on:start={start}
-	on:progress={saveProgress}
-	on:pause={() => solves.pause(data.date)}
+	finished={stop}
+	started={start}
+	progress={saveProgress}
+	paused={() => solvesLog?.pause(data.date)}
 />
 
 <div class="container">
@@ -177,7 +213,7 @@
 	<div class="next">
 		{#if solve.elapsedTime !== -1}
 			{#if timeTillNextPuzzle === 'now'}
-				<a href="/daily" on:click={() => document.location.reload()}>Next puzzle</a>
+				<a href="/daily" onclick={() => document.location.reload()}>Next puzzle</a>
 			{:else}
 				Next daily puzzle in {timeTillNextPuzzle}.
 				<a href="/{data.grid}{data.wrap ? '-wrap' : ''}/5">Play some others for now</a>
@@ -186,8 +222,8 @@
 	</div>
 	<PuzzleButtons
 		solved={solve.elapsedTime !== -1}
-		on:startOver={startOver}
-		on:download={puzzle.download}
+		{startOver}
+		download={() => puzzle?.download()}
 		includeNewPuzzleButton={false}
 	/>
 </div>
@@ -195,18 +231,18 @@
 	<div class="container">
 		<div class="share">
 			<p>
-				Share your result: <button on:click={copyShareText}>{shareButtonIcon} Copy text</button>
+				Share your result: <button onclick={copyShareText}>{shareButtonIcon} Copy text</button>
 			</p>
-			<textarea cols="60" rows="3" bind:value={shareText} />
+			<textarea cols="60" rows="3" bind:value={shareText}></textarea>
 		</div>
 	</div>
 {/if}
-<div class="timings">
-	<Timer {solve} />
-</div>
-{#if stats}
+
+<div class="timings"><Timer {solve} /></div>
+
+{#if solvesLog}
 	<div class="stats">
-		<Stats {stats} />
+		<Stats stats={solvesLog.stats} previousStats={solvesLog.previousStats} />
 	</div>
 {/if}
 

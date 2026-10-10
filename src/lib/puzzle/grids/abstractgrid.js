@@ -94,8 +94,8 @@ export class AbstractGrid {
 	/**
 	 * Return polygon at index
 	 * @param {Number} index
-	 * @returns {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile|
-	 * import('$lib/puzzle/grids/polygonutils').TransformedPolygonTile}
+	 * @returns {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile|
+	 * import('#lib/puzzle/grids/polygonutils.js').TransformedPolygonTile}
 	 */
 	polygon_at(index) {
 		throw 'Implement polygon_at(index) method';
@@ -143,8 +143,8 @@ export class AbstractGrid {
 
 	/**
 	 * Given a viewbox return an array of visible tiles
-	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
-	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
+	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		throw 'Implement getVisibleTiles(box) method';
@@ -223,7 +223,7 @@ export class AbstractGrid {
 
 	/**
 	 * Tells if a point is close to one of tile's edges
-	 * @param {import('$lib/puzzle/controls').PointerOrigin} point
+	 * @param {import('#lib/puzzle/controls.js').PointerOrigin} point
 	 */
 	whichEdge(point) {
 		const { x, y, tileX, tileY, tileIndex } = point;

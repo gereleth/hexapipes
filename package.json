@@ -8,36 +8,39 @@
 		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./jsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./jsconfig.json --watch",
-		"lint": "prettier --check --plugin-search-dir=. .",
-		"format": "prettier --write --plugin-search-dir=. .",
-		"test": "vitest --exclude **/dailies.test.js",
-		"daily": "vitest run dailies",
+		"lint": "prettier --check .",
+		"format": "prettier --write .",
+		"test": "vitest",
+		"daily": "node scripts/generate-dailies.js",
 		"coverage": "vitest run --coverage",
 		"bench": "vitest bench"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^3.0.0",
-		"@sveltejs/adapter-vercel": "^4.0.0",
-		"@sveltejs/kit": "^2.0.0",
-		"@sveltejs/vite-plugin-svelte": "^3.0.0",
+		"@sveltejs/adapter-vercel": "^7.0.0",
+		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@testing-library/svelte": "^5.2.0",
-		"@types/cookie": "^0.5.1",
-		"@vitest/coverage-v8": "^1.6.0",
+		"@types/node": "^22.20.5",
+		"@vitest/coverage-v8": "^4.1.11",
 		"jsdom": "^20.0.0",
 		"prettier": "^3.1.1",
-		"prettier-plugin-svelte": "^3.1.2",
-		"svelte": "^4.2.7",
-		"svelte-check": "^3.6.0",
-		"typescript": "^5.0.0",
-		"vite": "^5.0.3",
-		"vitest": "^1.2.0"
+		"prettier-plugin-svelte": "^3.2.6",
+		"svelte": "^5.57.1",
+		"svelte-check": "^4.7.5",
+		"svelte-render-scan": "^1.1.0",
+		"typescript": "^6.0.0",
+		"vite": "^8.0.12",
+		"vitest": "^4.1.11"
 	},
 	"type": "module",
 	"dependencies": {
 		"@fontsource/fira-mono": "^4.5.0",
-		"cookie": "^0.4.1",
 		"normalize-wheel": "^1.0.1",
 		"randomcolor": "0.6.2",
 		"transformation-matrix": "^2.15.0"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
 	}
 }

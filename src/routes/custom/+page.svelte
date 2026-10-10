@@ -1,38 +1,38 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { createGrid, randomGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
-	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
-	import Instructions from '$lib/Instructions.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
+	import { createGrid, randomGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
+	import GeneratorComponent from '#lib/puzzle/GeneratorComponent.svelte';
+	import Instructions from '#lib/Instructions.svelte';
 
-	let state = 'idle';
-	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
-	let gridKind = 'hexagonal';
-	let width = 5;
-	let height = 5;
-	let wrap = false;
-	let branchingAmount = 0.6;
-	let avoidObvious = 0.0;
-	let avoidStraights = 0.0;
-	let autosolve = false;
-	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
-	let solutionsNumber = 'unique';
-	let errorMessage = '';
+	let generatorState = $state('idle');
+	/** @type {import('#lib/puzzle/grids/grids.js').GridKind}*/
+	let gridKind = $state('hexagonal');
+	let width = $state(5);
+	let height = $state(5);
+	let wrap = $state(false);
+	let branchingAmount = $state(0.6);
+	let avoidObvious = $state(0.0);
+	let avoidStraights = $state(0.0);
+	let autosolve = $state(false);
+	/** @type {import('#lib/puzzle/generator.js').SolutionsNumber}*/
+	let solutionsNumber = $state('unique');
+	let errorMessage = $state('');
 
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default}*/
-	let puzzle;
-	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default}*/
-	let generatorComponent;
-	let solved = false;
+	/** @type {import('#lib/puzzle/Puzzle.svelte').default|undefined}*/
+	let puzzle = $state();
+	/** @type {import('#lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
+	let generatorComponent = $state();
+	let solved = $state(false);
 
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
-	let grid;
+	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined}*/
+	let grid = $state();
 	/** @type {Number[]}*/
-	let tiles = [];
+	let tiles = $state([]);
 
-	let id = 0;
-	let animate = false;
+	let id = $state(0);
+	let animate = $state(false);
 
 	function generate() {
 		// ensure valid sizes
@@ -43,7 +43,7 @@
 			width += 1;
 		}
 		grid = createGrid(gridKind, width, height, wrap);
-		generatorComponent.generate(
+		generatorComponent?.generate(
 			{
 				branchingAmount,
 				avoidObvious,
@@ -52,39 +52,43 @@
 			},
 			grid
 		);
-		state = 'generating';
+		generatorState = 'generating';
 	}
 	/**
 	 *
-	 * @param {{detail: {tiles: Number[]}}} event
+	 * @param {{tiles: Number[]}} data
 	 */
-	async function onGenerated(event) {
+	async function onGenerated(data) {
 		id += 1;
-		tiles = event.detail.tiles;
+		tiles = data.tiles;
 		errorMessage = '';
-		state = 'idle';
+		generatorState = 'idle';
 		if (autosolve) {
 			await tick();
-			puzzle.unleashTheSolver();
+			puzzle?.unleashTheSolver();
 		}
 	}
 	/**
 	 *
-	 * @param {{detail: String}} event
+	 * @param {string} msg
 	 */
-	function onError(event) {
-		errorMessage = event.detail;
-		state = 'idle';
+	function onError(msg) {
+		errorMessage = msg;
+		generatorState = 'idle';
 	}
 
 	function onCancel() {
 		errorMessage = '';
-		state = 'idle';
+		generatorState = 'idle';
 	}
 
+	/**
+	 * @param {ProgressEvent<FileReader>} event
+	 */
 	function importPuzzle(event) {
 		try {
-			const data = JSON.parse(event.target.result);
+			const reader = /** @type {FileReader} */ (event.target);
+			const data = JSON.parse(/** @type {string} */ (reader.result));
 
 			const w = Number(data.width);
 			if (isNaN(w) || w < 2 || !Number.isInteger(w)) {
@@ -101,6 +105,7 @@
 			if (!data.tiles) {
 				throw 'Tiles list not found';
 			}
+			/** @type {Number[]} */
 			const t = data.tiles;
 			t.forEach((tile, index) => {
 				if (isNaN(tile)) {
@@ -131,8 +136,12 @@
 		}
 	}
 
+	/**
+	 * @param {Event} event
+	 */
 	function importFromFile(event) {
-		const files = event.target.files;
+		const input = /** @type {HTMLInputElement} */ (event.target);
+		const files = input.files;
 		if (files === null || files.length <= 0) {
 			// no data selected
 			return false;
@@ -147,7 +156,7 @@
 
 	function startOver() {
 		solved = false;
-		puzzle.startOver();
+		puzzle?.startOver();
 	}
 
 	onMount(() => {
@@ -190,7 +199,7 @@
 		Wrap
 		<input type="checkbox" name="wrap" id="wrap" bind:checked={wrap} />
 	</label>
-	<button on:click={generate} disabled={state === 'generating'}>Generate</button>
+	<button onclick={generate} disabled={generatorState === 'generating'}>Generate</button>
 	<details>
 		<summary>More options</summary>
 		<label for="branching">
@@ -247,26 +256,26 @@
 	</details>
 
 	<label class="file-input" for="file-input"> Import from file </label>
-	<input class="file-input" id="file-input" type="file" on:change={importFromFile} />
+	<input class="file-input" id="file-input" type="file" onchange={importFromFile} />
 
 	<GeneratorComponent
 		bind:this={generatorComponent}
-		on:generated={onGenerated}
-		on:error={onError}
-		on:cancel={onCancel}
+		generated={onGenerated}
+		errored={onError}
+		canceled={onCancel}
 	/>
 	{#if errorMessage !== ''}
 		<div class="error">{errorMessage}</div>
 	{/if}
 </div>
 
-{#if id > 0}
+{#if id > 0 && grid !== undefined}
 	{#key id}
 		<Puzzle
 			{grid}
 			{tiles}
 			bind:this={puzzle}
-			on:solved={() => (solved = true)}
+			finished={() => (solved = true)}
 			showSolveButton={true}
 			bind:animate
 		/>
@@ -276,10 +285,12 @@
 <div class="container buttons">
 	<PuzzleButtons
 		solved={true}
-		on:startOver={startOver}
+		{startOver}
 		includeNewPuzzleButton={true}
-		on:newPuzzle={generate}
-		on:download={puzzle.download}
+		newPuzzle={generate}
+		download={() => {
+			puzzle?.download();
+		}}
 	/>
 </div>
 

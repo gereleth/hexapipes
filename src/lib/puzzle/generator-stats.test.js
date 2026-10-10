@@ -158,42 +158,6 @@ describe('Test steps distribution', () => {
 });
 
 describe('Check difficulty', () => {
-	it.skip('Check difficulty of static instances', () => {
-		const results = [];
-		const deadends = new Set(new HexaGrid(2, 2, false).DIRECTIONS);
-		for (let wrap of [false, true]) {
-			for (let size of [5, 7, 10, 15, 20, 30, 40]) {
-				for (let i = 1; i <= 1000; i++) {
-					const path = `static/_instances/hexagonal${
-						wrap ? '-wrap' : ''
-					}/${size}x${size}/${Math.floor((i - 1) / 100)}/${i}.json`;
-					const data = fs.readFileSync(path, { encoding: 'utf-8' });
-					/** @type {{tiles:Number[]}} */
-					const instance = JSON.parse(data);
-					const grid = new HexaGrid(size, size, wrap);
-					const solver = new Solver(instance.tiles, grid);
-					let steps = 0;
-					for (let _ of solver.solve(true)) {
-						steps += 1;
-					}
-					results.push({
-						width: size,
-						height: size,
-						wrap,
-						numDeadends: instance.tiles.reduce((prev, x) => prev + (deadends.has(x) ? 1 : 0), 0),
-						id: i,
-						steps,
-						stepsPerTile: steps / grid.total
-					});
-				}
-			}
-		}
-		fs.writeFileSync(
-			'generator_stats/static_difficulty.json',
-			JSON.stringify(results, undefined, '\t')
-		);
-	});
-
 	it.skip('Check difficulty of generated instances', () => {
 		const results = [];
 		const deadends = new Set(new SquareGrid(2, 2, false).DIRECTIONS);
@@ -249,44 +213,6 @@ describe('Check difficulty', () => {
 		}
 		fs.writeFileSync(
 			'generator_stats/generated_difficulty_square.json',
-			JSON.stringify(results, undefined, '\t')
-		);
-	});
-
-	it.skip('Check tile distributions of static instances', () => {
-		const results = [];
-		for (let wrap of [false, true]) {
-			for (let size of [5, 7, 10, 15, 20, 30, 40]) {
-				/** @type {Map<String,Number>} */
-				const counts = new Map();
-				for (let i = 1; i <= 1000; i++) {
-					const path = `static/_instances/hexagonal${
-						wrap ? '-wrap' : ''
-					}/${size}x${size}/${Math.floor((i - 1) / 100)}/${i}.json`;
-					const data = fs.readFileSync(path, { encoding: 'utf-8' });
-					/** @type {{tiles:Number[]}} */
-					const instance = JSON.parse(data);
-					const grid = new HexaGrid(size, size, wrap);
-					const hexagon = grid.polygon_at(0);
-					const solver = new Solver(instance.tiles, grid);
-					for (let tile of instance.tiles) {
-						const tileType = hexagon.tileTypes.get(tile);
-						if (tileType === undefined) {
-							throw 'unknown tile type ' + tile;
-						}
-						counts.set(tileType.str, (counts.get(tileType.str) || 0) + 1);
-					}
-				}
-				results.push({
-					width: size,
-					height: size,
-					wrap,
-					tileCounts: [...counts.entries()]
-				});
-			}
-		}
-		fs.writeFileSync(
-			'generator_stats/static_tile_counts.json',
 			JSON.stringify(results, undefined, '\t')
 		);
 	});

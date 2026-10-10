@@ -1,5 +1,5 @@
-import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
-import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
+import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 export const EAST = 1;
 export const NORTHEAST = 2;
@@ -108,11 +108,7 @@ export class HexaGrid extends AbstractGrid {
 		const y0 = r0 * YSTEP;
 		const distance0 = Math.sqrt((x - x0) ** 2 + (y - y0) ** 2);
 		if (distance0 <= 0.5) {
-			return {
-				index: this.rc_to_index(r0, c0),
-				x: x0,
-				y: y0
-			};
+			return { index: this.rc_to_index(r0, c0), x: x0, y: y0 };
 		} else {
 			let r1 = Math.floor(r);
 			if (r1 === r0) {
@@ -123,17 +119,9 @@ export class HexaGrid extends AbstractGrid {
 			const y1 = r1 * YSTEP;
 			const distance1 = Math.sqrt((x - x1) ** 2 + (y - y1) ** 2);
 			if (distance0 < distance1) {
-				return {
-					index: this.rc_to_index(r0, c0),
-					x: x0,
-					y: y0
-				};
+				return { index: this.rc_to_index(r0, c0), x: x0, y: y0 };
 			} else {
-				return {
-					index: this.rc_to_index(r1, c1),
-					x: x1,
-					y: y1
-				};
+				return { index: this.rc_to_index(r1, c1), x: x1, y: y1 };
 			}
 		}
 	}
@@ -224,8 +212,8 @@ export class HexaGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
-	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
+	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		let rmin = Math.floor(box.ymin / YSTEP) - 1;
@@ -250,12 +238,7 @@ export class HexaGrid extends AbstractGrid {
 				const x = c + (r % 2 === 0 ? 0.0 : 0.5);
 				const y = r * YSTEP;
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}`;
-				visibleTiles.push({
-					index,
-					x,
-					y,
-					key
-				});
+				visibleTiles.push({ index, x, y, key });
 			}
 		}
 		return visibleTiles;

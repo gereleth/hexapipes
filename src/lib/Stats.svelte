@@ -1,75 +1,95 @@
 <script>
-	import { formatTime } from '$lib/Timer.svelte';
-	import { settings } from '$lib/stores';
-	export let stats; // a store of time and streak statistics
+	import { formatTime } from '#lib/Timer.svelte';
+	import { settings } from '#lib/stores.js';
+	/** @typedef {Object} Props
+	 * @property {import('#lib/solvelogs.svelte.js').SolveStats} stats
+	 * @property {import('#lib/solvelogs.svelte.js').SolveStats} previousStats
+	 */
+	/** @type {Props}*/
+	const { stats, previousStats } = $props();
 </script>
 
 <div class="stats container">
-	{#if $stats.streak !== -1}
+	{#if stats.streak !== -1}
 		{#if $settings.showTimer}
 			<div class="improvements">
-				{#if $stats.single.best < $stats.single.previousBest}
-					{#if Number.isFinite($stats.single.previousBest)}
+				{#if stats.bestTime < previousStats.bestTime}
+					{@const current = stats.bestTime}
+					{@const previous = previousStats.bestTime}
+					{#if Number.isFinite(previous)}
 						<p>
-							Improved best time: <strong>{formatTime($stats.single.best)}</strong>
-							(was {formatTime($stats.single.previousBest)})
+							Improved best time: <strong>{formatTime(current)}</strong>
+							(was {formatTime(previous)})
 						</p>
 					{:else}
-						<p>New best time: <strong>{formatTime($stats.single.best)}</strong></p>
+						<p>New best time: <strong>{formatTime(current)}</strong></p>
 					{/if}
 				{/if}
-				{#if $stats.meanOf3.best < $stats.meanOf3.previousBest}
-					{#if Number.isFinite($stats.meanOf3.previousBest)}
+				{#if stats.bestMeanOf3 < previousStats.bestMeanOf3}
+					{@const current = stats.bestMeanOf3}
+					{@const previous = previousStats.bestMeanOf3}
+					{#if Number.isFinite(previous)}
 						<p>
-							Improved <span class="metric" title="Mean of 3 consecutive solve times"
-								>mean of 3</span
-							>: <strong>{formatTime($stats.meanOf3.best)}</strong>
-							(was {formatTime($stats.meanOf3.previousBest)})
+							Improved <span class="metric" title="Mean of 3 consecutive solve times">
+								mean of 3
+							</span>:
+							<strong>{formatTime(current)}</strong>
+							(was {formatTime(previous)})
 						</p>
 					{:else}
 						<p>
-							New <span class="metric" title="Mean of 3 consecutive solve times">mean of 3</span>:
-							<strong>{formatTime($stats.meanOf3.best)}</strong>
+							New <span class="metric" title="Mean of 3 consecutive solve times"> mean of 3 </span>:
+							<strong>{formatTime(current)}</strong>
 						</p>
 					{/if}
 				{/if}
-				{#if $stats.averageOf5.best < $stats.averageOf5.previousBest}
-					{#if Number.isFinite($stats.averageOf5.previousBest)}
+				{#if stats.bestAverageOf5 < previousStats.bestAverageOf5}
+					{@const current = stats.bestAverageOf5}
+					{@const previous = previousStats.bestAverageOf5}
+					{#if Number.isFinite(previous)}
 						<p>
 							Improved <span
 								class="metric"
 								title="Mean of 5 consecutive solve times excluding the best and the worst time"
-								>average of 5</span
-							>: <strong>{formatTime($stats.averageOf5.best)}</strong>
-							(was {formatTime($stats.averageOf5.previousBest)})
+							>
+								average of 5
+							</span>:
+							<strong>{formatTime(current)}</strong>
+							(was {formatTime(previous)})
 						</p>
 					{:else}
 						<p>
 							New <span
 								class="metric"
 								title="Mean of 5 consecutive solve times excluding the best and the worst time"
-								>average of 5</span
-							>: <strong>{formatTime($stats.averageOf5.best)}</strong>
+							>
+								average of 5
+							</span>: <strong>{formatTime(current)}</strong>
 						</p>
 					{/if}
 				{/if}
-				{#if $stats.averageOf12.best < $stats.averageOf12.previousBest}
-					{#if Number.isFinite($stats.averageOf12.previousBest)}
+				{#if stats.bestAverageOf12 < previousStats.bestAverageOf12}
+					{@const current = stats.bestAverageOf12}
+					{@const previous = previousStats.bestAverageOf12}
+					{#if Number.isFinite(previous)}
 						<p>
 							Improved <span
 								class="metric"
 								title="Mean of 12 consecutive solve times excluding the best and the worst time"
-								>average of 12</span
-							>: <strong>{formatTime($stats.averageOf12.best)}</strong>
-							(was {formatTime($stats.averageOf12.previousBest)})
+							>
+								average of 12
+							</span>:
+							<strong>{formatTime(current)}</strong>
+							(was {formatTime(previous)})
 						</p>
 					{:else}
 						<p>
 							New <span
 								class="metric"
 								title="Mean of 12 consecutive solve times excluding the best and the worst time"
-								>average of 12</span
-							>: <strong>{formatTime($stats.averageOf12.best)}</strong>
+							>
+								average of 12
+							</span>: <strong>{formatTime(current)}</strong>
 						</p>
 					{/if}
 				{/if}
@@ -78,11 +98,11 @@
 		<div class="details">
 			<details>
 				<summary>Solve stats</summary>
-				<p>Total puzzles solved: {$stats.totalSolved} ({$stats.streak} in a row)</p>
+				<p>Total puzzles solved: {stats.totalSolved} ({stats.streak} in a row)</p>
 				<table>
 					<thead>
 						<tr>
-							<th />
+							<th></th>
 							<th>Current</th>
 							<th>Best</th>
 						</tr>
@@ -90,15 +110,15 @@
 					<tbody>
 						<tr>
 							<td>Single puzzle</td>
-							<td>{formatTime($stats.single.current)}</td>
-							<td>{formatTime($stats.single.best)}</td>
+							<td>{formatTime(stats.currentTime)}</td>
+							<td>{formatTime(stats.bestTime)}</td>
 						</tr>
 						<tr>
 							<td
 								><span class="metric" title="Mean of 3 consecutive solve times">Mean of 3</span></td
 							>
-							<td>{formatTime($stats.meanOf3.current)}</td>
-							<td>{formatTime($stats.meanOf3.best)}</td>
+							<td>{formatTime(stats.meanOf3)}</td>
+							<td>{formatTime(stats.bestMeanOf3)}</td>
 						</tr>
 						<tr>
 							<td
@@ -108,8 +128,8 @@
 									>Average of 5</span
 								></td
 							>
-							<td>{formatTime($stats.averageOf5.current)}</td>
-							<td>{formatTime($stats.averageOf5.best)}</td>
+							<td>{formatTime(stats.averageOf5)}</td>
+							<td>{formatTime(stats.bestAverageOf5)}</td>
 						</tr>
 						<tr>
 							<td
@@ -119,8 +139,8 @@
 									>Average of 12</span
 								></td
 							>
-							<td>{formatTime($stats.averageOf12.current)}</td>
-							<td>{formatTime($stats.averageOf12.best)}</td>
+							<td>{formatTime(stats.averageOf12)}</td>
+							<td>{formatTime(stats.bestAverageOf12)}</td>
 						</tr>
 					</tbody>
 				</table>

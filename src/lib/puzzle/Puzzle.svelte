@@ -1,44 +1,63 @@
 <script>
-	import { settings } from '$lib/stores';
-	import { controls } from '$lib/puzzle/controls';
-	import Tile from '$lib/puzzle/Tile.svelte';
-	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
-	import { PipesGame } from '$lib/puzzle/game';
+	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
+	import { settings } from '#lib/stores.js';
+	import { controls } from '#lib/puzzle/controls.js';
+	import Tile from '#lib/puzzle/Tile.svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { PipesGame } from '#lib/puzzle/game.svelte.js';
 	import { Solver } from './solver';
 	import EdgeMarks from './EdgeMarks.svelte';
 
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}*/
-	export let grid;
-	/** @type {Number[]} */
-	export let tiles = [];
-	/** @type {import('$lib/puzzle/game').Progress|undefined}*/
-	export let savedProgress = undefined;
-	export let progressStoreName = '';
-	/** @type {Number|undefined} */
-	export let preferredPxPerCell = undefined;
-	export let showSolveButton = false;
-	export let animate = false;
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @property {Number[]} [tiles]
+	 * @property {import('#lib/puzzle/game.svelte.js').Progress|undefined} [savedProgress]
+	 * @property {string} [progressStoreName]
+	 * @property {Number|undefined} [preferredPxPerCell]
+	 * @property {boolean} [showSolveButton]
+	 * @property {boolean} [animate]
+	 * @property {()=>void} [started]
+	 * @property {()=>void} finished
+	 * @property {(x:{name:string, data:any})=>void} [progress]
+	 * @property {()=>void} [paused]
+	 */
+
+	/** @type {Props} */
+	let {
+		grid,
+		tiles = [],
+		savedProgress = undefined,
+		progressStoreName = '',
+		preferredPxPerCell = undefined,
+		showSolveButton = false,
+		animate = $bindable(false),
+		started = () => {},
+		finished,
+		progress = () => {},
+		paused = () => {}
+	} = $props();
 
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
 	// if a user navigates between puzzles directly via back/forward buttons
+	// svelte-ignore state_referenced_locally
 	const myProgressName = progressStoreName;
 
-	let svgWidth = 500;
-	let svgHeight = 500;
+	let svgWidth = $state(300);
+	let svgHeight = $state(300);
 
-	let game = new PipesGame(grid, tiles, savedProgress);
-	let solved = game.solved;
+	// built once per mount: every caller remounts Puzzle inside {#key} on puzzle change
+	// svelte-ignore state_referenced_locally
+	const game = new PipesGame(grid, tiles, savedProgress);
 
-	const dispatch = createEventDispatcher();
-
-	let innerWidth = 500;
-	let innerHeight = 500;
 	const pxPerCell = 60;
 
 	const viewBox = game.viewBox;
-	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, innerWidth / pxPerCell);
-	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, innerHeight / pxPerCell);
+	// svelte-ignore state_referenced_locally
+	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, 500 / pxPerCell);
+	// svelte-ignore state_referenced_locally
+	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, 500 / pxPerCell);
 	const visibleTiles = viewBox.visibleTiles;
 
 	export const startOver = function () {
@@ -50,15 +69,15 @@
 	};
 
 	/**
-	 * @param {Number} innerWidth
-	 * @param {Number} innerHeight
 	 * @returns {void}
 	 */
-	function initialResize(innerWidth, innerHeight) {
+	function initialResize() {
+		const iw = innerWidth.current || 500;
+		const ih = innerHeight.current || 500;
 		// take full width without scroll bar
-		const maxPixelWidth = innerWidth - 18;
+		const maxPixelWidth = iw - 18;
 		// take most height, leave some for scrolling the page on mobile
-		const maxPixelHeight = $settings.disableZoomPan ? innerHeight : Math.round(0.8 * innerHeight);
+		const maxPixelHeight = $settings.disableZoomPan ? ih : Math.round(0.8 * ih);
 
 		const maxGridWidth = grid.XMAX - grid.XMIN;
 		const maxGridHeight = grid.YMAX - grid.YMIN;
@@ -94,17 +113,25 @@
 			// do nothing to let browser zoom handle it all
 			return;
 		}
+		const iw = innerWidth.current || 500;
+		const ih = innerHeight.current || 500;
 		const pxPerCell = svgWidth / $viewBox.width;
 		// take full width without scroll bar
-		const maxPixelWidth = innerWidth - 18;
+		const maxPixelWidth = iw - 18;
 		// take most height, leave some for scrolling the page on mobile
-		const maxPixelHeight = Math.round(0.8 * innerHeight);
+		const maxPixelHeight = Math.round(0.8 * ih);
 		if (grid.wrap) {
-			svgWidth = Math.min(maxPixelWidth, pxPerCell * $viewBox.width);
+			svgWidth = Math.min(
+				maxPixelWidth,
+				pxPerCell * Math.max($viewBox.width, grid.XMAX - grid.XMIN)
+			);
 		} else {
 			svgWidth = maxPixelWidth;
 		}
-		svgHeight = Math.min(maxPixelHeight, pxPerCell * $viewBox.height);
+		// clamp the viewBox height to the grid extent, otherwise a previous
+		// shrink would permanently cap how tall the svg can grow back
+		const maxGridHeight = grid.YMAX - grid.YMIN;
+		svgHeight = Math.min(maxPixelHeight, pxPerCell * Math.max($viewBox.height, maxGridHeight));
 		$viewBox.width = svgWidth / pxPerCell;
 		$viewBox.height = svgHeight / pxPerCell;
 		// center grid if the puzzle fully fits inside bounds
@@ -118,23 +145,29 @@
 
 	onMount(() => {
 		game.initializeBoard();
-		initialResize(innerWidth, innerHeight);
-		dispatch('start');
+		initialResize();
+		started();
 		// unleashTheSolver();
 	});
 
 	onDestroy(() => {
 		// save progress immediately if navigating away (?)
 		save.clear();
-		if (!$solved) {
+		if (!game.solved) {
 			save.now();
-			dispatch('pause');
+			paused();
 		}
 	});
 
+	/**
+	 *
+	 * @param {()=>void} callback
+	 * @param {number} timeout ms
+	 */
 	function createThrottle(callback, timeout) {
+		/** @type {ReturnType<typeof setTimeout>|null}*/
 		let throttleTimer = null;
-		const throttle = (callback, timeout) => {
+		const throttle = (/** @type {()=>void} */ callback, /** @type {number} */ timeout) => {
 			if (throttleTimer !== null) return;
 			throttleTimer = setTimeout(() => {
 				callback();
@@ -155,11 +188,10 @@
 	}
 
 	function saveProgress() {
-		if ($solved) {
+		if (game.solved) {
 			return;
 		}
-		const tileStates = game.tileStates.map((tile) => {
-			const data = tile.data;
+		const tileStates = game.tileStates.map((data) => {
 			return {
 				rotations: data.rotations,
 				locked: data.locked,
@@ -167,7 +199,7 @@
 				edgeMarks: data.edgeMarks
 			};
 		});
-		dispatch('progress', {
+		progress({
 			name: myProgressName,
 			data: {
 				tiles: tileStates
@@ -182,18 +214,19 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {import('$lib/puzzle/solver').Solver}
+	 * @type {import('#lib/puzzle/solver.js').Solver|undefined}
 	 */
 	let solver;
-	let numsol = 0;
+	/**
+	 * @type {number[][]}
+	 */
+	let solutions = $state([]);
 	export async function unleashTheSolver() {
 		measureSolveTime();
-		if (!$solved) {
+		if (!game.solved) {
 			// unlock all tiles
 			for (let tileState of game.tileStates) {
-				if (tileState.data.locked) {
-					tileState.toggleLocked();
-				}
+				tileState.locked = false;
 			}
 			solver = new Solver(tiles, grid);
 			try {
@@ -208,31 +241,31 @@
 						game.toggleLocked(step.index, true);
 					}
 					if (animate) {
-						await sleep(200);
+						await sleep(100);
 					}
 				}
 				if (solver.solutions.length > 1) {
 					// unlock tiles that are different between solutions
 					// and lock those that are the same
-					game.solved.set(false);
-					game._solved = false;
+					game.solved = false;
 					for (let [i, tile] of solver.solutions[0].entries()) {
 						const isSame = solver.solutions.every((solution) => solution[i] === tile);
-						if (game.tileStates[i].data.locked !== isSame) {
+						if (game.tileStates[i].locked !== isSame) {
 							game.tileStates[i].toggleLocked();
 						}
 					}
 				}
+				solutions = solver.solutions;
 			} catch (error) {
 				console.error(error);
 			}
 		}
 	}
 
-	let steps = -1;
-	let ms = -1;
+	let steps = $state(-1);
+	let ms = $state(-1);
 	/** @type {Number[]}*/
-	let msStats = [];
+	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
 		const solver = new Solver(tiles, grid);
@@ -248,7 +281,7 @@
 		ms = t1 - t0;
 		msStats.push(ms);
 		msStats = msStats.sort((a, b) => a - b);
-		numsol = solver.solutions.length;
+		solutions = solver.solutions;
 	}
 
 	const save = createThrottle(saveProgress, 3000);
@@ -275,16 +308,25 @@
 		document.body.removeChild(element);
 	};
 
-	$: if ($solved) {
-		dispatch('solved');
+	$effect(() => {
+		if (game.solved) {
+			finished();
+		}
+	});
+
+	/**
+	 * @param {Event} event
+	 */
+	function preventDefault(event) {
+		event.preventDefault();
 	}
 </script>
 
-<svelte:window bind:innerWidth bind:innerHeight on:resize={resize} />
+<svelte:window onresize={resize} />
 
 {#if showSolveButton}
 	<div class="solve-button">
-		<button on:click={unleashTheSolver}>🧩 Solve it</button>
+		<button onclick={unleashTheSolver}>🧩 Solve it</button>
 		<label for="animate">
 			<input type="checkbox" bind:checked={animate} id="animate" />
 			Animate
@@ -299,18 +341,17 @@
 					10 * msStats[msStats.length - 1]
 				) / 10} ms).
 			</div>
-			<div>Number of solutions: {numsol}</div>
-			{#if numsol > 1}
+			<div>Number of solutions: {solutions.length}</div>
+			{#if solutions.length > 1}
 				<div>
-					{#each solver.solutions as solution, i}
+					{#each solutions as solution, i}
 						<button
-							on:click={() => {
+							onclick={() => {
 								solution.forEach((orientation, index) => {
 									game.setTileOrientation(index, orientation);
-									game._solved = false;
+									game.solved = false;
 								});
-								game.solved.set(false);
-								game._solved = false;
+								game.solved = false;
 							}}
 							>Solution {i + 1}
 						</button>
@@ -321,27 +362,27 @@
 	</div>
 {/if}
 
-<div class="puzzle animation-{$settings.animationSpeed}" class:solved={$solved}>
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
+<div class="puzzle animation-{$settings.animationSpeed}" class:solved={game.solved}>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<svg
 		width={svgWidth}
 		height={svgHeight}
 		viewBox="{$viewBox.xmin} {$viewBox.ymin} {$viewBox.width} {$viewBox.height}"
 		use:controls={game}
-		on:contextmenu|preventDefault={() => {}}
-		on:save={save.soon}
+		oncontextmenu={preventDefault}
+		onsave={save.soon}
 	>
 		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
 			<Tile
 				i={visibleTile.index}
-				solved={$solved}
+				solved={game.solved}
 				{game}
 				cx={visibleTile.x}
 				cy={visibleTile.y}
 				controlMode={$settings.controlMode}
 			/>
 		{/each}
-		{#if !$solved}
+		{#if !game.solved}
 			{#each $visibleTiles as visibleTile, i (visibleTile.key)}
 				<EdgeMarks i={visibleTile.index} {game} cx={visibleTile.x} cy={visibleTile.y} />
 			{/each}

@@ -1,11 +1,15 @@
 <script>
-	import { settings } from '$lib/stores';
-	export let clockwise = true;
-	export let text = true;
+	import { settings } from '#lib/stores.js';
+	/**
+	 * @typedef {Object} Props
+	 * @property {boolean} [clockwise]
+	 * @property {boolean} [text]
+	 */
 
-	let actuallyClockwise = clockwise;
+	/** @type {Props} */
+	let { clockwise = true, text = true } = $props();
 
-	$: actuallyClockwise = $settings.invertRotationDirection ? !clockwise : clockwise;
+	let actuallyClockwise = $derived($settings.invertRotationDirection ? !clockwise : clockwise);
 </script>
 
 {#if text}
