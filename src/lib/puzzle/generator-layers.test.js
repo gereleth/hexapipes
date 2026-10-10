@@ -58,6 +58,7 @@ function decode(layer) {
 }
 
 describe('Test layered pregeneration', () => {
+	/** @type {Array<[Number, Number, Boolean]>} */
 	const boards = [
 		[3, 3, false],
 		[4, 6, false],

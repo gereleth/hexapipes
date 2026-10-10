@@ -3,7 +3,7 @@
 
 	/** @typedef {Object} Props
 	 * @property {number} i - tile index
-	 * @property {import('#lib/puzzle/game.svelte.js').PipesGame} game
+	 * @property {import('#lib/puzzle/game.svelte.js').PipesGame|import('#lib/puzzle/game-layers.svelte.js').LayeredPipesGame} game
 	 * @property {number} [cx]
 	 * @property {number} [cy]
 	 */

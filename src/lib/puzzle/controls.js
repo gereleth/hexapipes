@@ -16,7 +16,7 @@ import normalizeWheel from 'normalize-wheel';
 /**
  * Attaches mouse/touch controls to the game area
  * @param {Element & GlobalEventHandlers} node
- * @param {import('#lib/puzzle/game.svelte.js').PipesGame} game
+ * @param {import('#lib/puzzle/game.svelte.js').PipesGame|import('#lib/puzzle/game-layers.svelte.js').LayeredPipesGame} game
  * @returns
  */
 export function controls(node, game) {

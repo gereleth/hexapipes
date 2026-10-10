@@ -1464,7 +1464,7 @@ export function validateLayers(grid, layers) {
 						`Cell ${index} direction ${direction} has no matching connection at cell ${neighbour}`
 					);
 				}
-				adjacency.get(from).push(key(neighbour, matched));
+				adjacency.get(from)?.push(key(neighbour, matched));
 			}
 		}
 	}
@@ -1480,7 +1480,7 @@ export function validateLayers(grid, layers) {
 	const seen = new Set([first]);
 	const queue = [first];
 	while (queue.length > 0) {
-		const current = queue.pop();
+		const current = /** @type {String} */ (queue.pop());
 		for (let next of adjacency.get(current) || []) {
 			if (!seen.has(next)) {
 				seen.add(next);
