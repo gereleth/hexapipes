@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
-	import Instructions from '$lib/Instructions.svelte';
-	import { gridInfo } from '$lib/puzzle/grids/grids';
+	import Instructions from '#lib/Instructions.svelte';
+	import { gridInfo, parseGridCategory } from '#lib/puzzle/grids/grids.js';
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('svelte').Snippet} [children]
@@ -10,9 +10,7 @@
 	/** @type {Props} */
 	let { children } = $props();
 
-	let category = $derived(page.params.grid);
-	let gridKind = $derived(category.split('-')[0]);
-	let wrap = $derived(category.split('-')[1] === 'wrap');
+	let { kind: gridKind, wrap } = $derived(parseGridCategory(page.params.grid));
 	let info = $derived(gridInfo[gridKind]);
 	let title = $derived(`${info.title} ` + (wrap ? ' Wrap' : '') + ' Pipes');
 	let sizes = $derived(info.sizes);

@@ -3,7 +3,7 @@
 
 	/** @typedef {Object} Props
 	 * @property {number} i - tile index
-	 * @property {import('$lib/puzzle/game.svelte').PipesGame} game
+	 * @property {import('#lib/puzzle/game.svelte.js').PipesGame} game
 	 * @property {number} [cx]
 	 * @property {number} [cy]
 	 */
@@ -15,7 +15,7 @@
 	 * @property {Number} x2
 	 * @property {Number} y1
 	 * @property {Number} y2
-	 * @property {import('$lib/puzzle/game.svelte').EdgeMark} edgemark
+	 * @property {import('#lib/puzzle/game.svelte.js').EdgeMark} edgemark
 	 * @property {Number} direction
 	 */
 
@@ -26,7 +26,10 @@
 	 * @property {VisibleMark} mark
 	 */
 
+	// tile geometry is fixed per instance, game/i never change
+	// svelte-ignore state_referenced_locally
 	const tileState = game.tileStates[i];
+	// svelte-ignore state_referenced_locally
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 
 	// /** @type {VisibleMark[]} */
@@ -35,6 +38,7 @@
 	// /** @type {ReflectedMark[]} */
 	// let reflectedEdgeMarks = [];
 
+	// svelte-ignore state_referenced_locally
 	const width = game.grid.EDGEMARK_WIDTH;
 
 	let { visibleEdgeMarks, reflectedEdgeMarks } = $derived.by(() => {

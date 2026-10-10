@@ -1,21 +1,21 @@
 <script>
 	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
-	import { settings } from '$lib/stores';
-	import { controls } from '$lib/puzzle/controls';
-	import Tile from '$lib/puzzle/Tile.svelte';
-	import LayeredTile from '$lib/puzzle/LayeredTile.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { PipesGame } from '$lib/puzzle/game.svelte.js';
-	import { LayeredPipesGame } from './game-layers.svelte';
-	import { Solver } from './solver';
-	import { LayeredSolver } from './solver-layers';
-	import EdgeMarks from './EdgeMarks.svelte';
+	import { settings } from '#lib/stores.js';
+	import { controls } from '#lib/puzzle/controls.js';
+	import Tile from '#lib/puzzle/Tile.svelte';
+	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
+	import { PipesGame } from '#lib/puzzle/game.svelte.js';
+	import { LayeredPipesGame } from '#lib/puzzle/game-layers.svelte.js';
+	import { Solver } from '#lib/puzzle/solver.js';
+	import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
+	import EdgeMarks from '#lib/puzzle/EdgeMarks.svelte';
 
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @property {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @property {Number[]|Number[][]} [tiles]
-	 * @property {import('$lib/puzzle/game.svelte').Progress|undefined} [savedProgress]
+	 * @property {import('#lib/puzzle/game.svelte.js').Progress|undefined} [savedProgress]
 	 * @property {string} [progressStoreName]
 	 * @property {Number|undefined} [preferredPxPerCell]
 	 * @property {boolean} [showSolveButton]
@@ -44,10 +44,11 @@
 	// Remember the name that the puzzle was created with
 	// to prevent accidental saving to another puzzle's progress
 	// if a user navigates between puzzles directly via back/forward buttons
+	// svelte-ignore state_referenced_locally
 	const myProgressName = progressStoreName;
 
-	let svgWidth = $state(500);
-	let svgHeight = $state(500);
+	let svgWidth = $state(300);
+	let svgHeight = $state(300);
 
 	/** @type {PipesGame|LayeredPipesGame}*/
 	let game;
@@ -57,7 +58,7 @@
 		game = new LayeredPipesGame(
 			grid,
 			/** @type {Number[][]} */ (tiles),
-			/** @type {import('$lib/puzzle/game-layers.svelte').LayeredProgress|undefined} */ (
+			/** @type {import('#lib/puzzle/game-layers.svelte.js').LayeredProgress|undefined} */ (
 				savedProgress
 			)
 		);
@@ -66,7 +67,9 @@
 	const pxPerCell = 60;
 
 	const viewBox = game.viewBox;
+	// svelte-ignore state_referenced_locally
 	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, 500 / pxPerCell);
+	// svelte-ignore state_referenced_locally
 	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, 500 / pxPerCell);
 	const visibleTiles = viewBox.visibleTiles;
 
@@ -138,7 +141,10 @@
 		} else {
 			svgWidth = maxPixelWidth;
 		}
-		svgHeight = Math.min(maxPixelHeight, pxPerCell * $viewBox.height);
+		// clamp the viewBox height to the grid extent, otherwise a previous
+		// shrink would permanently cap how tall the svg can grow back
+		const maxGridHeight = grid.YMAX - grid.YMIN;
+		svgHeight = Math.min(maxPixelHeight, pxPerCell * Math.max($viewBox.height, maxGridHeight));
 		$viewBox.width = svgWidth / pxPerCell;
 		$viewBox.height = svgHeight / pxPerCell;
 		// center grid if the puzzle fully fits inside bounds
@@ -172,9 +178,9 @@
 	 * @param {number} timeout ms
 	 */
 	function createThrottle(callback, timeout) {
-		/** @type {number|null}*/
+		/** @type {ReturnType<typeof setTimeout>|null}*/
 		let throttleTimer = null;
-		const throttle = (callback, timeout) => {
+		const throttle = (/** @type {()=>void} */ callback, /** @type {number} */ timeout) => {
 			if (throttleTimer !== null) return;
 			throttleTimer = setTimeout(() => {
 				callback();
@@ -234,7 +240,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver|undefined}
+	 * @type {Solver|LayeredSolver|undefined}
 	 */
 	let solver;
 	/**
@@ -251,7 +257,7 @@
 			if (game instanceof LayeredPipesGame) {
 				const layeredGame = game;
 				let layeredSolver;
-				/** @type {import('$lib/puzzle/solver-layers').LayeredSolver} */
+				/** @type {LayeredSolver} */
 				layeredSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
 
 				solver = layeredSolver;
@@ -328,7 +334,7 @@
 	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
-		/** @type {import('$lib/puzzle/solver').Solver|import('$lib/puzzle/solver-layers').LayeredSolver} */
+		/** @type {Solver|LayeredSolver} */
 		let measureSolver;
 		if (game instanceof LayeredPipesGame) {
 			measureSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);

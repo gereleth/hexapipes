@@ -181,7 +181,6 @@ export class SolvesLog {
 	/**@type {Solve[]} */
 	solves = $state([]);
 	/** @type {SolveStats} */
-	previousstats = $state(defaultStats);
 	stats = $derived(_calculateStats(this.solves, this.isDaily));
 
 	/**
@@ -400,6 +399,24 @@ export class SolvesLog {
 		this.solves.unshift(solve);
 		// this.save();
 	}
+
+	/**
+	 * Drop the newest solve if it's an unfinished legacy static instance (numeric id > 0)
+	 * Those puzzles were retired; the visitor just gets a fresh one
+	 * Dropping the solve means we don't interrupt their streak by refusing to provide
+	 * that particular instance.
+	 */
+	popUnfinishedLegacyInstance() {
+		const solve = this.solves[0];
+		if (
+			solve &&
+			typeof solve.puzzleId === 'number' &&
+			solve.puzzleId > 0 &&
+			solve.elapsedTime === -1
+		) {
+			this.solves.shift();
+		}
+	}
 }
 
 const solvesStores = new Map();
@@ -417,8 +434,15 @@ export function getSolves(path, isDaily = false) {
 	if (solvesStores.has(storeName)) {
 		return solvesStores.get(storeName);
 	} else {
-		const store = new SolvesLog(storeName, isDaily);
+		/** @type {SolvesLog | undefined} */
+		let store;
+		// the log is cached for the whole session and outlives the component
+		// that first requested it, so its stats derived and saving effect must
+		// not be owned by that component - they would go inert on navigation
+		$effect.root(() => {
+			store = new SolvesLog(storeName, isDaily);
+		});
 		solvesStores.set(storeName, store);
-		return store;
+		return /** @type {SolvesLog} */ (store);
 	}
 }

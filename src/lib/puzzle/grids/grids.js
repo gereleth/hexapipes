@@ -1,12 +1,12 @@
-import { HexaGrid } from '$lib/puzzle/grids/hexagrid';
-import { SquareGrid } from '$lib/puzzle/grids/squaregrid';
-import { OctaGrid } from '$lib/puzzle/grids/octagrid';
-import { EtratGrid } from '$lib/puzzle/grids/etratgrid';
-import { CubeGrid } from '$lib/puzzle/grids/cubegrid';
-import { TrihexaGrid } from '$lib/puzzle/grids/trihexagrid';
-import { SnubSquareGrid } from '$lib/puzzle/grids/snubsquaregrid';
-import { RhombitrihexaGrid } from '$lib/puzzle/grids/rhombitrihexagrid';
-import { TriangularGrid } from '$lib/puzzle/grids/triangulargrid';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
+import { EtratGrid } from '#lib/puzzle/grids/etratgrid.js';
+import { CubeGrid } from '#lib/puzzle/grids/cubegrid.js';
+import { TrihexaGrid } from '#lib/puzzle/grids/trihexagrid.js';
+import { SnubSquareGrid } from '#lib/puzzle/grids/snubsquaregrid.js';
+import { RhombitrihexaGrid } from '#lib/puzzle/grids/rhombitrihexagrid.js';
+import { TriangularGrid } from '#lib/puzzle/grids/triangulargrid.js';
 
 /**
  * @typedef {'hexagonal'|'square'|'octagonal'|'etrat'|'cube'|'trihexagonal'|'snubsquare'|'rhombitrihexagonal'|'triangular'} GridKind
@@ -26,6 +26,25 @@ import { TriangularGrid } from '$lib/puzzle/grids/triangulargrid';
  */
 
 /**
+ * Narrows a route param to GridCategory; the [grid=gridkind] matcher guarantees validity
+ * @param {string|undefined} category
+ * @returns {GridCategory}
+ */
+export function asGridCategory(category) {
+	return /** @type {GridCategory} */ (category);
+}
+
+/**
+ * Splits a category like 'square-wrap' into grid kind and wrap flag
+ * @param {string|undefined} category
+ * @returns {{kind: GridKind, wrap: boolean}}
+ */
+export function parseGridCategory(category) {
+	const [kind, suffix] = asGridCategory(category).split('-');
+	return { kind: /** @type {GridKind} */ (kind), wrap: suffix === 'wrap' };
+}
+
+/**
  * @typedef {Object} GridOptions
  * @property {GridKind} kind
  * @property {Number} width
@@ -41,7 +60,7 @@ import { TriangularGrid } from '$lib/puzzle/grids/triangulargrid';
  * @param {Number} height
  * @param {boolean} wrap
  * @param {Number[]|Number[][]|undefined} tiles
- * @returns {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}
+ * @returns {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid}
  */
 export function createGrid(kind, width, height, wrap, tiles = undefined) {
 	let grid;
@@ -175,7 +194,7 @@ function randomTotal() {
 
 /**
  * Creates a random grid for setting a daily puzzle
- * @returns {import('$lib/puzzle/grids/abstractgrid').AbstractGrid}
+ * @returns {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid}
  */
 export function randomGrid() {
 	/**@type {GridKind} */

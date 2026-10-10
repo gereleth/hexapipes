@@ -144,6 +144,10 @@ describe('Test Growing Tree pregeneration with avoid obvious tiles', () => {
 });
 
 describe('Test solution uniqueness', () => {
+	/**
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {Number} [numAttempts=100]
+	 */
 	function verifyUnique(grid, numAttempts = 100) {
 		for (let i = 0; i < numAttempts; i++) {
 			const gen = new Generator(grid);

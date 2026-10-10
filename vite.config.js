@@ -1,9 +1,11 @@
 // vite.config.js
+import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vitest/config';
 
-/** @type {import('vite').UserConfig} */
-const config = {
-	plugins: [sveltekit()],
+/** @type {import('vitest/config').ViteUserConfig} */
+const config = defineConfig({
+	plugins: [sveltekit({ adapter: adapter({ runtime: 'nodejs24.x' }) })],
 	test: {
 		globals: true,
 		environment: 'jsdom'
@@ -13,6 +15,6 @@ const config = {
 	// 			conditions: ['browser']
 	// 		}
 	// 	: undefined
-};
+});
 
 export default config;

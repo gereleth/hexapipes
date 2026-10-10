@@ -143,7 +143,7 @@ export class LayeredPipesGame {
 
 	/**
 	 * @constructor
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {LayeredTiles} tiles
 	 * @param {LayeredProgress|undefined} savedProgress
 	 */

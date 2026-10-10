@@ -1,12 +1,12 @@
 <script>
 	import { onDestroy } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import Worker from '$lib/puzzle/worker-layers.js?worker';
-	import SolverProgress from '$lib/puzzle/SolverProgress.svelte';
-	import LayeredTile from '$lib/puzzle/LayeredTile.svelte';
-	import { LayeredPipesGame } from '$lib/puzzle/game-layers.svelte';
-	import { applyRotations, buildStartLayers, planReuse } from '$lib/puzzle/generator-layers';
-	import { createGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
+	import Worker from '#lib/puzzle/worker-layers.js?worker';
+	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
+	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
+	import { LayeredPipesGame } from '#lib/puzzle/game-layers.svelte.js';
+	import { applyRotations, buildStartLayers, planReuse } from '#lib/puzzle/generator-layers.js';
+	import { createGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 
 	/**
 	 * Debug page for the layered uniqueness generation loop:
@@ -15,7 +15,7 @@
 	 * so the convergence behavior can be inspected visually.
 	 */
 
-	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
+	/** @type {import('#lib/puzzle/grids/grids.js').GridKind}*/
 	let gridKind = $state('square');
 	let width = $state(20);
 	let height = $state(20);
@@ -34,16 +34,16 @@
 	let errorMessage = $state('');
 
 	// growth animation state
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined} */
+	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let growthGrid = $state();
-	/** @type {import('$lib/puzzle/generator-layers').GrowthMove[]} */
+	/** @type {import('#lib/puzzle/generator-layers.js').GrowthMove[]} */
 	let growthMoves = $state([]);
 	let growthApplied = $state(0);
 	/** @type {Number[][]} */
 	let growthLayers = $state([]);
 	/** @type {import('svelte/reactivity').SvelteSet<Number>} */
 	let growthVisited = new SvelteSet();
-	/** @type {import('$lib/puzzle/generator-layers').GrowthMove|null} */
+	/** @type {import('#lib/puzzle/generator-layers.js').GrowthMove|null} */
 	let growthLastMove = $state(null);
 	/** @type {Number[]} */
 	let growthHighlightCells = $state([]);
@@ -57,14 +57,14 @@
 	/** @type {Worker|null} */
 	let worker = null;
 	let hasWorker = $state(false);
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined} */
+	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let runGrid = $state();
-	/** @type {import('$lib/puzzle/generator-layers').IterationSnapshot[]} */
+	/** @type {import('#lib/puzzle/generator-layers.js').IterationSnapshot[]} */
 	let snapshots = $state([]);
 	let viewIndex = $state(-1);
 
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
-	/** @type {import('$lib/puzzle/solver-layers').SolverProgress|null} */
+	/** @type {import('#lib/puzzle/solver-layers.js').SolverProgress|null} */
 	let liveProgress = $state(null);
 	let liveLabel = $state('');
 	let liveSeconds = $state(0);
@@ -228,7 +228,7 @@
 		} else if (event.data.msg === 'iteration') {
 			stopLiveTimer();
 			liveProgress = null;
-			const snapshot = /** @type {import('$lib/puzzle/generator-layers').IterationSnapshot} */ (
+			const snapshot = /** @type {import('#lib/puzzle/generator-layers.js').IterationSnapshot} */ (
 				event.data
 			);
 			snapshots.push(snapshot);
@@ -335,7 +335,7 @@
 
 	/**
 	 *
-	 * @param {import('$lib/puzzle/generator-layers').GrowthMove} move
+	 * @param {import('#lib/puzzle/generator-layers.js').GrowthMove} move
 	 */
 	function applyGrowthMove(move) {
 		if (move.type === 'seed') {
@@ -419,7 +419,7 @@
 
 	/**
 	 *
-	 * @param {import('$lib/puzzle/generator-layers').GrowthMove} move
+	 * @param {import('#lib/puzzle/generator-layers.js').GrowthMove} move
 	 */
 	function describeGrowthMove(move) {
 		if (move.type === 'seed') {
@@ -536,8 +536,7 @@
 		<div class="row">
 			<button onclick={grow} disabled={generatorState === 'stepping'}>Grow</button>
 			<label>
-				<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's
-				survivors
+				<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's survivors
 			</label>
 		</div>
 	</div>

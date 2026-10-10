@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { _calculateStats, SolvesLog } from '$lib/solvelogs.svelte.js';
+import { _calculateStats, SolvesLog } from '#lib/solvelogs.svelte.js';
 
 describe('Calculate streaks and time stats in daily puzzles', () => {
 	it('Two days started, none finished', () => {

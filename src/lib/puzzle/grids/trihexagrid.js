@@ -1,5 +1,5 @@
-import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
-import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
+import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 const NORTHEAST = 1;
 const NORTH = 2;
@@ -262,8 +262,8 @@ export class TrihexaGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
-	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
+	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		let colmin = Math.floor(box.xmin / XSTEP) - 1;
@@ -342,7 +342,7 @@ export class TrihexaGrid extends AbstractGrid {
 
 			/**
 			 *
-			 * @param {import('$lib/puzzle/viewbox').VisibleTile} visibleTile
+			 * @param {import('#lib/puzzle/viewbox.js').VisibleTile} visibleTile
 			 * @return {boolean}
 			 */
 			function shouldEmpty(visibleTile) {
@@ -383,7 +383,7 @@ export class TrihexaGrid extends AbstractGrid {
 
 			/**
 			 *
-			 * @param {import('$lib/puzzle/viewbox').VisibleTile} visibleTile
+			 * @param {import('#lib/puzzle/viewbox.js').VisibleTile} visibleTile
 			 * @return {boolean}
 			 */
 			function shouldEmpty(visibleTile) {
@@ -419,7 +419,7 @@ export class TrihexaGrid extends AbstractGrid {
 			const xright = (ymiddle % 2 === 0 ? -XSTEP : 0) + 2 * (this.w - ymiddle + 1) * XSTEP;
 			/**
 			 *
-			 * @param {import('$lib/puzzle/viewbox').VisibleTile} visibleTile
+			 * @param {import('#lib/puzzle/viewbox.js').VisibleTile} visibleTile
 			 * @return {boolean}
 			 */
 			function shouldEmpty(visibleTile) {

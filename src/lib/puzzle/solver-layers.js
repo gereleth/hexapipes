@@ -70,7 +70,7 @@ function visualId(masks) {
  * to the rotated layers at that rotation
  * States are deduplicated using visualId
  * @param {Number[]} layers - layer bitmasks at rotation 0
- * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
+ * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile} polygon
  * @returns {Map<Number, Number[]>}
  */
 function buildPossible(layers, polygon) {
@@ -100,7 +100,7 @@ export class LayeredCell {
 	/**
 	 *
 	 * @param {Number[]} layers
-	 * @param {import('$lib/puzzle/grids/polygonutils').RegularPolygonTile} polygon
+	 * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile} polygon
 	 * @param {Number} index
 	 * @param {ReturnType<buildPossible>|undefined} possible
 	 * @param {Number|undefined} repeatLayersMask - precomputed for a superset
@@ -513,7 +513,7 @@ export class LayeredSolver {
 	/**
 	 *
 	 * @param {Number[][]} tiles
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {LayeredSolver|null} parent
 	 */
 	constructor(tiles, grid, parent = null) {

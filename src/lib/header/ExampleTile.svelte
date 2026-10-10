@@ -1,34 +1,32 @@
 <script>
-	
-	
-	
 	/**
 	 * @typedef {Object} Props
 	 * @property {Number} i
 	 * @property {Number} tile
-	 * @property {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @property {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @property {number} [cx]
 	 * @property {number} [cy]
 	 */
 
 	/** @type {Props} */
-	let {
-		i,
-		tile,
-		grid,
-		cx = 0,
-		cy = 0
-	} = $props();
+	let { i, tile, grid, cx = 0, cy = 0 } = $props();
 
 	const bgColor = '#ddd';
 
+	// the example is static, all props are constants
+	// svelte-ignore state_referenced_locally
 	const outlineWidth = grid.STROKE_WIDTH * 2 + grid.PIPE_WIDTH;
+	// svelte-ignore state_referenced_locally
 	const pipeWidth = grid.PIPE_WIDTH;
 
+	// svelte-ignore state_referenced_locally
 	let path = grid.getPipesPath(tile, i);
+	// svelte-ignore state_referenced_locally
 	const isSink = grid.getDirections(tile, 0, i).length === 1;
 
+	// svelte-ignore state_referenced_locally
 	const tile_transform = grid.getTileTransformCSS(i) || '';
+	// svelte-ignore state_referenced_locally
 	const style = grid.polygon_at(i).style || undefined;
 </script>
 

@@ -1,6 +1,6 @@
-import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
-import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
-import { HexaGrid } from './hexagrid';
+import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
+import { HexaGrid } from './hexagrid.js';
 
 const EAST = 1;
 const NORTH = 2;
@@ -179,8 +179,8 @@ export class EtratGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
-	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
+	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		const visibleHexagons = this.hexagrid.getVisibleTiles({

@@ -129,14 +129,14 @@ export class ComponentsRegistry {
 	slotNodeNext;
 	/** @type {Int32Array} */
 	slotNodePrev;
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} */
+	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} */
 	grid;
 	/** @type {Number} - grid.total, for turning subcellIds back into cells */
 	total;
 
 	/**
 	 *
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {Number} maxLayers
 	 * @param {ComponentsRegistry|undefined} parent - clone source (internal)
 	 */
@@ -452,7 +452,7 @@ export class ComponentsRegistry {
 		}
 		this.compTotalSub[keep] += this.compTotalSub[absorb];
 		// move the absorbed's slot ends, in list order, to the survivor
-		for (let n = this.compSlotHead[absorb]; n !== 0; ) {
+		for (let n = this.compSlotHead[absorb]; n !== 0;) {
 			const next = this.slotNodeNext[n];
 			const joinIndex = this.slotNodeKey[n];
 			const directions = this.slotNodeVal[n];
@@ -465,7 +465,7 @@ export class ComponentsRegistry {
 			n = next;
 		}
 		// move the absorbed's sub-cell entries
-		for (let n = this.compSubHead[absorb]; n !== 0; ) {
+		for (let n = this.compSubHead[absorb]; n !== 0;) {
 			const next = this.subNodeNext[n];
 			const joinSubCellId = this.subNodeKey[n];
 			const connections = this.subNodeVal[n];

@@ -1,8 +1,8 @@
 <script>
 	import { onDestroy } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import Worker from '$lib/puzzle/worker.js?worker';
-	import SolverProgress from '$lib/puzzle/SolverProgress.svelte';
+	import Worker from '#lib/puzzle/worker.js?worker';
+	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
 
 	// callbacks for different generation outcomes
 	let { canceled, generated, errored } = $props();
@@ -13,13 +13,13 @@
 	let worker = null;
 	let showGenProgress = $state(false);
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
-	/** @type {import('$lib/puzzle/solver').SolverProgress[]}*/
+	/** @type {import('#lib/puzzle/solver.js').SolverProgress[]}*/
 	let solverProgressItems = $state([]);
 
 	/**
 	 *
-	 * @param {import('$lib/puzzle/generator').GeneratorOptions} options
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/generator.js').GeneratorOptions} options
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 */
 	export function generate(options, grid) {
 		worker = new Worker();

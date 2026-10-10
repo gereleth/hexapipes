@@ -1,9 +1,7 @@
 <script>
 	import { page } from '$app/state';
-	import { gridInfo } from '$lib/puzzle/grids/grids';
-	let category = $derived(page.params.grid);
-	let gridKind = $derived(category.split('-')[0]);
-	let wrap = $derived(category.split('-')[1] === 'wrap');
+	import { gridInfo, parseGridCategory } from '#lib/puzzle/grids/grids.js';
+	let { kind: gridKind, wrap } = $derived(parseGridCategory(page.params.grid));
 	let info = $derived(gridInfo[gridKind]);
 </script>
 

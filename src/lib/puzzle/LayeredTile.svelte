@@ -1,12 +1,12 @@
 <script>
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('$lib/puzzle/game-layers.svelte').LayeredPipesGame} game
+	 * @property {import('#lib/puzzle/game-layers.svelte.js').LayeredPipesGame} game
 	 * @property {Number} i
 	 * @property {Number} [cx]
 	 * @property {Number} [cy]
 	 * @property {boolean} [solved]
-	 * @property {import('$lib/stores').ControlMode} [controlMode]
+	 * @property {import('#lib/stores.js').ControlMode} [controlMode]
 	 */
 
 	/** @type {Props} */

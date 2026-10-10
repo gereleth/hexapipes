@@ -1,4 +1,4 @@
-import { LayeredSolver } from '$lib/puzzle/solver-layers';
+import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
 
 /**
  * @typedef {Number[][]} LayeredTiles - for every grid cell a list of layers,
@@ -101,7 +101,7 @@ function subtreeCountFor(total) {
 
 /**
  * Finds the sub-cell id of the layer at cell that connects in backDirection
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {StartLayers} startLayers
  * @param {Number} cell
  * @param {Number} backDirection
@@ -167,7 +167,7 @@ function findBackSubCell(grid, startLayers, cell, backDirection) {
  * Every registered component owns its cells exclusively, which keeps
  * the per-cell seeding and island absorption machinery correct.
  * Layer masks are pruned to edges staying within their component.
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {StartLayers} startLayers
  * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant
  * @returns {ReusePlan}
@@ -497,7 +497,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * reused components as subtrees among them (see planReuse): the components
  * keep their certified internal structure and simply keep growing, and the
  * merge phase connects everything into one tree.
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number} layeringAmount - probability of growing into an already
  * occupied cell, values in range [0,1], 0 produces classic puzzles.
  * @param {Number} branchingAmount - value in range [0, 1], low values grow
@@ -553,7 +553,7 @@ export function pregenerate_layers(
  * components become growing subtrees, fresh ones are seeded until the
  * size-based subtree count is reached. Throws when the growth stalls or
  * the subtrees cannot be merged
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number} layeringAmount
  * @param {Number} branchingAmount
  * @param {StartLayers} startLayers
@@ -1143,7 +1143,7 @@ function pregenerate_layers_attempt(
  * Randomize rotations of layered tiles,
  * all layers of a cell rotate by the same random amount
  * @param {LayeredTiles} layers
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {LayeredTiles}
  */
 export function randomRotate(layers, grid) {
@@ -1161,7 +1161,7 @@ export function randomRotate(layers, grid) {
  * Applies solved rotations to layered tiles,
  * all layers of a cell rotate by the same amount.
  * Solver sentinel rotations (negative numbers) count as no rotation
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {LayeredTiles} layers
  * @param {Number[]} rotations - rotation per cell
  * @returns {LayeredTiles}
@@ -1182,7 +1182,7 @@ export function applyRotations(grid, layers, rotations) {
  * Prepares a solved board for reuse in pregenerate_layers:
  * cells whose marked rotation is a solver sentinel (ambiguous or unresolved)
  * become null, other cells get their layers rotated to the solver's frame
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {LayeredTiles} layers - solved layered tiles
  * @param {Number[]} marked - rotation per cell, possibly with sentinel values
  * @returns {StartLayers}
@@ -1222,12 +1222,12 @@ const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
 export class LayeredGenerator {
 	/**
 	 * @constructor
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {Number} [reuse_tiles_min_count = 3] minimum count of connected sub-cells to leave dormant when erasing ambiguities
 	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous cells did not decrease in this many iterations
 	 * @param {Number} [max_attempts = 100] abandon generation if no attempt produced a unique puzzle
 	 * @param {Number} [max_uniqueness_iterations = 100] abandon an attempt after this many uniqueness iterations
-	 * @param {(progress: import('$lib/puzzle/solver-layers').SolverProgress) => void} [solver_progress_callback] reports solver progress
+	 * @param {(progress: import('#lib/puzzle/solver-layers.js').SolverProgress) => void} [solver_progress_callback] reports solver progress
 	 * @param {(progress: GeneratorProgress) => void} [generator_progress_callback] reports generation progress
 	 */
 	constructor(
@@ -1396,7 +1396,7 @@ export class LayeredGenerator {
 /**
  * Checks that layered tiles form a valid layered puzzle network
  * Throws an Error when a rule is broken
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {LayeredTiles} layers
  */
 export function validateLayers(grid, layers) {

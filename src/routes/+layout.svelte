@@ -1,7 +1,7 @@
 <script>
-	import Header from '$lib/header/Header.svelte';
-	import Footer from '$lib/footer/Footer.svelte';
-	import { dev } from '$app/environment';
+	import Header from '#lib/header/Header.svelte';
+	import Footer from '#lib/footer/Footer.svelte';
+	import { dev } from '$app/env';
 	import { RenderScan } from 'svelte-render-scan';
 	import './app.css';
 	/**

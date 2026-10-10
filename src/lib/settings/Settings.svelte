@@ -1,7 +1,7 @@
 <script>
-	import { settings } from '$lib/stores';
+	import { settings } from '#lib/stores.js';
 	import { onMount } from 'svelte';
-	import RotationDirection from '$lib/settings/RotationDirection.svelte';
+	import RotationDirection from '#lib/settings/RotationDirection.svelte';
 	import { slide } from 'svelte/transition';
 
 	onMount(() => {

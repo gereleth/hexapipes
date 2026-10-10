@@ -1,5 +1,5 @@
-import { RegularPolygonTile } from '$lib/puzzle/grids/polygonutils';
-import { AbstractGrid } from '$lib/puzzle/grids/abstractgrid';
+import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 export const EAST = 1;
 export const NORTHEAST = 2;
@@ -212,8 +212,8 @@ export class HexaGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {import('$lib/puzzle/viewbox').ViewBox} box
-	 * @returns {import('$lib/puzzle/viewbox').VisibleTile[]}
+	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		let rmin = Math.floor(box.ymin / YSTEP) - 1;

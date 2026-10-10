@@ -1,8 +1,7 @@
 <script>
-	
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('$lib/puzzle/solver').SolverProgress} progress
+	 * @property {import('#lib/puzzle/solver.js').SolverProgress} progress
 	 */
 
 	/** @type {Props} */
@@ -12,7 +11,9 @@
 	let ws = $derived(scale * progress.solved);
 	let wg = $derived(scale * progress.guessed);
 	let wa = $derived(scale * progress.ambiguous);
-	let wu = $derived(scale * (progress.total - progress.solved - progress.guessed - progress.ambiguous));
+	let wu = $derived(
+		scale * (progress.total - progress.solved - progress.guessed - progress.ambiguous)
+	);
 </script>
 
 <div class="solver-progress">

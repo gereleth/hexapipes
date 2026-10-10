@@ -2,16 +2,16 @@
 	import { run } from 'svelte/legacy';
 
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { page } from '$app/state';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import Timer, { formatTime } from '$lib/Timer.svelte';
-	import Stats from '$lib/Stats.svelte';
-	import { settings } from '$lib/stores';
-	import { getSolves } from '$lib/solvelogs.svelte';
-	import { createGrid } from '$lib/puzzle/grids/grids';
-	import Instructions from '$lib/Instructions.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
+	import Timer, { formatTime } from '#lib/Timer.svelte';
+	import Stats from '#lib/Stats.svelte';
+	import { settings } from '#lib/stores.js';
+	import { getSolves } from '#lib/solvelogs.svelte.js';
+	import { createGrid } from '#lib/puzzle/grids/grids.js';
+	import Instructions from '#lib/Instructions.svelte';
 
 	/**
 	 * @typedef {Object} Props
@@ -21,27 +21,30 @@
 	/** @type {Props} */
 	let { data } = $props();
 
+	// data is fixed per mount: nothing re-runs load for /daily, "Next puzzle" after midnight is a full reload
+	// svelte-ignore state_referenced_locally
 	let grid = createGrid(data.grid || 'hexagonal', data.width, data.height, data.wrap, data.tiles);
 
-	/** @type {import('$lib/solvelogs.svelte').Solve}*/
+	/** @type {import('#lib/solvelogs.svelte.js').Solve}*/
 	let solve = $state({
 		puzzleId: -1,
 		startedAt: -1,
 		pausedAt: -1,
 		elapsedTime: -1
 	});
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default|undefined}*/
+	/** @type {import('#lib/puzzle/Puzzle.svelte').default|undefined}*/
 	let puzzle = $state();
 	let solved = $state(false);
 	let progressStoreName = '/daily_progress';
 	let pathname = '/daily';
 
-	/** @type {import('$lib/solvelogs.svelte').SolvesLog|undefined}*/
+	/** @type {import('#lib/solvelogs.svelte.js').SolvesLog|undefined}*/
 	let solvesLog = $state();
 	let stats = $state();
 	let savedProgress = $state(undefined);
 	let shareText = $state('');
 
+	// svelte-ignore state_referenced_locally
 	const nextPuzzleAt = new Date(data.date).valueOf() + 24 * 60 * 60 * 1000;
 	function formatTimeLeft() {
 		const now = new Date().valueOf();
@@ -67,6 +70,7 @@
 		const progress = window.localStorage.getItem(progressStoreName);
 		if (progress !== null) {
 			const parsed = JSON.parse(progress);
+			// svelte-ignore state_referenced_locally
 			if (parsed.date === data.date) {
 				savedProgress = parsed.progress;
 			}
@@ -129,7 +133,7 @@
 	let shareButtonIcon = $state('📋');
 	/**
 	 *
-	 * @param {import('$lib/solvelogs.svelte').Solve} solve
+	 * @param {import('#lib/solvelogs.svelte.js').Solve} solve
 	 * @param {boolean} showTimer
 	 */
 	function formatShareText(solve, showTimer) {
@@ -233,9 +237,9 @@
 		</div>
 	</div>
 {/if}
-<div class="timings">
-	<Timer {solve} />
-</div>
+
+<div class="timings"><Timer {solve} /></div>
+
 {#if solvesLog}
 	<div class="stats">
 		<Stats stats={solvesLog.stats} previousStats={solvesLog.previousStats} />

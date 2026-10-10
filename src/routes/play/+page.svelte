@@ -1,5 +1,5 @@
 <script>
-	import GridsExamples from '$lib/header/GridsExamples.svelte';
+	import GridsExamples from '#lib/header/GridsExamples.svelte';
 </script>
 
 <svelte:head>

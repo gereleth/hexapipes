@@ -1,16 +1,17 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import Puzzle from '$lib/puzzle/Puzzle.svelte';
-	import PuzzleButtons from '$lib/puzzleWrapper/PuzzleButtons.svelte';
-	import { createGrid, randomGrid, gridKinds, gridInfo } from '$lib/puzzle/grids/grids';
-	import GeneratorComponent from '$lib/puzzle/GeneratorComponent.svelte';
-	import LayeredGeneratorComponent from '$lib/puzzle/LayeredGeneratorComponent.svelte';
-	import Instructions from '$lib/Instructions.svelte';
+	import Puzzle from '#lib/puzzle/Puzzle.svelte';
+	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
+	import { createGrid, randomGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
+	import GeneratorComponent from '#lib/puzzle/GeneratorComponent.svelte';
+	import LayeredGeneratorComponent from '#lib/puzzle/LayeredGeneratorComponent.svelte';
+	import Instructions from '#lib/Instructions.svelte';
 
 	let generatorState = $state('idle');
-	/** @type {import('$lib/puzzle/grids/grids').GridKind}*/
-	let gridKind = $state('square');
+	/** @type {import('#lib/puzzle/grids/grids.js').GridKind}*/
+	let gridKind = $state('hexagonal');
 	let layered = $state(true);
+
 	let width = $state(5);
 	let height = $state(5);
 	let wrap = $state(false);
@@ -19,19 +20,19 @@
 	let avoidStraights = $state(0.0);
 	let layeringAmount = $state(0.6);
 	let autosolve = $state(false);
-	/** @type {import('$lib/puzzle/generator').SolutionsNumber}*/
+	/** @type {import('#lib/puzzle/generator.js').SolutionsNumber}*/
 	let solutionsNumber = $state('unique');
 	let errorMessage = $state('');
 
-	/** @type {import('$lib/puzzle/Puzzle.svelte').default|undefined}*/
+	/** @type {import('#lib/puzzle/Puzzle.svelte').default|undefined}*/
 	let puzzle = $state();
-	/** @type {import('$lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
+	/** @type {import('#lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
 	let generatorComponent = $state();
-	/** @type {import('$lib/puzzle/LayeredGeneratorComponent.svelte').default|undefined}*/
+	/** @type {import('#lib/puzzle/LayeredGeneratorComponent.svelte').default|undefined}*/
 	let layeredGeneratorComponent = $state();
 	let solved = $state(false);
 
-	/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined}*/
+	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined}*/
 	let grid = $state();
 	/** @type {Number[]|Number[][]}*/
 	let tiles = $state([]);
@@ -99,9 +100,13 @@
 		generatorState = 'idle';
 	}
 
+	/**
+	 * @param {ProgressEvent<FileReader>} event
+	 */
 	function importPuzzle(event) {
 		try {
-			const data = JSON.parse(event.target.result);
+			const reader = /** @type {FileReader} */ (event.target);
+			const data = JSON.parse(/** @type {string} */ (reader.result));
 
 			const w = Number(data.width);
 			if (isNaN(w) || w < 2 || !Number.isInteger(w)) {
@@ -118,6 +123,7 @@
 			if (!data.tiles) {
 				throw 'Tiles list not found';
 			}
+			/** @type {Number[]} */
 			const t = data.tiles;
 			const layer = Array.isArray(data.tiles[0]);
 			if (!layer) {
@@ -155,8 +161,12 @@
 		}
 	}
 
+	/**
+	 * @param {Event} event
+	 */
 	function importFromFile(event) {
-		const files = event.target.files;
+		const input = /** @type {HTMLInputElement} */ (event.target);
+		const files = input.files;
 		if (files === null || files.length <= 0) {
 			// no data selected
 			return false;

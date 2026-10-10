@@ -1,5 +1,5 @@
 <script>
-	import Settings from '$lib/settings/Settings.svelte';
+	import Settings from '#lib/settings/Settings.svelte';
 
 	/**
 	 * @typedef {Object} Props

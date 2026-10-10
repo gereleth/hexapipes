@@ -295,8 +295,8 @@ function flush() {
 /**
  * Runs markAmbiguousTiles once on a fresh solver instance
  * @param {typeof import('./solver-layers').LayeredSolver} SolverClass
- * @param {import('$lib/puzzle/generator-layers').LayeredTiles} layers
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} layers
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {SolverRunRecord}
  */
 function runSolver(SolverClass, layers, grid) {
@@ -440,7 +440,7 @@ describe('Benchmark markAmbiguousTiles on paired layered 20x20 boards', () => {
 	for (const [
 		label,
 		makeGrid
-	] of /** @type {Array<[String, () => import('$lib/puzzle/grids/abstractgrid').AbstractGrid]>} */ ([
+	] of /** @type {Array<[String, () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
 		['square', () => new SquareGrid(20, 20, false)],
 		['hexagonal', () => new HexaGrid(20, 20, false)]
 	])) {

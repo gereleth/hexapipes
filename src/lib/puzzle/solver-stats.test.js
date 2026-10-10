@@ -197,7 +197,7 @@ describe('Benchmark markAmbiguousTiles on classic 30x30 boards', () => {
 	for (const [
 		label,
 		makeGrid
-	] of /** @type {Array<[String, () => import('$lib/puzzle/grids/abstractgrid').AbstractGrid]>} */ ([
+	] of /** @type {Array<[String, () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
 		['square', () => new SquareGrid(30, 30, false)],
 		['hexagonal', () => new HexaGrid(30, 30, false)]
 	])) {

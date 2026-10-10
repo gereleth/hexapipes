@@ -87,7 +87,7 @@ const TIMEOUT = 60 * 60 * 1000;
  * escalated through while no bugs are found
  * @typedef {Object} FuzzConfig
  * @property {String} label
- * @property {(width: Number, height: Number) => import('$lib/puzzle/grids/abstractgrid').AbstractGrid} makeGrid
+ * @property {(width: Number, height: Number) => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} makeGrid
  * @property {Number[][]} sizes - [width, height] pairs, small to large
  */
 
@@ -240,7 +240,7 @@ function compareSolutionSets(baselineSolutions, currentSolutions) {
 
 /**
  * Checks that every enumerated solution is a valid layered board
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {import('./generator-layers').LayeredTiles} tiles - scrambled board as given to the solver
  * @param {Number[][]} solutions
  * @returns {String} - '' when all solutions are valid, otherwise the validation error
@@ -287,7 +287,7 @@ function uniqueResultDiffs(name, solution, result) {
 /**
  * Saves the discrepant board as a self-contained reproducer: rebuild the
  * grid from kind/width/height/wrap and run either solver on tiles
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {import('./generator-layers').LayeredTiles} tiles - scrambled board as given to both solvers
  * @param {Number} runIndex
  * @returns {String} - path of the written file
@@ -310,7 +310,7 @@ function saveDiscrepancy(grid, tiles, runIndex) {
  * Fuzzes one fresh board: generates, scrambles, enumerates all solutions
  * with both solvers and compares. Saves the board and throws on the first
  * discrepancy.
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number} runIndex - 1-based board counter, for logs and artifact names
  * @param {typeof import('./solver-layers').LayeredSolver} BaselineSolver
  * @returns {String} 'ok' when comparable and identical, 'capped' when skipped

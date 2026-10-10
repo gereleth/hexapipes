@@ -17,7 +17,7 @@ const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
 /**
  * Applies growth events to a layers board, mirroring the page's animation
- * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number[][]} board
  * @param {import('./generator-layers').GrowthMove[]} moves
  */
@@ -103,7 +103,7 @@ describe('Test branchingAmount knob', () => {
 
 	/**
 	 * Fraction of deadend sub-cells (at most one connection) over all sub-cells
-	 * @param {import('$lib/puzzle/grids/abstractgrid').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {Number} branchingAmount
 	 * @returns {Number}
 	 */

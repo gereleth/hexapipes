@@ -1,21 +1,21 @@
-import { LayeredGenerator, pregenerate_layers } from '$lib/puzzle/generator-layers';
-import { LayeredSolver } from '$lib/puzzle/solver-layers';
-import { createGrid } from '$lib/puzzle/grids/grids';
+import { LayeredGenerator, pregenerate_layers } from '#lib/puzzle/generator-layers.js';
+import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
+import { createGrid } from '#lib/puzzle/grids/grids.js';
 
 /**
  *
- * @param {import('$lib/puzzle/grids/grids').GridOptions} grid
- * @param {import('$lib/puzzle/generator-layers').GeneratorOptions} options
+ * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
+ * @param {import('#lib/puzzle/generator-layers.js').GeneratorOptions} options
  */
 function generate(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	const gen = new LayeredGenerator(grid_);
-	/** @param {import('$lib/puzzle/generator-layers').GeneratorProgress} gen_progress */
+	/** @param {import('#lib/puzzle/generator-layers.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
-	/** @param {import('$lib/puzzle/solver-layers').SolverProgress} progress */
+	/** @param {import('#lib/puzzle/solver-layers.js').SolverProgress} progress */
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
@@ -34,28 +34,28 @@ function generate(grid, options) {
 }
 
 // debug mode: step through the uniqueness loop one iteration at a time
-/** @type {import('$lib/puzzle/grids/abstractgrid').AbstractGrid|undefined} */
+/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 let debugGrid = undefined;
-/** @type {Generator<import('$lib/puzzle/generator-layers').IterationSnapshot, void, void>|undefined} */
+/** @type {Generator<import('#lib/puzzle/generator-layers.js').IterationSnapshot, void, void>|undefined} */
 let debugIterator = undefined;
 /** @type {Number[][]|undefined} */
 let debugTiles = undefined;
 
 /**
  *
- * @param {import('$lib/puzzle/grids/grids').GridOptions} grid
- * @param {import('$lib/puzzle/generator-layers').GeneratorOptions} options
+ * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
+ * @param {import('#lib/puzzle/generator-layers.js').GeneratorOptions} options
  */
 function debugStart(grid, options) {
 	debugStop();
 	const { kind, width, height, wrap, tiles } = grid;
 	debugGrid = createGrid(kind, width, height, wrap, tiles);
 	const gen = new LayeredGenerator(debugGrid);
-	/** @param {import('$lib/puzzle/generator-layers').GeneratorProgress} gen_progress */
+	/** @param {import('#lib/puzzle/generator-layers.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
-	/** @param {import('$lib/puzzle/solver-layers').SolverProgress} progress */
+	/** @param {import('#lib/puzzle/solver-layers.js').SolverProgress} progress */
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
@@ -117,7 +117,7 @@ function debugStop() {
 
 /**
  * Runs one pregeneration and streams its growth events for animation
- * @param {import('$lib/puzzle/grids/grids').GridOptions} grid
+ * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
  * @param {Object} options
  * @param {Number} [options.layeringAmount]
  * @param {Number} [options.branchingAmount]
@@ -128,7 +128,7 @@ function debugStop() {
 function growthStart(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
-	/** @param {import('$lib/puzzle/generator-layers').GrowthMove} move */
+	/** @param {import('#lib/puzzle/generator-layers.js').GrowthMove} move */
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
 	const grownTiles = pregenerate_layers(
 		grid_,
