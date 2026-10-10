@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 
 /** @type {import('vitest/config').ViteUserConfig} */
 const config = defineConfig({
-	plugins: [sveltekit({ adapter: adapter() })],
+	plugins: [sveltekit({ adapter: adapter({ runtime: 'nodejs24.x' }) })],
 	test: {
 		globals: true,
 		environment: 'jsdom'
