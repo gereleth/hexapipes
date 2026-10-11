@@ -57,10 +57,15 @@ export function Cell(polygon, initial) {
 	self.initial = initial;
 
 	self.possible = new Set();
+	/** @type {Map<Number, Number>} */
+	self.rotations = new Map(); // orientation => rotation count
 	if (initial >= 0) {
+		let rotations = 0;
 		let rotated = initial;
 		while (!self.possible.has(rotated)) {
 			self.possible.add(rotated);
+			self.rotations.set(rotated, rotations);
+			rotations += 1;
 			rotated = polygon.rotate(rotated, 1);
 		}
 	} else {
@@ -71,6 +76,15 @@ export function Cell(polygon, initial) {
 	self.walls = 0;
 	self.connections = 0;
 
+	/**
+	 * Get a rotation that corresponds to the first possible orientation
+	 * @returns {Number}
+	 */
+	self.getValidRotation = function () {
+		const orientation = self.possible.keys().next().value;
+		const rotation = self.rotations.get(orientation) || 0;
+		return rotation;
+	};
 	/**
 	 * @param {Number} direction
 	 */
@@ -185,6 +199,7 @@ export function Cell(polygon, initial) {
 		clone.possible = new Set(self.possible);
 		clone.walls = self.walls;
 		clone.connections = self.connections;
+		clone.rotations = self.rotations;
 		return clone;
 	};
 
@@ -509,20 +524,7 @@ export function Solver(tiles, grid) {
 				}
 			}
 			// check if cell is solved
-			const orientation = cell.possible.keys().next().value;
-			// steps and solutions carry rotation counts relative to the initial
-			// tile, canonical smallest r; possible sets are rotation orbits of
-			// the initial tile so the search below is total. cell.initial is
-			// used instead of self.tiles[index] because clones have empty tiles
-			let rotation = 0;
-			let rotated = cell.initial;
-			while (rotated !== orientation && rotation < polygon.directions.length) {
-				rotated = polygon.rotate(rotated, 1);
-				rotation += 1;
-			}
-			if (rotation === polygon.directions.length) {
-				throw `No rotation of tile ${cell.initial} results in orientation ${orientation}`;
-			}
+			const rotation = cell.getValidRotation();
 			const final = cell.possible.size === 1;
 			if (final) {
 				// remove solved cell from its component
