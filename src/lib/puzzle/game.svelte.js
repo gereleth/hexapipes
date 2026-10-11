@@ -319,38 +319,12 @@ export class PipesGame {
 	}
 
 	/**
-	 * Rotate tile to a certain orientation
-	 * @param {Number} tileIndex
-	 * @param {Number} orientation
-	 */
-	setTileOrientation(tileIndex, orientation, animate = false) {
-		const tileState = this.tileStates[tileIndex];
-		const polygon = this.grid.polygon_at(tileIndex);
-		if (tileState === undefined) {
-			return;
-		}
-		const initial = this.grid.rotate(this.tiles[tileIndex], tileState.rotations, tileIndex);
-		let newState = initial;
-		let rotations = 0;
-		while (newState !== orientation && rotations < polygon.directions.length) {
-			newState = this.grid.rotate(newState, 1, tileIndex);
-			rotations += 1;
-		}
-		if (rotations === polygon.directions.length) {
-			throw `No way to rotate tile at ${tileIndex} from ${initial} to ${orientation}`;
-		}
-		if (rotations !== 0 || animate) {
-			this.rotateTile(tileIndex, rotations === 0 ? polygon.directions.length : rotations);
-		}
-	}
-
-	/**
 	 * Rotate tile to a certain rotation count, relative to the base tile
 	 * @param {Number} tileIndex
 	 * @param {Number} rotation - target rotation count
 	 * @param {Boolean} [animate=false] - do a full turn if already at target
 	 */
-	setTileRotation(tileIndex, rotation, animate = false) {
+	setTileOrientation(tileIndex, rotation, animate = false) {
 		const tileState = this.tileStates[tileIndex];
 		if (tileState === undefined || this.tiles[tileIndex] === 0) {
 			return;

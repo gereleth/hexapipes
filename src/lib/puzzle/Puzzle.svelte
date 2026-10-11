@@ -301,7 +301,7 @@
 						}
 						game.toggleLocked(step.index, false);
 						const shouldLock = step.final && stage === 'initial';
-						game.setTileOrientation(step.index, step.orientation, !shouldLock);
+						game.setTileOrientation(step.index, step.rotation, !shouldLock);
 						if (shouldLock) {
 							game.toggleLocked(step.index, true);
 						}
@@ -427,8 +427,8 @@
 									});
 								} else {
 									const classicGame = /** @type {PipesGame} */ (game);
-									solution.forEach((orientation, index) => {
-										classicGame.setTileOrientation(index, orientation);
+									solution.forEach((rotation, index) => {
+										classicGame.setTileOrientation(index, rotation);
 										game.solved = false;
 									});
 								}

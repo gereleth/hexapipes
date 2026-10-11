@@ -238,7 +238,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		const { marked, solvable, unique } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 		expect(unique).toBe(true);
-		expect(marked).toStrictEqual(expect.arrayContaining([32, 16, 7, 8]));
+		expect(marked).toStrictEqual(expect.arrayContaining([1, 2, 0, 3]));
 	});
 
 	it('Detects a larger puzzle with a unique solution', () => {
@@ -248,7 +248,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		const { marked, solvable, unique } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 		expect(unique).toBe(true);
-		expect(marked).toStrictEqual(expect.arrayContaining([32, 16, 39, 8, 1, 12]));
+		expect(marked).toStrictEqual(expect.arrayContaining([1, 2, 1, 3, 0, 4]));
 	});
 
 	it('Detects a puzzle with multiple solutions', () => {
@@ -259,7 +259,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		expect(solvable).toBe(true);
 		expect(unique).toBe(false);
 		const a = solver.AMBIGUOUS;
-		expect(marked).toStrictEqual(expect.arrayContaining([1, 40, a, 1, a, a, 1, 10, a]));
+		expect(marked).toStrictEqual(expect.arrayContaining([0, 3, a, 0, a, a, 0, 5, a]));
 	});
 
 	it('Detects a wrap puzzle with multiple solutions', () => {
@@ -270,7 +270,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		expect(solvable).toBe(true);
 		expect(unique).toBe(false);
 		const a = solver.AMBIGUOUS;
-		expect(marked).toStrictEqual(expect.arrayContaining([1, 24, a, 43, a, a, 1, 12, a]));
+		expect(marked).toStrictEqual(expect.arrayContaining([0, 3, a, 0, a, a, 0, 4, a]));
 	});
 
 	it('Detects a puzzle with an empty cell and a unique solution', () => {
@@ -304,30 +304,31 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 	});
 });
 
-// Characterization pins for the current emit format: Step.orientation and
-// solutions hold target masks. These pins get rewritten when the solver
-// switches to rotation counts (see agent-doc/solver-rotation-plan.md).
+// Pins for the solver emit format: Step.rotation and solutions hold
+// rotation counts relative to each cell's initial tile (canonical smallest
+// r), marked holds rotations with negative sentinels for ambiguous cells.
+// See agent-doc/solver-rotation-plan.md.
 describe('Test solver emit format', () => {
-	it('Emits target masks as steps and solutions as mask arrays', () => {
+	it('Emits rotations as steps and solutions as rotation arrays', () => {
 		const grid = new HexaGrid(2, 3, false);
 		const tiles = [1, 1, 15, 1, 1, 3];
 		const solver = new Solver(tiles, grid);
 		const steps = [];
 		for (let { stage, step } of solver.solve(true)) {
-			steps.push([stage, step.index, step.orientation, step.final]);
+			steps.push([stage, step.index, step.rotation, step.final]);
 		}
 		expect(steps).toEqual([
-			['initial', 0, 1, false],
-			['initial', 1, 32, false],
-			['initial', 2, 39, false],
-			['initial', 3, 8, true],
-			['initial', 5, 12, true],
-			['initial', 1, 16, true],
-			['initial', 4, 1, true],
-			['initial', 0, 32, true],
-			['initial', 2, 39, true]
+			['initial', 0, 0, false],
+			['initial', 1, 1, false],
+			['initial', 2, 1, false],
+			['initial', 3, 3, true],
+			['initial', 5, 4, true],
+			['initial', 1, 2, true],
+			['initial', 4, 0, true],
+			['initial', 0, 1, true],
+			['initial', 2, 1, true]
 		]);
-		expect(solver.solutions).toEqual([[32, 16, 39, 8, 1, 12]]);
+		expect(solver.solutions).toEqual([[1, 2, 1, 3, 0, 4]]);
 	});
 
 	it('Does not report processing an empty cell as a step', () => {
@@ -339,6 +340,6 @@ describe('Test solver emit format', () => {
 			stepIndexes.push(step.index);
 		}
 		expect(stepIndexes).not.toContain(4);
-		expect(solver.solutions).toEqual([[33, 9, 40, 20, 0, 4, 3, 9, 8]]);
+		expect(solver.solutions).toEqual([[1, 0, 3, 4, 0, 4, 0, 0, 3]]);
 	});
 });

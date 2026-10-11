@@ -34,8 +34,8 @@ function IslandDetectedException() {
  * Solve step represents processing new info on a single cell
  * @typedef {Object} Step
  * @property {Number} index
- * @property {Number} orientation
- * @property {Boolean} final - true if this orientation is the only one left
+ * @property {Number} rotation - absolute rotation relative to the initial tile
+ * @property {Boolean} final - true if this rotation is the only one left
  */
 
 /**
@@ -510,6 +510,19 @@ export function Solver(tiles, grid) {
 			}
 			// check if cell is solved
 			const orientation = cell.possible.keys().next().value;
+			// steps and solutions carry rotation counts relative to the initial
+			// tile, canonical smallest r; possible sets are rotation orbits of
+			// the initial tile so the search below is total. cell.initial is
+			// used instead of self.tiles[index] because clones have empty tiles
+			let rotation = 0;
+			let rotated = cell.initial;
+			while (rotated !== orientation && rotation < polygon.directions.length) {
+				rotated = polygon.rotate(rotated, 1);
+				rotation += 1;
+			}
+			if (rotation === polygon.directions.length) {
+				throw `No rotation of tile ${cell.initial} results in orientation ${orientation}`;
+			}
 			const final = cell.possible.size === 1;
 			if (final) {
 				// remove solved cell from its component
@@ -520,12 +533,12 @@ export function Solver(tiles, grid) {
 						throw new IslandDetectedException();
 					}
 				}
-				self.solution[index] = orientation;
+				self.solution[index] = rotation;
 				self.unsolved.delete(index);
 				self.components.delete(index);
 			}
-			// console.log({ index, orientation, final, possible: [...cell.possible] });
-			yield { index, orientation, final };
+			// console.log({ index, rotation, final, possible: [...cell.possible] });
+			yield { index, rotation, final };
 			self.dirty.delete(index);
 			// if (self.dirty.size === 0) {
 			// 	// whip out heavy logic
@@ -686,7 +699,7 @@ export function Solver(tiles, grid) {
 				self.dirty.add(nextTile);
 				for (let step of self.processDirtyCells()) {
 					toInit.delete(step.index);
-					if (step.orientation === 0) {
+					if (self.tiles[step.index] === 0) {
 						// don't report processing empty cell as a step
 						continue;
 					}
@@ -793,7 +806,7 @@ export function Solver(tiles, grid) {
 				try {
 					for (let step of clone.processDirtyCells()) {
 						if (step.final) {
-							const key = `${step.index}_${step.orientation}`;
+							const key = `${step.index}_${step.rotation}`;
 							tested.add(key);
 						}
 					}
@@ -847,7 +860,7 @@ export function Solver(tiles, grid) {
 					for (let step of self.processDirtyCells()) {
 						toInit.delete(step.index);
 						if (step.final) {
-							marked[step.index] = step.orientation;
+							marked[step.index] = step.rotation;
 						}
 					}
 				}
