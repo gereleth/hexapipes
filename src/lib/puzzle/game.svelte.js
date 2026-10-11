@@ -336,6 +336,7 @@ export class PipesGame {
 			delta += numDirections;
 		}
 		if (delta !== 0 || animate) {
+			this.toggleLocked(tileIndex, false);
 			this.rotateTile(tileIndex, delta === 0 ? numDirections : delta);
 		}
 	}

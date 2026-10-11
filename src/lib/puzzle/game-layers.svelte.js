@@ -417,6 +417,7 @@ export class LayeredPipesGame {
 			delta += numDirections;
 		}
 		if (delta !== 0 || animate) {
+			this.toggleLocked(cell, false);
 			this.rotateTile(cell, delta === 0 ? numDirections : delta);
 		}
 	}
