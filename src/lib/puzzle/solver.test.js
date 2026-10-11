@@ -305,26 +305,26 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 });
 
 describe('Test solver emit format', () => {
+	// pins the emit format (rotation counts, not masks), not the processing order
 	it('Emits rotations as steps and solutions as rotation arrays', () => {
 		const grid = new HexaGrid(2, 3, false);
 		const tiles = [1, 1, 15, 1, 1, 3];
 		const solver = new Solver(tiles, grid);
-		const steps = [];
+		const finalRotations = new Map();
 		for (let { stage, step } of solver.solve(true)) {
-			steps.push([stage, step.index, step.rotation, step.final]);
+			expect(['initial', 'guess', 'aftercheck']).toContain(stage);
+			// rotations stay within a cell's orbit - masks would fall outside
+			expect(step.rotation).toBeGreaterThanOrEqual(0);
+			expect(step.rotation).toBeLessThan(grid.polygon_at(step.index).num_directions);
+			if (step.final) {
+				finalRotations.set(step.index, step.rotation);
+			}
 		}
-		expect(steps).toEqual([
-			['initial', 0, 0, false],
-			['initial', 1, 1, false],
-			['initial', 2, 1, false],
-			['initial', 3, 3, true],
-			['initial', 5, 4, true],
-			['initial', 1, 2, true],
-			['initial', 4, 0, true],
-			['initial', 0, 1, true],
-			['initial', 2, 1, true]
-		]);
 		expect(solver.solutions).toEqual([[1, 2, 1, 3, 0, 4]]);
+		expect(finalRotations.size).toBe(tiles.length);
+		for (const [index, rotation] of finalRotations) {
+			expect(rotation).toBe(solver.solutions[0][index]);
+		}
 	});
 
 	it('Does not report processing an empty cell as a step', () => {
