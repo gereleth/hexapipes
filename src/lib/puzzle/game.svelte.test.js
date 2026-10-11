@@ -126,3 +126,46 @@ describe('Test initialize board', () => {
 		});
 	});
 });
+
+// Characterization pins for the current mask-targeting setTileOrientation.
+// These pins get rewritten when the setter switches to rotation counts
+// (see agent-doc/solver-rotation-plan.md).
+describe('Test setTileOrientation mask targeting', () => {
+	// open-ended puzzle, never solved - rotateTile keeps working throughout
+	const grid = new HexaGrid(3, 3, false);
+	const tiles = [1, 3, 3, 11, 11, 5, 1, 1, 1];
+
+	it('Rotates from a non-zero current rotation to the target mask', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.rotateTile(0, 1);
+		// tile 0 is a deadend (1); its state is 32 now, target 4 is 3 rotations ahead
+		game.setTileOrientation(0, 4);
+		expect(game.tileStates[0].rotations).toBe(4);
+	});
+
+	it('Rotates to another orientation in the orbit', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.rotateTile(0, 2);
+		// state is 16 now, target 1 is 4 rotations ahead
+		game.setTileOrientation(0, 1);
+		expect(game.tileStates[0].rotations).toBe(6);
+	});
+
+	it('Is a no-op when already at the target mask', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.setTileOrientation(0, 1);
+		expect(game.tileStates[0].rotations).toBe(0);
+	});
+
+	it('Throws when the target mask is unreachable', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		// 3 is a sharp turn, not in the deadend's orbit
+		expect(() => game.setTileOrientation(0, 3)).toThrowError('No way to rotate tile');
+	});
+
+	it('Does a full turn on animate when already at the target mask', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.setTileOrientation(0, 1, true);
+		expect(game.tileStates[0].rotations).toBe(6);
+	});
+});

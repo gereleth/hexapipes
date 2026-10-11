@@ -303,3 +303,42 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		expect(unique).toBe(true);
 	});
 });
+
+// Characterization pins for the current emit format: Step.orientation and
+// solutions hold target masks. These pins get rewritten when the solver
+// switches to rotation counts (see agent-doc/solver-rotation-plan.md).
+describe('Test solver emit format', () => {
+	it('Emits target masks as steps and solutions as mask arrays', () => {
+		const grid = new HexaGrid(2, 3, false);
+		const tiles = [1, 1, 15, 1, 1, 3];
+		const solver = new Solver(tiles, grid);
+		const steps = [];
+		for (let { stage, step } of solver.solve(true)) {
+			steps.push([stage, step.index, step.orientation, step.final]);
+		}
+		expect(steps).toEqual([
+			['initial', 0, 1, false],
+			['initial', 1, 32, false],
+			['initial', 2, 39, false],
+			['initial', 3, 8, true],
+			['initial', 5, 12, true],
+			['initial', 1, 16, true],
+			['initial', 4, 1, true],
+			['initial', 0, 32, true],
+			['initial', 2, 39, true]
+		]);
+		expect(solver.solutions).toEqual([[32, 16, 39, 8, 1, 12]]);
+	});
+
+	it('Does not report processing an empty cell as a step', () => {
+		const tiles = [3, 9, 5, 5, 0, 1, 3, 9, 1];
+		const grid = new HexaGrid(3, 3, false, tiles);
+		const solver = new Solver(tiles, grid);
+		const stepIndexes = [];
+		for (let { stage, step } of solver.solve(true)) {
+			stepIndexes.push(step.index);
+		}
+		expect(stepIndexes).not.toContain(4);
+		expect(solver.solutions).toEqual([[33, 9, 40, 20, 0, 4, 3, 9, 8]]);
+	});
+});
