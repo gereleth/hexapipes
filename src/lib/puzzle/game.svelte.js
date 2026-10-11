@@ -345,6 +345,28 @@ export class PipesGame {
 	}
 
 	/**
+	 * Rotate tile to a certain rotation count, relative to the base tile
+	 * @param {Number} tileIndex
+	 * @param {Number} rotation - target rotation count
+	 * @param {Boolean} [animate=false] - do a full turn if already at target
+	 */
+	setTileRotation(tileIndex, rotation, animate = false) {
+		const tileState = this.tileStates[tileIndex];
+		if (tileState === undefined || this.tiles[tileIndex] === 0) {
+			return;
+		}
+		const numDirections = this.grid.polygon_at(tileIndex).num_directions;
+		const current = ((tileState.rotations % numDirections) + numDirections) % numDirections;
+		let delta = (rotation - current) % numDirections;
+		if (delta < 0) {
+			delta += numDirections;
+		}
+		if (delta !== 0 || animate) {
+			this.rotateTile(tileIndex, delta === 0 ? numDirections : delta);
+		}
+	}
+
+	/**
 	 *
 	 * @param {EdgeMark} mark
 	 * @param {Number} tileIndex

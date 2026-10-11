@@ -169,3 +169,48 @@ describe('Test setTileOrientation mask targeting', () => {
 		expect(game.tileStates[0].rotations).toBe(6);
 	});
 });
+
+describe('Test setTileRotation', () => {
+	// open-ended puzzle, never solved - rotateTile keeps working throughout
+	const grid = new HexaGrid(3, 3, false);
+	const tiles = [1, 3, 3, 11, 11, 5, 1, 1, 1];
+
+	it('Reaches the target rotation from non-zero current rotations', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.rotateTile(0, 1);
+		game.setTileRotation(0, 4);
+		expect(game.tileStates[0].rotations).toBe(4);
+
+		const game2 = new PipesGame(grid, tiles, undefined);
+		game2.rotateTile(0, 7); // current rotation modulo 6 is 1
+		game2.setTileRotation(0, 2);
+		expect(game2.tileStates[0].rotations).toBe(8);
+	});
+
+	it('Reaches the target from negative accumulated rotations', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.rotateTile(0, -1); // current rotation modulo 6 is 5
+		game.setTileRotation(0, 1);
+		expect(game.tileStates[0].rotations).toBe(1);
+	});
+
+	it('Is a no-op when already at the target rotation', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.setTileRotation(0, 0);
+		expect(game.tileStates[0].rotations).toBe(0);
+	});
+
+	it('Does a full turn on animate when already at the target rotation', () => {
+		const game = new PipesGame(grid, tiles, undefined);
+		game.setTileRotation(0, 0, true);
+		expect(game.tileStates[0].rotations).toBe(6);
+	});
+
+	it('Skips empty tiles', () => {
+		const emptyTiles = [3, 9, 5, 5, 0, 1, 3, 9, 1];
+		const emptyGrid = new HexaGrid(3, 3, false, emptyTiles);
+		const game = new PipesGame(emptyGrid, emptyTiles, undefined);
+		game.setTileRotation(4, 3);
+		expect(game.tileStates[4].rotations).toBe(0);
+	});
+});
