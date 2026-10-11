@@ -415,12 +415,10 @@ export class Generator {
 						throw 'Pregeneration returned an unsolvable puzzle';
 					}
 					if (unique) {
-						// marked holds rotation counts, scramble the solved board directly
 						return randomRotate(tiles, this.grid);
 					}
-					// marked holds rotation counts with negative sentinels for
-					// ambiguous tiles - convert back to solver-frame masks so
-					// pregenerate_growingtree can reuse the certified tiles
+					// marked holds rotations with negative sentinels for
+					// ambiguous tiles - convert back to tiles for reuse
 					const toStartTiles = (/** @type {Number} */ m, /** @type {Number} */ index) =>
 						m >= 0 ? this.grid.rotate(tiles[index], m, index) : m;
 					if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {

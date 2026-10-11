@@ -304,10 +304,6 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 	});
 });
 
-// Pins for the solver emit format: Step.rotation and solutions hold
-// rotation counts relative to each cell's initial tile (canonical smallest
-// r), marked holds rotations with negative sentinels for ambiguous cells.
-// See agent-doc/solver-rotation-plan.md.
 describe('Test solver emit format', () => {
 	it('Emits rotations as steps and solutions as rotation arrays', () => {
 		const grid = new HexaGrid(2, 3, false);

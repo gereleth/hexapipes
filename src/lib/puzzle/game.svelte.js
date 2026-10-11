@@ -319,7 +319,7 @@ export class PipesGame {
 	}
 
 	/**
-	 * Rotate tile to a certain rotation count, relative to the base tile
+	 * Rotate a tile `rotation` times from its initial orientation
 	 * @param {Number} tileIndex
 	 * @param {Number} rotation - target rotation count
 	 * @param {Boolean} [animate=false] - do a full turn if already at target
