@@ -405,7 +405,7 @@ export class LayeredPipesGame {
 	 * @param {Number} rotation - target rotation count
 	 * @param {Boolean} [animate=false] - do a full turn if already at target
 	 */
-	setTileOrientation(cell, rotation, animate = false) {
+	setTileRotation(cell, rotation, animate = false) {
 		const tileState = this.tileStates[cell];
 		if (tileState === undefined || tileState.layers.length === 0) {
 			return;

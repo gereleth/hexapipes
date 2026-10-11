@@ -324,7 +324,7 @@ export class PipesGame {
 	 * @param {Number} rotation - target rotation count
 	 * @param {Boolean} [animate=false] - do a full turn if already at target
 	 */
-	setTileOrientation(tileIndex, rotation, animate = false) {
+	setTileRotation(tileIndex, rotation, animate = false) {
 		const tileState = this.tileStates[tileIndex];
 		if (tileState === undefined || this.tiles[tileIndex] === 0) {
 			return;

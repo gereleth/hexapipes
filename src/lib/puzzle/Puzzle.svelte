@@ -268,7 +268,7 @@
 						}
 						game.toggleLocked(step.index, false);
 						const shouldLock = step.final && stage === 'initial';
-						layeredGame.setTileOrientation(step.index, step.rotation, !shouldLock);
+						layeredGame.setTileRotation(step.index, step.rotation, !shouldLock);
 						if (shouldLock) {
 							game.toggleLocked(step.index, true);
 						}
@@ -301,7 +301,7 @@
 						}
 						game.toggleLocked(step.index, false);
 						const shouldLock = step.final && stage === 'initial';
-						game.setTileOrientation(step.index, step.rotation, !shouldLock);
+						game.setTileRotation(step.index, step.rotation, !shouldLock);
 						if (shouldLock) {
 							game.toggleLocked(step.index, true);
 						}
@@ -420,7 +420,7 @@
 						<button
 							onclick={() => {
 								solution.forEach((rotation, index) => {
-									game.setTileOrientation(index, rotation);
+									game.setTileRotation(index, rotation);
 									game.solved = false;
 								});
 								game.solved = false;

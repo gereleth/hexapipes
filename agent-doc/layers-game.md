@@ -52,17 +52,10 @@ not supported.
   initialized.
 - Pointing off-board or at a non-mutual neighbour ⇒ `hasDisconnects` for that layer and the id joins
   `openEnds` (game-level set + `component.openEnds`).
-- `setTileOrientation(cell, rotation, animate)`: rotates to an **absolute rotation relative to the
-  base layers** (the solver's frame), independent of accumulated player rotations; modular delta,
-  `animate` spins a full turn when already at target (classic parity). This is what the solver
-  wiring uses (Puzzle.svelte applies solution steps as absolute rotations). **FIXME: this diverges
-  from classic**, whose `setTileOrientation` targets a rotated _mask_ searched for from the tile's
-  current state (and throws if unreachable). The layered version had to take a rotation count
-  because a target union mask cannot disambiguate a cell rotation (different rotations can share the
-  same union, e.g. layers `[5, 10]`). Switching between solutions in layered puzzles (the "Solution
-  k" buttons in Puzzle.svelte, replaying per-cell absolute rotations) is currently buggy and this
-  semantic divergence is the suspected cause — investigate and fix there rather than by
-  reintroducing mask-based targeting.
+- `setTileRotation(cell, rotation, animate)`: rotates to an **absolute rotation relative to the base
+  layers** (the solver's frame), independent of accumulated player rotations; modular delta,
+  `animate` spins a full turn when already at target (classic parity). This is what Puzzle.svelte
+  uses to show solver animations and multiple solutions.
 
 ## Components, loops, islands
 
@@ -151,10 +144,8 @@ BFS from it sees no loop and no unreached tiles.
 
 - `saveProgress` stores `colors` (array) for layered, `color` for classic; restore path matches.
 - Solver wiring: `unleashTheSolver` has a layered branch — runs `LayeredSolver.solve(true)` and
-  applies steps as absolute rotations via `setTileOrientation` (locking `final` + `initial` steps
-  like classic); multi-solution lock/unlock compares picture ids; `solutions` are converted to
-  rotation arrays for the "Solution k" buttons (template branches classic vs layered). Solver
-  details: see layers-solver doc.
+  applies steps as absolute rotations via `setTileRotation` like classic. Solver details: see
+  layers-solver doc.
 - `measureSolveTime` runs a full `solve(true)` for the stats readout, so heavy boards freeze the UI
   before animating — same exposure as classic.
 - `controls` (`controls.js`) and `EdgeMarks.svelte` type their `game` as the union

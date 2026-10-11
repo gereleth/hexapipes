@@ -173,20 +173,20 @@ describe('Test layered game', () => {
 });
 
 describe('Test layered solver wiring', () => {
-	it('Rotates to absolute rotations with setTileOrientation', () => {
+	it('Rotates to absolute rotations with setTileRotation', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [4]];
 		const game = new LayeredPipesGame(grid, tiles, undefined);
 		game.rotateTile(0, 3);
-		game.setTileOrientation(0, 1);
+		game.setTileRotation(0, 1);
 		expect(((game.tileStates[0].rotations % 4) + 4) % 4).toBe(1);
 		// animate does a full turn when already at the target
 		const before = game.tileStates[1].rotations;
-		game.setTileOrientation(1, 0, true);
+		game.setTileRotation(1, 0, true);
 		expect(game.tileStates[1].rotations - before).toBe(4);
 		// no-op without animate when already at the target
 		const before2 = game.tileStates[2].rotations;
-		game.setTileOrientation(2, 0);
+		game.setTileRotation(2, 0);
 		expect(game.tileStates[2].rotations).toBe(before2);
 	});
 
@@ -202,7 +202,7 @@ describe('Test layered solver wiring', () => {
 		}
 		// solution now holds rotations directly,
 		// the same way Puzzle.svelte applies solver steps
-		solver.solution.forEach((rotation, cell) => game.setTileOrientation(cell, rotation));
+		solver.solution.forEach((rotation, cell) => game.setTileRotation(cell, rotation));
 		expect(game.solved).toBe(true);
 	});
 });
