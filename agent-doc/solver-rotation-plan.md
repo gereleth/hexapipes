@@ -1,10 +1,13 @@
 # Plan: solver steps standardize on rotation counts
 
-Status: **planned, not implemented** (2026-10-11, branch `layers`; revised after review:
-`markAmbiguousTiles().marked` flips to rotations too, which pulls the classic generator's
-`marked` consumption into scope). Independent of the game/UI unification
-([game-unification-plan.md](game-unification-plan.md)); lands before it and is a prerequisite for
-it. Resolves the semantic half of the `setTileOrientation` FIXME in
+Status: **implemented** (2026-10-11, branch `layers`). Revised after review:
+`markAmbiguousTiles().marked` flips to rotations too, which pulled the classic generator's `marked`
+consumption into scope. One implementation finding folded in: the mask→rotation conversion anchors
+on `cell.initial`, **not** `self.tiles[index]` — `Solver.clone()` builds clones with an empty
+`tiles` array, so reading `tiles` inside `processDirtyCells` throws on every trial (this silently
+cripples the trial tree; caught by the step-1 emit pins + generator tests). Independent of the
+game/UI unification ([game-unification-plan.md](game-unification-plan.md)); lands before it and is a
+prerequisite for it. Resolves the semantic half of the `setTileOrientation` FIXME in
 [layers-game.md](layers-game.md).
 
 ## Motivation
@@ -21,8 +24,8 @@ it. Resolves the semantic half of the `setTileOrientation` FIXME in
   needed there, just note the buttons can receive its output). The classic generator reads
   `markAmbiguousTiles().marked` (`generator.js:418, 421, 427`), so `marked` flips to rotations in
   the same change and those call sites are updated to match — mirroring how `generator-layers.js`
-  already consumes rotation-based `marked` (`buildStartLayers`, `applyRotations`).
-  `solver-layers` already emits rotations.
+  already consumes rotation-based `marked` (`buildStartLayers`, `applyRotations`). `solver-layers`
+  already emits rotations.
 
 ## Current format
 
@@ -48,8 +51,8 @@ it. Resolves the semantic half of the `setTileOrientation` FIXME in
 ## Step 2 — Rotation-based setter on classic (additive, unused by wiring yet)
 
 - Port `LayeredPipesGame.setTileOrientation` (`game-layers.svelte.js:408-422`) onto `PipesGame`
-  verbatim — absolute rotation relative to the base tile, modular delta, `animate` full-turn
-  parity. Temporary name `setTileRotation` so it can coexist with the mask setter; renamed to
+  verbatim — absolute rotation relative to the base tile, modular delta, `animate` full-turn parity.
+  Temporary name `setTileRotation` so it can coexist with the mask setter; renamed to
   `setTileOrientation` in step 3 when the mask variant is deleted.
 - Tests pin its behavior: target reached from several non-zero current rotations, already-at-target
   no-op, `animate` full turn.
@@ -73,25 +76,23 @@ it. Resolves the semantic half of the `setTileOrientation` FIXME in
   `:915`). Comparing canonical smallest-r rotations is equivalent to comparing masks (injective
   within a tile's rotation orbit), so uniqueness marking is unchanged; `UNSOLVED`/`AMBIGUOUS`
   sentinels pass through untouched.
-- **Trap**: the empty-cell skip `step.orientation === 0` (`solver.js:689`) exploits "real masks
-  have a bit set". Rotation 0 is a legitimate state for a real tile, so the skip must key off the
-  tile instead (`tiles[step.index] === 0`). Test: a null tile produces no step in the initial
-  stage.
-- Generator (`generator.js`): the unique-solution return `randomRotate(marked, this.grid)`
-  (`:418`) becomes `randomRotate(tiles, this.grid)` — when `unique`, `marked` is exactly the
-  rotations of `tiles`, so scrambling the solved board directly is equivalent (the layered
-  counterpart does `randomRotate(applyRotations(...))` at `generator-layers.js:1367`; classic
-  already has the masks in hand). The two `startTiles = marked` assignments (`:421, :427`) become
-  `startTiles = marked.map((m, index) => (m >= 0 ? this.grid.rotate(tiles[index], m, index) : m))`
-  — rotations back into solver-frame masks, sentinels pass through. `pregenerate_growingtree`
-  consumes masks (`tileTypes.get(startTiles[index])`, `getDirections(startTiles[i], 0, i)`,
-  reuse via `tiles[index] += direction`) and already skips negative entries (`:127, :148`); this
-  is the classic twin of layered `buildStartLayers` (`generator-layers.js:1190`). Getting the
-  frame wrong here fails silently (garbage reuse, not a throw), which is why the step-1 `marked`
-  pin matters.
-- `Puzzle.svelte`: classic solver arm reads `step.rotation` (`:304`); classic solution buttons
-  pass rotations (`:431`). `measureSolveTime` (`:356`) needs no edit — everything downstream of
-  the flip is consistently rotations.
+- **Trap**: the empty-cell skip `step.orientation === 0` (`solver.js:689`) exploits "real masks have
+  a bit set". Rotation 0 is a legitimate state for a real tile, so the skip must key off the tile
+  instead (`tiles[step.index] === 0`). Test: a null tile produces no step in the initial stage.
+- Generator (`generator.js`): the unique-solution return `randomRotate(marked, this.grid)` (`:418`)
+  becomes `randomRotate(tiles, this.grid)` — when `unique`, `marked` is exactly the rotations of
+  `tiles`, so scrambling the solved board directly is equivalent (the layered counterpart does
+  `randomRotate(applyRotations(...))` at `generator-layers.js:1367`; classic already has the masks
+  in hand). The two `startTiles = marked` assignments (`:421, :427`) become
+  `startTiles = marked.map((m, index) => (m >= 0 ? this.grid.rotate(tiles[index], m, index) : m))` —
+  rotations back into solver-frame masks, sentinels pass through. `pregenerate_growingtree` consumes
+  masks (`tileTypes.get(startTiles[index])`, `getDirections(startTiles[i], 0, i)`, reuse via
+  `tiles[index] += direction`) and already skips negative entries (`:127, :148`); this is the
+  classic twin of layered `buildStartLayers` (`generator-layers.js:1190`). Getting the frame wrong
+  here fails silently (garbage reuse, not a throw), which is why the step-1 `marked` pin matters.
+- `Puzzle.svelte`: classic solver arm reads `step.rotation` (`:304`); classic solution buttons pass
+  rotations (`:431`). `measureSolveTime` (`:356`) needs no edit — everything downstream of the flip
+  is consistently rotations.
 - Delete the mask-searching `setTileOrientation` (`game.svelte.js:326-345`) and rename the step-2
   port. The throw-on-unreachable was dead API surface — the conversion is total and `Puzzle.svelte`
   was the only caller.
@@ -102,7 +103,7 @@ it. Resolves the semantic half of the `setTileOrientation` FIXME in
 
 Per step: `npx vitest run` (full suite), `npm run check` (0 errors, only pre-existing warnings),
 `npm run lint`. The generator tests exercise the `markAmbiguousTiles` → `startTiles` round-trip
-end-to-end. After step 3, manual smoke: Solve it (+ Animate) on a size page; Solution k switching
-on classic (size page) and layered (`/custom`, `/generator-debug`). If layered switching is still
+end-to-end. After step 3, manual smoke: Solve it (+ Animate) on a size page; Solution k switching on
+classic (size page) and layered (`/custom`, `/generator-debug`). If layered switching is still
 wrong, the symptom investigation continues separately per `layers-game.md` — with the semantic
 divergence ruled out.
