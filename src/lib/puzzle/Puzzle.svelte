@@ -419,19 +419,10 @@
 					{#each solutions as solution, i (i)}
 						<button
 							onclick={() => {
-								if (game instanceof LayeredPipesGame) {
-									const layeredGame = game;
-									solution.forEach((rotation, index) => {
-										layeredGame.setTileOrientation(index, rotation);
-										game.solved = false;
-									});
-								} else {
-									const classicGame = /** @type {PipesGame} */ (game);
-									solution.forEach((rotation, index) => {
-										classicGame.setTileOrientation(index, rotation);
-										game.solved = false;
-									});
-								}
+								solution.forEach((rotation, index) => {
+									game.setTileOrientation(index, rotation);
+									game.solved = false;
+								});
 								game.solved = false;
 							}}>Solution {i + 1}</button
 						>
