@@ -6,7 +6,6 @@
 	import Tile from '#lib/puzzle/Tile.svelte';
 	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
 	import { PipesGame } from '#lib/puzzle/game.svelte.js';
-	import { LayeredPipesGame } from '#lib/puzzle/game-layers.svelte.js';
 	import { Solver } from '#lib/puzzle/solver.js';
 	import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
 	import EdgeMarks from '#lib/puzzle/EdgeMarks.svelte';
@@ -50,19 +49,9 @@
 	let svgWidth = $state(300);
 	let svgHeight = $state(300);
 
-	/** @type {PipesGame|LayeredPipesGame}*/
-	let game;
-	if (Number.isInteger(tiles[0])) {
-		game = new PipesGame(grid, /** @type {Number[]} */ (tiles), savedProgress);
-	} else {
-		game = new LayeredPipesGame(
-			grid,
-			/** @type {Number[][]} */ (tiles),
-			/** @type {import('#lib/puzzle/game-layers.svelte.js').LayeredProgress|undefined} */ (
-				savedProgress
-			)
-		);
-	}
+	/** @type {PipesGame}*/
+	// svelte-ignore state_referenced_locally
+	let game = new PipesGame(grid, tiles, savedProgress);
 
 	const pxPerCell = 60;
 
@@ -205,26 +194,14 @@
 			return;
 		}
 		/** @type {Array<Record<String, any>>}*/
-		let tileStates;
-		if (game instanceof LayeredPipesGame) {
-			tileStates = game.tileStates.map((data) => {
-				return {
-					rotations: data.rotations,
-					locked: data.locked,
-					colors: data.colors,
-					edgeMarks: data.edgeMarks
-				};
-			});
-		} else {
-			tileStates = game.tileStates.map((data) => {
-				return {
-					rotations: data.rotations,
-					locked: data.locked,
-					color: data.color,
-					edgeMarks: data.edgeMarks
-				};
-			});
-		}
+		const tileStates = game.tileStates.map((data) => {
+			return {
+				rotations: data.rotations,
+				locked: data.locked,
+				color: data.colors,
+				edgeMarks: data.edgeMarks
+			};
+		});
 		progress({
 			name: myProgressName,
 			data: {
@@ -254,7 +231,7 @@
 			for (let tileState of game.tileStates) {
 				tileState.locked = false;
 			}
-			if (game instanceof LayeredPipesGame) {
+			if (game.isLayered) {
 				const layeredGame = game;
 				let layeredSolver;
 				/** @type {LayeredSolver} */
@@ -336,7 +313,7 @@
 		const t0 = performance.now();
 		/** @type {Solver|LayeredSolver} */
 		let measureSolver;
-		if (game instanceof LayeredPipesGame) {
+		if (game.isLayered) {
 			measureSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
 		} else {
 			measureSolver = new Solver(/** @type {Number[]} */ (tiles), grid);
@@ -444,7 +421,7 @@
 		onsave={save.soon}
 	>
 		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
-			{#if game instanceof LayeredPipesGame}
+			{#if game.isLayered}
 				<LayeredTile
 					i={visibleTile.index}
 					solved={game.solved}
@@ -453,7 +430,7 @@
 					cy={visibleTile.y}
 					controlMode={$settings.controlMode}
 				/>
-			{:else if !(game instanceof LayeredPipesGame)}
+			{:else}
 				<Tile
 					i={visibleTile.index}
 					solved={game.solved}

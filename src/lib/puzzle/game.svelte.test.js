@@ -23,10 +23,10 @@ describe('Test initialize board', () => {
 		expect(game.initialized, 'sets initialized flag').toBe(true);
 		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(0);
-			expect(data.color).toBe('white');
+			expect(data.colors[0]).toBe('white');
 			expect(data.locked).toBe(false);
 			expect(data.tile).toBe(tiles[index]);
-			expect(data.isPartOfLoop).toBe(false);
+			expect(data.isPartOfLoop[0]).toBe(false);
 		});
 		game.components.forEach((component, index) => {
 			if (index === 3 || index === 4) {
@@ -46,10 +46,10 @@ describe('Test initialize board', () => {
 		expect(game.initialized, 'sets initialized flag').toBe(true);
 		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(0);
-			expect(data.color).toBe('white');
+			expect(data.colors[0]).toBe('white');
 			expect(data.locked).toBe(false);
 			expect(data.tile).toBe(myTiles[index]);
-			expect(data.isPartOfLoop).toBe([1, 3, 4].some((x) => x === index));
+			expect(data.isPartOfLoop[0]).toBe([1, 3, 4].some((x) => x === index));
 		});
 		game.components.forEach((component, index) => {
 			if ([1, 3, 4].some((x) => x === index)) {
@@ -79,10 +79,10 @@ describe('Test initialize board', () => {
 		expect(game.initialized, 'sets initialized flag').toBe(true);
 		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
-			expect(data.color).toBe(progress.tiles[index].color);
+			expect(data.colors[0]).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);
 			expect(data.tile).toBe(tiles[index]);
-			expect(data.isPartOfLoop).toBe(false);
+			expect(data.isPartOfLoop[0]).toBe(false);
 		});
 		game.components.forEach((component, index) => {
 			if ([5, 8].some((x) => x === index)) {
@@ -114,10 +114,10 @@ describe('Test initialize board', () => {
 		expect(game.initialized, 'sets initialized flag').toBe(true);
 		game.tileStates.forEach((data, index) => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
-			expect(data.color).toBe(progress.tiles[index].color);
+			expect(data.colors[0]).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);
 			expect(data.tile).toBe(tiles[index]);
-			expect(data.isPartOfLoop).toBe([1, 3, 4].some((x) => x === index));
+			expect(data.isPartOfLoop[0]).toBe([1, 3, 4].some((x) => x === index));
 		});
 		game.components.forEach((component, index) => {
 			if ([1, 3, 4].some((x) => x === index)) {
@@ -211,12 +211,12 @@ describe('Test classic game behavior on a generated board', () => {
 		const component = game.components.get(0);
 		expect(component?.tiles.size).toBe(totalTiles);
 		game.tileStates.forEach((state) => {
-			expect(state.color).toBe('white');
-			expect(state.isPartOfLoop).toBe(false);
+			expect(state.colors[0]).toBe('white');
+			expect(state.isPartOfLoop[0]).toBe(false);
 			// quirk: initializeBoard marks island tiles without a size check,
 			// so the one whole-board component counts as an island too
-			expect(state.isPartOfIsland).toBe(true);
-			expect(state.hasDisconnects).toBe(false);
+			expect(state.isPartOfIsland[0]).toBe(true);
+			expect(state.hasDisconnects[0]).toBe(false);
 		});
 	});
 
@@ -226,8 +226,8 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.solved).toBe(false);
 		expect(game.isSolved()).toBe(false);
 		// both sides of the broken link report disconnects
-		expect(game.tileStates[leaf.index].hasDisconnects).toBe(true);
-		expect(game.tileStates[neighbour].hasDisconnects).toBe(true);
+		expect(game.tileStates[leaf.index].hasDisconnects[0]).toBe(true);
+		expect(game.tileStates[neighbour].hasDisconnects[0]).toBe(true);
 		expect(game.openEnds.has(leaf.index)).toBe(true);
 		expect(game.openEnds.has(neighbour)).toBe(true);
 		expect(game.openEnds.size).toBe(2);
@@ -241,10 +241,10 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.openEnds.size).toBe(0);
 		expect(game.components.get(0)?.tiles.size).toBe(totalTiles);
 		// merging assigns the shared component color to all tiles
-		const color = game.tileStates[0].color;
+		const color = game.tileStates[0].colors[0];
 		expect(color).not.toBe('white');
 		game.tileStates.forEach((state) => {
-			expect(state.color).toBe(color);
+			expect(state.colors[0]).toBe(color);
 		});
 	});
 
@@ -263,10 +263,10 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.openEnds.size).toBe(0);
 		game.tileStates.forEach((state, index) => {
 			expect(state.rotations, `tile ${index} rotations reset`).toBe(0);
-			expect(state.color, `tile ${index} color reset`).toBe('white');
+			expect(state.colors[0], `tile ${index} color reset`).toBe('white');
 			expect(state.locked, `tile ${index} unlocked`).toBe(false);
-			expect(state.hasDisconnects, `tile ${index} no disconnects`).toBe(false);
-			expect(state.isPartOfLoop, `tile ${index} not in loop`).toBe(false);
+			expect(state.hasDisconnects[0], `tile ${index} no disconnects`).toBe(false);
+			expect(state.isPartOfLoop[0], `tile ${index} not in loop`).toBe(false);
 			// outer border marks stay 'none', the rest resets to 'empty'
 			expect(state.edgeMarks.every((mark) => mark === 'none' || mark === 'empty')).toBe(true);
 		});
@@ -280,10 +280,11 @@ describe('Test classic game behavior on a generated board', () => {
 		const lockIndex = leaf.index === 0 ? 1 : 0;
 		game.toggleLocked(lockIndex, true);
 		game.toggleEdgeMark('conn', 5, 8);
+		// the unified writer stores the colors array under the color field
 		const progress = {
 			tiles: game.tileStates.map((data) => ({
 				rotations: data.rotations,
-				color: data.color,
+				color: [...data.colors],
 				locked: data.locked,
 				edgeMarks: [...data.edgeMarks]
 			}))
@@ -294,7 +295,7 @@ describe('Test classic game behavior on a generated board', () => {
 		restored.tileStates.forEach((state, index) => {
 			const saved = progress.tiles[index];
 			expect(state.rotations, `tile ${index} rotations restored`).toBe(saved.rotations);
-			expect(state.color, `tile ${index} color restored`).toBe(saved.color);
+			expect(state.colors, `tile ${index} color restored`).toEqual(saved.color);
 			expect(state.locked, `tile ${index} locked restored`).toBe(saved.locked);
 			expect(state.edgeMarks, `tile ${index} edge marks restored`).toEqual(saved.edgeMarks);
 		});
@@ -307,6 +308,18 @@ describe('Test classic game behavior on a generated board', () => {
 		// and the restored game can still be played to the end
 		restored.rotateTile(leaf.index, -1);
 		expect(restored.solved).toBe(true);
+
+		// saves written before the unification hold a single string color
+		const oldProgress = {
+			tiles: progress.tiles.map((saved) => ({ ...saved, color: saved.color[0] }))
+		};
+		const restoredOld = new PipesGame(grid, solvedTiles, oldProgress);
+		restoredOld.tileStates.forEach((state, index) => {
+			expect(state.colors[0], `tile ${index} string color restored`).toBe(
+				oldProgress.tiles[index].color
+			);
+		});
+		expect(restoredOld.isSolved()).toBe(false);
 	});
 
 	it('Unlocks a tile before setting its rotation', () => {
@@ -325,7 +338,7 @@ describe('Test classic game micro behaviors', () => {
 		// cell 2 is on the top row and points east and northeast, both off-board
 		const tiles = [1, 3, 3, 11, 11, 5, 1, 1, 1];
 		const game = new PipesGame(grid, tiles, undefined);
-		expect(game.tileStates[2].hasDisconnects).toBe(true);
+		expect(game.tileStates[2].hasDisconnects[0]).toBe(true);
 		expect(game.openEnds.has(2)).toBe(true);
 		expect(game.isSolved()).toBe(false);
 	});
@@ -339,7 +352,7 @@ describe('Test classic game micro behaviors', () => {
 		expect(game.components.get(2)?.tiles).toEqual(new Set([2, 3]));
 		expect(game.openEnds.size).toBe(0);
 		game.tileStates.forEach((state, index) => {
-			expect(state.isPartOfIsland, `tile ${index} is part of an island`).toBe(true);
+			expect(state.isPartOfIsland[0], `tile ${index} is part of an island`).toBe(true);
 		});
 		expect(game.isSolved()).toBe(false);
 	});
@@ -350,18 +363,18 @@ describe('Test classic game micro behaviors', () => {
 		// rotating cell 4 five times connects it to cell 3 too, closing the loop
 		const tiles = [1, 48, 3, 11, 6, 5, 1, 1, 1];
 		const game = new PipesGame(grid, tiles, undefined);
-		expect(game.tileStates[1].isPartOfLoop).toBe(false);
+		expect(game.tileStates[1].isPartOfLoop[0]).toBe(false);
 		expect(game.components.get(1)?.tiles).toEqual(new Set([1, 3, 4]));
 
 		game.rotateTile(4, 5);
 		[1, 3, 4].forEach((index) => {
-			expect(game.tileStates[index].isPartOfLoop, `tile ${index} is part of a loop`).toBe(true);
+			expect(game.tileStates[index].isPartOfLoop[0], `tile ${index} is part of a loop`).toBe(true);
 		});
 		expect(game.isSolved()).toBe(false);
 
 		game.startOver();
 		[1, 3, 4].forEach((index) => {
-			expect(game.tileStates[index].isPartOfLoop, `tile ${index} loop cleared`).toBe(false);
+			expect(game.tileStates[index].isPartOfLoop[0], `tile ${index} loop cleared`).toBe(false);
 		});
 	});
 

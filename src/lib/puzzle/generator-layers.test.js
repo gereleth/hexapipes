@@ -10,7 +10,7 @@ import {
 } from './generator-layers';
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
-import { LayeredPipesGame } from './game-layers.svelte';
+import { PipesGame } from './game.svelte';
 import { LayeredSolver } from './solver-layers';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
@@ -212,7 +212,7 @@ describe('Test layered scrambling', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const solved = pregenerate_layers(grid, 1.0, 0.5);
 		const scrambled = randomRotate(solved, grid);
-		const game = new LayeredPipesGame(grid, scrambled, undefined);
+		const game = new PipesGame(grid, scrambled, undefined);
 		expect(game.isSolved()).toBe(false);
 		// find the rotation that solves every cell
 		game.tileStates.forEach((state, index) => {

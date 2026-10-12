@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LayeredPipesGame } from './game-layers.svelte';
+import { PipesGame } from './game.svelte';
 import { SquareGrid } from './grids/squaregrid';
 import { pregenerate_layers, randomRotate } from './generator-layers';
 import { LayeredSolver } from './solver-layers';
@@ -8,7 +8,7 @@ describe('Test layered game', () => {
 	it('Tracks connections and solved state on a simple chain', () => {
 		const grid = new SquareGrid(2, 1, false);
 		const tiles = [[1], [4]];
-		const game = new LayeredPipesGame(grid, tiles, undefined);
+		const game = new PipesGame(grid, tiles, undefined);
 		expect(game.initialized, 'sets initialized flag').toBe(true);
 		expect(game.isSolved()).toBe(true);
 		expect(game.connections.get(0)).toEqual(new Set([1]));
@@ -44,7 +44,7 @@ describe('Test layered game', () => {
 	it('Finds separate components and islands', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [4]];
-		const game = new LayeredPipesGame(grid, tiles, undefined);
+		const game = new PipesGame(grid, tiles, undefined);
 		expect(game.components.get(0)?.tiles).toEqual(new Set([0, 1]));
 		expect(game.components.get(2)?.tiles).toEqual(new Set([2, 3]));
 		game.tileStates.forEach((state, index) => {
@@ -57,7 +57,7 @@ describe('Test layered game', () => {
 	it('Tracks disconnects per layer', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4, 2], [1], [4]];
-		const game = new LayeredPipesGame(grid, tiles, undefined);
+		const game = new PipesGame(grid, tiles, undefined);
 		// cell 1 second layer points outside the board
 		expect(game.tileStates[1].hasDisconnects).toEqual([false, true]);
 		expect(game.components.get(5)?.tiles).toEqual(new Set([5]));
@@ -67,7 +67,7 @@ describe('Test layered game', () => {
 	it('Merges and splits components on rotations', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [3], [6]];
-		const game = new LayeredPipesGame(grid, tiles, undefined);
+		const game = new PipesGame(grid, tiles, undefined);
 		// two components: cells 0-1 and 2-3
 		// cell 2 and 3 point at not yet connected neighbours
 		expect(game.components.get(0)?.tiles).toEqual(new Set([0, 1]));
@@ -99,7 +99,7 @@ describe('Test layered game', () => {
 		const grid = new SquareGrid(2, 2, false);
 		// all four cells connect in a loop
 		const tiles = [[9], [12], [3], [6]];
-		const game = new LayeredPipesGame(grid, tiles, undefined);
+		const game = new PipesGame(grid, tiles, undefined);
 		expect(game.tileStates[0].isPartOfLoop[0]).toBe(true);
 		expect(game.tileStates[1].isPartOfLoop[0]).toBe(true);
 		expect(game.tileStates[2].isPartOfLoop[0]).toBe(true);
@@ -120,7 +120,7 @@ describe('Test layered game', () => {
 	it('Rotates to match a locked neighbour pointing at the cell', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[2], [4], [1], [4]];
-		const game = new LayeredPipesGame(grid, tiles, undefined);
+		const game = new PipesGame(grid, tiles, undefined);
 		// cell 1 is locked and points at cell 0,
 		// cell 0 must rotate to connect back to it
 		game.toggleLocked(1, true);
@@ -132,20 +132,20 @@ describe('Test layered game', () => {
 	it('Restores state from saved progress', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [6]];
-		/** @type {import('./game-layers.svelte').LayeredProgress} */
+		/** @type {import('./game.svelte').Progress} */
 		const progress = {
 			tiles: [
-				{ rotations: 2, colors: ['red'], locked: true, edgeMarks: ['none', 'none'] },
-				{ rotations: 1, colors: ['blue'], locked: false, edgeMarks: ['empty', 'empty'] },
-				{ rotations: -1, colors: ['green'], locked: false, edgeMarks: ['empty', 'empty'] },
-				{ rotations: 0, colors: ['yellow'], locked: true, edgeMarks: ['empty', 'empty'] }
+				{ rotations: 2, color: ['red'], locked: true, edgeMarks: ['none', 'none'] },
+				{ rotations: 1, color: ['blue'], locked: false, edgeMarks: ['empty', 'empty'] },
+				{ rotations: -1, color: ['green'], locked: false, edgeMarks: ['empty', 'empty'] },
+				{ rotations: 0, color: ['yellow'], locked: true, edgeMarks: ['empty', 'empty'] }
 			]
 		};
-		const game = new LayeredPipesGame(grid, tiles, progress);
+		const game = new PipesGame(grid, tiles, progress);
 		game.tileStates.forEach((state, index) => {
 			const savedTile = progress.tiles[index];
 			expect(state.rotations).toBe(savedTile.rotations);
-			expect(state.colors).toEqual(savedTile.colors);
+			expect(state.colors).toEqual(savedTile.color);
 			expect(state.locked).toBe(savedTile.locked);
 			expect(state.edgeMarks).toEqual(savedTile.edgeMarks);
 			expect(state.layers).toEqual(tiles[index]);
@@ -163,7 +163,7 @@ describe('Test layered game', () => {
 				return grid.rotate(layer, scrambles[index], index);
 			});
 		});
-		const game = new LayeredPipesGame(grid, scrambled, undefined);
+		const game = new PipesGame(grid, scrambled, undefined);
 		expect(game.isSolved()).toBe(false);
 		game.tileStates.forEach((state, index) => {
 			game.rotateTile(index, (4 - scrambles[index]) % 4);
@@ -176,7 +176,7 @@ describe('Test layered solver wiring', () => {
 	it('Rotates to absolute rotations with setTileRotation', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [4]];
-		const game = new LayeredPipesGame(grid, tiles, undefined);
+		const game = new PipesGame(grid, tiles, undefined);
 		game.rotateTile(0, 3);
 		game.setTileRotation(0, 1);
 		expect(((game.tileStates[0].rotations % 4) + 4) % 4).toBe(1);
@@ -194,7 +194,7 @@ describe('Test layered solver wiring', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const solvedTiles = pregenerate_layers(grid, 1.0, 0.5);
 		const scrambled = randomRotate(solvedTiles, grid);
-		const game = new LayeredPipesGame(grid, scrambled, undefined);
+		const game = new PipesGame(grid, scrambled, undefined);
 		expect(game.isSolved()).toBe(false);
 		const solver = new LayeredSolver(scrambled, grid);
 		for (const _ of solver.solve(false)) {

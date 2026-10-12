@@ -4,7 +4,7 @@
 	import Worker from '#lib/puzzle/worker-layers.js?worker';
 	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
 	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
-	import { LayeredPipesGame } from '#lib/puzzle/game-layers.svelte.js';
+	import { PipesGame } from '#lib/puzzle/game.svelte.js';
 	import { applyRotations, buildStartLayers, planReuse } from '#lib/puzzle/generator-layers.js';
 	import { createGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 
@@ -97,7 +97,7 @@
 	);
 	const game = $derived(
 		viewSnapshot && runGrid
-			? new LayeredPipesGame(
+			? new PipesGame(
 					runGrid,
 					applyRotations(runGrid, viewSnapshot.tiles, viewSnapshot.marked),
 					undefined

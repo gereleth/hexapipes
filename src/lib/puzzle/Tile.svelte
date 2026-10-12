@@ -36,7 +36,7 @@
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 
 	let bgColor = $derived.by(() => {
-		if (data.isPartOfLoop) {
+		if (game.cellIsPartOfLoop(i)) {
 			return data.locked ? '#f99' : '#fbb';
 		} else {
 			return data.locked ? '#bbb' : '#ddd';
@@ -44,12 +44,12 @@
 	});
 
 	let { strokeColor, strokeWidth } = $derived.by(() => {
-		if (data.hasDisconnects) {
+		if (game.cellHasDisconnects(i)) {
 			return {
 				strokeColor: game.disconnectStrokeColor,
 				strokeWidth: game.grid.STROKE_WIDTH * game.disconnectStrokeWidthScale
 			};
-		} else if (data.isPartOfIsland) {
+		} else if (game.cellIsPartOfIsland(i)) {
 			return {
 				strokeColor: '#b55',
 				strokeWidth: game.grid.STROKE_WIDTH
@@ -97,7 +97,7 @@
 				cx="0"
 				cy="0"
 				r={game.grid.SINK_RADIUS}
-				fill={data.color}
+				fill={data.colors[0]}
 				stroke={strokeColor}
 				stroke-width={strokeWidth}
 				class="sink"
@@ -107,7 +107,7 @@
 		<path
 			class="inside"
 			d={path}
-			stroke={data.color}
+			stroke={data.colors[0]}
 			stroke-width={pipeWidth}
 			stroke-linejoin={game.grid.LINE_JOIN}
 			stroke-linecap="round"
