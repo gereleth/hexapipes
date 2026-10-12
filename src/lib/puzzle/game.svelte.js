@@ -24,10 +24,10 @@ import { createViewBox } from './viewbox';
  */
 
 /**
- * A component is a group of connected layers
+ * A component is a group of connected subcells
  * @typedef {Object} Component
- * @property {Set<Number>} subcells - set of sub-cell ids of included layers
- * @property {Set<Number>} openEnds - set of sub-cell ids of layers that have disconnects
+ * @property {Set<Number>} subcells
+ * @property {Set<Number>} openEnds - set of subcells that have disconnects
  * @property {String} color
  */
 
@@ -108,8 +108,8 @@ class TileState {
  *   that same vocabulary
  * - cell: cell index (grid neighbour lookups, index into tileStates)
  * - layer: layer index within a cell
- * - sub-cell: node id `cell + layer * grid.total`, what every map and set
- *   in here is keyed by; for classic boards sub-cell ids coincide with
+ * - subcell: node id `cell + layer * grid.total`, what every map and set
+ *   in here is keyed by; for classic boards subcells coincide with
  *   the plain cell indices
  *
  * Layers of a cell are independent pipes that never connect to each other,
@@ -118,7 +118,7 @@ class TileState {
 export class PipesGame {
 	solved = $state(false);
 	/**
-	 * sub-cell id => set of sub-cell ids that it mutually connects to
+	 * subcell => set of subcells that it mutually connects to
 	 * @type {Map<Number, Set<Number>>} */
 	connections = new Map();
 	/**
@@ -126,28 +126,28 @@ export class PipesGame {
 	 */
 	tileStates = [];
 	/**
-	 * sub-cell id => component that it belongs to
+	 * subcell => component that it belongs to
 	 * @type {Map<Number, Component>}
 	 */
 	components = new Map();
 	/**
-	 * @type {Set<Number>} - set of sub-cell ids of layers with disconnects
+	 * @type {Set<Number>} - set of subcells with disconnects
 	 */
 	openEnds = new Set();
-	shareDisconnectedTiles = $state(1);
+	shareDisconnectedSubcells = $state(1);
 	disconnectStrokeWidthScale = $derived.by(() => {
-		if (this.shareDisconnectedTiles > 0.1) {
+		if (this.shareDisconnectedSubcells > 0.1) {
 			return 1;
 		} else {
-			const amount = 1 - this.shareDisconnectedTiles * 10;
+			const amount = 1 - this.shareDisconnectedSubcells * 10;
 			return 1 + 0.4 * amount;
 		}
 	});
 	disconnectStrokeColor = $derived.by(() => {
-		if (this.shareDisconnectedTiles > 0.1) {
+		if (this.shareDisconnectedSubcells > 0.1) {
 			return '#888888';
 		} else {
-			const amount = 1 - this.shareDisconnectedTiles * 10;
+			const amount = 1 - this.shareDisconnectedSubcells * 10;
 			const color = Math.round(136 - 34 * amount).toString(16);
 			return '#' + color + color + color;
 		}
@@ -168,9 +168,9 @@ export class PipesGame {
 		this.tiles = this.isLayered
 			? /** @type {Number[][]} */ (tiles)
 			: /** @type {Number[]} */ (tiles).map((tile) => (tile === 0 ? [] : [tile]));
-		this.total = grid.total;
+		this.totalCells = grid.total;
 		this.viewBox = createViewBox(grid);
-		this.totalSubCells = this.tiles.reduce((sum, cellLayers) => sum + cellLayers.length, 0);
+		this.totalSubcells = this.tiles.reduce((sum, cellLayers) => sum + cellLayers.length, 0);
 		/** @type {EdgeMark[]} */
 		const defaultEdgeMarks = this.grid.EDGEMARK_DIRECTIONS.map(() => 'empty');
 		if (savedProgress) {
@@ -210,11 +210,11 @@ export class PipesGame {
 				});
 			});
 		}
-		this.firstValidIndex = 0;
-		while (this.grid.emptyCells.has(this.firstValidIndex)) {
-			this.firstValidIndex += 1;
+		let firstValidCell = 0;
+		while (this.grid.emptyCells.has(firstValidCell)) {
+			firstValidCell += 1;
 		}
-		this.firstValidSubcell = this.grid.subcellId(this.firstValidIndex, 0);
+		this.firstValidSubcell = this.grid.subcellId(firstValidCell, 0);
 
 		this.initializeBoard();
 	}
@@ -272,7 +272,7 @@ export class PipesGame {
 		});
 		// merge initial components of connected layers
 		const checked = new Set();
-		for (let cell = 0; cell < this.total; cell++) {
+		for (let cell = 0; cell < this.totalCells; cell++) {
 			const state = this.tileStates[cell];
 			for (let layer = 0; layer < state.layers.length; layer++) {
 				const subcell = this.grid.subcellId(cell, layer);
@@ -307,7 +307,7 @@ export class PipesGame {
 							continue;
 						}
 						if (through !== -1) {
-							// connected to the same component through some other layer
+							// connected to the same component through some other subcell
 							loop = true;
 							continue;
 						}
@@ -330,7 +330,7 @@ export class PipesGame {
 				}
 			}
 		}
-		this.shareDisconnectedTiles = this.openEnds.size / this.totalSubCells;
+		this.shareDisconnectedSubcells = this.openEnds.size / this.totalSubcells;
 		this.initialized = true;
 	}
 
@@ -375,18 +375,18 @@ export class PipesGame {
 		const dirOut = [];
 		/** @type {{layer: Number, direction: Number}[]} */
 		const dirIn = [];
-		const oldDirections = tileState.layers.map((layer, index) => this.layerDirections(cell, index));
+		const oldDirections = tileState.layers.map((mask, layer) => this.layerDirections(cell, layer));
 		tileState.rotate(times);
-		tileState.layers.forEach((layer, index) => {
-			const newDirections = this.layerDirections(cell, index);
-			oldDirections[index].forEach((direction) => {
+		tileState.layers.forEach((mask, layer) => {
+			const newDirections = this.layerDirections(cell, layer);
+			oldDirections[layer].forEach((direction) => {
 				if (!newDirections.includes(direction)) {
-					dirOut.push({ layer: index, direction });
+					dirOut.push({ layer, direction });
 				}
 			});
 			newDirections.forEach((direction) => {
-				if (!oldDirections[index].includes(direction)) {
-					dirIn.push({ layer: index, direction });
+				if (!oldDirections[layer].includes(direction)) {
+					dirIn.push({ layer, direction });
 				}
 			});
 		});
@@ -420,7 +420,7 @@ export class PipesGame {
 	}
 
 	/**
-	 *
+	 * Process cell connecting to dirIn and disconnecting from dirOut
 	 * @param {Number} cell
 	 * @param {{layer: Number, direction: Number}[]} dirIn
 	 * @param {{layer: Number, direction: Number}[]} dirOut
@@ -429,6 +429,8 @@ export class PipesGame {
 	handleConnections(cell, dirIn, dirOut) {
 		dirOut.forEach(({ layer, direction }) => {
 			const subcell = this.grid.subcellId(cell, layer);
+			// FIXME remove throws and just do `this.connections.get(subcell)?.delete(neighbourSubcell)
+			// and vice-versa, after the early returns
 			const subcellConnections = this.connections.get(subcell);
 			if (subcellConnections === undefined) {
 				throw `Could not find connections data for subcell ${subcell}`;
@@ -452,8 +454,10 @@ export class PipesGame {
 			const tileComponent = this.components.get(subcell);
 			const neighbourComponent = this.components.get(neighbourSubcell);
 			if (tileComponent === neighbourComponent) {
+				// FIXME check unnecessary, we just established these two *were* connected
 				this.disconnectComponents(subcell, neighbourSubcell);
 			}
+			// FIXME why set disconnects if we recompute them after the loop anyway?.. Either drop this or that
 			this.setTileDisconnects(cell, layer, true);
 			this.setTileDisconnects(neighbour, backLayer, true);
 		});
@@ -545,14 +549,14 @@ export class PipesGame {
 		} else {
 			component.openEnds.delete(subcell);
 			this.openEnds.delete(subcell);
-			if (component.openEnds.size === 0 && component.subcells.size < this.totalSubCells) {
+			if (component.openEnds.size === 0 && component.subcells.size < this.totalSubcells) {
 				for (let memberSubcell of component.subcells) {
 					const [memberCell, memberLayer] = this.grid.cellLayerOf(memberSubcell);
 					this.tileStates[memberCell].isPartOfIsland[memberLayer] = true;
 				}
 			}
 		}
-		this.shareDisconnectedTiles = this.openEnds.size / this.totalSubCells;
+		this.shareDisconnectedSubcells = this.openEnds.size / this.totalSubcells;
 	}
 
 	/**
@@ -567,7 +571,7 @@ export class PipesGame {
 		if (component === undefined) {
 			return false;
 		}
-		if (component.subcells.size < this.totalSubCells) {
+		if (component.subcells.size < this.totalSubcells) {
 			// not everything connected yet
 			return false;
 		}
@@ -596,7 +600,7 @@ export class PipesGame {
 			}
 			toCheck = newChecks;
 		}
-		if (checked.size < this.totalSubCells) {
+		if (checked.size < this.totalSubcells) {
 			// it's an island
 			return false;
 		}
@@ -619,6 +623,7 @@ export class PipesGame {
 		if (fromComponent === toComponent) {
 			// its a loop
 			const loopSubcells = this.detectLoops(fromComponent.subcells);
+			// FIXME why not iterate loopSubcells directly?
 			for (let subcell of fromComponent.subcells) {
 				const [cell, layer] = this.grid.cellLayerOf(subcell);
 				this.tileStates[cell].isPartOfLoop[layer] = loopSubcells.has(subcell);
@@ -818,7 +823,7 @@ export class PipesGame {
 	}
 
 	/**
-	 * @param {Set<Number>} subcells - set of sub-cell ids
+	 * @param {Set<Number>} subcells - set of subcells
 	 * @returns {Set<Number>}
 	 */
 	detectLoops(subcells) {
@@ -885,7 +890,7 @@ export class PipesGame {
 		 * and back to it
 		 * @param {Number} fromSubcell
 		 * @param {Number} throughSubcell
-		 * @returns {Number[]} - sub-cell ids that make a looping path.
+		 * @returns {Number[]} - subcells that make a looping path.
 		 * Empty array if there is no such path.
 		 */
 		function traceLoopPath(fromSubcell, throughSubcell) {

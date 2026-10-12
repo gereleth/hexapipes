@@ -207,7 +207,7 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.solved).toBe(false);
 		expect(game.isSolved()).toBe(true);
 		expect(game.openEnds.size).toBe(0);
-		expect(game.shareDisconnectedTiles).toBe(0);
+		expect(game.shareDisconnectedSubcells).toBe(0);
 		const component = game.components.get(0);
 		expect(component?.subcells.size).toBe(playableCells);
 		game.tileStates.forEach((state) => {

@@ -60,7 +60,7 @@ describe('Test layered game', () => {
 		// cell 1 second layer points outside the board
 		expect(game.tileStates[1].hasDisconnects).toEqual([false, true]);
 		expect(game.components.get(5)?.subcells).toEqual(new Set([5]));
-		expect(game.shareDisconnectedTiles).toBeCloseTo(1 / 5);
+		expect(game.shareDisconnectedSubcells).toBeCloseTo(1 / 5);
 	});
 
 	it('Merges and splits components on rotations', () => {
