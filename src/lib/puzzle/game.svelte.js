@@ -429,12 +429,6 @@ export class PipesGame {
 	handleConnections(cell, dirIn, dirOut) {
 		dirOut.forEach(({ layer, direction }) => {
 			const subcell = this.grid.subcellId(cell, layer);
-			// FIXME remove throws and just do `this.connections.get(subcell)?.delete(neighbourSubcell)
-			// and vice-versa, after the early returns
-			const subcellConnections = this.connections.get(subcell);
-			if (subcellConnections === undefined) {
-				throw `Could not find connections data for subcell ${subcell}`;
-			}
 			const { neighbour, empty } = this.grid.find_neighbour(cell, direction);
 			if (empty) {
 				return;
@@ -445,50 +439,29 @@ export class PipesGame {
 				return;
 			}
 			const neighbourSubcell = this.grid.subcellId(neighbour, backLayer);
-			subcellConnections.delete(neighbourSubcell);
-			const neighbourConnections = this.connections.get(neighbourSubcell);
-			if (neighbourConnections === undefined) {
-				throw `Could not find connections data for subcell ${neighbourSubcell}`;
-			}
-			neighbourConnections.delete(subcell);
-			const tileComponent = this.components.get(subcell);
-			const neighbourComponent = this.components.get(neighbourSubcell);
-			if (tileComponent === neighbourComponent) {
-				// FIXME check unnecessary, we just established these two *were* connected
-				this.disconnectComponents(subcell, neighbourSubcell);
-			}
-			// FIXME why set disconnects if we recompute them after the loop anyway?.. Either drop this or that
-			this.setTileDisconnects(cell, layer, true);
+			this.connections.get(subcell)?.delete(neighbourSubcell);
+			this.connections.get(neighbourSubcell)?.delete(subcell);
+			this.disconnectComponents(subcell, neighbourSubcell);
 			this.setTileDisconnects(neighbour, backLayer, true);
 		});
 		dirIn.forEach(({ layer, direction }) => {
 			const subcell = this.grid.subcellId(cell, layer);
-			const subcellConnections = this.connections.get(subcell);
-			if (subcellConnections === undefined) {
-				throw `Could not find connections data for subcell ${subcell}`;
-			}
 			const { neighbour, empty } = this.grid.find_neighbour(cell, direction);
 			if (empty) {
-				this.setTileDisconnects(cell, layer, true);
 				return;
 			}
 			const backLayer = this.findBackLayer(neighbour, direction);
 			if (backLayer === -1) {
 				// non-mutual link shouldn't lead to merging
-				this.setTileDisconnects(cell, layer, true);
 				return;
 			}
 			const neighbourSubcell = this.grid.subcellId(neighbour, backLayer);
-			if (subcellConnections.has(neighbourSubcell)) {
+			if (this.connections.get(subcell)?.has(neighbourSubcell)) {
 				// already connected
 				return;
 			}
-			subcellConnections.add(neighbourSubcell);
-			const neighbourConnections = this.connections.get(neighbourSubcell);
-			if (neighbourConnections === undefined) {
-				throw `Could not find connections data for subcell ${neighbourSubcell}`;
-			}
-			neighbourConnections.add(subcell);
+			this.connections.get(subcell)?.add(neighbourSubcell);
+			this.connections.get(neighbourSubcell)?.add(subcell);
 			this.mergeComponents(subcell, neighbourSubcell);
 			this.setTileDisconnects(neighbour, backLayer);
 		});
@@ -623,7 +596,6 @@ export class PipesGame {
 		if (fromComponent === toComponent) {
 			// its a loop
 			const loopSubcells = this.detectLoops(fromComponent.subcells);
-			// FIXME why not iterate loopSubcells directly?
 			for (let subcell of fromComponent.subcells) {
 				const [cell, layer] = this.grid.cellLayerOf(subcell);
 				this.tileStates[cell].isPartOfLoop[layer] = loopSubcells.has(subcell);
@@ -788,9 +760,10 @@ export class PipesGame {
 	 */
 	disconnectComponents(fromSubcell, toSubcell) {
 		const bigComponent = this.components.get(fromSubcell);
-		if (bigComponent === undefined) {
-			return;
-		} // this shouldn't really happen, jsdoc
+		const toComponent = this.components.get(toSubcell);
+		if (bigComponent === undefined || toComponent === undefined || bigComponent !== toComponent) {
+			throw `disconnectComponents called for already disconnected subcells ${fromSubcell}, ${toSubcell}`;
+		}
 		const fromSubcells = this.findConnectedSubcells(toSubcell, fromSubcell);
 		const toSubcells = this.findConnectedSubcells(fromSubcell, toSubcell);
 		if ([...fromSubcells].some((subcell) => toSubcells.has(subcell))) {

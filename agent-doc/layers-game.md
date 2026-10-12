@@ -77,12 +77,12 @@ save format — is shared code.
 - A component with no open ends that isn't everything ⇒ island, `isPartOfIsland` per layer. Quirk
   (pinned by tests): `initializeBoard` marks islands without a size check, so a whole-board
   component counts as an island too until the first move.
-- `shareDisconnectedTiles` + derived `disconnectStrokeColor`/`disconnectStrokeWidthScale` give the
-  "disconnects fade/shrink as you progress" feedback.
+- `shareDisconnectedSubcells` + derived `disconnectStrokeColor`/`disconnectStrokeWidthScale` give
+  the "disconnects fade/shrink as you progress" feedback.
 
 ## Solved check
 
-`isSolved()`: `openEnds` empty AND the first valid sub-cell's component covers `totalSubCells` AND a
+`isSolved()`: `openEnds` empty AND the first valid sub-cell's component covers `totalSubcells` AND a
 BFS from it sees no loop and no unreached tiles.
 
 - Mutual-only storage means `openEnds` catches both stub types (pointing at an empty cell / at a
@@ -90,11 +90,11 @@ BFS from it sees no loop and no unreached tiles.
   BFS.
 - **Pending simplification (discussed, not applied)**: the BFS loop check is redundant for
   generator-shaped boards. Layer popcounts are rotation-invariant and `pregenerate_layers` produces
-  a tree over sub-cells, so `Σ popcount(layers) === 2 * (totalSubCells - 1)` holds at all times; if
+  a tree over sub-cells, so `Σ popcount(layers) === 2 * (totalSubcells - 1)` holds at all times; if
   `openEnds` is empty, edges = V-1, and a connected graph with V-1 edges is automatically a tree.
   Corollary: on generator-valid boards loops can only coexist with stubs. If applied: add a cheap
   constructor assertion of the popcount invariant, then reduce `isSolved()` to
-  `openEnds empty && components.get(firstValidSubcell).subcells.size === totalSubCells`. Gotcha:
+  `openEnds empty && components.get(firstValidSubcell).subcells.size === totalSubcells`. Gotcha:
   hand-made fixtures that aren't generator-shaped (e.g. the 4-cycle `[[9],[12],[3],[6]]` loop
   fixture in `game-layers.svelte.test.js`) violate the invariant and would false-positive; rework
   them (e.g. build a loop-with-stubs state by rotating a valid tree board).
