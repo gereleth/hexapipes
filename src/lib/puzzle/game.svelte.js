@@ -505,21 +505,18 @@ export class PipesGame {
 	 * that doesn't end up in a mutual connection
 	 * @param {Number} cell
 	 * @param {Number} layer
-	 * @param {Boolean|undefined} [hasDisconnects] - pass true when a
-	 * disconnect is already known, omit to recompute
+	 * @param {Boolean} [forced=false] - pass true when a disconnect
+	 * is already known, omit to recompute
 	 */
-	setTileDisconnects(cell, layer, hasDisconnects = undefined) {
-		let newHasDisconnects = hasDisconnects || false;
-		if (hasDisconnects === undefined) {
-			newHasDisconnects = this.computeLayerDisconnects(cell, layer);
-		}
+	setTileDisconnects(cell, layer, forced = false) {
+		const hasDisconnects = forced || this.computeLayerDisconnects(cell, layer);
 		const subcell = this.grid.subcellId(cell, layer);
-		this.tileStates[cell].hasDisconnects[layer] = newHasDisconnects;
+		this.tileStates[cell].hasDisconnects[layer] = hasDisconnects;
 		const component = this.components.get(subcell);
 		if (component === undefined) {
 			throw `Component open ends data for subcell ${subcell} not found`;
 		}
-		if (newHasDisconnects) {
+		if (hasDisconnects) {
 			if (component.openEnds.size === 0) {
 				for (let memberSubcell of component.subcells) {
 					const [memberCell, memberLayer] = this.grid.cellLayerOf(memberSubcell);
