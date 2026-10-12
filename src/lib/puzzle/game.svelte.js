@@ -456,10 +456,6 @@ export class PipesGame {
 				return;
 			}
 			const neighbourSubcell = this.grid.subcellId(neighbour, backLayer);
-			if (this.connections.get(subcell)?.has(neighbourSubcell)) {
-				// already connected
-				return;
-			}
 			this.connections.get(subcell)?.add(neighbourSubcell);
 			this.connections.get(neighbourSubcell)?.add(subcell);
 			this.mergeComponents(subcell, neighbourSubcell);
