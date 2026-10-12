@@ -130,7 +130,6 @@ export class PipesGame {
 	constructor(grid, tiles, savedProgress) {
 		this.grid = grid;
 		this.tiles = tiles;
-		this.initializes = false;
 		this.viewBox = createViewBox(grid);
 		this.totalTiles = grid.total - grid.emptyCells.size;
 
@@ -183,28 +182,57 @@ export class PipesGame {
 		this.initializeBoard();
 	}
 
+	/**
+	 * Directions the tile of a cell is currently pointing to
+	 * @param {Number} cell
+	 * @returns {Number[]}
+	 */
+	layerDirections(cell) {
+		const tileState = this.tileStates[cell];
+		return this.grid.getDirections(tileState.tile, tileState.rotations, cell);
+	}
+
+	/**
+	 * Tells if the tile of a cell points back in the opposite direction
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @returns {Boolean}
+	 */
+	pointsBack(cell, direction) {
+		const opposite = this.grid.OPPOSITE.get(direction) || 0;
+		return this.layerDirections(cell).includes(opposite);
+	}
+
 	initializeBoard() {
-		// create components and fill in connections data
+		// create components and fill in connections data;
+		// only mutual links are stored, empty cells get neither
 		this.tileStates.forEach((state, index) => {
-			let directions = this.grid.getDirections(state.tile, state.rotations, index);
+			if (this.tiles[index] === 0) {
+				return;
+			}
+			const directions = this.grid.getDirections(state.tile, state.rotations, index);
 			const connections = new Set();
+			this.connections.set(index, connections);
 			for (let direction of directions) {
 				const { neighbour, empty } = this.grid.find_neighbour(index, direction);
-				if (!empty) {
-					connections.add(neighbour);
+				if (empty || !this.pointsBack(neighbour, direction)) {
+					// some connections point outside the grid or to tiles
+					// that don't point back
+					state.hasDisconnects = true;
+					continue;
 				}
+				connections.add(neighbour);
 			}
-			if (connections.size < directions.length) {
-				// some connections point outside the grid
-				state.hasDisconnects = true;
-			}
-			this.connections.set(index, connections);
 		});
 		// merge initial components of connected tiles
 		const checked = new Set();
 		let i = 0;
 		const empty = new Set();
-		while (checked.size < this.tileStates.length) {
+		while (checked.size < this.totalTiles) {
+			if (this.tiles[i] === 0) {
+				i += 1;
+				continue;
+			}
 			const toCheck = new Set([i]);
 			const state = this.tileStates[i];
 			const component = {
@@ -232,19 +260,13 @@ export class PipesGame {
 						// seen this connection before
 						continue;
 					}
-					if ((this.connections.get(neighbour) || empty).has(index)) {
-						if (through !== -1) {
-							// connected to the same component through some other tile
-							loop = true;
-							continue;
-						}
-						toCheck.add(neighbour);
-						connectedThrough.set(neighbour, index);
-					} else {
-						tileState.hasDisconnects = true;
-						component.openEnds.add(index);
-						this.openEnds.add(index);
+					if (through !== -1) {
+						// connected to the same component through some other tile
+						loop = true;
+						continue;
 					}
+					toCheck.add(neighbour);
+					connectedThrough.set(neighbour, index);
 				}
 			}
 			if (loop) {
@@ -259,7 +281,7 @@ export class PipesGame {
 				}
 			}
 
-			while (checked.has(i)) {
+			while (checked.has(i) || this.tiles[i] === 0) {
 				i += 1;
 			}
 		}
@@ -273,8 +295,6 @@ export class PipesGame {
 		this.initialized = false;
 		this.solved = false;
 		this.openEnds.clear();
-		this.disconnectStrokeWidthScale = 1;
-		this.disconnectStrokeColor = '#888888';
 
 		this.tileStates.forEach((tileState, index) => {
 			tileState.rotations = 0;
@@ -394,7 +414,8 @@ export class PipesGame {
 				continue;
 			}
 			if (this.tileStates[neighbour].locked) {
-				if (this.connections.get(neighbour)?.has(tileIndex)) {
+				// one-sided check: does the locked neighbour point at this tile?
+				if (this.pointsBack(neighbour, direction)) {
 					connections += direction;
 				} else {
 					walls += direction;
@@ -438,8 +459,6 @@ export class PipesGame {
 	 */
 	handleConnections(event) {
 		const { tileIndex, dirIn, dirOut } = event.detail;
-		// console.log('==========================');
-		// console.log(tileIndex, dirIn, dirOut);
 		const tileConnections = this.connections.get(tileIndex);
 		if (tileConnections === undefined) {
 			return;
@@ -449,29 +468,37 @@ export class PipesGame {
 			if (empty) {
 				return;
 			}
+			if (!this.pointsBack(neighbour, direction)) {
+				// this connection wasn't mutual, nothing is stored
+				return;
+			}
 			tileConnections.delete(neighbour);
 			const neighbourConnections = this.connections.get(neighbour);
 			if (neighbourConnections === undefined) {
 				throw `Could not find connections data for tile ${neighbour}`;
 			}
-			if (!neighbourConnections.has(tileIndex)) {
-				return; // this connection wasn't mutual, no action needed
-			}
+			neighbourConnections.delete(tileIndex);
 			const neighbourComponent = this.components.get(neighbour);
 			const tileComponent = this.components.get(tileIndex);
 			if (tileComponent === neighbourComponent) {
-				// console.log('disconnecting components between tiles', tileIndex, neighbour)
 				this.disconnectComponents(tileIndex, neighbour);
 			}
 			this.setTileDisconnects(neighbour, true);
 			this.setTileDisconnects(tileIndex, true);
 		});
-		let hasDisconnects = false;
 		dirIn.forEach((direction) => {
 			const { neighbour, empty } = this.grid.find_neighbour(tileIndex, direction);
 			if (empty) {
-				hasDisconnects = true;
 				this.setTileDisconnects(tileIndex, true);
+				return;
+			}
+			if (!this.pointsBack(neighbour, direction)) {
+				// non-mutual link shouldn't lead to merging
+				this.setTileDisconnects(tileIndex, true);
+				return;
+			}
+			if (tileConnections.has(neighbour)) {
+				// already connected
 				return;
 			}
 			tileConnections.add(neighbour);
@@ -479,19 +506,12 @@ export class PipesGame {
 			if (neighbourConnections === undefined) {
 				throw `Could not find connections data for tile ${neighbour}`;
 			}
-			if (!neighbourConnections.has(tileIndex)) {
-				hasDisconnects = true;
-				return; // non-mutual link shouldn't lead to merging
-			}
-			// console.log('merging components of tiles', tileIndex, neighbour)
+			neighbourConnections.add(tileIndex);
 			this.mergeComponents(tileIndex, neighbour);
 			this.setTileDisconnects(neighbour);
 		});
-		if (hasDisconnects) {
-			this.setTileDisconnects(tileIndex, true);
-		} else {
-			this.setTileDisconnects(tileIndex);
-		}
+		// recompute disconnect state of the rotated tile
+		this.setTileDisconnects(tileIndex);
 		if (this.initialized) {
 			this.solved = this.isSolved();
 		}
@@ -505,21 +525,12 @@ export class PipesGame {
 	setTileDisconnects(tileIndex, hasDisconnects = undefined) {
 		let newHasDisconnects = hasDisconnects || false;
 		if (hasDisconnects === undefined) {
-			const directions = this.grid.getDirections(this.tileStates[tileIndex].tile, 0, tileIndex);
-			const connections = this.connections.get(tileIndex);
-			if (connections === undefined) {
-				throw `Connections data for tile ${tileIndex} not found`;
-			}
-			if (directions.length > connections.size) {
-				newHasDisconnects = true;
-			} else {
-				for (let neighbour of connections || []) {
-					if (!this.connections.get(neighbour)?.has(tileIndex)) {
-						newHasDisconnects = true;
-						break;
-					}
-				}
-			}
+			// a tile has disconnects when some of its directions
+			// doesn't end up in a mutual connection
+			newHasDisconnects = this.layerDirections(tileIndex).some((direction) => {
+				const { neighbour, empty } = this.grid.find_neighbour(tileIndex, direction);
+				return empty || !this.pointsBack(neighbour, direction);
+			});
 		}
 		this.tileStates[tileIndex].hasDisconnects = newHasDisconnects;
 		const component = this.components.get(tileIndex);
@@ -550,57 +561,34 @@ export class PipesGame {
 	 * @returns {boolean}
 	 */
 	isSolved() {
-		// console.log('=================== Solved check ======================')
+		if (this.openEnds.size > 0) {
+			// some tiles have disconnects
+			return false;
+		}
 		const total = this.grid.total - this.grid.emptyCells.size;
 		const component = this.components.get(this.firstValidIndex);
 		if (component === undefined) {
 			return false;
 		}
 		if (component.tiles.size < total) {
-			// console.log('not everything connected yet')
 			// not everything connected yet
 			return false;
 		}
-		let startCheckAtIndex = this.firstValidIndex;
-		let toCheck = new Set([{ fromIndex: -1, tileIndex: startCheckAtIndex }]);
-		// console.log('start at', startCheckAtIndex)
+		let toCheck = new Set([{ fromIndex: -1, tileIndex: this.firstValidIndex }]);
 		/** @type Set<Number> */
 		const checked = new Set([]);
 		while (toCheck.size > 0) {
-			// console.log('toCheck = ', toCheck)
 			/** @type {Set<{fromIndex: Number, tileIndex: Number}>} */
 			const newChecks = new Set([]);
 			for (let { fromIndex, tileIndex } of toCheck) {
-				// console.log('checking tile', tileIndex, 'coming from', fromIndex)
 				const neighbours = this.connections.get(tileIndex);
 				if (neighbours === undefined) {
 					throw `Could not find connections data for tile ${tileIndex}`;
 				}
-				// console.log('tile neighbours', neighbours)
 				for (let neighbour of neighbours) {
-					// console.log('checking neighbour', neighbour)
-					if (neighbour === -1) {
-						// not solved if any tiles point outside
-						// console.log('not solved for outside connection in tile', tileIndex)
-						startCheckAtIndex = tileIndex;
-						return false;
-					}
-					const neighbourConnections = this.connections.get(neighbour);
-					if (neighbourConnections === undefined) {
-						throw `Could not find connections data for tile ${neighbour}`;
-					}
-					// console.log('neighbour connections', neighbourConnections)
-					if (!neighbourConnections.has(tileIndex)) {
-						// not solved if a connection is not mutual
-						// console.log('not solved for non-mutual connection between tiles', tileIndex, neighbour)
-						startCheckAtIndex = tileIndex;
-						return false;
-					}
 					if (neighbour !== fromIndex) {
 						if (checked.has(neighbour)) {
 							// it's a loop
-							// console.log('not solved because of loop detected at tile', tileIndex)
-							startCheckAtIndex = tileIndex;
 							return false;
 						} else {
 							newChecks.add({ fromIndex: tileIndex, tileIndex: neighbour });
@@ -608,11 +596,10 @@ export class PipesGame {
 					}
 				}
 				checked.add(tileIndex);
-				toCheck = newChecks;
 			}
+			toCheck = newChecks;
 		}
 		if (checked.size < total) {
-			// console.log('not solved because only', checked.size, 'of', total, 'were reached')
 			// it's an island
 			return false;
 		}
@@ -911,10 +898,6 @@ export class PipesGame {
 					throw `Could not find connections data for tile ${tileIndex}`;
 				}
 				for (let neighbour of neighbours) {
-					if (neighbour === -1) {
-						// no neighbour
-						continue;
-					}
 					const neighbourComponent = this.components.get(neighbour);
 					if (neighbourComponent === undefined) {
 						throw `Could not find component for tile ${neighbour}`;
