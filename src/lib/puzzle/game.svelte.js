@@ -626,6 +626,14 @@ export class PipesGame {
 		for (let changedSubcell of changedComponent.openEnds) {
 			constantComponent.openEnds.add(changedSubcell);
 		}
+		if (this.initialized && constantComponent.openEnds.size > 0) {
+			// a component with open ends is not an island, but a closed
+			// island fragment merges in with stale island flags
+			for (let subcell of constantComponent.subcells) {
+				const [cell, layer] = this.grid.cellLayerOf(subcell);
+				this.tileStates[cell].isPartOfIsland[layer] = false;
+			}
+		}
 	}
 
 	/**

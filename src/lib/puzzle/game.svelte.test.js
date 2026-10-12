@@ -398,4 +398,16 @@ describe('Test classic game micro behaviors', () => {
 		// cell 3 has no mark and no locked neighbour pointing at it: it stays
 		expect(game2.tileStates[3].rotations).toBe(0);
 	});
+
+	it('Removes island highlight from a tile that connects to a non-island', () => {
+		const grid = new SquareGrid(2, 2, false);
+		const tiles = [9, 8, 3, 2];
+		const game = new PipesGame(grid, tiles, undefined);
+		// cell 1 is a deadend looking down, makes an island with up-deadend tile 3
+		expect(game.tileStates[1].isPartOfIsland[0]).toBe(true);
+		// make cell 1 point left towards cell 0 connection
+		game.rotateTile(1, 1);
+		// it shouldn't be an island any more
+		expect(game.tileStates[1].isPartOfIsland[0]).toBe(false);
+	});
 });
