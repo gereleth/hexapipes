@@ -231,76 +231,38 @@
 			for (let tileState of game.tileStates) {
 				tileState.locked = false;
 			}
-			if (game.isLayered) {
-				const layeredGame = game;
-				let layeredSolver;
-				/** @type {LayeredSolver} */
-				layeredSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
-
-				solver = layeredSolver;
-				try {
-					for (let { stage, step } of layeredSolver.solve(true)) {
-						if (stage === 'aftercheck') {
-							continue;
-						}
-						game.toggleLocked(step.index, false);
-						const shouldLock = step.final && stage === 'initial';
-						layeredGame.setTileRotation(step.index, step.rotation, !shouldLock);
-						if (shouldLock) {
-							game.toggleLocked(step.index, true);
-						}
-						if (animate) {
-							await sleep(100);
-						}
+			solver = game.isLayered
+				? new LayeredSolver(/** @type {Number[][]} */ (tiles), grid)
+				: new Solver(/** @type {Number[]} */ (tiles), grid);
+			try {
+				for (let { stage, step } of solver.solve(true)) {
+					if (stage === 'aftercheck') {
+						continue;
 					}
-					if (layeredSolver.solutions.length > 1) {
-						// unlock cells that are different between solutions
-						// and lock those that are the same
-						game.solved = false;
-						for (let [i, id] of layeredSolver.solutions[0].entries()) {
-							const isSame = layeredSolver.solutions.every((solution) => solution[i] === id);
-							if (game.tileStates[i].locked !== isSame) {
-								game.tileStates[i].toggleLocked();
-							}
-						}
+					game.toggleLocked(step.index, false);
+					const shouldLock = step.final && stage === 'initial';
+					game.setTileRotation(step.index, step.rotation, !shouldLock);
+					if (shouldLock) {
+						game.toggleLocked(step.index, true);
 					}
-					// store rotations for the solution buttons
-					solutions = layeredSolver.solutions;
-				} catch (error) {
-					console.error(error);
+					if (animate) {
+						await sleep(100);
+					}
 				}
-			} else {
-				solver = new Solver(/** @type {Number[]} */ (tiles), grid);
-				try {
-					for (let { stage, step } of solver.solve(true)) {
-						if (stage === 'aftercheck') {
-							continue;
-						}
-						game.toggleLocked(step.index, false);
-						const shouldLock = step.final && stage === 'initial';
-						game.setTileRotation(step.index, step.rotation, !shouldLock);
-						if (shouldLock) {
-							game.toggleLocked(step.index, true);
-						}
-						if (animate) {
-							await sleep(100);
+				if (solver.solutions.length > 1) {
+					// unlock tiles that are different between solutions
+					// and lock those that are the same
+					game.solved = false;
+					for (let [i, tile] of solver.solutions[0].entries()) {
+						const isSame = solver.solutions.every((solution) => solution[i] === tile);
+						if (game.tileStates[i].locked !== isSame) {
+							game.tileStates[i].toggleLocked();
 						}
 					}
-					if (solver.solutions.length > 1) {
-						// unlock tiles that are different between solutions
-						// and lock those that are the same
-						game.solved = false;
-						for (let [i, tile] of solver.solutions[0].entries()) {
-							const isSame = solver.solutions.every((solution) => solution[i] === tile);
-							if (game.tileStates[i].locked !== isSame) {
-								game.tileStates[i].toggleLocked();
-							}
-						}
-					}
-					solutions = solver.solutions;
-				} catch (error) {
-					console.error(error);
 				}
+				solutions = solver.solutions;
+			} catch (error) {
+				console.error(error);
 			}
 		}
 	}
