@@ -94,18 +94,18 @@ BFS from it sees no loop and no unreached tiles.
   `openEnds` is empty, edges = V-1, and a connected graph with V-1 edges is automatically a tree.
   Corollary: on generator-valid boards loops can only coexist with stubs. If applied: add a cheap
   constructor assertion of the popcount invariant, then reduce `isSolved()` to
-  `openEnds empty && components.get(firstValidId).tiles.size === totalSubCells`. Gotcha: hand-made
-  fixtures that aren't generator-shaped (e.g. the 4-cycle `[[9],[12],[3],[6]]` loop fixture in
-  `game-layers.svelte.test.js`) violate the invariant and would false-positive; rework them (e.g.
-  build a loop-with-stubs state by rotating a valid tree board).
+  `openEnds empty && components.get(firstValidSubcell).subcells.size === totalSubCells`. Gotcha:
+  hand-made fixtures that aren't generator-shaped (e.g. the 4-cycle `[[9],[12],[3],[6]]` loop
+  fixture in `game-layers.svelte.test.js`) violate the invariant and would false-positive; rework
+  them (e.g. build a loop-with-stubs state by rotating a valid tree board).
 
 ## Board lifecycle
 
 - Constructor: normalizes classic input, builds tileStates (from `Progress`: rotations/locked/
   edgeMarks restored, `color` accepted as `String` (old saves) or `String[]`, missing → white;
   `locked ?? false` and `edgeMarks || defaults` fallbacks), sets `edgeMarks` to `'none'` on outer
-  edges of non-wrap boards (length = `EDGEMARK_DIRECTIONS.length`), computes `firstValidId` skipping
-  empty cells, then `initializeBoard()`.
+  edges of non-wrap boards (length = `EDGEMARK_DIRECTIONS.length`), computes `firstValidSubcell`
+  skipping empty cells, then `initializeBoard()`.
 - `initializeBoard()`: fills `connections` (mutual-only, back-layer resolved per direction; empty
   cells get no entries) + initial per-layer disconnect flags, then flood-merges initial components
   and marks loops and islands. Uses the `connectedThrough` trick: reaching the same neighbour

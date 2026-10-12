@@ -22,15 +22,15 @@ describe('Test layered game', () => {
 		expect(game.solved).toBe(false);
 		expect(game.tileStates[0].hasDisconnects[0]).toBe(true);
 		expect(game.tileStates[1].hasDisconnects[0]).toBe(true);
-		expect(game.components.get(0)?.tiles).toEqual(new Set([0]));
-		expect(game.components.get(1)?.tiles).toEqual(new Set([1]));
+		expect(game.components.get(0)?.subcells).toEqual(new Set([0]));
+		expect(game.components.get(1)?.subcells).toEqual(new Set([1]));
 
 		// rotate back
 		game.rotateTile(0, -1);
 		expect(game.solved).toBe(true);
 		expect(game.tileStates[0].hasDisconnects[0]).toBe(false);
 		expect(game.tileStates[1].hasDisconnects[0]).toBe(false);
-		expect(game.components.get(0)?.tiles).toEqual(new Set([0, 1]));
+		expect(game.components.get(0)?.subcells).toEqual(new Set([0, 1]));
 		const color = game.tileStates[0].colors[0];
 		expect(color).not.toBe('white');
 		expect(game.tileStates[1].colors[0]).toBe(color);
@@ -45,8 +45,8 @@ describe('Test layered game', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [4]];
 		const game = new PipesGame(grid, tiles, undefined);
-		expect(game.components.get(0)?.tiles).toEqual(new Set([0, 1]));
-		expect(game.components.get(2)?.tiles).toEqual(new Set([2, 3]));
+		expect(game.components.get(0)?.subcells).toEqual(new Set([0, 1]));
+		expect(game.components.get(2)?.subcells).toEqual(new Set([2, 3]));
 		game.tileStates.forEach((state, index) => {
 			expect(state.isPartOfIsland[0], `cell ${index} is part of an island`).toBe(true);
 		});
@@ -59,7 +59,7 @@ describe('Test layered game', () => {
 		const game = new PipesGame(grid, tiles, undefined);
 		// cell 1 second layer points outside the board
 		expect(game.tileStates[1].hasDisconnects).toEqual([false, true]);
-		expect(game.components.get(5)?.tiles).toEqual(new Set([5]));
+		expect(game.components.get(5)?.subcells).toEqual(new Set([5]));
 		expect(game.shareDisconnectedTiles).toBeCloseTo(1 / 5);
 	});
 
@@ -69,8 +69,8 @@ describe('Test layered game', () => {
 		const game = new PipesGame(grid, tiles, undefined);
 		// two components: cells 0-1 and 2-3
 		// cell 2 and 3 point at not yet connected neighbours
-		expect(game.components.get(0)?.tiles).toEqual(new Set([0, 1]));
-		expect(game.components.get(2)?.tiles).toEqual(new Set([2, 3]));
+		expect(game.components.get(0)?.subcells).toEqual(new Set([0, 1]));
+		expect(game.components.get(2)?.subcells).toEqual(new Set([2, 3]));
 		expect(game.tileStates[2].hasDisconnects[0]).toBe(true);
 		expect(game.tileStates[3].hasDisconnects[0]).toBe(true);
 
@@ -78,13 +78,13 @@ describe('Test layered game', () => {
 		// and connects to cell 3 instead
 		game.rotateTile(1, 3);
 		expect(game.solved).toBe(false);
-		expect(game.components.get(0)?.tiles).toEqual(new Set([0]));
-		expect(game.components.get(1)?.tiles).toEqual(new Set([1, 2, 3]));
+		expect(game.components.get(0)?.subcells).toEqual(new Set([0]));
+		expect(game.components.get(1)?.subcells).toEqual(new Set([1, 2, 3]));
 
 		// rotating cell 0 connects it to cell 2 and solves the puzzle
 		game.rotateTile(0, 1);
 		expect(game.solved).toBe(true);
-		expect(game.components.get(0)?.tiles).toEqual(new Set([0, 1, 2, 3]));
+		expect(game.components.get(0)?.subcells).toEqual(new Set([0, 1, 2, 3]));
 		expect(game.tileStates[2].hasDisconnects[0]).toBe(false);
 		expect(game.tileStates[3].hasDisconnects[0]).toBe(false);
 		const color = game.tileStates[0].colors[0];

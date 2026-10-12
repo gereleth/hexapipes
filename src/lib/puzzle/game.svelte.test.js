@@ -30,9 +30,9 @@ describe('Test initialize board', () => {
 		});
 		game.components.forEach((component, index) => {
 			if (index === 3 || index === 4) {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([3, 4]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([3, 4]));
 			} else {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([index]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([index]));
 			}
 		});
 	});
@@ -53,9 +53,9 @@ describe('Test initialize board', () => {
 		});
 		game.components.forEach((component, index) => {
 			if ([1, 3, 4].some((x) => x === index)) {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([1, 3, 4]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([1, 3, 4]));
 			} else {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([index]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([index]));
 			}
 		});
 	});
@@ -86,11 +86,11 @@ describe('Test initialize board', () => {
 		});
 		game.components.forEach((component, index) => {
 			if ([5, 8].some((x) => x === index)) {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([5, 8]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([5, 8]));
 			} else if (index === 2) {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([2]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([2]));
 			} else {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([0, 1, 3, 4, 6, 7]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([0, 1, 3, 4, 6, 7]));
 			}
 		});
 	});
@@ -121,9 +121,9 @@ describe('Test initialize board', () => {
 		});
 		game.components.forEach((component, index) => {
 			if ([1, 3, 4].some((x) => x === index)) {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([1, 3, 4]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([1, 3, 4]));
 			} else {
-				expect([...component.tiles]).toEqual(expect.arrayContaining([index]));
+				expect([...component.subcells]).toEqual(expect.arrayContaining([index]));
 			}
 		});
 	});
@@ -197,7 +197,7 @@ describe('Test classic game behavior on a generated board', () => {
 
 	const leaf = findLeaf(solvedTiles);
 	const neighbour = grid.find_neighbour(leaf.index, leaf.direction).neighbour;
-	const totalTiles = grid.total - grid.emptyCells.size;
+	const playableCells = grid.total - grid.emptyCells.size;
 
 	it('Starts solved with all tiles in one component', () => {
 		const game = new PipesGame(grid, solvedTiles, undefined);
@@ -209,7 +209,7 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.openEnds.size).toBe(0);
 		expect(game.shareDisconnectedTiles).toBe(0);
 		const component = game.components.get(0);
-		expect(component?.tiles.size).toBe(totalTiles);
+		expect(component?.subcells.size).toBe(playableCells);
 		game.tileStates.forEach((state) => {
 			expect(state.colors[0]).toBe('white');
 			expect(state.isPartOfLoop[0]).toBe(false);
@@ -232,14 +232,14 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.openEnds.has(neighbour)).toBe(true);
 		expect(game.openEnds.size).toBe(2);
 		// the leaf splits off as its own component
-		expect(game.components.get(leaf.index)?.tiles).toEqual(new Set([leaf.index]));
-		expect(game.components.get(neighbour)?.tiles.size).toBe(totalTiles - 1);
+		expect(game.components.get(leaf.index)?.subcells).toEqual(new Set([leaf.index]));
+		expect(game.components.get(neighbour)?.subcells.size).toBe(playableCells - 1);
 		expect(game.components.get(neighbour)).not.toBe(game.components.get(leaf.index));
 
 		game.rotateTile(leaf.index, -1);
 		expect(game.solved).toBe(true);
 		expect(game.openEnds.size).toBe(0);
-		expect(game.components.get(0)?.tiles.size).toBe(totalTiles);
+		expect(game.components.get(0)?.subcells.size).toBe(playableCells);
 		// merging assigns the shared component color to all tiles
 		const color = game.tileStates[0].colors[0];
 		expect(color).not.toBe('white');
@@ -348,8 +348,8 @@ describe('Test classic game micro behaviors', () => {
 		// two separate closed chains: 0-1 and 2-3
 		const tiles = [1, 4, 1, 4];
 		const game = new PipesGame(grid, tiles, undefined);
-		expect(game.components.get(0)?.tiles).toEqual(new Set([0, 1]));
-		expect(game.components.get(2)?.tiles).toEqual(new Set([2, 3]));
+		expect(game.components.get(0)?.subcells).toEqual(new Set([0, 1]));
+		expect(game.components.get(2)?.subcells).toEqual(new Set([2, 3]));
 		expect(game.openEnds.size).toBe(0);
 		game.tileStates.forEach((state, index) => {
 			expect(state.isPartOfIsland[0], `tile ${index} is part of an island`).toBe(true);
@@ -364,7 +364,7 @@ describe('Test classic game micro behaviors', () => {
 		const tiles = [1, 48, 3, 11, 6, 5, 1, 1, 1];
 		const game = new PipesGame(grid, tiles, undefined);
 		expect(game.tileStates[1].isPartOfLoop[0]).toBe(false);
-		expect(game.components.get(1)?.tiles).toEqual(new Set([1, 3, 4]));
+		expect(game.components.get(1)?.subcells).toEqual(new Set([1, 3, 4]));
 
 		game.rotateTile(4, 5);
 		[1, 3, 4].forEach((index) => {
