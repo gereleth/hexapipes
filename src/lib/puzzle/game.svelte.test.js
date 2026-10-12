@@ -410,4 +410,30 @@ describe('Test classic game micro behaviors', () => {
 		// it shouldn't be an island any more
 		expect(game.tileStates[1].isPartOfIsland[0]).toBe(false);
 	});
+
+	it('Removes island highlight from a tile that turns to a non-mutual direction', () => {
+		const grid = new SquareGrid(2, 2, false);
+		const tiles = [9, 8, 3, 2];
+		const game = new PipesGame(grid, tiles, undefined);
+		// cell 1 is a deadend looking down, makes an island with up-deadend tile 3
+		expect(game.tileStates[1].isPartOfIsland[0]).toBe(true);
+		// make cell 1 point right towards board edge
+		game.rotateTile(1, -1);
+		// neither 1 nor 3 should have the island highlight
+		expect(game.tileStates[1].isPartOfIsland[0]).toBe(false);
+		expect(game.tileStates[3].isPartOfIsland[0]).toBe(false);
+	});
+
+	it('Adds island highlight when a tile rotation closes an island', () => {
+		const grid = new SquareGrid(2, 2, false);
+		const tiles = [9, 1, 3, 2];
+		const game = new PipesGame(grid, tiles, undefined);
+		// cell 1 is a deadend looking right
+		expect(game.tileStates[1].isPartOfIsland[0]).toBe(false);
+		// make cell 1 point down towards cell 3 connection
+		game.rotateTile(1, 1);
+		// both 0 and 3 should get the island highlight
+		expect(game.tileStates[1].isPartOfIsland[0]).toBe(true);
+		expect(game.tileStates[3].isPartOfIsland[0]).toBe(true);
+	});
 });

@@ -427,6 +427,9 @@ export class PipesGame {
 	 * @returns {void}
 	 */
 	handleConnections(cell, dirIn, dirOut) {
+		/** @type {Set<Number>} - layers of the cell whose new directions
+		 * didn't all end up in mutual connections */
+		const disconnectedLayers = new Set();
 		dirOut.forEach(({ layer, direction }) => {
 			const subcell = this.grid.subcellId(cell, layer);
 			const { neighbour, empty } = this.grid.find_neighbour(cell, direction);
@@ -442,17 +445,20 @@ export class PipesGame {
 			this.connections.get(subcell)?.delete(neighbourSubcell);
 			this.connections.get(neighbourSubcell)?.delete(subcell);
 			this.disconnectComponents(subcell, neighbourSubcell);
+			this.setTileDisconnects(cell, layer, true);
 			this.setTileDisconnects(neighbour, backLayer, true);
 		});
 		dirIn.forEach(({ layer, direction }) => {
 			const subcell = this.grid.subcellId(cell, layer);
 			const { neighbour, empty } = this.grid.find_neighbour(cell, direction);
 			if (empty) {
+				disconnectedLayers.add(layer);
 				return;
 			}
 			const backLayer = this.findBackLayer(neighbour, direction);
 			if (backLayer === -1) {
 				// non-mutual link shouldn't lead to merging
+				disconnectedLayers.add(layer);
 				return;
 			}
 			const neighbourSubcell = this.grid.subcellId(neighbour, backLayer);
@@ -461,9 +467,14 @@ export class PipesGame {
 			this.mergeComponents(subcell, neighbourSubcell);
 			this.setTileDisconnects(neighbour, backLayer);
 		});
-		// recompute disconnect state of all layers of the rotated cell
+		// a dirIn that didn't land mutual is a known disconnect,
+		// the other layers of the cell recompute
 		for (let layer = 0; layer < this.tileStates[cell].layers.length; layer++) {
-			this.setTileDisconnects(cell, layer);
+			if (disconnectedLayers.has(layer)) {
+				this.setTileDisconnects(cell, layer, true);
+			} else {
+				this.setTileDisconnects(cell, layer);
+			}
 		}
 		if (this.initialized) {
 			this.solved = this.isSolved();
@@ -490,10 +501,12 @@ export class PipesGame {
 	}
 
 	/**
-	 *
+	 * Sets or recomputes if a layer of a cell has any direction
+	 * that doesn't end up in a mutual connection
 	 * @param {Number} cell
 	 * @param {Number} layer
-	 * @param {Boolean|undefined} [hasDisconnects]
+	 * @param {Boolean|undefined} [hasDisconnects] - pass true when a
+	 * disconnect is already known, omit to recompute
 	 */
 	setTileDisconnects(cell, layer, hasDisconnects = undefined) {
 		let newHasDisconnects = hasDisconnects || false;
@@ -625,14 +638,6 @@ export class PipesGame {
 		}
 		for (let changedSubcell of changedComponent.openEnds) {
 			constantComponent.openEnds.add(changedSubcell);
-		}
-		if (this.initialized && constantComponent.openEnds.size > 0) {
-			// a component with open ends is not an island, but a closed
-			// island fragment merges in with stale island flags
-			for (let subcell of constantComponent.subcells) {
-				const [cell, layer] = this.grid.cellLayerOf(subcell);
-				this.tileStates[cell].isPartOfIsland[layer] = false;
-			}
 		}
 	}
 
