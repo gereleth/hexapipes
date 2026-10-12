@@ -238,33 +238,6 @@ export class PipesGame {
 		return -1;
 	}
 
-	/**
-	 * Tells if any layer of a cell has disconnects
-	 * @param {Number} cell
-	 * @returns {Boolean}
-	 */
-	cellHasDisconnects(cell) {
-		return this.tileStates[cell].hasDisconnects.some((x) => x);
-	}
-
-	/**
-	 * Tells if any layer of a cell is part of a loop
-	 * @param {Number} cell
-	 * @returns {Boolean}
-	 */
-	cellIsPartOfLoop(cell) {
-		return this.tileStates[cell].isPartOfLoop.some((x) => x);
-	}
-
-	/**
-	 * Tells if any layer of a cell is part of an island
-	 * @param {Number} cell
-	 * @returns {Boolean}
-	 */
-	cellIsPartOfIsland(cell) {
-		return this.tileStates[cell].isPartOfIsland.some((x) => x);
-	}
-
 	initializeBoard() {
 		// create components and fill in connections data;
 		// only mutual links are stored, empty cells get neither

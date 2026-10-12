@@ -39,7 +39,7 @@
 	// .filter((sink) => sink !== null);
 
 	let bgColor = $derived.by(() => {
-		if (game.cellIsPartOfLoop(i)) {
+		if (data.isPartOfLoop.some((x) => x)) {
 			return data.locked ? '#f99' : '#fbb';
 		} else {
 			return data.locked ? '#bbb' : '#ddd';

@@ -36,7 +36,7 @@
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 
 	let bgColor = $derived.by(() => {
-		if (game.cellIsPartOfLoop(i)) {
+		if (data.isPartOfLoop[0]) {
 			return data.locked ? '#f99' : '#fbb';
 		} else {
 			return data.locked ? '#bbb' : '#ddd';
@@ -44,12 +44,12 @@
 	});
 
 	let { strokeColor, strokeWidth } = $derived.by(() => {
-		if (game.cellHasDisconnects(i)) {
+		if (data.hasDisconnects[0]) {
 			return {
 				strokeColor: game.disconnectStrokeColor,
 				strokeWidth: game.grid.STROKE_WIDTH * game.disconnectStrokeWidthScale
 			};
-		} else if (game.cellIsPartOfIsland(i)) {
+		} else if (data.isPartOfIsland[0]) {
 			return {
 				strokeColor: '#b55',
 				strokeWidth: game.grid.STROKE_WIDTH

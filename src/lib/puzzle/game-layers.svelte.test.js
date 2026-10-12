@@ -49,7 +49,6 @@ describe('Test layered game', () => {
 		expect(game.components.get(2)?.tiles).toEqual(new Set([2, 3]));
 		game.tileStates.forEach((state, index) => {
 			expect(state.isPartOfIsland[0], `cell ${index} is part of an island`).toBe(true);
-			expect(game.cellIsPartOfIsland(index)).toBe(true);
 		});
 		expect(game.isSolved()).toBe(false);
 	});

@@ -119,9 +119,10 @@ Both renderers stay separate — the geometric divergence is real. `Puzzle.svelt
 `game.isLayered`.
 
 `Tile.svelte` (classic): straight pipe segments from the cell center (`get_pipes_path` on the
-non-negative mask), `pipeWidth`, sinks at the center. Reads the unified state forms:
-`data.colors[0]` for color, the `cell*` aggregators for loop/island/disconnect styling, `data.tile`
-(union getter) for geometry.
+non-negative mask), `pipeWidth`, sinks at the center. Reads the unified state forms by layer-0
+indexing (`data.colors[0]`, `data.hasDisconnects[0]`, `data.isPartOfIsland[0]`,
+`data.isPartOfLoop[0]`), plus `data.tile` (union getter) for geometry. Empty cells never render —
+`getVisibleTiles` skips them — so the index-0 reads are safe.
 
 `LayeredTile.svelte` (layered):
 
@@ -139,9 +140,9 @@ non-negative mask), `pipeWidth`, sinks at the center. Reads the unified state fo
 - Sinks drawn on deadend layers, positioned at the layer center offset, filled with the layer's
   component color. `pipeWidth * 0.7` and `SINK_RADIUS * 0.7` scale down for density.
 - Per-layer strokes: `#888` normal; `disconnectStrokeColor`/scaled width when that layer has
-  disconnects; `#b55` when part of an island. Background: pink when the cell (any layer) is part of
-  a loop, darker gray when locked — derived helpers `cellHasDisconnects`/`cellIsPartOfLoop`/
-  `cellIsPartOfIsland` OR the per-layer flags for this (Tile.svelte uses the same aggregators).
+  disconnects; `#b55` when part of an island — read per layer index. Background: pink when any layer
+  of the cell is part of a loop (`data.isPartOfLoop.some((x) => x)` — the background polygon is the
+  one genuinely cell-level surface), darker gray when locked.
 - Guide dot (orient_lock mode) uses `getGuideDotPosition(data.tile, i)` — the **union** mask, same
   UX as classic.
 - Rotation animation via `.animation-normal/fast/instant` CSS classes in both renderers.
