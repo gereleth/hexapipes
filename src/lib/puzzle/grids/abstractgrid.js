@@ -1,3 +1,18 @@
+/**
+ * Counts total directions in a mask
+ * @param {Number} mask
+ * @returns {Number}
+ */
+export function popcount(mask) {
+	let count = 0;
+	let bits = mask;
+	while (bits > 0) {
+		bits ^= bits & -bits;
+		count += 1;
+	}
+	return count;
+}
+
 export class AbstractGrid {
 	/** @type {Number[]} */
 	DIRECTIONS = [];

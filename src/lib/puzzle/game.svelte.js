@@ -1,5 +1,6 @@
 import randomColor from 'randomcolor';
-import { createViewBox } from './viewbox';
+import { createViewBox } from '#lib/puzzle/viewbox.js';
+import { popcount } from '#lib/puzzle/grids/abstractgrid.js';
 
 /**
  * An edge mark
@@ -493,25 +494,6 @@ export class PipesGame {
 	}
 
 	/**
-	 * Recomputes if a layer of a cell has any direction
-	 * that doesn't end up in a mutual connection
-	 * @param {Number} cell
-	 * @param {Number} layer
-	 */
-	computeLayerDisconnects(cell, layer) {
-		for (let direction of this.layerDirections(cell, layer)) {
-			const { neighbour, empty } = this.grid.find_neighbour(cell, direction);
-			if (empty) {
-				return true;
-			}
-			if (this.findBackLayer(neighbour, direction) === -1) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * Sets or recomputes presence of disconnects in a subcell
 	 * Keeps track of openEnds, applies and removes island highlights
 	 *
@@ -521,8 +503,10 @@ export class PipesGame {
 	 * is already known, omit to recompute
 	 */
 	updateOpenEnds(cell, layer, knownDisconnected = false) {
-		const hasDisconnects = knownDisconnected || this.computeLayerDisconnects(cell, layer);
 		const subcell = this.grid.subcellId(cell, layer);
+		const hasDisconnects =
+			knownDisconnected ||
+			this.connections.get(subcell)?.size !== popcount(this.tiles[cell][layer]);
 		this.tileStates[cell].hasDisconnects[layer] = hasDisconnects;
 		const component = this.components.get(subcell);
 		if (component === undefined) {
