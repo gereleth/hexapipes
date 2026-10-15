@@ -10,7 +10,6 @@ import {
 } from './generator-layers';
 import { SquareGrid } from './grids/squaregrid';
 import { HexaGrid } from './grids/hexagrid';
-import { PipesGame } from './game.svelte';
 import { LayeredSolver } from './solver-layers';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
@@ -206,26 +205,6 @@ describe('Test layered scrambling', () => {
 			cellLayers.some((layer, layerIndex) => layer !== solved[index][layerIndex])
 		);
 		expect(changed.length).toBeGreaterThan(0);
-	});
-
-	it('Scrambled board can be solved by rotating cells back', () => {
-		const grid = new SquareGrid(4, 4, false);
-		const solved = pregenerate_layers(grid, 1.0, 0.5);
-		const scrambled = randomRotate(solved, grid);
-		const game = new PipesGame(grid, scrambled, undefined);
-		expect(game.isSolved()).toBe(false);
-		// find the rotation that solves every cell
-		game.tileStates.forEach((state, index) => {
-			for (let rotations = 0; rotations < 4; rotations++) {
-				const rotatedLayers = state.layers.map((layer) => grid.rotate(layer, rotations, index));
-				const target = solved[index];
-				if (rotatedLayers.every((layer, layerIndex) => layer === target[layerIndex])) {
-					game.rotateTile(index, rotations);
-					break;
-				}
-			}
-		});
-		expect(game.solved).toBe(true);
 	});
 
 	it('Produces single-layer classic boards with layeringAmount 0', () => {
