@@ -94,30 +94,34 @@ save format — is shared code.
 
 ## Solved check
 
-`isSolved()`: `openEnds` empty AND the first valid sub-cell's component covers `totalSubcells` AND a
-BFS from it sees no loop and no unreached tiles.
+A solved board is a spanning tree over sub-cells: V-1 mutual connections, no stubs, everything
+connected. `isSolved()` checks the cheap parts directly and gets the loop check for free:
 
-- Mutual-only storage means `openEnds` catches both stub types (pointing at an empty cell / at a
-  neighbour that doesn't point back). Keep it; don't reintroduce a mutuality re-check inside the
-  BFS.
-- **Pending simplification (discussed, not applied)**: the BFS loop check is redundant for
-  generator-shaped boards. Layer popcounts are rotation-invariant and `pregenerate_layers` produces
-  a tree over sub-cells, so `Σ popcount(layers) === 2 * (totalSubcells - 1)` holds at all times; if
-  `openEnds` is empty, edges = V-1, and a connected graph with V-1 edges is automatically a tree.
-  Corollary: on generator-valid boards loops can only coexist with stubs. If applied: add a cheap
-  constructor assertion of the popcount invariant, then reduce `isSolved()` to
-  `openEnds empty && components.get(firstValidSubcell).subcells.size === totalSubcells`. Gotcha:
-  hand-made fixtures that aren't generator-shaped (e.g. the 4-cycle `[[9],[12],[3],[6]]` loop
-  fixture in `game-layers.svelte.test.js`) violate the invariant and would false-positive; rework
-  them (e.g. build a loop-with-stubs state by rotating a valid tree board).
+1. `!treeShaped` ⇒ false. The constructor counts **pipe ends** over all layer masks once — Σ
+   popcount: every mutual connection contributes two (one per side), every stub one — and stores
+   whether they match the `2 * (totalSubcells - 1)` of a spanning tree (masks are static, rotations
+   live in their own counter, so boards either add up or they never will). Boards that don't add up
+   can't be solved — no matter how they were made, hand-made boards included, nothing throws.
+2. `openEnds` non-empty ⇒ false. Mutual-only storage makes it catch both stub types: pointing at an
+   empty cell and pointing at a neighbour that doesn't point back.
+3. Otherwise true iff the first valid sub-cell's component covers `totalSubcells`.
+
+Why no loop check is needed: with `openEnds` empty every direction is mutual, so connections = pipe
+ends / 2 = V - 1, and a component covering all V sub-cells with exactly V-1 connections is a tree. A
+covered, stub-free loop would force the pipe end count to `≥ 2 * V` and fail step 1. Pinned by the
+`[[9], [12], [3], [6]]` loop fixture in `game-layers.svelte.test.js` — rejected by the BFS before,
+by the count now.
 
 ## Board lifecycle
 
 - Constructor: normalizes classic input, builds tileStates (from `Progress`: rotations/locked/
   edgeMarks restored, `color` accepted as `String` (old saves) or `String[]`, missing → white;
   `locked ?? false` and `edgeMarks || defaults` fallbacks), sets `edgeMarks` to `'none'` on outer
-  edges of non-wrap boards (length = `EDGEMARK_DIRECTIONS.length`), computes `firstValidSubcell`
-  skipping empty cells, then `initializeBoard()`.
+  edges of non-wrap boards (length = `EDGEMARK_DIRECTIONS.length`), computes `treeShaped` (pipe ends
+  over all layer masks — Σ popcount — vs the spanning-tree count `2 * (V - 1)`; masks are
+  rotation-invariant, so it never changes) and `firstValidSubcell` skipping empty cells, then
+  `initializeBoard()`.
+
 - `initializeBoard()`: fills `connections` (mutual-only, back-layer resolved per direction; empty
   cells get no entries) + initial per-layer disconnect flags, then flood-merges initial components
   and marks loops and islands. Uses the `connectedThrough` trick: reaching the same neighbour

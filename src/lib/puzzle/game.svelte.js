@@ -173,6 +173,17 @@ export class PipesGame {
 		this.totalCells = grid.total;
 		this.viewBox = createViewBox(grid);
 		this.totalSubcells = this.tiles.reduce((sum, cellLayers) => sum + cellLayers.length, 0);
+		// a spanning tree over subcells has V - 1 connections and no stubs;
+		// every connection uses two pipe ends, so 2 * (V - 1) pipe ends in total.
+		// layer masks are static, so boards either add up or they never will
+		const pipeEnds = this.tiles.reduce(
+			(sum, cellLayers) =>
+				sum + cellLayers.reduce((layerSum, mask) => layerSum + popcount(mask), 0),
+			0
+		);
+		/**
+		 * @type {Boolean} - precondition of isSolved */
+		this.treeShaped = pipeEnds === 2 * (this.totalSubcells - 1);
 		/** @type {EdgeMark[]} */
 		const defaultEdgeMarks = this.grid.EDGEMARK_DIRECTIONS.map(() => 'empty');
 		if (savedProgress) {
@@ -544,48 +555,16 @@ export class PipesGame {
 	 * @returns {boolean}
 	 */
 	isSolved() {
+		if (!this.treeShaped) {
+			// wrong pipe end count for a spanning tree over subcells
+			return false;
+		}
 		if (this.openEnds.size > 0) {
 			// some layers have disconnects
 			return false;
 		}
 		const component = this.components.get(this.firstValidSubcell);
-		if (component === undefined) {
-			return false;
-		}
-		if (component.subcells.size < this.totalSubcells) {
-			// not everything connected yet
-			return false;
-		}
-		let toCheck = new Set([{ fromSubcell: -1, subcell: this.firstValidSubcell }]);
-		/** @type Set<Number> */
-		const checked = new Set([]);
-		while (toCheck.size > 0) {
-			/** @type {Set<{fromSubcell: Number, subcell: Number}>} */
-			const newChecks = new Set([]);
-			for (let { fromSubcell, subcell } of toCheck) {
-				const neighbourSubcells = this.connections.get(subcell);
-				if (neighbourSubcells === undefined) {
-					throw `Could not find connections data for subcell ${subcell}`;
-				}
-				for (let neighbourSubcell of neighbourSubcells) {
-					if (neighbourSubcell !== fromSubcell) {
-						if (checked.has(neighbourSubcell)) {
-							// it's a loop
-							return false;
-						} else {
-							newChecks.add({ fromSubcell: subcell, subcell: neighbourSubcell });
-						}
-					}
-				}
-				checked.add(subcell);
-			}
-			toCheck = newChecks;
-		}
-		if (checked.size < this.totalSubcells) {
-			// it's an island
-			return false;
-		}
-		return true;
+		return component !== undefined && component.subcells.size === this.totalSubcells;
 	}
 
 	/**
