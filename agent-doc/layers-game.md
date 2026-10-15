@@ -5,7 +5,7 @@ One class serves both variants: `src/lib/puzzle/game.svelte.js` (state/logic), r
 shared `controls.js`. Tests: `game.svelte.test.js` (classic behavior + characterization pins) and
 `game-layers.svelte.test.js` (layered: components, merge/split, loops, progress, scramble→solve e2e,
 solver wiring). The former `LayeredPipesGame`/`game-layers.svelte.js` are gone — unified 2026-10-12,
-see `game-unification-plan.md`.
+see git history.
 
 `PipesGame` accepts `Number[]` (classic bitmasks) or `Number[][]` (layered) tiles and normalizes
 classic input to **one layer per cell** (`[mask]` per playable cell, `[]` for empty). The only
