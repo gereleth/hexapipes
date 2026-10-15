@@ -131,7 +131,8 @@ export class PipesGame {
 	 */
 	components = new Map();
 	/**
-	 * @type {Set<Number>} - set of subcells with disconnects
+	 * @type {Set<Number>} - set of subcells with disconnects; always the
+	 * union of all component.openEnds
 	 */
 	openEnds = new Set();
 	shareDisconnectedSubcells = $state(1);
@@ -427,9 +428,8 @@ export class PipesGame {
 	 * @returns {void}
 	 */
 	handleConnections(cell, dirIn, dirOut) {
-		/** @type {Set<Number>} - layers of the cell whose new directions
-		 * didn't all end up in mutual connections */
-		const disconnectedLayers = new Set();
+		// Process connections that were severed: delete connections, add new openEnds,
+		// clear island highlighting, disconnect components
 		dirOut.forEach(({ layer, direction }) => {
 			const subcell = this.grid.subcellId(cell, layer);
 			const { neighbour, empty } = this.grid.find_neighbour(cell, direction);
@@ -444,10 +444,20 @@ export class PipesGame {
 			const neighbourSubcell = this.grid.subcellId(neighbour, backLayer);
 			this.connections.get(subcell)?.delete(neighbourSubcell);
 			this.connections.get(neighbourSubcell)?.delete(subcell);
+			// update disconnected status of neighbour
+			// will also clear island highlighting from the whole component
+			// (if it was an island before the split)
+			this.updateOpenEnds(neighbour, backLayer, true);
+			// provisionally set our own disconnected status
+			// so this subcell counts as an open end while merging
+			this.updateOpenEnds(cell, layer, true);
 			this.disconnectComponents(subcell, neighbourSubcell);
-			this.setTileDisconnects(cell, layer, true);
-			this.setTileDisconnects(neighbour, backLayer, true);
 		});
+		// Process new connections: add connections, merge components
+
+		/** @type {Set<Number>} - layers whose new directions
+		 * didn't all end up in mutual connections - known disconnected */
+		const disconnectedLayers = new Set();
 		dirIn.forEach(({ layer, direction }) => {
 			const subcell = this.grid.subcellId(cell, layer);
 			const { neighbour, empty } = this.grid.find_neighbour(cell, direction);
@@ -465,15 +475,16 @@ export class PipesGame {
 			this.connections.get(subcell)?.add(neighbourSubcell);
 			this.connections.get(neighbourSubcell)?.add(subcell);
 			this.mergeComponents(subcell, neighbourSubcell);
-			this.setTileDisconnects(neighbour, backLayer);
+			this.updateOpenEnds(neighbour, backLayer);
 		});
-		// a dirIn that didn't land mutual is a known disconnect,
-		// the other layers of the cell recompute
+		// Finally - update disconnect status of all our subcells
 		for (let layer = 0; layer < this.tileStates[cell].layers.length; layer++) {
 			if (disconnectedLayers.has(layer)) {
-				this.setTileDisconnects(cell, layer, true);
+				this.updateOpenEnds(cell, layer, true);
 			} else {
-				this.setTileDisconnects(cell, layer);
+				// recompute for layers where we don't know for sure
+				// may apply island highlighting if the component ends up closed off
+				this.updateOpenEnds(cell, layer);
 			}
 		}
 		if (this.initialized) {
@@ -501,15 +512,16 @@ export class PipesGame {
 	}
 
 	/**
-	 * Sets or recomputes if a layer of a cell has any direction
-	 * that doesn't end up in a mutual connection
+	 * Sets or recomputes presence of disconnects in a subcell
+	 * Keeps track of openEnds, applies and removes island highlights
+	 *
 	 * @param {Number} cell
 	 * @param {Number} layer
-	 * @param {Boolean} [forced=false] - pass true when a disconnect
+	 * @param {Boolean} [knownDisconnected=false] - pass true when a disconnect
 	 * is already known, omit to recompute
 	 */
-	setTileDisconnects(cell, layer, forced = false) {
-		const hasDisconnects = forced || this.computeLayerDisconnects(cell, layer);
+	updateOpenEnds(cell, layer, knownDisconnected = false) {
+		const hasDisconnects = knownDisconnected || this.computeLayerDisconnects(cell, layer);
 		const subcell = this.grid.subcellId(cell, layer);
 		this.tileStates[cell].hasDisconnects[layer] = hasDisconnects;
 		const component = this.components.get(subcell);
@@ -518,10 +530,7 @@ export class PipesGame {
 		}
 		if (hasDisconnects) {
 			if (component.openEnds.size === 0) {
-				for (let memberSubcell of component.subcells) {
-					const [memberCell, memberLayer] = this.grid.cellLayerOf(memberSubcell);
-					this.tileStates[memberCell].isPartOfIsland[memberLayer] = false;
-				}
+				this.markIsland(component, false);
 			}
 			component.openEnds.add(subcell);
 			this.openEnds.add(subcell);
@@ -529,13 +538,22 @@ export class PipesGame {
 			component.openEnds.delete(subcell);
 			this.openEnds.delete(subcell);
 			if (component.openEnds.size === 0 && component.subcells.size < this.totalSubcells) {
-				for (let memberSubcell of component.subcells) {
-					const [memberCell, memberLayer] = this.grid.cellLayerOf(memberSubcell);
-					this.tileStates[memberCell].isPartOfIsland[memberLayer] = true;
-				}
+				this.markIsland(component, true);
 			}
 		}
 		this.shareDisconnectedSubcells = this.openEnds.size / this.totalSubcells;
+	}
+
+	/**
+	 * Add or remove island highlighting on component's subcells
+	 * @param {Component} component
+	 * @param {boolean} isIsland
+	 */
+	markIsland(component, isIsland) {
+		for (let subcell of component.subcells) {
+			const [cell, layer] = this.grid.cellLayerOf(subcell);
+			this.tileStates[cell].isPartOfIsland[layer] = isIsland;
+		}
 	}
 
 	/**
@@ -587,6 +605,7 @@ export class PipesGame {
 	}
 
 	/**
+	 * Merges the components of two subcells linked by a new connection
 	 * @param {Number} fromSubcell
 	 * @param {Number} toSubcell
 	 * @returns {void}
@@ -600,7 +619,7 @@ export class PipesGame {
 			return;
 		}
 		if (fromComponent === toComponent) {
-			// its a loop
+			// it's a loop
 			const loopSubcells = this.detectLoops(fromComponent.subcells);
 			for (let subcell of fromComponent.subcells) {
 				const [cell, layer] = this.grid.cellLayerOf(subcell);
@@ -760,6 +779,7 @@ export class PipesGame {
 	}
 
 	/**
+	 * Splits a component by severing a connection between its two subcells.
 	 * @param {Number} fromSubcell
 	 * @param {Number} toSubcell
 	 * @returns {void}

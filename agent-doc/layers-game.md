@@ -55,10 +55,20 @@ save format — is shared code.
 - `rotateTile(cell, times)`: rotates **all layers at once** (one `rotations` counter per cell);
   computes per-layer `dirIn`/`dirOut` (`{layer, direction}` pairs) and hands them to
   `handleConnections`. No-ops when solved, locked, or empty cell.
-- `handleConnections`: dirOut removes stored edges gated by `findBackLayer` (non-mutual links were
-  never stored, nothing to remove); dirIn adds an edge only when the neighbour has a back-layer,
-  else marks a disconnect; finally recomputes disconnect state of all layers of the rotated cell and
-  updates `solved` when initialized.
+- `handleConnections` runs three phases, in order. **Sever**: dirOut removes stored edges gated by
+  `findBackLayer` (non-mutual links were never stored, nothing to remove) and splits the component
+  if needed via `disconnectComponents`. Both endpoints are marked as open ends: the neighbour's mark
+  is genuine (it still points at the rotated cell) and doubles as the closed→open transition that
+  clears island highlighting from the whole component before the split; the rotated cell's mark is
+  provisional (the final recompute corrects it) and keeps its component open through the connect
+  phase. **Connect**: dirIn adds an edge only when the neighbour has a back-layer —
+  `mergeComponents` unions the components, `updateOpenEnds` resolves the neighbour's open end — else
+  it just records a disconnect for the finalize pass. **Finalize**: recomputes disconnect state of
+  all layers of the rotated cell and updates `solved` when initialized. The provisional mark is what
+  makes this safe: nothing can close until all merges are done, so finalize is the only open→closed
+  transition of the turn and the only place island flags get set mid-game. Dropping the mark
+  re-opens the stale-highlighting class of bug (see the characterization test "Keeps island
+  highlight off when a second connection re-opens the component").
 - Pointing off-board or at a non-mutual neighbour ⇒ `hasDisconnects` for that layer and the id joins
   `openEnds` (game-level set + `component.openEnds`).
 - `setTileRotation(cell, rotation, animate)`: rotates to an **absolute rotation relative to the base
@@ -74,9 +84,11 @@ save format — is shared code.
   one cell can host layers in different components.
 - Merging a component into itself = loop → `detectLoops` marks `isPartOfLoop` per layer (dead-end
   pruning + loop path tracing; mutual-only storage means no extra mutuality filtering inside it).
-- A component with no open ends that isn't everything ⇒ island, `isPartOfIsland` per layer. Quirk
-  (pinned by tests): `initializeBoard` marks islands without a size check, so a whole-board
-  component counts as an island too until the first move.
+- A component with no open ends that isn't everything ⇒ island, `isPartOfIsland` per layer. The
+  flags change only on a component's closed↔open transition (`updateOpenEnds`), never wholesale.
+  Intentional (pinned by tests): `initializeBoard` marks islands without a size check, so a
+  whole-board component counts as an island too — keeps presolved boards interactive; in practice
+  only reachable via debug tools.
 - `shareDisconnectedSubcells` + derived `disconnectStrokeColor`/`disconnectStrokeWidthScale` give
   the "disconnects fade/shrink as you progress" feedback.
 

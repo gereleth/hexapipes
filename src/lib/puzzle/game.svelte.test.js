@@ -213,8 +213,9 @@ describe('Test classic game behavior on a generated board', () => {
 		game.tileStates.forEach((state) => {
 			expect(state.colors[0]).toBe('white');
 			expect(state.isPartOfLoop[0]).toBe(false);
-			// quirk: initializeBoard marks island tiles without a size check,
-			// so the one whole-board component counts as an island too
+			// intentional: initializeBoard marks island tiles without a size
+			// check, so the one whole-board component counts as an island too
+			// and presolved (debug) boards stay interactive
 			expect(state.isPartOfIsland[0]).toBe(true);
 			expect(state.hasDisconnects[0]).toBe(false);
 		});
@@ -435,5 +436,26 @@ describe('Test classic game micro behaviors', () => {
 		// both 0 and 3 should get the island highlight
 		expect(game.tileStates[1].isPartOfIsland[0]).toBe(true);
 		expect(game.tileStates[3].isPartOfIsland[0]).toBe(true);
+	});
+
+	it('Keeps island highlight off when a second connection re-opens the component', () => {
+		const grid = new SquareGrid(3, 3, false);
+		//   p
+		// L I -o
+		//   d
+		// island 1-4-7: straight piece at 4 connects two deadends vertically
+		// bend at 3 points up and right, deadend at 5 points left
+		const tiles = [0, 8, 0, 3, 10, 4, 0, 2, 0];
+		const game = new PipesGame(grid, tiles, undefined);
+		expect(game.tileStates[4].isPartOfIsland[0]).toBe(true);
+		// rotate cell 4 from N+S to W+E: it severs two island links and
+		// connects to cells 3 and 5 in the same turn
+		game.rotateTile(4, 1);
+		expect(game.components.get(4)?.subcells).toEqual(new Set([3, 4, 5]));
+		expect(game.openEnds).toEqual(new Set([1, 3, 7]));
+		// 3 is an open end, no island highlights in the component
+		[3, 4, 5].forEach((index) => {
+			expect(game.tileStates[index].isPartOfIsland[0], `tile ${index}`).toBe(false);
+		});
 	});
 });
