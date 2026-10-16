@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { Generator } from './generator';
-import { HexaGrid } from './grids/hexagrid';
-import { SquareGrid } from './grids/squaregrid';
-import { Solver } from './solver';
-import { EtratGrid } from './grids/etratgrid';
-import { OctaGrid } from './grids/octagrid';
-import { CubeGrid } from './grids/cubegrid';
+import { Generator } from './generator.js';
+import { HexaGrid } from './grids/hexagrid.js';
+import { SquareGrid } from './grids/squaregrid.js';
+import { Solver } from './solver.js';
+import { EtratGrid } from './grids/etratgrid.js';
+import { OctaGrid } from './grids/octagrid.js';
+import { CubeGrid } from './grids/cubegrid.js';
 const fs = require('fs');
 
 describe('Test solutions count', () => {

@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { EtratGrid } from './grids/etratgrid';
-import { HexaGrid } from './grids/hexagrid';
-import { OctaGrid } from './grids/octagrid';
-import { RhombitrihexaGrid } from './grids/rhombitrihexagrid';
-import { SnubSquareGrid } from './grids/snubsquaregrid';
-import { SquareGrid } from './grids/squaregrid';
-import { TriangularGrid } from './grids/triangulargrid';
-import { TrihexaGrid } from './grids/trihexagrid';
-import { LayeredCell, LayeredSolver } from './solver-layers';
+import { EtratGrid } from './grids/etratgrid.js';
+import { HexaGrid } from './grids/hexagrid.js';
+import { OctaGrid } from './grids/octagrid.js';
+import { RhombitrihexaGrid } from './grids/rhombitrihexagrid.js';
+import { SnubSquareGrid } from './grids/snubsquaregrid.js';
+import { SquareGrid } from './grids/squaregrid.js';
+import { TriangularGrid } from './grids/triangulargrid.js';
+import { TrihexaGrid } from './grids/trihexagrid.js';
+import { LayeredCell, LayeredSolver } from './solver-layers.js';
 import {
 	applyRotations,
 	pregenerate_layers,
 	randomRotate,
 	validateLayers
-} from './generator-layers';
+} from './generator-layers.js';
 
 describe('Test LayeredCell possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);
@@ -434,7 +434,7 @@ describe('Test multi-layer boards', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const tiles = [[1], [13], [4], [9], [5, 10], [4], [3], [7], [4]];
 		const solver = new LayeredSolver(tiles, grid);
-		/** @type {import('./solver-layers').SolverProgress[]} */
+		/** @type {import('./solver-layers.js').SolverProgress[]} */
 		const calls = [];
 		solver.progress_callback = (progress) => calls.push({ ...progress });
 		solver.markAmbiguousTiles();

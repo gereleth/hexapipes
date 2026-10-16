@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SquareGrid } from './squaregrid';
+import { SquareGrid } from './squaregrid.js';
 
 describe('Test tile rotations', () => {
 	const grid = new SquareGrid(3, 3, false);

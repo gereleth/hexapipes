@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HexaGrid } from './grids/hexagrid';
-import { Cell, Solver } from './solver';
+import { HexaGrid } from './grids/hexagrid.js';
+import { Cell, Solver } from './solver.js';
 
 describe('Test hexagrid cell constraints', () => {
 	const grid = new HexaGrid(3, 3, false);

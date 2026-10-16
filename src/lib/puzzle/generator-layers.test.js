@@ -7,10 +7,10 @@ import {
 	pregenerate_layers,
 	randomRotate,
 	validateLayers
-} from './generator-layers';
-import { SquareGrid } from './grids/squaregrid';
-import { HexaGrid } from './grids/hexagrid';
-import { LayeredSolver } from './solver-layers';
+} from './generator-layers.js';
+import { SquareGrid } from './grids/squaregrid.js';
+import { HexaGrid } from './grids/hexagrid.js';
+import { LayeredSolver } from './solver-layers.js';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
@@ -18,7 +18,7 @@ const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
  * Applies growth events to a layers board, mirroring the page's animation
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number[][]} board
- * @param {import('./generator-layers').GrowthMove[]} moves
+ * @param {import('./generator-layers.js').GrowthMove[]} moves
  */
 function applyGrowthMoves(grid, board, moves) {
 	for (const move of moves) {
@@ -158,7 +158,7 @@ describe('Test branchingAmount knob', () => {
 		const startLayers = buildStartLayers(grid, tiles0, marked);
 		for (const branchingAmount of [0, 1]) {
 			for (let i = 0; i < 5; i++) {
-				/** @type {import('./generator-layers').GrowthMove[]} */
+				/** @type {import('./generator-layers.js').GrowthMove[]} */
 				const moves = [];
 				const tiles = pregenerate_layers(grid, 0.6, branchingAmount, 0, startLayers, 3, (move) =>
 					moves.push(move)
@@ -639,13 +639,13 @@ describe('Test layered generator', () => {
 
 	it('Reports progress and rejects unknown settings', () => {
 		const grid = new SquareGrid(3, 3, false);
-		/** @type {import('./generator-layers').GeneratorProgress[]} */
+		/** @type {import('./generator-layers.js').GeneratorProgress[]} */
 		const generatorProgress = [];
-		/** @type {import('./solver-layers').SolverProgress[]} */
+		/** @type {import('./solver-layers.js').SolverProgress[]} */
 		const solverProgress = [];
-		/** @param {import('./solver-layers').SolverProgress} progress */
+		/** @param {import('./solver-layers.js').SolverProgress} progress */
 		const onSolverProgress = (progress) => solverProgress.push(progress);
-		/** @param {import('./generator-layers').GeneratorProgress} progress */
+		/** @param {import('./generator-layers.js').GeneratorProgress} progress */
 		const onGeneratorProgress = (progress) => generatorProgress.push(progress);
 		const generator = new LayeredGenerator(
 			grid,
@@ -840,7 +840,7 @@ describe('Test layered growth events', () => {
 	it('Mirrors board mutations in growth events', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(4, 4, false);
-			/** @type {import('./generator-layers').GrowthMove[]} */
+			/** @type {import('./generator-layers.js').GrowthMove[]} */
 			const moves = [];
 			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random(), 0, [], 3, (move) =>
 				moves.push(move)
@@ -860,7 +860,7 @@ describe('Test layered growth events', () => {
 		const { marked } = solver.markAmbiguousTiles();
 		const startLayers = buildStartLayers(grid, tiles0, marked);
 		for (let i = 0; i < 10; i++) {
-			/** @type {import('./generator-layers').GrowthMove[]} */
+			/** @type {import('./generator-layers.js').GrowthMove[]} */
 			const moves = [];
 			const tiles = pregenerate_layers(
 				grid,
@@ -890,7 +890,7 @@ describe('Test multi-subtree growth', () => {
 		for (const grid of grids) {
 			const playable = grid.total - grid.emptyCells.size;
 			const expectedMerges = Math.min(Math.max(3, Math.floor(grid.total / 50)), playable) - 1;
-			/** @type {import('./generator-layers').GrowthMove[]} */
+			/** @type {import('./generator-layers.js').GrowthMove[]} */
 			const moves = [];
 			const tiles = pregenerate_layers(grid, 0.6, 0.5, 0, [], 3, (move) => moves.push(move));
 			expect(moves.filter((move) => move.type === 'merge').length).toBe(expectedMerges);

@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
-import { Generator } from './generator';
-import { HexaGrid } from './grids/hexagrid';
+import { Generator } from './generator.js';
+import { HexaGrid } from './grids/hexagrid.js';
 
 describe('Generate a hexapipes puzzle', () => {
 	const options = { iterations: 100, time: 1000 };

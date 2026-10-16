@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { Generator } from './generator';
-import { HexaGrid } from './grids/hexagrid';
-import { SquareGrid } from './grids/squaregrid';
-import { Solver } from './solver';
-import { SnubSquareGrid } from './grids/snubsquaregrid';
+import { Generator } from './generator.js';
+import { HexaGrid } from './grids/hexagrid.js';
+import { SquareGrid } from './grids/squaregrid.js';
+import { Solver } from './solver.js';
+import { SnubSquareGrid } from './grids/snubsquaregrid.js';
 
 describe('Test Prims pregeneration', () => {
 	const branchingAmount = 1;

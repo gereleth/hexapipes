@@ -1,4 +1,4 @@
-import { ComponentsRegistry, iterate_directions, popcount } from './components-registry';
+import { ComponentsRegistry, iterate_directions, popcount } from './components-registry.js';
 
 /* Constraint Violation Exceptions */
 

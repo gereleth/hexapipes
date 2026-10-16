@@ -2,7 +2,7 @@
 // See agent-doc/solver-perf-plan.md, Phase 0.
 //
 // Usage:
-//   BENCH_SEED=<seed> npx vite-node scratch/profile-driver.mjs <square|hexa> <index> [reps=3] [intervalUs=100]
+//   BENCH_SEED=<seed> node scratch/profile-driver.mjs <square|hexa> <index> [reps=3] [intervalUs=100]
 //
 // Replays the paired benchmark's exact board sequence (same mulberry32
 // protocol and draw order as solver-layers-stats.test.js: one warmup board

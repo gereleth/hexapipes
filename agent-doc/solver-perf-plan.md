@@ -31,7 +31,8 @@ Status: series in progress on the `layers` branch.
   board index), cross-checks verdict + all four counters against the paired JSON (a replay bug
   almost surely mismatches a different board), then profiles N fresh `markAmbiguousTiles` runs via
   the inspector Profiler domain, so module loading and board replay stay out of the profile. Run via
-  `npx vite-node` (resolves `#lib`); profiles land in `/tmp/opencode/prof/`.
+  `node` (relative imports carry explicit `.js` extensions, and `#lib` resolves via the `imports`
+  field in package.json); profiles land in `/tmp/opencode/prof/`.
 - `scratch/analyze-cpuprofile.mjs` — self-time per function and per phase bucket
   (innermost-matching-frame attribution). Two gotchas it works around: `Profiler.stop`'s fixed ~200
   ms serialization gets sampled into the profile (bucket `(node/profiler)`, excluded from

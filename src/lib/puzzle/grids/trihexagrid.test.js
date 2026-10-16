@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TrihexaGrid } from './trihexagrid';
+import { TrihexaGrid } from './trihexagrid.js';
 
 describe('Test find neighbour', () => {
 	it('Find neighbours in a regular puzzle', () => {

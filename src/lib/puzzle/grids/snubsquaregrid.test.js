@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SnubSquareGrid } from './snubsquaregrid';
+import { SnubSquareGrid } from './snubsquaregrid.js';
 
 describe('Test find neighbour', () => {
 	it('Find neighbours in a regular puzzle', () => {

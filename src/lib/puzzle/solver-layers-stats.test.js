@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { pregenerate_layers, validateLayers } from './generator-layers';
-import { LayeredSolver as AltLayeredSolver } from './solver-layers';
-import { SquareGrid } from './grids/squaregrid';
-import { HexaGrid } from './grids/hexagrid';
+import { pregenerate_layers, validateLayers } from './generator-layers.js';
+import { LayeredSolver as AltLayeredSolver } from './solver-layers.js';
+import { SquareGrid } from './grids/squaregrid.js';
+import { HexaGrid } from './grids/hexagrid.js';
 
 // Paired benchmark: every board is solved twice, back-to-back, by the
 // baseline snapshot (solver-layers-baseline.js, an untracked frozen copy of
@@ -48,7 +48,7 @@ const TIMEOUT = 2 * 60 * 60 * 1000;
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
  * file (a verbatim copy of solver-layers.js frozen at the start of the
  * optimization series), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('./solver-layers').LayeredSolver>}
+ * @returns {Promise<typeof import('./solver-layers.js').LayeredSolver>}
  */
 async function loadBaselineSolver() {
 	try {
@@ -294,7 +294,7 @@ function flush() {
 
 /**
  * Runs markAmbiguousTiles once on a fresh solver instance
- * @param {typeof import('./solver-layers').LayeredSolver} SolverClass
+ * @param {typeof import('./solver-layers.js').LayeredSolver} SolverClass
  * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} layers
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {SolverRunRecord}

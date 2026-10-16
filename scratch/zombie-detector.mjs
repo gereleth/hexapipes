@@ -31,8 +31,8 @@
 // means the instrumentation changed behavior - a bug in this script).
 //
 // Usage:
-//   MODE=instr RUNS=200 npx vite-node scratch/zombie-detector.mjs
-//   MODE=clean RUNS=200 npx vite-node scratch/zombie-detector.mjs
+//   MODE=instr RUNS=200 node scratch/zombie-detector.mjs
+//   MODE=clean RUNS=200 node scratch/zombie-detector.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers } from '../src/lib/puzzle/generator-layers.js';
 import { LayeredSolver } from '../src/lib/puzzle/solver-layers.js';

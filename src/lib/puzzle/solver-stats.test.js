@@ -1,9 +1,9 @@
 import { describe, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { Generator } from './generator';
-import { Solver } from './solver';
-import { SquareGrid } from './grids/squaregrid';
-import { HexaGrid } from './grids/hexagrid';
+import { Generator } from './generator.js';
+import { Solver } from './solver.js';
+import { SquareGrid } from './grids/squaregrid.js';
+import { HexaGrid } from './grids/hexagrid.js';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
 const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 100;

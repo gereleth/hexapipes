@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { HexaGrid } from './grids/hexagrid';
-import { SquareGrid } from './grids/squaregrid';
-import { Generator } from './generator';
+import { HexaGrid } from './grids/hexagrid.js';
+import { SquareGrid } from './grids/squaregrid.js';
+import { Generator } from './generator.js';
 import { PipesGame } from './game.svelte';
 
 describe('Test initialize board', () => {

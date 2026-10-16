@@ -71,7 +71,7 @@ const NAME_MAP = new Map(NAME_BUCKETS);
  */
 function bucketOf(name, line, url) {
 	if (url.startsWith('node:')) return '(node/profiler)';
-	if (url.includes('profile-driver') || url.includes('vite-node') || url.includes('node_modules')) {
+	if (url.includes('profile-driver') || url.includes('node_modules')) {
 		return '(harness)';
 	}
 	if (name === 'LayeredCell') return 'cell-init/getCell';

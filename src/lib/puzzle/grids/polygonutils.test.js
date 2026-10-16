@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RegularPolygonTile } from './polygonutils';
+import { RegularPolygonTile } from './polygonutils.js';
 
 describe('Test square tile rotations', () => {
 	const square = new RegularPolygonTile(4, 0, 0.5);

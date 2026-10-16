@@ -1,6 +1,6 @@
 // Dumps boards of the paired benchmark sequence as JSON for offline study.
 // Usage:
-//   BENCH_SEED=<seed> npx vite-node scratch/dump-board.mjs <square|hexa> <index>[,index...] [outPath]
+//   BENCH_SEED=<seed> node scratch/dump-board.mjs <square|hexa> <index>[,index...] [outPath]
 // Replays the exact PRNG draw order of solver-layers-stats.test.js, verifies
 // each replay against the paired benchmark record (verdict + counters), then
 // writes the scrambled tiles as handed to LayeredSolver, plus a fresh
