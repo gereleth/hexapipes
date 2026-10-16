@@ -5,7 +5,8 @@
 //   BENCH_SEED=<seed> node scratch/profile-driver.mjs <square|hexa> <index> [reps=3] [intervalUs=100]
 //
 // Replays the paired benchmark's exact board sequence (same mulberry32
-// protocol and draw order as solver-layers-stats.test.js: one warmup board
+// protocol and draw order as scratch/layered-mark-ambiguous-paired-bench.mjs:
+// one warmup board
 // per grid, then per board branching = Math.random(), avoidObvious =
 // Math.random() * 0.5, pregenerate_layers(grid, 0.6, b, a); square grids
 // first, then hexagonal). Cross-checks verdict + work counters of the
@@ -52,7 +53,8 @@ if (!Number.isInteger(index) || index < 0 || index >= NUM_RUNS) {
 }
 
 /**
- * Deterministic PRNG (mulberry32), verbatim from solver-layers-stats.test.js
+ * Deterministic PRNG (mulberry32), verbatim from
+ * scratch/layered-mark-ambiguous-paired-bench.mjs
  * @param {Number} seed
  * @returns {() => Number}
  */

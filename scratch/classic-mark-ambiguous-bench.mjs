@@ -1,9 +1,21 @@
-import { describe, it } from 'vitest';
+// Classic control benchmark: markAmbiguousTiles timings of the classic
+// Solver on fresh pregenerate_growingtree boards. 30x30 non-wrapping -
+// compensates layered puzzles being harder at equal grid size. Once a
+// gated vitest file in src/lib/puzzle (solver-stats.test.js); now a plain
+// script. No seed protocol - boards differ between runs, run-to-run wall
+// time drift is documented in agent-doc/solver-perf-plan.md.
+//
+// Usage:
+//   node scratch/classic-mark-ambiguous-bench.mjs
+// Optional environment:
+//   BENCH_MARK_AMBIGUOUS_RUNS - boards per grid (default 100)
+//   BENCH_MARK_AMBIGUOUS_CAP_MS - wall-clock cap per single solve
+//     (default 60000); capped runs are excluded from the statistics
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { Generator } from './generator.js';
-import { Solver } from './solver.js';
-import { SquareGrid } from './grids/squaregrid.js';
-import { HexaGrid } from './grids/hexagrid.js';
+import { Generator } from '../src/lib/puzzle/generator.js';
+import { Solver } from '../src/lib/puzzle/solver.js';
+import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
+import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
 const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 100;
@@ -14,8 +26,6 @@ const WALL_CLOCK_CAP_MS = Number(env.BENCH_MARK_AMBIGUOUS_CAP_MS) || 60 * 1000;
 const TIMEOUT_ERROR = 'benchmark wall-clock cap reached';
 const OUTPUT_DIR = 'generator_stats';
 const OUTPUT_FILE = `${OUTPUT_DIR}/classic_mark_ambiguous_30x30.json`;
-// long timeout, a single uncapped search can occasionally take minutes
-const TIMEOUT = 2 * 60 * 60 * 1000;
 
 /**
  * Percentile of a sorted number array
@@ -153,7 +163,7 @@ function flush() {
 					'branching random in [0, 1], avoidObvious random in [0, 0.5], avoidStraights random in [0, 0.5], ' +
 					'ambiguousTilesLimit max(100, 0.1 * total) like the uniqueness loop, no iteration cap, ' +
 					`wall-clock cap ${WALL_CLOCK_CAP_MS} ms (capped runs are excluded from statistics). ` +
-					'Classic control for solver-layers-stats.test.js (30x30 compensates layered puzzles being harder at equal grid size), ' +
+					'Classic control for layered-mark-ambiguous-paired-bench.mjs, ' +
 					'stats are per-run solver work counters',
 				started: startedIso,
 				written: new Date().toISOString(),
@@ -191,98 +201,89 @@ function printSummary(kind) {
 	);
 }
 
-const enabled = !!env.BENCH_MARK_AMBIGUOUS_CLASSIC;
-
-describe('Benchmark markAmbiguousTiles on classic 30x30 boards', () => {
-	for (const [
-		label,
-		makeGrid
-	] of /** @type {Array<[String, () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
-		['square', () => new SquareGrid(30, 30, false)],
-		['hexagonal', () => new HexaGrid(30, 30, false)]
-	])) {
-		it.skipIf(!enabled)(
-			`Times markAmbiguousTiles on ${NUM_RUNS} fresh ${label} 30x30 boards`,
-			() => {
-				const grid = makeGrid();
-				const gen = new Generator(grid);
-				for (let i = 1; i <= NUM_RUNS; i++) {
-					const branchingAmount = Math.random();
-					const avoidObvious = Math.random() * 0.5;
-					const avoidStraights = Math.random() * 0.5;
-					const pregenerateStart = performance.now();
-					const tiles = gen.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
-					const pregenerateMs = performance.now() - pregenerateStart;
-					const solver = new Solver(tiles, grid);
-					const start = performance.now();
-					// the callback runs once per search iteration, outside the
-					// solver's internal try/catch, so a throw aborts the whole search
-					const progress = /** @type {{value: {ambiguous: Number}|null}} */ ({ value: null });
-					solver.progress_callback = (p) => {
-						progress.value = p;
-						if (performance.now() - start > WALL_CLOCK_CAP_MS) {
-							throw new Error(TIMEOUT_ERROR);
-						}
-					};
-					/** @type {ClassicMarkRunRecord} */
-					const record = {
-						grid: grid.KIND,
-						width: grid.width,
-						height: grid.height,
-						wrap: grid.wrap,
-						branchingAmount,
-						avoidObvious,
-						avoidStraights,
-						tileCount: grid.total - grid.emptyCells.size,
-						pregenerateMs,
-						elapsedMs: 0,
-						capped: false,
-						numAmbiguous: -1,
-						ambiguousAtCap: -1,
-						unique: false,
-						solvable: null,
-						stats: { iterations: 0, trialClones: 0, shortTrials: 0, dirtyProcessings: 0 }
-					};
-					try {
-						// mirrors the generator's uniqueness loop: ambiguousLimit =
-						// max(100, 0.1 * total), classic search has no iteration cap
-						const { numAmbiguous, unique, solvable } = solver.markAmbiguousTiles(
-							Math.max(100, 0.1 * grid.total)
-						);
-						record.elapsedMs = performance.now() - start;
-						record.numAmbiguous = numAmbiguous;
-						record.unique = unique;
-						record.solvable = solvable;
-						record.stats = { ...solver.stats };
-					} catch (error) {
-						if (/** @type {Error} */ (error).message !== TIMEOUT_ERROR) {
-							throw error;
-						}
-						record.elapsedMs = performance.now() - start;
-						record.capped = true;
-						record.ambiguousAtCap = progress.value ? progress.value.ambiguous : -1;
-						record.stats = { ...solver.stats };
-					}
-					allRuns.push(record);
-					flush();
-					if (record.capped) {
-						console.warn(
-							`[${grid.KIND}] run ${i}: capped after ${(record.elapsedMs / 1000).toFixed(1)} s, ` +
-								`ambiguous at cap=${record.ambiguousAtCap}`
-						);
-					} else if (!record.solvable) {
-						console.warn(`[${grid.KIND}] run ${i}: anomaly`, record);
-					}
-					if (i % 10 === 0) {
-						console.log(
-							`[${grid.KIND}] run ${i}/${NUM_RUNS}: ${(record.elapsedMs / 1000).toFixed(2)} s, ` +
-								`ambiguous=${record.numAmbiguous}, unique=${record.unique}, capped=${record.capped}`
-						);
-					}
-				}
-				printSummary(grid.KIND);
-			},
-			TIMEOUT
-		);
+/**
+ * Runs the whole benchmark for one grid kind
+ * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ */
+function runGrid(grid) {
+	console.log(`[${grid.KIND}] ${NUM_RUNS} fresh 30x30 boards`);
+	const gen = new Generator(grid);
+	for (let i = 1; i <= NUM_RUNS; i++) {
+		const branchingAmount = Math.random();
+		const avoidObvious = Math.random() * 0.5;
+		const avoidStraights = Math.random() * 0.5;
+		const pregenerateStart = performance.now();
+		const tiles = gen.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
+		const pregenerateMs = performance.now() - pregenerateStart;
+		const solver = new Solver(tiles, grid);
+		const start = performance.now();
+		// the callback runs once per search iteration, outside the
+		// solver's internal try/catch, so a throw aborts the whole search
+		const progress = /** @type {{value: {ambiguous: Number}|null}} */ ({ value: null });
+		solver.progress_callback = (p) => {
+			progress.value = p;
+			if (performance.now() - start > WALL_CLOCK_CAP_MS) {
+				throw new Error(TIMEOUT_ERROR);
+			}
+		};
+		/** @type {ClassicMarkRunRecord} */
+		const record = {
+			grid: grid.KIND,
+			width: grid.width,
+			height: grid.height,
+			wrap: grid.wrap,
+			branchingAmount,
+			avoidObvious,
+			avoidStraights,
+			tileCount: grid.total - grid.emptyCells.size,
+			pregenerateMs,
+			elapsedMs: 0,
+			capped: false,
+			numAmbiguous: -1,
+			ambiguousAtCap: -1,
+			unique: false,
+			solvable: null,
+			stats: { iterations: 0, trialClones: 0, shortTrials: 0, dirtyProcessings: 0 }
+		};
+		try {
+			// mirrors the generator's uniqueness loop: ambiguousLimit =
+			// max(100, 0.1 * total), classic search has no iteration cap
+			const { numAmbiguous, unique, solvable } = solver.markAmbiguousTiles(
+				Math.max(100, 0.1 * grid.total)
+			);
+			record.elapsedMs = performance.now() - start;
+			record.numAmbiguous = numAmbiguous;
+			record.unique = unique;
+			record.solvable = solvable;
+			record.stats = { ...solver.stats };
+		} catch (error) {
+			if (/** @type {Error} */ (error).message !== TIMEOUT_ERROR) {
+				throw error;
+			}
+			record.elapsedMs = performance.now() - start;
+			record.capped = true;
+			record.ambiguousAtCap = progress.value ? progress.value.ambiguous : -1;
+			record.stats = { ...solver.stats };
+		}
+		allRuns.push(record);
+		flush();
+		if (record.capped) {
+			console.warn(
+				`[${grid.KIND}] run ${i}: capped after ${(record.elapsedMs / 1000).toFixed(1)} s, ` +
+					`ambiguous at cap=${record.ambiguousAtCap}`
+			);
+		} else if (!record.solvable) {
+			console.warn(`[${grid.KIND}] run ${i}: anomaly`, record);
+		}
+		if (i % 10 === 0) {
+			console.log(
+				`[${grid.KIND}] run ${i}/${NUM_RUNS}: ${(record.elapsedMs / 1000).toFixed(2)} s, ` +
+					`ambiguous=${record.numAmbiguous}, unique=${record.unique}, capped=${record.capped}`
+			);
+		}
 	}
-});
+	printSummary(grid.KIND);
+}
+
+runGrid(new SquareGrid(30, 30, false));
+runGrid(new HexaGrid(30, 30, false));

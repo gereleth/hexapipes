@@ -1,6 +1,6 @@
 // Comparison helper for the paired benchmark output
 // (generator_stats/layered_mark_ambiguous_20x20_paired.json, written by
-// solver-layers-stats.test.js with BENCH_MARK_AMBIGUOUS=1).
+// layered-mark-ambiguous-paired-bench.mjs).
 //
 // One file - baseline vs candidate within the paired run:
 //   node scratch/compare-bench.mjs generator_stats/layered_mark_ambiguous_20x20_paired.json

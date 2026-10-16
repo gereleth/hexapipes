@@ -15,8 +15,7 @@ Status: series in progress on the `layers` branch.
   purpose. Re-baseline only on explicit user command: copy over the solver file and update its
   header with commit info.
 - The main comparison tool is the paired benchmark:
-  `BENCH_SEED=20260921 BENCH_MARK_AMBIGUOUS=1 npx vitest run src/lib/puzzle/solver-layers-stats.test.js`,
-  2×200 boards.
+  `BENCH_SEED=20260921 node scratch/layered-mark-ambiguous-paired-bench.mjs`, 2×200 boards.
 - Decision-preserving candidates require 0 capped, 0 verdict disagreements and all-zero work-counter
   deltas in the seeded paired benchmark.
 - Decision-shifting candidates require 0 solvable/unique disagreements in the paired benchmark and

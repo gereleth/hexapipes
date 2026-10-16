@@ -46,7 +46,8 @@ const MODE = process.env.MODE ?? 'instr';
 const OUT = `/tmp/opencode/prof/zombie-${MODE}.json`;
 
 /**
- * Deterministic PRNG (mulberry32), verbatim from solver-layers-stats.test.js
+ * Deterministic PRNG (mulberry32), verbatim from
+ * scratch/layered-mark-ambiguous-paired-bench.mjs
  * @param {Number} seed
  * @returns {() => Number}
  */

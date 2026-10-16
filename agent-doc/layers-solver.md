@@ -3,10 +3,11 @@
 Files: `src/lib/puzzle/solver-layers.js` (`LayeredCell`, `LayeredSolver`) and
 `src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the component registry the solver
 drives). Classic counterpart: `solver.js` (`Solver`). Tests: `solver-layers.test.js`; safety nets:
-`solver-layers-fuzz.test.js` (solution-equivalence fuzz) and `solver-layers-stats.test.js` (paired
-benchmark) — both env-gated, described in the harness section below. Consumers: `Puzzle.svelte`
-(solve animation + stats readout), `LayeredGenerator` (uniqueness/patience loop), `worker-layers.js`
-and `/generator-debug` (progress messages).
+`solver-layers-fuzz.test.js` (solution-equivalence fuzz, env-gated vitest) and
+`scratch/layered-mark-ambiguous-paired-bench.mjs` (paired benchmark, plain script) — described in
+the harness section below. Consumers: `Puzzle.svelte` (solve animation + stats readout),
+`LayeredGenerator` (uniqueness/patience loop), `worker-layers.js` and `/generator-debug` (progress
+messages).
 
 Boards are assumed to have a single connected playable region — grids with disconnected areas are
 not supported.
@@ -325,12 +326,13 @@ values move, while `solvable`/`unique` and full solution lists still agree (gate
   `ComponentsRegistry.validate()` runs after each full enumeration and each unique-board marking,
   asserting the registry's structural invariants. Failing boards are saved as JSON reproducers into
   `generator_stats/`.
-- `solver-layers-stats.test.js` — paired benchmark. Run with `BENCH_MARK_AMBIGUOUS=1` (`BENCH_SEED`
-  for a reproducible sequence, `BENCH_MARK_AMBIGUOUS_RUNS` / `BENCH_MARK_AMBIGUOUS_CAP_MS` tune it):
-  every fresh board runs through the snapshot and the current solver back-to-back; verdict
-  disagreements (`solvable`/`unique`) are soundness red flags, while work-counter and `numAmbiguous`
-  mismatches are recorded as agreement flags — expected to change when the candidate intentionally
-  alters solver decisions. Output lands in `generator_stats/`.
+- `scratch/layered-mark-ambiguous-paired-bench.mjs` — paired benchmark (plain script, no vitest).
+  Run with `BENCH_SEED=<seed>` for a reproducible sequence (`BENCH_MARK_AMBIGUOUS_RUNS` /
+  `BENCH_MARK_AMBIGUOUS_CAP_MS` tune it): every fresh board runs through the snapshot and the
+  current solver back-to-back; verdict disagreements (`solvable`/`unique`) are soundness red flags,
+  while work-counter and `numAmbiguous` mismatches are recorded as agreement flags — expected to
+  change when the candidate intentionally alters solver decisions. Output lands in
+  `generator_stats/`.
 - The shared `stats` counters (`iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`)
   accumulate across each trial tree and are the deterministic work metric to compare between
   variants.

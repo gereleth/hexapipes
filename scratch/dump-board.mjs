@@ -1,7 +1,8 @@
 // Dumps boards of the paired benchmark sequence as JSON for offline study.
 // Usage:
 //   BENCH_SEED=<seed> node scratch/dump-board.mjs <square|hexa> <index>[,index...] [outPath]
-// Replays the exact PRNG draw order of solver-layers-stats.test.js, verifies
+// Replays the exact PRNG draw order of
+// scratch/layered-mark-ambiguous-paired-bench.mjs, verifies
 // each replay against the paired benchmark record (verdict + counters), then
 // writes the scrambled tiles as handed to LayeredSolver, plus a fresh
 // re-scramble (randomRotate, seeded) with its own solve facts.
@@ -38,7 +39,8 @@ if (indices.some((i) => !Number.isInteger(i) || i < 0 || i >= NUM_RUNS)) {
 const wanted = new Set(indices);
 
 /**
- * Deterministic PRNG (mulberry32), verbatim from solver-layers-stats.test.js
+ * Deterministic PRNG (mulberry32), verbatim from
+ * scratch/layered-mark-ambiguous-paired-bench.mjs
  * @param {Number} seed
  * @returns {() => Number}
  */

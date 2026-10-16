@@ -1,10 +1,3 @@
-import { afterAll, beforeAll, describe, it } from 'vitest';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { pregenerate_layers, validateLayers } from './generator-layers.js';
-import { LayeredSolver as AltLayeredSolver } from './solver-layers.js';
-import { SquareGrid } from './grids/squaregrid.js';
-import { HexaGrid } from './grids/hexagrid.js';
-
 // Paired benchmark: every board is solved twice, back-to-back, by the
 // baseline snapshot (solver-layers-baseline.js, an untracked frozen copy of
 // solver-layers.js) and the current solver (solver-layers.js).
@@ -21,17 +14,24 @@ import { HexaGrid } from './grids/hexagrid.js';
 // loader below fails with creation instructions instead of a cryptic
 // import error.
 //
+// Once a gated vitest file in src/lib/puzzle (solver-layers-stats.test.js);
+// now a plain script.
+//
 // Usage:
-//   BENCH_MARK_AMBIGUOUS=1 npx vitest run src/lib/puzzle/solver-layers-stats.test.js
+//   BENCH_SEED=<seed> node scratch/layered-mark-ambiguous-paired-bench.mjs
 // Optional environment:
 //   BENCH_SEED - seed for a reproducible board sequence (mulberry32 PRNG);
 //     also controls pregenerate_layers internals
 //   BENCH_MARK_AMBIGUOUS_RUNS - boards per grid (default 200)
 //   BENCH_MARK_AMBIGUOUS_CAP_MS - wall-clock cap per single solve
 //     (default 60000); capped runs are excluded from the statistics
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { pregenerate_layers, validateLayers } from '../src/lib/puzzle/generator-layers.js';
+import { LayeredSolver as AltLayeredSolver } from '../src/lib/puzzle/solver-layers.js';
+import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
+import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
-const enabled = !!env.BENCH_MARK_AMBIGUOUS;
 const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 200;
 // wall-clock cap on a single markAmbiguousTiles call, guarding against
 // the heavy backtracking tail. Capped runs are recorded with capped: true
@@ -41,20 +41,18 @@ const TIMEOUT_ERROR = 'benchmark wall-clock cap reached';
 const OUTPUT_DIR = 'generator_stats';
 const OUTPUT_FILE = `${OUTPUT_DIR}/layered_mark_ambiguous_20x20_paired.json`;
 const LAYERING = 0.6;
-// long timeout, a single uncapped search can occasionally take minutes
-const TIMEOUT = 2 * 60 * 60 * 1000;
 
 /**
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
  * file (a verbatim copy of solver-layers.js frozen at the start of the
  * optimization series), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('./solver-layers.js').LayeredSolver>}
+ * @returns {Promise<typeof import('../src/lib/puzzle/solver-layers.js').LayeredSolver>}
  */
 async function loadBaselineSolver() {
 	try {
-		// computed specifier + @vite-ignore keep the import runtime-only, so a
-		// missing file reaches the catch below instead of failing module resolution
-		const module = await import(/* @vite-ignore */ './solver-layers-baseline'.concat(''));
+		// computed specifier keeps the import runtime-only, so a missing file
+		// reaches the catch below instead of failing module resolution
+		const module = await import('../src/lib/puzzle/solver-layers-baseline'.concat('.js'));
 		return module.LayeredSolver;
 	} catch (error) {
 		throw new Error(
@@ -294,9 +292,9 @@ function flush() {
 
 /**
  * Runs markAmbiguousTiles once on a fresh solver instance
- * @param {typeof import('./solver-layers.js').LayeredSolver} SolverClass
- * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} layers
- * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {typeof import('../src/lib/puzzle/solver-layers.js').LayeredSolver} SolverClass
+ * @param {import('../src/lib/puzzle/generator-layers.js').LayeredTiles} layers
+ * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {SolverRunRecord}
  */
 function runSolver(SolverClass, layers, grid) {
@@ -408,7 +406,7 @@ function printSummary(kind) {
 // seeded PRNG for the duration of the run so that the board sequence is
 // reproducible - this also controls pregenerate_layers internals. Runs must
 // stay single-threaded while the PRNG is installed; the original Math.random
-// is restored in afterAll
+// is restored afterwards
 const SEED = env.BENCH_SEED !== undefined && env.BENCH_SEED !== '' ? Number(env.BENCH_SEED) : null;
 
 /**
@@ -422,94 +420,86 @@ function mulberry32(seed) {
 		a |= 0;
 		a = (a + 0x6d2b79f5) | 0;
 		let t = Math.imul(a ^ (a >>> 15), 1 | a);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		t = Math.imul(t ^ (t >>> 7), 61 | t);
 		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 	};
 }
 
-describe('Benchmark markAmbiguousTiles on paired layered 20x20 boards', () => {
-	const originalRandom = Math.random;
-	beforeAll(() => {
-		if (SEED !== null) {
-			Math.random = mulberry32(SEED);
-		}
-	});
-	afterAll(() => {
-		Math.random = originalRandom;
-	});
+const originalRandom = Math.random;
+if (SEED !== null) {
+	Math.random = mulberry32(SEED);
+}
+try {
+	const BaselineSolver = await loadBaselineSolver();
 	for (const [
 		label,
 		makeGrid
-	] of /** @type {Array<[String, () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
+	] of /** @type {Array<[String, () => import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
 		['square', () => new SquareGrid(20, 20, false)],
 		['hexagonal', () => new HexaGrid(20, 20, false)]
 	])) {
-		it.skipIf(!enabled)(
-			`Times markAmbiguousTiles on ${NUM_RUNS} paired fresh ${label} 20x20 boards`,
-			async () => {
-				const BaselineSolver = await loadBaselineSolver();
-				const grid = makeGrid();
-				// warmup: one throwaway board per solver, so both sides are
-				// JIT/GC-hot before anything is recorded
-				const warmTiles = pregenerate_layers(grid, LAYERING, 0.5, 0.25);
-				runSolver(BaselineSolver, warmTiles, grid);
-				runSolver(AltLayeredSolver, warmTiles, grid);
-				for (let i = 1; i <= NUM_RUNS; i++) {
-					const branchingAmount = Math.random();
-					const avoidObvious = Math.random() * 0.5;
-					const pregenerateStart = performance.now();
-					const layers = pregenerate_layers(grid, LAYERING, branchingAmount, avoidObvious);
-					const pregenerateMs = performance.now() - pregenerateStart;
-					validateLayers(grid, layers);
-					// alternate the run order per board to cancel JIT/GC ordering bias
-					const order = i % 2 === 1 ? 'baseline-first' : 'candidate-first';
-					let baselineRun;
-					let candidateRun;
-					if (order === 'baseline-first') {
-						baselineRun = runSolver(BaselineSolver, layers, grid);
-						candidateRun = runSolver(AltLayeredSolver, layers, grid);
-					} else {
-						candidateRun = runSolver(AltLayeredSolver, layers, grid);
-						baselineRun = runSolver(BaselineSolver, layers, grid);
-					}
-					const agree = compareRuns(baselineRun, candidateRun);
-					/** @type {PairedRunRecord} */
-					const record = {
-						grid: grid.KIND,
-						width: grid.width,
-						height: grid.height,
-						wrap: grid.wrap,
-						layeringAmount: LAYERING,
-						branchingAmount,
-						avoidObvious,
-						subCells: layers.reduce((n, cellLayers) => n + cellLayers.length, 0),
-						pregenerateMs,
-						order,
-						baseline: baselineRun,
-						candidate: candidateRun,
-						agree
-					};
-					allRuns.push(record);
-					flush();
-					if (baselineRun.capped || candidateRun.capped) {
-						console.warn(
-							`[${grid.KIND}] run ${i}: capped (baseline=${baselineRun.capped}, ` +
-								`candidate=${candidateRun.capped})`
-						);
-					} else if (!baselineRun.solvable || !candidateRun.solvable) {
-						console.warn(`[${grid.KIND}] run ${i}: anomaly`, record);
-					}
-					if (i % 10 === 0) {
-						console.log(
-							`[${grid.KIND}] run ${i}/${NUM_RUNS}: baseline ` +
-								`${(baselineRun.elapsedMs / 1000).toFixed(2)} s, candidate ` +
-								`${(candidateRun.elapsedMs / 1000).toFixed(2)} s`
-						);
-					}
-				}
-				printSummary(grid.KIND);
-			},
-			TIMEOUT
-		);
+		console.log(`[${label}] ${NUM_RUNS} paired fresh 20x20 boards`);
+		const grid = makeGrid();
+		// warmup: one throwaway board per solver, so both sides are
+		// JIT/GC-hot before anything is recorded
+		const warmTiles = pregenerate_layers(grid, LAYERING, 0.5, 0.25);
+		runSolver(BaselineSolver, warmTiles, grid);
+		runSolver(AltLayeredSolver, warmTiles, grid);
+		for (let i = 1; i <= NUM_RUNS; i++) {
+			const branchingAmount = Math.random();
+			const avoidObvious = Math.random() * 0.5;
+			const pregenerateStart = performance.now();
+			const layers = pregenerate_layers(grid, LAYERING, branchingAmount, avoidObvious);
+			const pregenerateMs = performance.now() - pregenerateStart;
+			validateLayers(grid, layers);
+			// alternate the run order per board to cancel JIT/GC ordering bias
+			const order = i % 2 === 1 ? 'baseline-first' : 'candidate-first';
+			let baselineRun;
+			let candidateRun;
+			if (order === 'baseline-first') {
+				baselineRun = runSolver(BaselineSolver, layers, grid);
+				candidateRun = runSolver(AltLayeredSolver, layers, grid);
+			} else {
+				candidateRun = runSolver(AltLayeredSolver, layers, grid);
+				baselineRun = runSolver(BaselineSolver, layers, grid);
+			}
+			const agree = compareRuns(baselineRun, candidateRun);
+			/** @type {PairedRunRecord} */
+			const record = {
+				grid: grid.KIND,
+				width: grid.width,
+				height: grid.height,
+				wrap: grid.wrap,
+				layeringAmount: LAYERING,
+				branchingAmount,
+				avoidObvious,
+				subCells: layers.reduce((n, cellLayers) => n + cellLayers.length, 0),
+				pregenerateMs,
+				order,
+				baseline: baselineRun,
+				candidate: candidateRun,
+				agree
+			};
+			allRuns.push(record);
+			flush();
+			if (baselineRun.capped || candidateRun.capped) {
+				console.warn(
+					`[${grid.KIND}] run ${i}: capped (baseline=${baselineRun.capped}, ` +
+						`candidate=${candidateRun.capped})`
+				);
+			} else if (!baselineRun.solvable || !candidateRun.solvable) {
+				console.warn(`[${grid.KIND}] run ${i}: anomaly`, record);
+			}
+			if (i % 10 === 0) {
+				console.log(
+					`[${grid.KIND}] run ${i}/${NUM_RUNS}: baseline ` +
+						`${(baselineRun.elapsedMs / 1000).toFixed(2)} s, candidate ` +
+						`${(candidateRun.elapsedMs / 1000).toFixed(2)} s`
+				);
+			}
+		}
+		printSummary(grid.KIND);
 	}
-});
+} finally {
+	Math.random = originalRandom;
+}
