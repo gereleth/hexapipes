@@ -1,5 +1,4 @@
 import { Generator } from '#lib/puzzle/generator.js';
-import { Solver } from '#lib/puzzle/solver.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
 /**

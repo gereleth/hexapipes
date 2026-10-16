@@ -6,7 +6,6 @@
 	import Tile from '#lib/puzzle/Tile.svelte';
 	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
 	import { PipesGame } from '#lib/puzzle/game.svelte.js';
-	import { Solver } from '#lib/puzzle/solver.js';
 	import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
 	import EdgeMarks from '#lib/puzzle/EdgeMarks.svelte';
 
@@ -217,7 +216,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {Solver|LayeredSolver|undefined}
+	 * @type {LayeredSolver|undefined}
 	 */
 	let solver;
 	/**
@@ -231,9 +230,7 @@
 			for (let tileState of game.tileStates) {
 				tileState.locked = false;
 			}
-			solver = game.isLayered
-				? new LayeredSolver(/** @type {Number[][]} */ (tiles), grid)
-				: new Solver(/** @type {Number[]} */ (tiles), grid);
+			solver = new LayeredSolver(tiles, grid);
 			try {
 				for (let { stage, step } of solver.solve(true)) {
 					if (stage === 'aftercheck') {
@@ -273,13 +270,8 @@
 	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
-		/** @type {Solver|LayeredSolver} */
-		let measureSolver;
-		if (game.isLayered) {
-			measureSolver = new LayeredSolver(/** @type {Number[][]} */ (tiles), grid);
-		} else {
-			measureSolver = new Solver(/** @type {Number[]} */ (tiles), grid);
-		}
+		/** @type {LayeredSolver} */
+		let measureSolver = new LayeredSolver(tiles, grid);
 		steps = 0;
 		try {
 			for (let _ of measureSolver.solve(true)) {

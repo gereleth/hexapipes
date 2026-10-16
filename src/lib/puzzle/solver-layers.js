@@ -512,12 +512,17 @@ export class LayeredSolver {
 	components;
 	/**
 	 *
-	 * @param {Number[][]} tiles
+	 * @param {Number[]|Number[][]} tiles - one bitmask per cell (classic, solved as a
+	 * one-layer board) or a list of layer bitmasks per cell (layered)
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {LayeredSolver|null} parent
 	 */
 	constructor(tiles, grid, parent = null) {
-		this.tiles = tiles;
+		/** @type {Number[][]} - classic tiles normalized to one layer per cell */
+		const layers = Number.isInteger(tiles[0])
+			? /** @type {Number[]} */ (tiles).map((tile) => (tile === 0 ? [] : [tile]))
+			: /** @type {Number[][]} */ (tiles);
+		this.tiles = layers;
 		this.grid = grid;
 		this.parent = parent;
 		this.progress_callback = emptyCallback;
@@ -530,7 +535,7 @@ export class LayeredSolver {
 		this.unsolved = new Map();
 
 		/** @type {Number[]} - rotation per cell, or UNSOLVED */
-		this.solution = parent ? [...parent.solution] : tiles.map(() => this.UNSOLVED);
+		this.solution = parent ? [...parent.solution] : layers.map(() => this.UNSOLVED);
 
 		/** @type {Number[][]} - array of found solutions */
 		this.solutions = [];
@@ -548,8 +553,8 @@ export class LayeredSolver {
 			this.components = parent.components.clone();
 		} else {
 			let maxLayers = 0;
-			for (let i = 0; i < tiles.length; i++) {
-				if (tiles[i].length > maxLayers) maxLayers = tiles[i].length;
+			for (let i = 0; i < layers.length; i++) {
+				if (layers[i].length > maxLayers) maxLayers = layers[i].length;
 			}
 			this.components = new ComponentsRegistry(grid, maxLayers);
 		}

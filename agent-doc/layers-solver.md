@@ -2,15 +2,23 @@
 
 Files: `src/lib/puzzle/solver-layers.js` (`LayeredCell`, `LayeredSolver`) and
 `src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the component registry the solver
-drives). Classic counterpart: `solver.js` (`Solver`). Tests: `solver-layers.test.js`; safety nets:
-`solver-layers-fuzz.test.js` (solution-equivalence fuzz, env-gated vitest) and
-`scratch/layered-mark-ambiguous-paired-bench.mjs` (paired benchmark, plain script) — described in
-the harness section below. Consumers: `Puzzle.svelte` (solve animation + stats readout),
-`LayeredGenerator` (uniqueness/patience loop), `worker-layers.js` and `/generator-debug` (progress
-messages).
+drives). Classic counterpart: `solver.js` (`Solver`; no runtime consumers left — tests only,
+retirement pending). Tests: `solver-layers.test.js`; safety nets: `solver-layers-fuzz.test.js`
+(solution-equivalence fuzz, env-gated vitest) and `scratch/layered-mark-ambiguous-paired-bench.mjs`
+(paired benchmark, plain script) — described in the harness section below. Consumers:
+`Puzzle.svelte` (solve animation + stats readout, both variants), the classic `Generator`
+(uniqueness/patience loop, classic boards solved one-layer) and `LayeredGenerator` (same for layered
+boards), `worker-layers.js` and `/generator-debug` (progress messages).
 
 Boards are assumed to have a single connected playable region — grids with disconnected areas are
 not supported.
+
+The solver accepts both tile encodings, mirroring `PipesGame`: classic tiles (`Number[]`, one
+bitmask per cell) are normalized in the constructor to a one-layer board (`Number[][]`). All outputs
+(`solution`, `solutions`, `marked`, steps) are per-cell rotations and identical for both input
+shapes — `marked` rotations convert back to classic masks losslessly via
+`grid.rotate(tiles[index], rotation, index)` because both state maps keep the smallest rotation per
+indistinguishability class.
 
 ## Core model: possible states
 

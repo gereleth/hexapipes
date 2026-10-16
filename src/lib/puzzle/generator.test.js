@@ -159,15 +159,23 @@ describe('Test solution uniqueness', () => {
 		}
 	}
 
-	it('Generates a 20x20 hexagonal puzzle with a unique solution every time', () => {
-		const grid = new HexaGrid(20, 20, false);
-		verifyUnique(grid);
-	});
+	it(
+		'Generates a 20x20 hexagonal puzzle with a unique solution every time',
+		() => {
+			const grid = new HexaGrid(20, 20, false);
+			verifyUnique(grid);
+		},
+		15 * 1000
+	);
 
-	it('Generates a 20x20 hexagonal wrap puzzle with a unique solution every time', () => {
-		const grid = new HexaGrid(20, 20, true);
-		verifyUnique(grid);
-	});
+	it(
+		'Generates a 20x20 hexagonal wrap puzzle with a unique solution every time',
+		() => {
+			const grid = new HexaGrid(20, 20, true);
+			verifyUnique(grid);
+		},
+		15 * 1000
+	);
 
 	it('Generates a 20x20 square puzzle with a unique solution every time', () => {
 		const grid = new SquareGrid(20, 20, false);

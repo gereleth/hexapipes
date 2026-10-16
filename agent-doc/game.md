@@ -8,8 +8,7 @@ The layered variant is a strict generalization of classic: a classic board is a 
 exactly one layer per cell. The game exploits that. `PipesGame` accepts classic bitmasks
 (`Number[]`) or layered tiles (`Number[][]`), normalizes classic input to one layer per cell, and
 runs a single state model for both. The input shape is detected once into `game.isLayered`, which
-selects only the renderer and the solver class. Boards are assumed to be a single connected playable
-region.
+selects only the renderer. Boards are assumed to be a single connected playable region.
 
 What follows are the four ideas the state model stands on, then the UI that sits on top.
 
@@ -127,8 +126,8 @@ animate rotations with the `.animation-*` classes.
 as a single string (pre-unification saves) or a per-layer array, so old saves on the size pages and
 `/daily` keep working. No route or wrapper code knows about the variant shapes.
 
-`unleashTheSolver` and `measureSolveTime` pick
-`game.isLayered ? new LayeredSolver(...) : new Solver(...)` and share one body. Solver steps and
-solutions are rotation counts, applied through `setTileRotation`. `measureSolveTime` runs a full
-`solve(true)` synchronously, so heavy boards freeze the UI before animating. Solver internals:
-[layers-solver.md](layers-solver.md).
+`unleashTheSolver` and `measureSolveTime` construct one `LayeredSolver` for both variants — like
+`PipesGame`, the solver accepts classic tiles (`Number[]`) and normalizes them to a one-layer board,
+so there is no branch on `game.isLayered`. Solver steps and solutions are rotation counts, applied
+through `setTileRotation`. `measureSolveTime` runs a full `solve(true)` synchronously, so heavy
+boards freeze the UI before animating. Solver internals: [layers-solver.md](layers-solver.md).
