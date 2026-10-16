@@ -563,3 +563,89 @@ describe('Test LayeredSolver on every grid kind', () => {
 		}
 	});
 });
+
+describe('Test hexa/octa TileType deductions', () => {
+	it('Sets the isLayered and hasTileTypeTricks flags', () => {
+		const hexa = new HexaGrid(2, 2, false);
+		// classic Number[] input is normalized to one layer per cell
+		expect(new LayeredSolver([1, 2, 4, 8], hexa).isLayered).toBe(false);
+		expect(new LayeredSolver([[1], [2], [4], [8]], hexa).isLayered).toBe(false);
+		expect(new LayeredSolver([[1], [2, 4], [8], [1]], hexa).isLayered).toBe(true);
+		expect(new LayeredSolver([[1], [2], [4], [8]], hexa).hasTileTypeTricks).toBe(true);
+		expect(
+			new LayeredSolver([[1], [2], [4], [8]], new SquareGrid(2, 2, false)).hasTileTypeTricks
+		).toBe(false);
+	});
+
+	it('Must connect adjacent psi-likes on a classic board', () => {
+		const grid = new HexaGrid(3, 2, false);
+		// tile 23 is the psi (E, NE, NW, SW), tile 21 is the Y (E, NW, SW) -
+		// both have no adjacent walls, so cell 0 must connect east. The east
+		// neighbour is a Y, not a sharp-turning tile, so the middle-prongs
+		// deduction cannot fire and this isolates the psi deduction: the two
+		// rotations missing E are out
+		const tiles = [23, 21, 9, 9, 9, 9];
+		const solver = new LayeredSolver(tiles, grid);
+		const cell = solver.getCell(0);
+		expect(cell.possible.size).toBe(4);
+		const masks = [...cell.possible.values()].map(([mask]) => mask).sort((a, b) => a - b);
+		expect(masks).toEqual([23, 29, 43, 53]);
+		// control: a straight neighbour is not a psi-like, nothing is forced
+		const control = new LayeredSolver([23, 9, 9, 9, 9, 9], grid);
+		expect(control.getCell(0).possible.size).toBe(6);
+	});
+
+	it("Can't connect middle prongs to a sharp turn on a classic board", () => {
+		const grid = new HexaGrid(3, 3, false);
+		// tile 7 is a trident (E, NE, NW); the sharp pair 3 (E + NE) sits east
+		// of it, so the trident occupying the whole E/NE/SE trio is out
+		const tiles = [9, 9, 9, 7, 3, 9, 9, 9, 9];
+		const solver = new LayeredSolver(tiles, grid);
+		const cell = solver.getCell(3);
+		expect(cell.possible.size).toBe(5);
+		for (let layers of cell.possible.values()) {
+			// no surviving orientation connects the whole E/NE/SE trio
+			expect((layers[0] & 35) === 35).toBe(false);
+		}
+		// control: a straight neighbour does not trigger the deduction
+		const control = new LayeredSolver([9, 9, 9, 7, 9, 9, 9, 9, 9], grid);
+		expect(control.getCell(3).possible.size).toBe(6);
+	});
+
+	it("Can't connect middle prongs to a sharp turn on a classic board - what it actually needs to do", () => {
+		const grid = new HexaGrid(3, 3, true);
+		// tile 5 (mask 15) should get a connection in direction 4, away
+		// from the sharp turns neighbour tile 6 (mask 48)
+		// two orientations that point middle prongs at tile 6 should be removed
+		const tiles = [26, 4, 2, 2, 34, 15, 48, 4, 16];
+		const solver = new LayeredSolver(tiles, grid);
+		const cell = solver.getCell(5);
+		expect(cell.possible.size).toBe(4);
+		for (let layers of cell.possible.values()) {
+			// all survivors connect to dir 4
+			expect((layers[0] & 4) === 4).toBe(true);
+		}
+	});
+
+	it('Never leaves two adjacent walls next to a psi-like union on a layered board', () => {
+		const grid = new OctaGrid(2, 2, false);
+		// cell 1 is an octagon missing only W (a psi-like union), cell 4 is a
+		// square connecting NE + SW (no adjacent connections). Cell 0's union
+		// is an E-W straight [17]; cell 2 holds two layers with union 26, which
+		// keeps the board layered without changing the unions cell 0 sees.
+		// The rotation connecting SE + NW would wall off the psi-like while
+		// connecting into the square, which is impossible.
+		const tiles = [[17], [239], [2, 24], [17], [34], [], [], []];
+		const solver = new LayeredSolver(tiles, grid);
+		const cell = solver.getCell(0);
+		expect(cell.possible.size).toBe(3);
+		for (let layers of cell.possible.values()) {
+			// no surviving orientation connects SE without also connecting E
+			expect((layers[0] & 128) > 0 && (layers[0] & 1) === 0).toBe(false);
+		}
+		// control: a non-psi-like eastern neighbour (missing W and SW, so it
+		// has adjacent walls) may be walled off
+		const control = new LayeredSolver([[17], [207], [2, 24], [17], [34], [], [], []], grid);
+		expect(control.getCell(0).possible.size).toBe(4);
+	});
+});

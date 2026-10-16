@@ -416,7 +416,7 @@ export function Solver(tiles, grid) {
 						const direction = polygon.directions[i];
 						const forbidden =
 							direction + polygon.rotate(direction, 1) + polygon.rotate(direction, -1);
-						cell.mustHaveOtherConnections(forbidden);
+						cell.mustHaveSomeWalls(forbidden);
 					}
 				}
 			}

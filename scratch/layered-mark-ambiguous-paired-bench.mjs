@@ -30,6 +30,7 @@ import { pregenerate_layers, validateLayers } from '../src/lib/puzzle/generator-
 import { LayeredSolver as AltLayeredSolver } from '../src/lib/puzzle/solver-layers.js';
 import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
+import { OctaGrid } from '../src/lib/puzzle/grids/octagrid.js';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
 const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 200;
@@ -256,7 +257,7 @@ const startedIso = new Date().toISOString();
 function flush() {
 	/** @type {Object.<String, PairedSummary>} */
 	const summary = {};
-	for (const kind of ['square', 'hexagonal']) {
+	for (const kind of ['square', 'hexagonal', 'octagonal']) {
 		const runs = allRuns.filter((r) => r.grid === kind);
 		if (runs.length > 0) {
 			summary[kind] = summarize(runs);
@@ -436,7 +437,8 @@ try {
 		makeGrid
 	] of /** @type {Array<[String, () => import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
 		['square', () => new SquareGrid(20, 20, false)],
-		['hexagonal', () => new HexaGrid(20, 20, false)]
+		['hexagonal', () => new HexaGrid(20, 20, false)],
+		['octagonal', () => new OctaGrid(20, 20, false)]
 	])) {
 		console.log(`[${label}] ${NUM_RUNS} paired fresh 20x20 boards`);
 		const grid = makeGrid();

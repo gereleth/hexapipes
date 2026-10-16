@@ -266,12 +266,21 @@ cell leaves `unsolved`, `totalUnsolved -= 1`; a `{index, rotation, final}` step 
 `processInitialDeductions` (start of every solve/marking run) counts `totalSubcells` (Σ layer counts
 over playable cells), dirties empty cells, then initializes playable cells one by one, draining
 propagation between inits and skipping empty-cell steps in the yield stream. Local deductions at
-cell init are outer walls and walls from empty neighbours. Every cell is dirtied at init so it can
-tell its deadend facts to neighbours. Classic's hexa/octa tileTypes tricks could be applied here
-too, but with layers the implementation gets more complicated — a deliberate skip for now. Classic's
-deadend-only init filter is superseded by the deadend facts. Gotcha: `totalUnsolved` counts
-**cells** and starts at `grid.total` (empty cells finalize during init), `totalSubcells` counts
-**sub-cells** of playable cells — different quantities with similar names.
+cell init are outer walls and walls from empty neighbours, plus the classic hexa/octa TileType shape
+tricks (`doTileTypeDeductions`, ported 2026-10-16). They read the shape class of each cell's **tile
+union** (`tileTypes.get(OR of layer masks)` — the tile itself on classic one-layer boards): (1) a
+`hasThreeOrMoreAdjacentConnections` tile may not connect the full direction trio around a
+`hasOnlyAdjacentConnections` neighbour (`mustHaveSomeWalls`; the classic line had used the wrong
+filter — a subset test — since 2023-04, corrected 2026-10-17 in both solvers); (2) adjacent
+`hasNoAdjacentWalls` tiles (psi-likes) must connect; (3) a cell that walls off a
+`hasNoAdjacentWalls` neighbour may not connect into an adjacent `hasNoAdjacentConnections` neighbour
+— the wall forces the psi-like to spend the edges next to it. (1) and (2) reason about the prongs of
+a single piece and are gated to classic one-layer boards (`isLayered` — any multi-layer cell turns
+them off); (3) follows from edge adjacency alone, so it runs on the union for both variants.
+Non-hexa/octa grids skip the whole block (`hasTileTypeTricks`) and never collect neighbour types.
+Classic's deadend-only init filter is superseded by the deadend facts. Gotcha: `totalUnsolved`
+counts **cells** and starts at `grid.total` (empty cells finalize during init), `totalSubcells`
+counts **sub-cells** of playable cells — different quantities with similar names.
 
 Completion is `totalUnsolved === 0` — never `unsolved.size === 0`: `unsolved` only holds touched
 cells under lazy cloning (see search).
@@ -322,10 +331,11 @@ cells under lazy cloning (see search).
 
 Both harnesses compare the current solver against a frozen snapshot copy of this same file (their
 failure messages say how to recreate the snapshot after a fresh clone); snapshot mismatches mean the
-solver's behaviour changed. As of the 2026-09 SoA registry rewrite the current solver is
-**intentionally decision-shifted** vs the snapshot: work counters and occasional `numAmbiguous`
-values move, while `solvable`/`unique` and full solution lists still agree (gated per
-`agent-doc/solver-perf-plan.md`).
+solver's behaviour changed. The snapshot was recreated from the **pre-tileType-tricks** state on
+2026-10-16, so the paired harnesses gate exactly that change; a later freeze rolls the tricks into
+the baseline. As of the 2026-09 SoA registry rewrite the current solver is **intentionally
+decision-shifted** vs the snapshot: work counters and occasional `numAmbiguous` values move, while
+`solvable`/`unique` and full solution lists still agree (gated per `agent-doc/solver-perf-plan.md`).
 
 - `solver-layers-fuzz.test.js` — the soundness gate for any solver change. Run with
   `FUZZ_SOLUTIONS=1` (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full
@@ -347,11 +357,11 @@ values move, while `solvable`/`unique` and full solution lists still agree (gate
 
 ## Differences vs classic Solver at a glance
 
-| Aspect           | classic                        | layered                                                                                |
-| ---------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
-| cell state       | set of orientation masks       | map of representative rotation → rotated layers                                        |
-| identity         | cell index                     | cell for constraints, sub-cell for the tree                                            |
-| deadends         | static tile-type check at init | per-direction facts with weights, chained through cells, exact-weight island facts     |
-| loop detection   | component walls + merge check  | slot/sub-cell components: join-time loop checks, per-layer forbid queues, island check |
-| solved cells     | eager, `unsolved` is complete  | lazy cloning, `totalUnsolved` counter, completion by count                             |
-| local deductions | tileTypes hexa tricks          | outer walls only (hexa/octa tricks skipped: harder with layers, fewer useful hits)     |
+| Aspect           | classic                        | layered                                                                                                                   |
+| ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| cell state       | set of orientation masks       | map of representative rotation → rotated layers                                                                           |
+| identity         | cell index                     | cell for constraints, sub-cell for the tree                                                                               |
+| deadends         | static tile-type check at init | per-direction facts with weights, chained through cells, exact-weight island facts                                        |
+| loop detection   | component walls + merge check  | slot/sub-cell components: join-time loop checks, per-layer forbid queues, island check                                    |
+| solved cells     | eager, `unsolved` is complete  | lazy cloning, `totalUnsolved` counter, completion by count                                                                |
+| local deductions | tileTypes hexa tricks          | outer walls + the same hexa/octa tileTypes tricks, read off tile unions (single-piece deductions gated to classic boards) |

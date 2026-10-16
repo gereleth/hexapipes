@@ -1,4 +1,6 @@
 import { ComponentsRegistry, iterate_directions, popcount } from './components-registry.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 
 /* Constraint Violation Exceptions */
 
@@ -271,6 +273,24 @@ export class LayeredCell {
 	}
 
 	/**
+	 * Filters out orientations that connect all the mentioned directions, so
+	 * every survivor keeps at least one wall among them. Union-based: on
+	 * classic one-layer cells this is exactly the classic mustHaveSomeWalls
+	 * @param {Number} directions
+	 * @return {Number} count of removed orientations
+	 */
+	mustHaveSomeWalls(directions) {
+		const remove = [];
+		for (let rotation of this.possible.keys()) {
+			if ((this.unionAt(rotation) & directions) === directions) {
+				remove.push(rotation);
+			}
+		}
+		remove.forEach((r) => this.possible.delete(r));
+		return remove.length;
+	}
+
+	/**
 	 * Filters out orientations that contradict known connections
 	 * @param {Number} directions
 	 * @return {Number} count of removed orientations
@@ -510,6 +530,12 @@ export class LayeredSolver {
 
 	/** @type {ComponentsRegistry} - owns all component/slot/subcell state */
 	components;
+	/** @type {Boolean} - true when any cell holds more than one layer (the layers
+	 * variant). Classic boards have more TileType deductions. */
+	isLayered;
+	/** @type {Boolean} - hexa/octa boards run the classic TileType shape
+	 * deductions at init */
+	hasTileTypeTricks;
 	/**
 	 *
 	 * @param {Number[]|Number[][]} tiles - one bitmask per cell (classic, solved as a
@@ -525,6 +551,8 @@ export class LayeredSolver {
 		this.tiles = layers;
 		this.grid = grid;
 		this.parent = parent;
+		this.isLayered = layers.some((cellLayers) => cellLayers.length > 1);
+		this.hasTileTypeTricks = grid instanceof HexaGrid || grid instanceof OctaGrid;
 		this.progress_callback = emptyCallback;
 		/** @type {Number} */
 		this.totalSubcells = parent ? parent.totalSubcells : 0;
@@ -619,7 +647,8 @@ export class LayeredSolver {
 
 	/**
 	 * Checks if any orientations can be ruled out based on
-	 * walls or empty tiles nearby
+	 * walls or empty tiles nearby, plus TileType shape deductions
+	 * on hexa/octa boards
 	 * @param {Number} index
 	 * @param {LayeredCell} cell - cell at index
 	 */
@@ -628,16 +657,110 @@ export class LayeredSolver {
 			// either empty or fully connected, is solved right away
 			return;
 		}
+		/** @type {(import('#lib/puzzle/grids/polygonutils.js').TileType|null)[]|null} */
+		let neighbourTiles = null;
+		if (this.hasTileTypeTricks) {
+			neighbourTiles = [];
+		}
 		let walls = 0;
 		for (let direction of cell.polygon.directions) {
 			const { neighbour, empty } = this.grid.find_neighbour(index, direction);
 			if (empty) {
 				walls += direction;
+				if (neighbourTiles !== null) {
+					neighbourTiles.push(null);
+				}
+			} else if (neighbourTiles !== null) {
+				// shape class of the neighbour's tile union - the tile itself on
+				// classic one-layer boards
+				const polygon = this.grid.polygon_at(neighbour);
+				let union = 0;
+				for (let layer of this.tiles[neighbour]) {
+					union |= layer;
+				}
+				neighbourTiles.push(polygon.tileTypes.get(union) || null);
 			}
 		}
 		// remove orientations that contradict outer walls
 		if (walls > 0) {
 			cell.addWall(walls);
+		}
+		if (neighbourTiles !== null) {
+			this.doTileTypeDeductions(index, cell, neighbourTiles);
+		}
+	}
+
+	/**
+	 * Hexa/octa TileType shape deductions, ported from the classic solver.
+	 * Works on tile unions, so the wall-adjacency deduction applies to layered
+	 * boards as well; the first two deductions reason about the prongs of a
+	 * single piece and only hold when every cell is one piece.
+	 * @param {Number} index
+	 * @param {LayeredCell} cell - cell at index
+	 * @param {(import('#lib/puzzle/grids/polygonutils.js').TileType|null)[]} neighbourTiles -
+	 * neighbour tile union types aligned with cell.polygon.directions, null for
+	 * empty neighbours
+	 */
+	doTileTypeDeductions(index, cell, neighbourTiles) {
+		const polygon = cell.polygon;
+		let union = 0;
+		for (let layer of this.tiles[index]) {
+			union |= layer;
+		}
+		const tileType = polygon.tileTypes.get(union);
+		if (tileType === undefined) {
+			throw 'Unknown tile type at index ' + index;
+		}
+
+		// classic only: can't connect middle prongs to a sharp turns tile
+		if (!this.isLayered && tileType.hasThreeOrMoreAdjacentConnections) {
+			for (let [i, neighbourTile] of neighbourTiles.entries()) {
+				if (neighbourTile?.hasOnlyAdjacentConnections) {
+					const direction = polygon.directions[i];
+					const forbidden =
+						direction + polygon.rotate(direction, 1) + polygon.rotate(direction, -1);
+					// no surviving orientation may connect the whole trio around
+					// the sharp-turn neighbour
+					cell.mustHaveSomeWalls(forbidden);
+				}
+			}
+		}
+
+		// classic only: must connect psi-likes when they are adjacent
+		if (!this.isLayered && tileType.hasNoAdjacentWalls) {
+			for (let [i, neighbourTile] of neighbourTiles.entries()) {
+				if (neighbourTile?.hasNoAdjacentWalls) {
+					cell.mustHaveAllConnections(polygon.directions[i]);
+				}
+			}
+		}
+
+		// never make two adjacent walls next to a psi & co
+		if (!tileType.hasNoAdjacentWalls) {
+			const numDirections = polygon.directions.length;
+			for (let [i, neighbourTile] of neighbourTiles.entries()) {
+				if (neighbourTile?.hasNoAdjacentWalls) {
+					const direction = polygon.directions[i];
+					let forbidden = 0;
+					const i1 = (i + 1) % numDirections;
+					if (neighbourTiles[i1]?.hasNoAdjacentConnections) {
+						forbidden += polygon.directions[i1];
+					}
+					const i2 = (i + numDirections - 1) % numDirections;
+					if (neighbourTiles[i2]?.hasNoAdjacentConnections) {
+						forbidden += polygon.directions[i2];
+					}
+					if (forbidden === 0) {
+						continue;
+					}
+					for (let rotation of cell.possible.keys()) {
+						const cellUnion = cell.unionAt(rotation);
+						if ((cellUnion & forbidden) > 0 && (cellUnion & direction) === 0) {
+							cell.possible.delete(rotation);
+						}
+					}
+				}
+			}
 		}
 	}
 

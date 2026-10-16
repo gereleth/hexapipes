@@ -9,6 +9,7 @@ import {
 import { LayeredSolver as AltLayeredSolver } from './solver-layers.js';
 import { SquareGrid } from './grids/squaregrid.js';
 import { HexaGrid } from './grids/hexagrid.js';
+import { OctaGrid } from './grids/octagrid.js';
 
 // Equivalence fuzz: compares the COMPLETE solution lists that the baseline
 // snapshot (solver-layers-baseline.js, an untracked frozen copy of
@@ -128,6 +129,22 @@ const CONFIGS = [
 			[4, 4],
 			[5, 5],
 			[6, 6]
+		]
+	},
+	{
+		label: 'octa non-wrap',
+		makeGrid: (width, height) => new OctaGrid(width, height, false),
+		sizes: [
+			[5, 4],
+			[6, 5]
+		]
+	},
+	{
+		label: 'octa wrap',
+		makeGrid: (width, height) => new OctaGrid(width, height, true),
+		sizes: [
+			[4, 4],
+			[5, 5]
 		]
 	}
 ];
