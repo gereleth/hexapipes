@@ -97,7 +97,7 @@ export function controls(node, game) {
 		const [x, y] = getEventCoordinates(event);
 		const locking =
 			(currentSettings.controlMode === 'rotate_lock' && event.button === 2) ||
-			(currentSettings.controlMode === 'rotate_rotate' && event.button === 0 && event.ctrlKey) ||
+			(currentSettings.controlMode === 'rotate_rotate' && event.button !== 1 && event.ctrlKey) ||
 			(currentSettings.controlMode === 'orient_lock' && event.button === 2);
 
 		mouseDownOrigin = {
