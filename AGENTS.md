@@ -40,7 +40,7 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 
 ## Detailed docs (`agent-doc/`)
 
-- [layers-game.md](agent-doc/layers-game.md) — the unified `PipesGame` (`game.svelte.js`, classic +
+- [game.md](agent-doc/game.md) — the unified `PipesGame` (`game.svelte.js`, classic +
   layered in one class) + `Tile.svelte`/`LayeredTile.svelte` + `Puzzle.svelte` wiring: state model,
   rendering, user input, solved checking.
 - [layers-solver.md](agent-doc/layers-solver.md) — `LayeredSolver` (`solver-layers.js`): rotation
