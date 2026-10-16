@@ -54,15 +54,23 @@ Evidence the swap is safe:
   `solver-layers.test.js`, "Test hexa/octa TileType deductions".
 - `scratch/classic-vs-layered-bench.mjs` rerun after the tricks (seed 20261016, 100 boards/grid,
   results in `generator_stats/classic_vs_layered_mark_ambiguous_paired.json`): **octagonal is now at
-  parity with classic** (86 vs 84 ms mean; recorded pre-trick 100→113), hexagonal's ratio improved
-  slightly (24→37 ms, ~1.54× vs recorded ~1.59×) but keeps the only real regression. Zero
-  `unique`/`solvable` disagreements on all 900 boards. 130 boards disagree on `numAmbiguous` only
-  (etrat/snubsquare/triangular/rhombitrihexagonal — multi-solution boards where both solvers
-  early-return at the ambiguity limit; the exact overshoot is search-order heuristic). A/B on the
-  bench's own dumped boards proved these divergences **pre-existing**: the pre-trick snapshot and
-  the tricks solver produce identical verdicts on all 400 dumped boards, so the older "zero verdict
+  parity with classic** (recorded pre-trick 100→113 ms mean), hexagonal keeps the only real
+  regression (~1.5×). Rerun again after the middle-prongs filter correction (both solvers now run
+  `mustHaveSomeWalls`, so the deduction actually fires on 4/5-connection tiles): octagonal 71 vs 68
+  ms mean — parity holds, both sides got faster; hexagonal 27 vs 41 ms, ~1.52× — the gap is
+  unchanged by the correction. Treat cross-run absolute numbers as noisy (square classic moved 56→71
+  ms between runs with zero code on that path) and read the within-run paired deltas: hexa ~−14 ms,
+  octa ~+3 ms in both reruns. Zero `unique`/`solvable` disagreements on all 900 boards in every run.
+  130 boards disagree on `numAmbiguous` only (etrat/snubsquare/triangular/ rhombitrihexagonal —
+  multi-solution boards where both solvers early-return at the ambiguity limit; the exact overshoot
+  is search-order heuristic), with the same per-grid counts in both reruns. A/B on the bench's own
+  dumped boards proved these divergences **pre-existing**: the pre-trick snapshot and the tricks
+  solver produce identical verdicts on all 400 dumped boards, so the older "zero verdict
   disagreements" evidence above holds for `unique`/`solvable` but was too broad for `numAmbiguous` —
-  treat layered-vs-classic `numAmbiguous` as non-comparable once the ambiguity limit is reached.
+  treat layered-vs-classic `numAmbiguous` as non-comparable once the ambiguity limit is reached. The
+  snapshot-paired numbers in the previous section stay valid for the corrected solver: on the
+  layering-0.6 boards it measures, every board is multi-layer, so deductions 1–2 are gated off and
+  the correction cannot affect that workload (verified 30/30 boards).
 
 ## Remaining work, in suggested order
 
