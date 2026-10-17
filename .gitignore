@@ -13,3 +13,5 @@ node_modules
 .vscode
 .claude
 .zcode
+# fuzz/bench baseline snapshot
+/src/lib/puzzle/solver-baseline.js
