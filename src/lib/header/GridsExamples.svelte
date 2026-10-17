@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import { gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
-	import ExamplePuzzle from './ExamplePuzzle.svelte';
+	import ExamplePuzzle from '#lib/header/ExamplePuzzle.svelte';
 </script>
 
 <div class="grids">

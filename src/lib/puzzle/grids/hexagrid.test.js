@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HexaGrid } from './hexagrid.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 
 describe('Test making a cell empty', () => {
 	const grid = new HexaGrid(3, 3, false);

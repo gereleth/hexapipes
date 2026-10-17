@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EtratGrid } from './etratgrid.js';
+import { EtratGrid } from '#lib/puzzle/grids/etratgrid.js';
 
 describe('Test find neighbour', () => {
 	it('Find neighbours in a regular puzzle', () => {

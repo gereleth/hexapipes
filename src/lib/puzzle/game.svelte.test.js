@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { HexaGrid } from './grids/hexagrid.js';
-import { SquareGrid } from './grids/squaregrid.js';
-import { Generator } from './generator.js';
-import { PipesGame } from './game.svelte';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { Generator } from '#lib/puzzle/generator.js';
+import { PipesGame } from '#lib/puzzle/game.svelte.js';
 
 describe('Test initialize board', () => {
 	const grid = new HexaGrid(3, 3, false);
 	const tiles = [1, 3, 3, 11, 11, 5, 1, 1, 1];
 
-	/** @type {import('./game.svelte').EdgeMark[]} */
+	/** @type {import('#lib/puzzle/game.svelte.js').EdgeMark[]} */
 	const edgeMarks = ['empty', 'empty', 'empty'];
 	const progressItem = {
 		color: 'white',

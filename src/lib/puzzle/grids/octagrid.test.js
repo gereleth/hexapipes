@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OctaGrid } from './octagrid.js';
+import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 
 describe('Test rc_to_index', () => {
 	it('Get index of tiles, non-wrapping grid', () => {

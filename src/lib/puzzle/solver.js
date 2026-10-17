@@ -1,4 +1,8 @@
-import { ComponentsRegistry, iterate_directions, popcount } from './components-registry.js';
+import {
+	ComponentsRegistry,
+	iterate_directions,
+	popcount
+} from '#lib/puzzle/components-registry.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 

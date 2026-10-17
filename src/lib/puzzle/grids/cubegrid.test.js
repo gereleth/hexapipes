@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CubeGrid } from './cubegrid.js';
+import { CubeGrid } from '#lib/puzzle/grids/cubegrid.js';
 
 describe('Initializing with different field shapes', () => {
 	it('Uses hexagonal shape if no tiles are provided', () => {

@@ -5,11 +5,11 @@ import {
 	pregenerate_layers,
 	randomRotate,
 	validateLayers
-} from './generator-layers.js';
-import { Solver as CurrentSolver } from './solver.js';
-import { SquareGrid } from './grids/squaregrid.js';
-import { HexaGrid } from './grids/hexagrid.js';
-import { OctaGrid } from './grids/octagrid.js';
+} from '#lib/puzzle/generator-layers.js';
+import { Solver as CurrentSolver } from '#lib/puzzle/solver.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 
 // Equivalence fuzz: compares the COMPLETE solution lists that the baseline
 // snapshot (solver-baseline.js, an untracked frozen copy of solver.js,
@@ -51,13 +51,13 @@ const enabled = !!env.FUZZ_SOLUTIONS;
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
  * file (a verbatim copy of solver.js, regenerated whenever a solver change
  * intentionally shifts decisions), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('./solver.js').Solver>}
+ * @returns {Promise<typeof import('#lib/puzzle/solver.js').Solver>}
  */
 async function loadBaselineSolver() {
 	try {
 		// computed specifier + @vite-ignore keep the import runtime-only, so a
 		// missing file reaches the catch below instead of failing module resolution
-		const module = await import(/* @vite-ignore */ './solver-baseline'.concat(''));
+		const module = await import(/* @vite-ignore */ '#lib/puzzle/solver-baseline'.concat(''));
 		return module.Solver;
 	} catch (error) {
 		throw new Error(
@@ -177,8 +177,8 @@ const SEED = env.FUZZ_SEED !== undefined && env.FUZZ_SEED !== '' ? Number(env.FU
 
 /**
  * Deep copy of layered tiles so every solver run gets its own board
- * @param {import('./generator-layers.js').LayeredTiles} tiles
- * @returns {import('./generator-layers.js').LayeredTiles}
+ * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} tiles
+ * @returns {import('#lib/puzzle/generator-layers.js').LayeredTiles}
  */
 function copyTiles(tiles) {
 	return tiles.map((cellLayers) => [...cellLayers]);
@@ -188,7 +188,7 @@ function copyTiles(tiles) {
  * Enumerates all solutions of a board with solve(true). The caps are
  * enforced in the consumer loop: solve() has no progress_callback, so the
  * only way to abort it is to stop pulling steps from the generator
- * @param {import('./solver.js').Solver} solver
+ * @param {import('#lib/puzzle/solver.js').Solver} solver
  * @returns {EnumResult}
  */
 function enumerate(solver) {
@@ -258,7 +258,7 @@ function compareSolutionSets(baselineSolutions, currentSolutions) {
 /**
  * Checks that every enumerated solution is a valid layered board
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {import('./generator-layers.js').LayeredTiles} tiles - scrambled board as given to the solver
+ * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} tiles - scrambled board as given to the solver
  * @param {Number[][]} solutions
  * @returns {String} - '' when all solutions are valid, otherwise the validation error
  */
@@ -305,7 +305,7 @@ function uniqueResultDiffs(name, solution, result) {
  * Saves the discrepant board as a self-contained reproducer: rebuild the
  * grid from kind/width/height/wrap and run either solver on tiles
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {import('./generator-layers.js').LayeredTiles} tiles - scrambled board as given to both solvers
+ * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} tiles - scrambled board as given to both solvers
  * @param {Number} runIndex
  * @returns {String} - path of the written file
  */
@@ -329,7 +329,7 @@ function saveDiscrepancy(grid, tiles, runIndex) {
  * discrepancy.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number} runIndex - 1-based board counter, for logs and artifact names
- * @param {typeof import('./solver.js').Solver} BaselineSolver
+ * @param {typeof import('#lib/puzzle/solver.js').Solver} BaselineSolver
  * @returns {String} 'ok' when comparable and identical, 'capped' when skipped
  */
 function fuzzBoard(grid, runIndex, BaselineSolver) {

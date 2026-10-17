@@ -5,7 +5,7 @@
 	import { parseGridCategory } from '#lib/puzzle/grids/grids.js';
 
 	import Stats from '#lib/Stats.svelte';
-	import PuzzleInstanceWrapper from './PuzzleInstanceWrapper.svelte';
+	import PuzzleInstanceWrapper from '#lib/puzzleWrapper/PuzzleInstanceWrapper.svelte';
 
 	/**
 	 * @typedef {Object} Props

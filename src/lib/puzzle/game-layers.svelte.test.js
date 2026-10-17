@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { PipesGame } from './game.svelte';
-import { SquareGrid } from './grids/squaregrid.js';
-import { pregenerate_layers, randomRotate } from './generator-layers.js';
-import { Solver } from './solver.js';
+import { PipesGame } from '#lib/puzzle/game.svelte.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { pregenerate_layers, randomRotate } from '#lib/puzzle/generator-layers.js';
+import { Solver } from '#lib/puzzle/solver.js';
 
 describe('Test layered game', () => {
 	it('Tracks connections and solved state on a simple chain', () => {
@@ -131,7 +131,7 @@ describe('Test layered game', () => {
 	it('Restores state from saved progress', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [6]];
-		/** @type {import('./game.svelte').Progress} */
+		/** @type {import('#lib/puzzle/game.svelte.js').Progress} */
 		const progress = {
 			tiles: [
 				{ rotations: 2, color: ['red'], locked: true, edgeMarks: ['none', 'none'] },

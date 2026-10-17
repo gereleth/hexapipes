@@ -23,7 +23,7 @@ export function controls(node, game) {
 	const grid = game.grid;
 
 	/**
-	 * @type {import('./viewbox.js').ViewBox}
+	 * @type {import('#lib/puzzle/viewbox.js').ViewBox}
 	 */
 	let viewBox;
 

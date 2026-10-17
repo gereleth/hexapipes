@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { Generator, computeCellObviousTiles } from './generator.js';
-import { HexaGrid } from './grids/hexagrid.js';
-import { SquareGrid } from './grids/squaregrid.js';
-import { Solver } from './solver.js';
-import { SnubSquareGrid } from './grids/snubsquaregrid.js';
+import { Generator, computeCellObviousTiles } from '#lib/puzzle/generator.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { Solver } from '#lib/puzzle/solver.js';
+import { SnubSquareGrid } from '#lib/puzzle/grids/snubsquaregrid.js';
 
 describe('Test Prims pregeneration', () => {
 	const branchingAmount = 1;
