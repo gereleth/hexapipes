@@ -646,6 +646,19 @@ export class LayeredSolver {
 	}
 
 	/**
+	 * Return the tile type of cell's union
+	 * @param {Number} index
+	 * @returns {import('#lib/puzzle/grids/polygonutils.js').TileType|null}
+	 */
+	getTileType(index) {
+		let union = 0;
+		for (let layer of this.tiles[index]) {
+			union |= layer;
+		}
+		return this.grid.polygon_at(index).tileTypes.get(union) || null;
+	}
+
+	/**
 	 * Checks if any orientations can be ruled out based on
 	 * walls or empty tiles nearby, plus TileType shape deductions
 	 * on hexa/octa boards
@@ -671,14 +684,7 @@ export class LayeredSolver {
 					neighbourTiles.push(null);
 				}
 			} else if (neighbourTiles !== null) {
-				// shape class of the neighbour's tile union - the tile itself on
-				// classic one-layer boards
-				const polygon = this.grid.polygon_at(neighbour);
-				let union = 0;
-				for (let layer of this.tiles[neighbour]) {
-					union |= layer;
-				}
-				neighbourTiles.push(polygon.tileTypes.get(union) || null);
+				neighbourTiles.push(this.getTileType(neighbour));
 			}
 		}
 		// remove orientations that contradict outer walls
@@ -702,15 +708,9 @@ export class LayeredSolver {
 	 * empty neighbours
 	 */
 	doTileTypeDeductions(index, cell, neighbourTiles) {
+		const tileType = this.getTileType(index);
+		if (tileType === null) return;
 		const polygon = cell.polygon;
-		let union = 0;
-		for (let layer of this.tiles[index]) {
-			union |= layer;
-		}
-		const tileType = polygon.tileTypes.get(union);
-		if (tileType === undefined) {
-			throw 'Unknown tile type at index ' + index;
-		}
 
 		// classic only: can't connect middle prongs to a sharp turns tile
 		if (!this.isLayered && tileType.hasThreeOrMoreAdjacentConnections) {
@@ -754,8 +754,8 @@ export class LayeredSolver {
 						continue;
 					}
 					for (let rotation of cell.possible.keys()) {
-						const cellUnion = cell.unionAt(rotation);
-						if ((cellUnion & forbidden) > 0 && (cellUnion & direction) === 0) {
+						const union = cell.unionAt(rotation);
+						if ((union & forbidden) > 0 && (union & direction) === 0) {
 							cell.possible.delete(rotation);
 						}
 					}
