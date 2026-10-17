@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PipesGame } from './game.svelte';
 import { SquareGrid } from './grids/squaregrid.js';
 import { pregenerate_layers, randomRotate } from './generator-layers.js';
-import { LayeredSolver } from './solver-layers.js';
+import { Solver } from './solver.js';
 
 describe('Test layered game', () => {
 	it('Tracks connections and solved state on a simple chain', () => {
@@ -195,7 +195,7 @@ describe('Test layered solver wiring', () => {
 		const scrambled = randomRotate(solvedTiles, grid);
 		const game = new PipesGame(grid, scrambled, undefined);
 		expect(game.isSolved()).toBe(false);
-		const solver = new LayeredSolver(scrambled, grid);
+		const solver = new Solver(scrambled, grid);
 		for (const _ of solver.solve(false)) {
 			// find the first solution
 		}

@@ -1,4 +1,4 @@
-import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
+import { Solver } from '#lib/puzzle/solver.js';
 
 /**
  * @typedef {'unique'|'multiple'|'whatever'} SolutionsNumber
@@ -23,7 +23,7 @@ import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
  */
 
 /**
- * @typedef {(progress: import('#lib/puzzle/solver-layers.js').SolverProgress) => void} SolverProgressCallback
+ * @typedef {(progress: import('#lib/puzzle/solver.js').SolverProgress) => void} SolverProgressCallback
  */
 
 const emptyCallback = () => {};
@@ -422,7 +422,7 @@ export class Generator {
 				while (iteration < this.max_uniqueness_iterations) {
 					iteration += 1;
 					this.generator_progress_callback({ attempt, iteration });
-					const solver = new LayeredSolver(tiles, this.grid);
+					const solver = new Solver(tiles, this.grid);
 					solver.progress_callback = this.solver_progress_callback;
 					const { solvable, marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
 						Math.min(ambiguous, ambiguousLimit)
@@ -469,7 +469,7 @@ export class Generator {
 				attempt += 1;
 				this.generator_progress_callback({ attempt, iteration: 1 });
 				let tiles = this.pregenerate_growingtree(branchingAmount, avoidObvious, avoidStraights);
-				const solver = new LayeredSolver(tiles, this.grid);
+				const solver = new Solver(tiles, this.grid);
 				solver.progress_callback = this.solver_progress_callback;
 				const { unique } = solver.markAmbiguousTiles(1);
 				if (!unique) {

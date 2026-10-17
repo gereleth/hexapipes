@@ -6,15 +6,15 @@ import {
 	randomRotate,
 	validateLayers
 } from './generator-layers.js';
-import { LayeredSolver as AltLayeredSolver } from './solver-layers.js';
+import { Solver as CurrentSolver } from './solver.js';
 import { SquareGrid } from './grids/squaregrid.js';
 import { HexaGrid } from './grids/hexagrid.js';
 import { OctaGrid } from './grids/octagrid.js';
 
 // Equivalence fuzz: compares the COMPLETE solution lists that the baseline
-// snapshot (solver-layers-baseline.js, an untracked frozen copy of
-// solver-layers.js from the start of the optimization series) and the
-// current solver (solver-layers.js) enumerate with solve(true) on fresh
+// snapshot (solver-baseline.js, an untracked frozen copy of solver.js,
+// regenerated whenever a solver change intentionally shifts decisions) and
+// the current solver (solver.js) enumerate with solve(true) on fresh
 // generated boards. The full solution set is a property of the board alone,
 // so sound + complete solvers must produce identical sets - both dedupe
 // pictures identically (same buildPossible), so solutions are comparable
@@ -35,7 +35,7 @@ import { OctaGrid } from './grids/octagrid.js';
 // import error.
 //
 // Usage:
-//   FUZZ_SOLUTIONS=1 npx vitest run src/lib/puzzle/solver-layers-fuzz.test.js
+//   FUZZ_SOLUTIONS=1 npx vitest run src/lib/puzzle/solver-fuzz.test.js
 // Optional environment:
 //   FUZZ_SEED - seed for a reproducible board sequence (mulberry32 PRNG)
 //   FUZZ_STABLE_RUNS - clean boards to spend at one ladder size before
@@ -49,24 +49,24 @@ const enabled = !!env.FUZZ_SOLUTIONS;
 
 /**
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
- * file (a verbatim copy of solver-layers.js frozen at the start of the
- * optimization series), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('./solver-layers.js').LayeredSolver>}
+ * file (a verbatim copy of solver.js, regenerated whenever a solver change
+ * intentionally shifts decisions), so it may be missing on a fresh checkout
+ * @returns {Promise<typeof import('./solver.js').Solver>}
  */
 async function loadBaselineSolver() {
 	try {
 		// computed specifier + @vite-ignore keep the import runtime-only, so a
 		// missing file reaches the catch below instead of failing module resolution
-		const module = await import(/* @vite-ignore */ './solver-layers-baseline'.concat(''));
-		return module.LayeredSolver;
+		const module = await import(/* @vite-ignore */ './solver-baseline'.concat(''));
+		return module.Solver;
 	} catch (error) {
 		throw new Error(
 			'Baseline solver snapshot is missing or cannot be imported.\n' +
-				'Expected file: src/lib/puzzle/solver-layers-baseline.js - a verbatim copy of\n' +
-				'solver-layers.js frozen at the start of the optimization series\n' +
+				'Expected file: src/lib/puzzle/solver-baseline.js - a verbatim copy of\n' +
+				'solver.js frozen at the last intentional decision shift\n' +
 				'(see agent-doc/solver-perf-plan.md, "Reference snapshot").\n' +
 				'Create it with:\n' +
-				'\tcp src/lib/puzzle/solver-layers.js src/lib/puzzle/solver-layers-baseline.js\n' +
+				'\tcp src/lib/puzzle/solver.js src/lib/puzzle/solver-baseline.js\n' +
 				`Original error: ${/** @type {Error} */ (error).message}`
 		);
 	}
@@ -188,7 +188,7 @@ function copyTiles(tiles) {
  * Enumerates all solutions of a board with solve(true). The caps are
  * enforced in the consumer loop: solve() has no progress_callback, so the
  * only way to abort it is to stop pulling steps from the generator
- * @param {import('./solver-layers.js').LayeredSolver} solver
+ * @param {import('./solver.js').Solver} solver
  * @returns {EnumResult}
  */
 function enumerate(solver) {
@@ -329,7 +329,7 @@ function saveDiscrepancy(grid, tiles, runIndex) {
  * discrepancy.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number} runIndex - 1-based board counter, for logs and artifact names
- * @param {typeof import('./solver-layers.js').LayeredSolver} BaselineSolver
+ * @param {typeof import('./solver.js').Solver} BaselineSolver
  * @returns {String} 'ok' when comparable and identical, 'capped' when skipped
  */
 function fuzzBoard(grid, runIndex, BaselineSolver) {
@@ -342,7 +342,7 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 	const tiles = randomRotate(solvedTiles, grid);
 
 	const baselineSolver = new BaselineSolver(copyTiles(tiles), grid);
-	const currentSolver = new AltLayeredSolver(copyTiles(tiles), grid);
+	const currentSolver = new CurrentSolver(copyTiles(tiles), grid);
 	const baselineResult = enumerate(baselineSolver);
 	const currentResult = enumerate(currentSolver);
 
@@ -376,7 +376,7 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 	if (diffs.length === 0 && baselineResult.solutions.length === 1) {
 		const solution = baselineResult.solutions[0];
 		const baselineMark = new BaselineSolver(copyTiles(tiles), grid).markAmbiguousTiles(0);
-		const currentMarkSolver = new AltLayeredSolver(copyTiles(tiles), grid);
+		const currentMarkSolver = new CurrentSolver(copyTiles(tiles), grid);
 		const currentMark = currentMarkSolver.markAmbiguousTiles(0);
 		currentMarkSolver.components.validate();
 		diffs.push(...uniqueResultDiffs('baseline', solution, baselineMark));
@@ -390,14 +390,14 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 			console.error(`  ${diff}`);
 		}
 		throw new Error(
-			`solution list mismatch between solver-layers and its baseline snapshot ` +
-				`(solver-layers-baseline.js) on ${label}, board saved to ${file}`
+			`solution list mismatch between solver.js and its baseline snapshot ` +
+				`(solver-baseline.js) on ${label}, board saved to ${file}`
 		);
 	}
 	return 'ok';
 }
 
-describe('Fuzz solve(true) solution lists: solver-layers vs baseline snapshot', () => {
+describe('Fuzz solve(true) solution lists: solver.js vs baseline snapshot', () => {
 	const originalRandom = Math.random;
 	// paired-seed protocol: with FUZZ_SEED set, Math.random is replaced by a
 	// seeded PRNG for the duration of the run so the board sequence is

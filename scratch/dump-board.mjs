@@ -4,7 +4,7 @@
 // Replays the exact PRNG draw order of
 // scratch/layered-mark-ambiguous-paired-bench.mjs, verifies
 // each replay against the paired benchmark record (verdict + counters), then
-// writes the scrambled tiles as handed to LayeredSolver, plus a fresh
+// writes the scrambled tiles as handed to Solver, plus a fresh
 // re-scramble (randomRotate, seeded) with its own solve facts.
 import { writeFileSync, readFileSync } from 'node:fs';
 import {
@@ -12,7 +12,7 @@ import {
 	validateLayers,
 	randomRotate
 } from '../src/lib/puzzle/generator-layers.js';
-import { LayeredSolver } from '../src/lib/puzzle/solver-layers.js';
+import { Solver } from '../src/lib/puzzle/solver.js';
 import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
 
@@ -89,7 +89,7 @@ const paired = JSON.parse(readFileSync(PAIRED_JSON, 'utf8'));
 for (const index of indices) {
 	const { layers, grid } = targets.get(index);
 	const record = paired.runs.filter((/** @type {any} */ r) => r.grid === KIND)[index];
-	const solver = new LayeredSolver(layers, grid);
+	const solver = new Solver(layers, grid);
 	const result = solver.markAmbiguousTiles(Math.max(100, 0.1 * grid.total));
 	const stats = { ...solver.stats };
 	const check = record
@@ -112,7 +112,7 @@ for (const index of indices) {
 	// NOT invariant: rotation offsets change which possible entry satisfies
 	// grid-space constraints, so the search path (and cost) differs
 	const scrambledTiles = randomRotate(layers, grid);
-	const scrambledSolver = new LayeredSolver(scrambledTiles, grid);
+	const scrambledSolver = new Solver(scrambledTiles, grid);
 	const scrambledResult = scrambledSolver.markAmbiguousTiles(Math.max(100, 0.1 * grid.total));
 
 	const layerHistogram = {};

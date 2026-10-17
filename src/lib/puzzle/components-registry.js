@@ -77,7 +77,7 @@ export function popcount(mask) {
 }
 
 /**
- * The component registry of a LayeredSolver: the only writer of its arrays.
+ * The component registry of a Solver: the only writer of its arrays.
  * The solver asks state questions and requests transitions; rows, lists,
  * counts and queues are private bookkeeping.
  */

@@ -6,7 +6,7 @@
 	import Tile from '#lib/puzzle/Tile.svelte';
 	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
 	import { PipesGame } from '#lib/puzzle/game.svelte.js';
-	import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
+	import { Solver } from '#lib/puzzle/solver.js';
 	import EdgeMarks from '#lib/puzzle/EdgeMarks.svelte';
 
 	/**
@@ -216,7 +216,7 @@
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 	/**
-	 * @type {LayeredSolver|undefined}
+	 * @type {Solver|undefined}
 	 */
 	let solver;
 	/**
@@ -230,7 +230,7 @@
 			for (let tileState of game.tileStates) {
 				tileState.locked = false;
 			}
-			solver = new LayeredSolver(tiles, grid);
+			solver = new Solver(tiles, grid);
 			try {
 				for (let { stage, step } of solver.solve(true)) {
 					if (stage === 'aftercheck') {
@@ -270,8 +270,8 @@
 	let msStats = $state([]);
 	function measureSolveTime() {
 		const t0 = performance.now();
-		/** @type {LayeredSolver} */
-		let measureSolver = new LayeredSolver(tiles, grid);
+		/** @type {Solver} */
+		let measureSolver = new Solver(tiles, grid);
 		steps = 0;
 		try {
 			for (let _ of measureSolver.solve(true)) {

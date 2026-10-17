@@ -63,7 +63,7 @@ const NAME_MAP = new Map(NAME_BUCKETS);
 /**
  * Phase of one profile node. Class constructors appear under the class
  * name; the shared method names clone/addConnection appear in both
- * LayeredCell (source lines < 440) and LayeredSolver (>= 440)
+ * LayeredCell (source lines < 440) and Solver (>= 440)
  * @param {String} name
  * @param {Number} line - 1-based source line
  * @param {String} url
@@ -75,7 +75,7 @@ function bucketOf(name, line, url) {
 		return '(harness)';
 	}
 	if (name === 'LayeredCell') return 'cell-init/getCell';
-	if (name === 'LayeredSolver') return 'clone (solver)';
+	if (name === 'Solver') return 'clone (solver)';
 	if (name === 'clone' || name === 'addConnection') {
 		return line < 440 ? 'cell.clone' : name === 'clone' ? 'clone (solver)' : 'applyConstraints';
 	}

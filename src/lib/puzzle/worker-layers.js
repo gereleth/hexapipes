@@ -1,5 +1,5 @@
 import { LayeredGenerator, pregenerate_layers } from '#lib/puzzle/generator-layers.js';
-import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
+import { Solver } from '#lib/puzzle/solver.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
 /**
@@ -15,7 +15,7 @@ function generate(grid, options) {
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
-	/** @param {import('#lib/puzzle/solver-layers.js').SolverProgress} progress */
+	/** @param {import('#lib/puzzle/solver.js').SolverProgress} progress */
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
@@ -55,7 +55,7 @@ function debugStart(grid, options) {
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
-	/** @param {import('#lib/puzzle/solver-layers.js').SolverProgress} progress */
+	/** @param {import('#lib/puzzle/solver.js').SolverProgress} progress */
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
@@ -103,7 +103,7 @@ function debugTrueCount() {
 		postMessage({ msg: 'error', error: 'Run at least one debug step first' });
 		return;
 	}
-	const solver = new LayeredSolver(debugTiles, debugGrid);
+	const solver = new Solver(debugTiles, debugGrid);
 	const started = performance.now();
 	const { numAmbiguous } = solver.markAmbiguousTiles();
 	postMessage({ msg: 'true-count', numAmbiguous, elapsedMs: performance.now() - started });

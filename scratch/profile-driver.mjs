@@ -21,7 +21,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import inspector from 'node:inspector';
 import { pregenerate_layers, validateLayers } from '../src/lib/puzzle/generator-layers.js';
-import { LayeredSolver } from '../src/lib/puzzle/solver-layers.js';
+import { Solver } from '../src/lib/puzzle/solver.js';
 import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
 
@@ -72,7 +72,7 @@ function mulberry32(seed) {
 /**
  * One untimed markAmbiguousTiles run on a fresh solver, mirroring the
  * benchmark's call (ambiguousLimit = max(100, 0.1 * total))
- * @param {import('../src/lib/puzzle/solver-layers.js').LayeredSolver} SolverClass
+ * @param {import('../src/lib/puzzle/solver.js').Solver} SolverClass
  * @param {Number[][]} layers
  * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  */
@@ -139,7 +139,7 @@ if (record.candidate.capped || record.baseline.capped) {
 	console.error(`board ${KIND}[${index}] was capped in the paired run, pick an uncapped board`);
 	process.exit(1);
 }
-const check = runOnce(LayeredSolver, layers, grid);
+const check = runOnce(Solver, layers, grid);
 const statKeys = ['iterations', 'trialClones', 'shortTrials', 'dirtyProcessings'];
 const mismatches = [];
 if (check.numAmbiguous !== record.candidate.numAmbiguous) {
@@ -202,7 +202,7 @@ const profilePath = `${PROFILE_DIR}/${KIND}-${index}.cpuprofile`;
 await post('Profiler.start');
 for (let r = 0; r < reps; r++) {
 	const start = performance.now();
-	const result = runOnce(LayeredSolver, layers, grid);
+	const result = runOnce(Solver, layers, grid);
 	const ms = performance.now() - start;
 	console.log(
 		`rep ${r + 1}/${reps}: ${ms.toFixed(1)} ms, numAmbiguous ${result.numAmbiguous}, ` +

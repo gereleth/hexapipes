@@ -10,7 +10,7 @@ import {
 } from './generator-layers.js';
 import { SquareGrid } from './grids/squaregrid.js';
 import { HexaGrid } from './grids/hexagrid.js';
-import { LayeredSolver } from './solver-layers.js';
+import { Solver } from './solver.js';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
@@ -153,7 +153,7 @@ describe('Test branchingAmount knob', () => {
 	it('Mirrors growth events at both branching extremes with reuse', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const tiles0 = pregenerate_layers(grid, 0.6, 0.5);
-		const solver = new LayeredSolver(tiles0, grid);
+		const solver = new Solver(tiles0, grid);
 		const { marked } = solver.markAmbiguousTiles();
 		const startLayers = buildStartLayers(grid, tiles0, marked);
 		for (const branchingAmount of [0, 1]) {
@@ -250,7 +250,7 @@ describe('Test layered startLayers reuse', () => {
 			const wrap = i % 3 === 0;
 			const grid = i % 5 === 0 ? new HexaGrid(3, 4, wrap) : new SquareGrid(4, 4, wrap);
 			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
-			const solver = new LayeredSolver(tiles, grid);
+			const solver = new Solver(tiles, grid);
 			const { marked } = solver.markAmbiguousTiles();
 			const startLayers = buildStartLayers(grid, tiles, marked);
 			for (let cell = 0; cell < grid.total; cell++) {
@@ -293,7 +293,7 @@ describe('Test layered startLayers reuse', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(4, 4, false);
 			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
-			const solver = new LayeredSolver(tiles, grid);
+			const solver = new Solver(tiles, grid);
 			const { marked, numAmbiguous } = solver.markAmbiguousTiles();
 			const startLayers = buildStartLayers(grid, tiles, marked);
 			const regenerated = pregenerate_layers(grid, 1.0, 0.5, 0, startLayers);
@@ -585,7 +585,7 @@ describe('Test layered generator', () => {
 		for (let i = 0; i < 10; i++) {
 			const generator = new LayeredGenerator(grid);
 			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
-			const solver = new LayeredSolver(tiles, grid);
+			const solver = new Solver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
 		}
 	});
@@ -595,7 +595,7 @@ describe('Test layered generator', () => {
 		for (let i = 0; i < 3; i++) {
 			const generator = new LayeredGenerator(grid);
 			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
-			const solver = new LayeredSolver(tiles, grid);
+			const solver = new Solver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
 		}
 	});
@@ -605,7 +605,7 @@ describe('Test layered generator', () => {
 		for (let i = 0; i < 5; i++) {
 			const generator = new LayeredGenerator(grid);
 			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
-			const solver = new LayeredSolver(tiles, grid);
+			const solver = new Solver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
 		}
 	});
@@ -632,7 +632,7 @@ describe('Test layered generator', () => {
 			}
 		}
 		if (tiles !== null) {
-			const solver = new LayeredSolver(tiles, grid);
+			const solver = new Solver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(false);
 		}
 	});
@@ -641,9 +641,9 @@ describe('Test layered generator', () => {
 		const grid = new SquareGrid(3, 3, false);
 		/** @type {import('./generator-layers.js').GeneratorProgress[]} */
 		const generatorProgress = [];
-		/** @type {import('./solver-layers.js').SolverProgress[]} */
+		/** @type {import('./solver.js').SolverProgress[]} */
 		const solverProgress = [];
-		/** @param {import('./solver-layers.js').SolverProgress} progress */
+		/** @param {import('./solver.js').SolverProgress} progress */
 		const onSolverProgress = (progress) => solverProgress.push(progress);
 		/** @param {import('./generator-layers.js').GeneratorProgress} progress */
 		const onGeneratorProgress = (progress) => generatorProgress.push(progress);
@@ -691,7 +691,7 @@ describe('Test layered generation worker', () => {
 		expect(generated?.tiles?.length).toBe(grid.total);
 		// the board is scrambled: solve it back to verify uniqueness
 		const tiles = /** @type {Number[][]} */ (generated?.tiles);
-		const solver = new LayeredSolver(tiles, grid);
+		const solver = new Solver(tiles, grid);
 		expect(solver.markAmbiguousTiles().unique).toBe(true);
 	});
 
@@ -856,7 +856,7 @@ describe('Test layered growth events', () => {
 	it('Mirrors growth events with startLayers reuse', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const tiles0 = pregenerate_layers(grid, 1.0, 0.5);
-		const solver = new LayeredSolver(tiles0, grid);
+		const solver = new Solver(tiles0, grid);
 		const { marked } = solver.markAmbiguousTiles();
 		const startLayers = buildStartLayers(grid, tiles0, marked);
 		for (let i = 0; i < 10; i++) {
@@ -921,7 +921,7 @@ describe('Test layered uniqueIterations', () => {
 				expect(step.keptCount).toBe(0);
 			}
 			if (step.unique) {
-				const solver = new LayeredSolver(step.tiles, grid);
+				const solver = new Solver(step.tiles, grid);
 				expect(solver.markAmbiguousTiles().unique).toBe(true);
 			}
 			expect(steps).toBeLessThan(500);

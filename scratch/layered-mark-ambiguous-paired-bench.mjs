@@ -1,6 +1,6 @@
 // Paired benchmark: every board is solved twice, back-to-back, by the
-// baseline snapshot (solver-layers-baseline.js, an untracked frozen copy of
-// solver-layers.js) and the current solver (solver-layers.js).
+// baseline snapshot (solver-baseline.js, an untracked frozen copy of
+// solver.js) and the current solver (solver.js).
 // Because both solves share the same process state, the comparison is much
 // less affected by whatever else the machine is doing than cross-session
 // wall-clock comparisons. The run order alternates per board index to cancel
@@ -27,7 +27,7 @@
 //     (default 60000); capped runs are excluded from the statistics
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers, validateLayers } from '../src/lib/puzzle/generator-layers.js';
-import { LayeredSolver as AltLayeredSolver } from '../src/lib/puzzle/solver-layers.js';
+import { Solver as CurrentSolver } from '../src/lib/puzzle/solver.js';
 import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
 import { OctaGrid } from '../src/lib/puzzle/grids/octagrid.js';
@@ -45,24 +45,24 @@ const LAYERING = 0.6;
 
 /**
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
- * file (a verbatim copy of solver-layers.js frozen at the start of the
- * optimization series), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('../src/lib/puzzle/solver-layers.js').LayeredSolver>}
+ * file (a verbatim copy of solver.js frozen at the last intentional decision
+ * shift), so it may be missing on a fresh checkout
+ * @returns {Promise<typeof import('../src/lib/puzzle/solver.js').Solver>}
  */
 async function loadBaselineSolver() {
 	try {
 		// computed specifier keeps the import runtime-only, so a missing file
 		// reaches the catch below instead of failing module resolution
-		const module = await import('../src/lib/puzzle/solver-layers-baseline'.concat('.js'));
-		return module.LayeredSolver;
+		const module = await import('../src/lib/puzzle/solver-baseline'.concat('.js'));
+		return module.Solver;
 	} catch (error) {
 		throw new Error(
 			'Baseline solver snapshot is missing or cannot be imported.\n' +
-				'Expected file: src/lib/puzzle/solver-layers-baseline.js - a verbatim copy of\n' +
-				'solver-layers.js frozen at the start of the optimization series\n' +
+				'Expected file: src/lib/puzzle/solver-baseline.js - a verbatim copy of\n' +
+				'solver.js frozen at the last intentional decision shift\n' +
 				'(see agent-doc/solver-perf-plan.md, "Reference snapshot").\n' +
 				'Create it with:\n' +
-				'\tcp src/lib/puzzle/solver-layers.js src/lib/puzzle/solver-layers-baseline.js\n' +
+				'\tcp src/lib/puzzle/solver.js src/lib/puzzle/solver-baseline.js\n' +
 				`Original error: ${/** @type {Error} */ (error).message}`
 		);
 	}
@@ -272,8 +272,8 @@ function flush() {
 					'Paired markAmbiguousTiles timings on fresh pregenerate_layers boards: ' +
 					'20x20 non-wrapping, layering 0.6, branching random in [0, 1], ' +
 					'avoidObvious random in [0, 0.5]. Every board is solved back-to-back by ' +
-					'baseline = solver-layers-baseline.js (frozen snapshot) and ' +
-					'candidate = the current solver-layers.js; run order alternates by ' +
+					'baseline = solver-baseline.js (frozen snapshot) and ' +
+					'candidate = the current solver.js; run order alternates by ' +
 					'board index. ambiguousTilesLimit max(100, 0.1 * total) like the ' +
 					`uniqueness loop, wall-clock cap ${WALL_CLOCK_CAP_MS} ms per solve ` +
 					'(boards where either side capped are excluded from statistics). ' +
@@ -293,7 +293,7 @@ function flush() {
 
 /**
  * Runs markAmbiguousTiles once on a fresh solver instance
- * @param {typeof import('../src/lib/puzzle/solver-layers.js').LayeredSolver} SolverClass
+ * @param {typeof import('../src/lib/puzzle/solver.js').Solver} SolverClass
  * @param {import('../src/lib/puzzle/generator-layers.js').LayeredTiles} layers
  * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {SolverRunRecord}
@@ -446,7 +446,7 @@ try {
 		// JIT/GC-hot before anything is recorded
 		const warmTiles = pregenerate_layers(grid, LAYERING, 0.5, 0.25);
 		runSolver(BaselineSolver, warmTiles, grid);
-		runSolver(AltLayeredSolver, warmTiles, grid);
+		runSolver(CurrentSolver, warmTiles, grid);
 		for (let i = 1; i <= NUM_RUNS; i++) {
 			const branchingAmount = Math.random();
 			const avoidObvious = Math.random() * 0.5;
@@ -460,9 +460,9 @@ try {
 			let candidateRun;
 			if (order === 'baseline-first') {
 				baselineRun = runSolver(BaselineSolver, layers, grid);
-				candidateRun = runSolver(AltLayeredSolver, layers, grid);
+				candidateRun = runSolver(CurrentSolver, layers, grid);
 			} else {
-				candidateRun = runSolver(AltLayeredSolver, layers, grid);
+				candidateRun = runSolver(CurrentSolver, layers, grid);
 				baselineRun = runSolver(BaselineSolver, layers, grid);
 			}
 			const agree = compareRuns(baselineRun, candidateRun);

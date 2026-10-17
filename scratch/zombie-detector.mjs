@@ -1,4 +1,4 @@
-// Zombie-path detector for the component registries in solver-layers.js.
+// Zombie-path detector for the component registries in solver.js.
 // See agent-doc/solver-perf-plan.md and the SoA-registry plan discussion.
 //
 // When mergeComponents() absorbs a component, the absorbed object is never
@@ -35,7 +35,7 @@
 //   MODE=clean RUNS=200 node scratch/zombie-detector.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers } from '../src/lib/puzzle/generator-layers.js';
-import { LayeredSolver } from '../src/lib/puzzle/solver-layers.js';
+import { Solver } from '../src/lib/puzzle/solver.js';
 import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
 
@@ -77,7 +77,7 @@ const blankCounts = () => ({
 
 /**
  * Find (or lazily create at the root) this solver tree's zombie state
- * @param {LayeredSolver} solver
+ * @param {Solver} solver
  */
 function zState(solver) {
 	let s = solver;
@@ -93,7 +93,7 @@ function zState(solver) {
 	return s.__z;
 }
 
-const proto = LayeredSolver.prototype;
+const proto = Solver.prototype;
 const origMerge = proto.mergeComponents;
 const origGAC = proto.getAnsweringComponent;
 
@@ -157,7 +157,7 @@ proto.mergeComponents = function (subcellComponent, slotComponent, subCellId) {
  * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  */
 function runOnce(layers, grid) {
-	const solver = new LayeredSolver(layers, grid);
+	const solver = new Solver(layers, grid);
 	const result = solver.markAmbiguousTiles(Math.max(100, 0.1 * grid.total));
 	return {
 		numAmbiguous: result.numAmbiguous,
