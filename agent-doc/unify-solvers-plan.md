@@ -30,8 +30,8 @@ Evidence the swap is safe:
 - All 25 behavioral assertions of `solver.test.js` (the `markAmbiguousTiles` block and the emit
   format block — exact `marked` arrays including multi-solution boards, wrap, empty cells, 2×2/3×3
   small boards, unsolvable cases, step-stream format) were verified to pass verbatim against
-  `LayeredSolver` on one-layer conversions (2026-10-16, ephemeral script — re-proven by step 1
-  below, which makes it permanent).
+  `LayeredSolver` on one-layer conversions (2026-10-16, ephemeral script; made permanent by the
+  ported tests, see the 2026-10-17 section).
 
 ## Done (2026-10-16, later session)
 
@@ -72,31 +72,21 @@ Evidence the swap is safe:
   layering-0.6 boards it measures, every board is multi-layer, so deductions 1–2 are gated off and
   the correction cannot affect that workload (verified 30/30 boards).
 
+## Done (2026-10-17)
+
+- **Step 1 — classic behavioral tests ported onto the unified class.** The "Test solutions check
+  and marking ambiguous tiles" (9 tests) and "Test solver emit format" (2 tests) blocks moved from
+  `solver.test.js` to `solver-layers.test.js` as "(classic input)" blocks: assertions verbatim,
+  only import + constructor swapped, so they pin the constructor's one-layer normalization and the
+  per-cell rotation outputs through the classic encoding path. `generator.test.js`'s `verifyUnique`
+  and the pregeneration solvability checks construct `LayeredSolver` now. The three remaining
+  `solver.test.js` blocks (hexagrid cell constraints, cell cloning, border constraints) stay until
+  the `Cell`/rename steps retire them. The two 20×20 hexagonal uniqueness tests keep their 15 s
+  timeouts, though the helper swap runs them at ~4.5 s each.
+
 ## Remaining work, in suggested order
 
-### 1. Port the classic behavioral tests onto the unified class
-
-Move two blocks of `solver.test.js` to run against `LayeredSolver` with classic `Number[]` input
-(verified passing, see above):
-
-- "Test solutions check and marking ambiguous tiles" (9 tests) — swap import + constructor,
-  assertions stay as-is.
-- "Test solver emit format" (2 tests) — same; pins the `{stage, step}` stream, rotation orbit,
-  `solutions` contents, and empty-cell step skipping, which the layered solver already matches.
-
-These are classic-input tests **of the unified class**, not two-solver comparison tests (per the
-decision: no new tests involving both solvers). Then switch `generator.test.js`'s helper
-(`verifyUnique` and the pregeneration solvability checks) from `new Solver(...)` to the unified
-class. The other two blocks retire with classic:
-
-- "Test hexagrid cell constraints" (14) + "Test cell cloning" (3) — pin classic `Cell` internals;
-  die with `Cell`'s fate (step 2). `LayeredCell`'s constraint model has its own coverage in
-  `solver-layers.test.js`.
-- "Test solver border constraints" (5) — pin classic init internals (`getCell` before processing,
-  literal `walls` values). The layered solver initializes differently (`processInitialDeductions`);
-  confirm init coverage exists in `solver-layers.test.js`, then let these go.
-
-### 2. Resolve `Cell` (the last runtime dependency on `solver.js`)
+### 1. Resolve `Cell` (the last runtime dependency on `solver.js`)
 
 `Cell`'s single runtime use is the classic generator's avoid-obvious precompute (`generator.js`,
 `polygonForbidden` setup): it builds `new Cell(polygon, -1)`, adds the border-wall mask, applies
@@ -114,7 +104,7 @@ Options:
    replacement; works but drags the full layered constraint machinery into pregeneration for a
    trivial filter.
 
-### 3. Rename and delete
+### 2. Rename and delete
 
 - Rename `LayeredSolver` → `Solver` (the neutral end-state name, mirroring how the unified game kept
   the name `PipesGame`). Decide file naming: either keep `solver-layers.js` or move the class to
@@ -122,7 +112,7 @@ Options:
   current `solver-layers.js` against a **frozen snapshot copy of the file** — a rename/move means
   regenerating the snapshot per the harness failure-message instructions (see `layers-solver.md`,
   harness section).
-- Delete `solver.js`, `solver.test.js` (after step 2), and the paired bench
+- Delete `solver.js`, `solver.test.js` (after the `Cell` step), and the paired bench
   `scratch/classic-vs-layered-bench.mjs` (sweep `scratch/` for other classic-only harnesses, e.g.
   `classic-mark-ambiguous-bench.mjs`).
 - Trivial cleanups: `GeneratorComponent.svelte` and `SolverProgress.svelte` hold type-only
@@ -146,5 +136,5 @@ Generator unification (`Generator` vs `LayeredGenerator`), worker merging (`work
 - Soundness fuzz (any solver change):
   `FUZZ_SOLUTIONS=1 npx vitest run src/lib/puzzle/solver-layers-fuzz.test.js` — snapshot-compare
   rules in `layers-solver.md`.
-- Perf: `node scratch/classic-vs-layered-bench.mjs` (delete after step 4; use
+- Perf: `node scratch/classic-vs-layered-bench.mjs` (delete in the rename-and-delete step; use
   `scratch/layered-mark-ambiguous-paired-bench.mjs` for solver-internal changes).

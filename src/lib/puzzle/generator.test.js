@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Generator } from './generator.js';
 import { HexaGrid } from './grids/hexagrid.js';
 import { SquareGrid } from './grids/squaregrid.js';
-import { Solver } from './solver.js';
+import { LayeredSolver } from './solver-layers.js';
 import { SnubSquareGrid } from './grids/snubsquaregrid.js';
 
 describe('Test Prims pregeneration', () => {
@@ -12,7 +12,7 @@ describe('Test Prims pregeneration', () => {
 		const grid = new HexaGrid(5, 5, false);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -21,7 +21,7 @@ describe('Test Prims pregeneration', () => {
 		const grid = new HexaGrid(5, 5, true);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -30,7 +30,7 @@ describe('Test Prims pregeneration', () => {
 		const grid = new HexaGrid(4, 6, false);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -39,7 +39,7 @@ describe('Test Prims pregeneration', () => {
 		const grid = new HexaGrid(4, 6, true);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -52,7 +52,7 @@ describe('Test Recursive Backtracking pregeneration', () => {
 		const grid = new HexaGrid(5, 5, false);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -61,7 +61,7 @@ describe('Test Recursive Backtracking pregeneration', () => {
 		const grid = new HexaGrid(5, 5, true);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -70,7 +70,7 @@ describe('Test Recursive Backtracking pregeneration', () => {
 		const grid = new HexaGrid(4, 6, false);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -79,7 +79,7 @@ describe('Test Recursive Backtracking pregeneration', () => {
 		const grid = new HexaGrid(4, 6, true);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -92,7 +92,7 @@ describe('Test Growing Tree pregeneration', () => {
 		const grid = new HexaGrid(5, 5, false);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -101,7 +101,7 @@ describe('Test Growing Tree pregeneration', () => {
 		const grid = new HexaGrid(5, 5, true);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -110,7 +110,7 @@ describe('Test Growing Tree pregeneration', () => {
 		const grid = new HexaGrid(4, 6, false);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -119,7 +119,7 @@ describe('Test Growing Tree pregeneration', () => {
 		const grid = new HexaGrid(4, 6, true);
 		const gen = new Generator(grid);
 		const tiles = gen.pregenerate_growingtree(branchingAmount);
-		const solver = new Solver(tiles, grid);
+		const solver = new LayeredSolver(tiles, grid);
 		const { solvable } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 	});
@@ -136,7 +136,7 @@ describe('Test Growing Tree pregeneration with avoid obvious tiles', () => {
 			const tiles = gen.pregenerate_growingtree(Math.random(), 1, Math.random());
 			const hasEmptyTiles = tiles.some((t) => t === 0);
 			expect(hasEmptyTiles).toBe(false);
-			const solver = new Solver(tiles, grid);
+			const solver = new LayeredSolver(tiles, grid);
 			const { solvable } = solver.markAmbiguousTiles();
 			expect(solvable).toBe(true);
 		}
@@ -152,7 +152,7 @@ describe('Test solution uniqueness', () => {
 		for (let i = 0; i < numAttempts; i++) {
 			const gen = new Generator(grid);
 			const tiles = gen.generate();
-			const solver = new Solver(tiles, grid);
+			const solver = new LayeredSolver(tiles, grid);
 			for (let _ of solver.solve(true)) {
 			}
 			expect(solver.solutions.length).toBe(1);
