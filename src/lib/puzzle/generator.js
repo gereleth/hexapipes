@@ -1,4 +1,3 @@
-import { Cell } from '#lib/puzzle/solver.js';
 import { LayeredSolver } from '#lib/puzzle/solver-layers.js';
 
 /**
@@ -36,6 +35,72 @@ const emptyCallback = () => {};
 function getRandomElement(array) {
 	const index = Math.floor(Math.random() * array.length);
 	return array[index];
+}
+
+/**
+ * Maps grid cells to "obvious" orientations - those that would be instantly
+ * solved due to outer walls or empty neighbours. For example, a straight tile
+ * along a square board's edge or a bend tile in a corner.
+ * Only cells next to outer walls or empty neighbours get an entry.
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Set<Number>} indexes - cells to consider, typically the unvisited set
+ * @returns {Map<Number, Set<Number>>} cell index => forbidden orientations
+ */
+export function computeCellObviousTiles(grid, indexes) {
+	/**
+	 * @type {Map<import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile, Map<Number, Set<Number>>>}
+	 * polygon => (cell walls => set of forbidden orientations) */
+	const polygonForbidden = new Map();
+	/** @type {Map<Number, Set<Number>>} cell index => forbidden orientations */
+	const cellForbidden = new Map();
+	for (let index of indexes) {
+		const polygon = grid.polygon_at(index);
+		let walls = 0;
+		for (let direction of polygon.directions) {
+			const { empty } = grid.find_neighbour(index, direction);
+			if (empty) {
+				walls += direction;
+			}
+		}
+		if (walls === 0) {
+			continue;
+		}
+		let forbidden = polygonForbidden.get(polygon);
+		if (!forbidden) {
+			forbidden = new Map();
+			polygonForbidden.set(polygon, forbidden);
+		}
+		let wallForbidden = forbidden.get(walls);
+		if (!wallForbidden) {
+			wallForbidden = new Set();
+			forbidden.set(walls, wallForbidden);
+			/** @type {Map<String, Set<Number>>} shape class => surviving orientations */
+			const survivors = new Map();
+			for (let orientation of polygon.tileTypes.keys()) {
+				if ((orientation & walls) !== 0) {
+					continue;
+				}
+				const str = polygon.tileTypes.get(orientation)?.str || '';
+				const group = survivors.get(str);
+				if (group) {
+					group.add(orientation);
+				} else {
+					survivors.set(str, new Set([orientation]));
+				}
+			}
+			for (let group of survivors.values()) {
+				if (group.size === 1) {
+					for (let orientation of group) {
+						wallForbidden.add(orientation);
+					}
+				}
+			}
+		}
+		if (wallForbidden.size > 0) {
+			cellForbidden.set(index, wallForbidden);
+		}
+	}
+	return cellForbidden;
 }
 
 /**
@@ -187,57 +252,9 @@ export class Generator {
 			}
 		}
 
-		/** @type {Map<Number, Number>} tile index => tile walls */
-		const borders = new Map();
-		/**
-		 * @type {Map<import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile, Map<Number, Set<Number>>>}
-		 * polygon => (tile walls => set of forbidden types-orientations) */
-		const polygonForbidden = new Map();
-		/** @type {Map<Number, Set<Number>>} tile index => forbidden orientations */
-		const tileForbidden = new Map();
-		if (avoidObvious > 0) {
-			for (let tileIndex of unvisited) {
-				const polygon = this.grid.polygon_at(tileIndex);
-				for (let direction of polygon.directions) {
-					const { empty } = this.grid.find_neighbour(tileIndex, direction);
-					if (empty) {
-						borders.set(tileIndex, (borders.get(tileIndex) || 0) + direction);
-					}
-				}
-				const walls = borders.get(tileIndex) || 0;
-				if (walls > 0) {
-					const forbidden = polygonForbidden.get(polygon) || new Map();
-					if (!polygonForbidden.has(polygon)) {
-						polygonForbidden.set(polygon, forbidden);
-					}
-					const wallForbidden = forbidden.get(walls) || new Set();
-					if (!forbidden.has(walls)) {
-						forbidden.set(walls, wallForbidden);
-						const cell = new Cell(polygon, -1);
-						cell.addWall(walls);
-						cell.applyConstraints();
-						/** @type {Map<String, Set<Number>>} */
-						const tileTypes = new Map();
-						for (let orientation of cell.possible) {
-							const tileType = polygon.tileTypes.get(orientation)?.str || '';
-							const orientations = tileTypes.get(tileType) || new Set();
-							if (!tileTypes.has(tileType)) {
-								tileTypes.set(tileType, orientations);
-							}
-							orientations.add(orientation);
-						}
-						for (let [tileType, orientations] of tileTypes.entries()) {
-							if (orientations.size === 1) {
-								wallForbidden.add(orientations.values().next().value);
-							}
-						}
-					}
-					if (wallForbidden.size > 0) {
-						tileForbidden.set(tileIndex, wallForbidden);
-					}
-				}
-			}
-		}
+		/** @type {Map<Number, Set<Number>>} cell index => forbidden orientations */
+		const cellObviousTiles =
+			avoidObvious > 0 ? computeCellObviousTiles(this.grid, unvisited) : new Map();
 
 		if (visited.length === 0) {
 			/** @type {Number} */
@@ -294,8 +311,8 @@ export class Generator {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
 				}
-				if (tileForbidden.has(fromNode) && Math.random() < avoidObvious) {
-					const nogo = tileForbidden.get(fromNode);
+				if (cellObviousTiles.has(fromNode) && Math.random() < avoidObvious) {
+					const nogo = cellObviousTiles.get(fromNode);
 					if (nogo?.has(tiles[fromNode] + direction)) {
 						obviousNeighbours.push({ neighbour, direction });
 						continue;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Generator } from './generator.js';
+import { Generator, computeCellObviousTiles } from './generator.js';
 import { HexaGrid } from './grids/hexagrid.js';
 import { SquareGrid } from './grids/squaregrid.js';
 import { LayeredSolver } from './solver-layers.js';
@@ -196,4 +196,22 @@ describe('Test solution uniqueness', () => {
 	// 	const grid = new SnubSquareGrid(10, 10, true);
 	// 	verifyUnique(grid);
 	// });
+});
+
+describe('Test the avoid-obvious precompute', () => {
+	it('Marks the orientations forced by border walls as forbidden', () => {
+		const grid = new SquareGrid(3, 3, false);
+		grid.makeEmpty(8);
+		const forbidden = computeCellObviousTiles(grid, new Set([0, 1, 4, 7]));
+		// corner: N+W walls leave the deadend class (E, S) and the E+S bend -
+		// the bend's shape class has a single survivor
+		expect(forbidden.get(0)).toEqual(new Set([9]));
+		// edge: N wall leaves deadends (E, W, S), bends (E+S, W+S), the E+W
+		// straight and the E+W+S triple - the straight and triple are singletons
+		expect(forbidden.get(1)).toEqual(new Set([5, 13]));
+		// center tile has no border walls, no entry
+		expect(forbidden.has(4)).toBe(false);
+		// empty cell 8 leaves deadends (N, W) and a single bend N+W
+		expect(forbidden.get(7)).toEqual(new Set([6]));
+	});
 });

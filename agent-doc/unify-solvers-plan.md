@@ -84,27 +84,20 @@ Evidence the swap is safe:
   the `Cell`/rename steps retire them. The two 20×20 hexagonal uniqueness tests keep their 15 s
   timeouts, though the helper swap runs them at ~4.5 s each.
 
+- **`Cell` resolved (2026-10-17, later).** The avoid-obvious precompute is now the standalone
+  `computeTileForbidden(grid, tileIndexes)` helper in `generator.js` (the plan's option 1): the
+  (polygon, wall-mask) memoization is unchanged, and the per-mask computation is a bare wall filter
+  over `polygon.tileTypes` keys grouped by shape `str`, with single-orientation classes marked
+  forbidden — runtime-checked to produce identical forbidden sets to the `Cell` path (square
+  corner {9}, edge {5, 13}), with the 100-board `avoidObvious` generator test covering it
+  end-to-end and a focused unit test pinning the corner/edge/center cases. `generator.js` no
+  longer imports `solver.js`; `Cell`'s only remaining consumer is classic `Solver` inside the same
+  file, so `Cell` now dies together with `Solver` in the rename step (the cell-constraint/cloning
+  test blocks in `solver.test.js` go with it).
+
 ## Remaining work, in suggested order
 
-### 1. Resolve `Cell` (the last runtime dependency on `solver.js`)
-
-`Cell`'s single runtime use is the classic generator's avoid-obvious precompute (`generator.js`,
-`polygonForbidden` setup): it builds `new Cell(polygon, -1)`, adds the border-wall mask, applies
-constraints, and groups the surviving orientations by `tileTypes` `str` — a shape class with exactly
-one surviving orientation is "forced" by the walls, and those orientations become the ones
-`avoidObvious` steers the growth away from.
-
-Options:
-
-1. **Standalone helper (recommended)** — the computation only needs "which orientations survive a
-   given wall mask", which is a filter over `polygon.tileTypes` keys: keep orientations whose mask
-   is wall-compatible, group by `str`, mark single-orientation classes. No solver class needed;
-   delete `Cell` entirely.
-2. **One-layer `LayeredCell`** — `new LayeredCell(polygon, [walls-mask-complement])` style
-   replacement; works but drags the full layered constraint machinery into pregeneration for a
-   trivial filter.
-
-### 2. Rename and delete
+### 1. Rename and delete
 
 - Rename `LayeredSolver` → `Solver` (the neutral end-state name, mirroring how the unified game kept
   the name `PipesGame`). Decide file naming: either keep `solver-layers.js` or move the class to
@@ -112,7 +105,8 @@ Options:
   current `solver-layers.js` against a **frozen snapshot copy of the file** — a rename/move means
   regenerating the snapshot per the harness failure-message instructions (see `layers-solver.md`,
   harness section).
-- Delete `solver.js`, `solver.test.js` (after the `Cell` step), and the paired bench
+- Delete `solver.js` (`Cell` included — it has no consumers outside the file), `solver.test.js`,
+  and the paired bench
   `scratch/classic-vs-layered-bench.mjs` (sweep `scratch/` for other classic-only harnesses, e.g.
   `classic-mark-ambiguous-bench.mjs`).
 - Trivial cleanups: `GeneratorComponent.svelte` and `SolverProgress.svelte` hold type-only
