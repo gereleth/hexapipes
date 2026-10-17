@@ -1,8 +1,9 @@
 # Pipes game (`PipesGame`, classic + layered)
 
-Files: state and logic in `game.svelte.js`; renderers `Tile.svelte` (classic) and
-`LayeredTile.svelte` (layered); wiring in `Puzzle.svelte`; input in `controls.js`. Tests:
-`game.svelte.test.js` (classic + characterization pins) and `game-layers.svelte.test.js` (layered).
+Files: state and logic in `game/game.svelte.js`; renderers `Tile.svelte` (classic) and
+`LayeredTile.svelte` (layered); wiring in `Puzzle.svelte`; input in `game/controls.js`. Tests:
+`game/game.svelte.test.js` (classic + characterization pins) and `game/game-layers.svelte.test.js`
+(layered).
 
 The layered variant is a strict generalization of classic: a classic board is a layered board with
 exactly one layer per cell. The game exploits that. `PipesGame` accepts classic bitmasks
@@ -93,7 +94,7 @@ never will.
 `firstValidSubcell` covering everything. No loop check is needed, and the reason is worth
 understanding: with no open ends every direction is mutual, so the connection count is pipe ends
 divided by two, which equals V−1; a connected graph on V nodes with V−1 edges is a tree. Pinned by
-the `[[9], [12], [3], [6]]` loop fixture in `game-layers.svelte.test.js`.
+the `[[9], [12], [3], [6]]` loop fixture in `game/game-layers.svelte.test.js`.
 
 ## The UI: two renderers, one input path
 
@@ -107,7 +108,7 @@ from a per-layer offset center so different layers' pipes don't overlap at the c
 FIXME: loop highlighting by cell background is bad in layered case because it's impossible to see
 which layers are in a loop.
 
-Input is shared because `controls.js` works at cell granularity: it calls `rotateTile`,
+Input is shared because `game/controls.js` works at cell granularity: it calls `rotateTile`,
 `toggleLocked`, `toggleEdgeMark` and reads `tileStates`, all by cell index. Edge marks live per grid
 edge, not per layer — by the 1-exit-per-cell+direction invariant each cell-edge belongs to at most
 one layer. Outer edges of non-wrap boards are pinned to `'none'`. The assistant

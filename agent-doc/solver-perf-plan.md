@@ -10,9 +10,9 @@ Status: series in progress on the `layers` branch.
   does not matter. The goal is throughput and tail headroom (larger boards, faster patience-loop
   convergence).
 - Priority grid: hexagonal 20×20 (mean and tail); square tracked as a sanity side.
-- Solver changes are compared against a reference snapshot: `src/lib/puzzle/solver-baseline.js` —
+- Solver changes are compared against a reference snapshot: `src/lib/puzzle/solver/solver-baseline.js` —
   verbatim copy of the pre-change solver, untracked on purpose (recreate after a fresh checkout with
-  `cp src/lib/puzzle/solver.js src/lib/puzzle/solver-baseline.js`). Re-baseline only on an
+  `cp src/lib/puzzle/solver/solver.js src/lib/puzzle/solver/solver-baseline.js`). Re-baseline only on an
   intentional, user-endorsed decision shift; the current freeze dates from 2026-10-17 (the solver
   unification rename — decision-free, but the pre-rename snapshot's `LayeredSolver` export would no
   longer load).
@@ -22,7 +22,7 @@ Status: series in progress on the `layers` branch.
   deltas in the seeded paired benchmark.
 - Decision-shifting candidates require 0 solvable/unique disagreements in the paired benchmark and
   an additional extra-large solution-list equivalence check vs the snapshot:
-  `FUZZ_SOLUTIONS=1 FUZZ_STABLE_RUNS=1000 npx vitest run src/lib/puzzle/solver-fuzz.test.js`
+  `FUZZ_SOLUTIONS=1 FUZZ_STABLE_RUNS=1000 npx vitest run src/lib/puzzle/solver/solver-fuzz.test.js`
 - Additional gates per change: unit + layered suites, `npm run check` with no new errors in touched
   files, prettier clean.
 
@@ -244,7 +244,7 @@ Fix for general correctness: `getCell` adds the freshly born cell to `dirty` rig
 One add suffices: after initial deductions every root cell is materialized, so only the birth path
 can produce never-processed cells, and cells materialized mid-drain by queries are swept by that
 same drain. Clones only materialize via the parent path (already-processed cells). Regression test
-in `solver.test.js` ("Dirty-processes every materialized cell") pins hardcoded generated tiles (4×4
+in `solver/solver.test.js` ("Dirty-processes every materialized cell") pins hardcoded generated tiles (4×4
 wrap grid) whose pre-fix run leaves one such root cell (cell 10).
 
 Gates (decision-shifting vs the pre-fix snapshot, seed 20260921): 0 capped, 0 solvable/unique
@@ -339,7 +339,7 @@ columns + intrusive doubly-linked member lists; `subcellOwner`/`subcellNode` inv
 order, reproducing inner-Map iteration) + `slotCount`; island queue as an epoch-filtered array with
 exact Set semantics. `ND` derives from `grid.DIRECTIONS` (the grid-level union of direction bits) —
 correct for mixed grids (octa/rhombitrihexa/trihexa use per-cell-class subsets up to bit 7; a new
-all-grid smoke test in `solver.test.js` pins this, the layered suite previously covered only
+all-grid smoke test in `solver/solver.test.js` pins this, the layered suite previously covered only
 square+hexa). Written in the `soa-registry` worktree branched from the `layers` tip.
 
 **Lazy copy-on-write was rejected first** (measured reasoning, not profiles): every trial clone is
@@ -392,7 +392,7 @@ deleted-with-reserved-position) is enough: a re-add reactivates the reserved pos
 component is visited at most once per flush without any sequence numbers. Two fewer arrays per
 solver, no append-scan, no order-preservation invariants left to maintain.
 
-Side-find: `generator-layers.test.js` "Mirrors growth events with startLayers reuse" is **inherently
+Side-find: `generator/generator-layers.test.js` "Mirrors growth events with startLayers reuse" is **inherently
 flaky** — it is unseeded, and over 200 seeded runs the `applyGrowthMoves` animation replay
 mismatches the generator on the SAME 5 seeds (56, 58, 94, 136, 159) pre-SoA and post-SoA alike (a
 `move` push can leave a direction duplicated in a cell the generator later resolved differently).

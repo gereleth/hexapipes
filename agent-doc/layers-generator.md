@@ -1,11 +1,11 @@
 # Layers variant: generator (`pregenerate_layers`, `LayeredGenerator`)
 
-Files: `src/lib/puzzle/generator-layers.js`, `src/lib/puzzle/worker-layers.js` (web worker),
-`src/routes/custom/+page.svelte` + `LayeredGeneratorComponent.svelte` (UI wiring),
-`/generator-debug` (research tooling, no nav link). Classic counterpart: `generator.js`
-(`pregenerate_growingtree`, `Generator`). Tests: `generator-layers.test.js` (pregeneration,
+Files: `src/lib/puzzle/generator/generator-layers.js`, `src/lib/puzzle/worker-layers.js` (web
+worker), `src/routes/custom/+page.svelte` + `LayeredGeneratorComponent.svelte` (UI wiring),
+`/generator-debug` (research tooling, no nav link). Classic counterpart: `generator/generator.js`
+(`pregenerate_growingtree`, `Generator`). Tests: `generator/generator-layers.test.js` (pregeneration,
 scrambling, startLayers reuse, `LayeredGenerator` modes, worker smoke tests, growth-event mirroring,
-`uniqueIterations`). Run: `npx vitest run src/lib/puzzle/generator-layers.test.js`.
+`uniqueIterations`). Run: `npx vitest run src/lib/puzzle/generator/generator-layers.test.js`.
 
 ## `pregenerate_layers(grid, layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount, onMove)`
 
@@ -186,7 +186,7 @@ iteration as `startLayers` (`keptCount` = how many cells that was). Per iteratio
   degenerate (the start cell keeps a zero layer, rejected here) — irrelevant, not a playable board.
 - `randomRotate(layers, grid)`: scramble; one random rotation per cell, all layers together.
 - `applyRotations(grid, layers, rotations)`: rotate each cell's layers; solver sentinel rotations
-  count as no-op. Shared with `solver.test.js`.
+  count as no-op. Shared with `solver/solver.test.js`.
 - `buildStartLayers(grid, layers, marked)`: solved board + marked rotations → `StartLayers` (`null`
   for empty cells and `AMBIGUOUS`/`UNSOLVED` sentinels).
 

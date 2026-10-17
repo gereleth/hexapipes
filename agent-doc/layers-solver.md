@@ -1,10 +1,11 @@
 # The solver (`Solver`)
 
-Files: `src/lib/puzzle/solver.js` (`LayeredCell`, `Solver`) and
-`src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the component registry the solver
-drives). This is the one solver for both variants (unified 2026-10-17, retiring the classic `Solver`
-and its `Cell` helper): it accepts both tile encodings, mirroring `PipesGame`. Tests:
-`solver.test.js`; safety nets: `solver-fuzz.test.js` (solution-equivalence fuzz, env-gated vitest)
+Files: `src/lib/puzzle/solver/solver.js` (`LayeredCell`, `Solver`) and
+`src/lib/puzzle/solver/components-registry.js` (`ComponentsRegistry`, the component registry the
+solver drives). This is the one solver for both variants (unified 2026-10-17, retiring the classic
+`Solver` and its `Cell` helper): it accepts both tile encodings, mirroring `PipesGame`. Tests:
+`solver/solver.test.js`; safety nets: `solver/solver-fuzz.test.js` (solution-equivalence fuzz,
+env-gated vitest)
 and `scratch/layered-mark-ambiguous-paired-bench.mjs` (paired benchmark, plain script) — described
 in the harness section below. Consumers: `Puzzle.svelte` (solve animation + stats readout, both
 variants), the classic `Generator` (uniqueness/patience loop, classic boards solved one-layer) and
@@ -149,7 +150,8 @@ Correspondingly, `removeSubcell` deliberately leaves `totalSubcellCount` untouch
 mass is what island deadend weights price — and a cleared `subcellOwner` doubles as state: it is
 what the next attach decision's `getSubcellComponent === 0` arm reads.
 
-State — the registry lives in `src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the
+State — the registry lives in `src/lib/puzzle/solver/components-registry.js` (`ComponentsRegistry`,
+the
 split of 2026-09 out of the solver; the SoA perf rewrite it extracted is documented in
 `agent-doc/solver-perf-plan.md`). The solver holds it as `this.components` and only says _what
 happened_ — a slot resolved, two components met — while the registry decides _how_ it is recorded:
@@ -330,7 +332,7 @@ cells under lazy cloning (see search).
 ## Fuzz and benchmark harnesses
 
 Both harnesses compare the current solver against a frozen snapshot copy of this same file
-(`solver-baseline.js`, untracked; their failure messages say how to recreate it after a fresh
+(`solver/solver-baseline.js`, gitignored; their failure messages say how to recreate it after a fresh
 clone); snapshot mismatches mean the solver's behaviour changed. The snapshot was regenerated from
 the renamed solver on 2026-10-17 — the unification rename itself is decision-free, so the freeze
 rolls the SoA registry rewrite and the hexa/octa TileType tricks into the baseline, and the
@@ -340,7 +342,7 @@ instructions: work counters and occasional `numAmbiguous` values may then move b
 while `solvable`/`unique` and full solution lists must still agree (gated per
 `agent-doc/solver-perf-plan.md`).
 
-- `solver-fuzz.test.js` — the soundness gate for any solver change. Run with `FUZZ_SOLUTIONS=1`
+- `solver/solver-fuzz.test.js` — the soundness gate for any solver change. Run with `FUZZ_SOLUTIONS=1`
   (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full `solve(true)` solution
   list must match the snapshot's, every solution must pass `validateLayers`, and
   `markAmbiguousTiles` must report unique boards exactly. The current solver's

@@ -11,7 +11,7 @@ sessions — detailed docs live in `agent-doc/`.
 - Agents, one shot: `npx vitest run` — the full suite, ~25 s.
 - `npm run test` is the same suite in vitest **watch mode** — interactive, meant for humans.
 - Layered test suite:
-  `npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver.test.js`
+  `npx vitest run src/lib/puzzle/generator/generator-layers.test.js src/lib/puzzle/game/game-layers.svelte.test.js src/lib/puzzle/solver/solver.test.js`
 
 ## The "layers" variant
 
@@ -40,10 +40,10 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 
 ## Detailed docs (`agent-doc/`)
 
-- [game.md](agent-doc/game.md) — the unified `PipesGame` (`game.svelte.js`, classic + layered in one
-  class) + `Tile.svelte`/`LayeredTile.svelte` + `Puzzle.svelte` wiring: state model, rendering, user
-  input, solved checking.
-- [layers-solver.md](agent-doc/layers-solver.md) — the unified `Solver` (`solver.js`, classic +
+- [game.md](agent-doc/game.md) — the unified `PipesGame` (`game/game.svelte.js`, classic + layered in
+  one class) + `Tile.svelte`/`LayeredTile.svelte` + `Puzzle.svelte` wiring: state model, rendering,
+  user input, solved checking.
+- [layers-solver.md](agent-doc/layers-solver.md) — the unified `Solver` (`solver/solver.js`, classic +
   layered in one class, like `PipesGame`): rotation state classes, sub-cell tree constraint via slot
   components, deadend facts, propagation, search, `markAmbiguousTiles`.
 - [layers-generator.md](agent-doc/layers-generator.md) — `pregenerate_layers`, startLayers reuse via
