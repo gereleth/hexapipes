@@ -55,11 +55,11 @@ async function loadBaselineSolver() {
 	} catch (error) {
 		throw new Error(
 			'Baseline solver snapshot is missing or cannot be imported.\n' +
-				'Expected file: src/lib/puzzle/solver-baseline.js - a verbatim copy of\n' +
+				'Expected file: src/lib/puzzle/solver/solver-baseline.js - a verbatim copy of\n' +
 				'solver.js frozen at the last intentional decision shift\n' +
 				'(see agent-doc/solver-perf-plan.md, "Reference snapshot").\n' +
 				'Create it with:\n' +
-				'\tcp src/lib/puzzle/solver.js src/lib/puzzle/solver-baseline.js\n' +
+				'\tcp src/lib/puzzle/solver/solver.js src/lib/puzzle/solver/solver-baseline.js\n' +
 				`Original error: ${/** @type {Error} */ (error).message}`
 		);
 	}
