@@ -179,8 +179,8 @@ export class AbstractGrid {
 
 	/**
 	 * Given a viewbox return an array of visible tiles
-	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
+	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		throw 'Implement getVisibleTiles(box) method';
@@ -259,7 +259,7 @@ export class AbstractGrid {
 
 	/**
 	 * Tells if a point is close to one of tile's edges
-	 * @param {import('#lib/puzzle/controls.js').PointerOrigin} point
+	 * @param {import('#lib/puzzle/game/controls.js').PointerOrigin} point
 	 */
 	whichEdge(point) {
 		const { x, y, tileX, tileY, tileIndex } = point;

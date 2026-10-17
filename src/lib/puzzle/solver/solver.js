@@ -2,7 +2,7 @@ import {
 	ComponentsRegistry,
 	iterate_directions,
 	popcount
-} from '#lib/puzzle/components-registry.js';
+} from '#lib/puzzle/solver/components-registry.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 

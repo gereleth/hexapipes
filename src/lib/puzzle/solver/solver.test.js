@@ -7,13 +7,13 @@ import { SnubSquareGrid } from '#lib/puzzle/grids/snubsquaregrid.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { TriangularGrid } from '#lib/puzzle/grids/triangulargrid.js';
 import { TrihexaGrid } from '#lib/puzzle/grids/trihexagrid.js';
-import { LayeredCell, Solver } from '#lib/puzzle/solver.js';
+import { LayeredCell, Solver } from '#lib/puzzle/solver/solver.js';
 import {
 	applyRotations,
 	pregenerate_layers,
 	randomRotate,
 	validateLayers
-} from '#lib/puzzle/generator-layers.js';
+} from '#lib/puzzle/generator/generator-layers.js';
 
 describe('Test LayeredCell possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);
@@ -562,7 +562,7 @@ describe('Test multi-layer boards', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const tiles = [[1], [13], [4], [9], [5, 10], [4], [3], [7], [4]];
 		const solver = new Solver(tiles, grid);
-		/** @type {import('#lib/puzzle/solver.js').SolverProgress[]} */
+		/** @type {import('#lib/puzzle/solver/solver.js').SolverProgress[]} */
 		const calls = [];
 		solver.progress_callback = (progress) => calls.push({ ...progress });
 		solver.markAmbiguousTiles();

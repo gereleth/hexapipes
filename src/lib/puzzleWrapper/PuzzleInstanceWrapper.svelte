@@ -54,7 +54,7 @@
 	// svelte-ignore state_referenced_locally
 	let grid = createGrid(gridKind, width, height, wrap);
 
-	/** @type {import('#lib/puzzle/game.svelte.js').Progress|undefined} */
+	/** @type {import('#lib/puzzle/game/game.svelte.js').Progress|undefined} */
 	let savedProgress = $state();
 	/** @type {Number|undefined}*/
 	let pxPerCell = $state();

@@ -1,10 +1,10 @@
-import { Generator } from '#lib/puzzle/generator.js';
+import { Generator } from '#lib/puzzle/generator/generator.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
 /**
  *
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
- * @param {import('#lib/puzzle/generator.js').GeneratorOptions} options
+ * @param {import('#lib/puzzle/generator/generator.js').GeneratorOptions} options
  */
 function generate(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;

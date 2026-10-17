@@ -2,18 +2,18 @@
 	import { innerWidth, innerHeight } from 'svelte/reactivity/window';
 	import { onMount, onDestroy } from 'svelte';
 	import { settings } from '#lib/stores.js';
-	import { controls } from '#lib/puzzle/controls.js';
+	import { controls } from '#lib/puzzle/game/controls.js';
 	import Tile from '#lib/puzzle/Tile.svelte';
 	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
-	import { PipesGame } from '#lib/puzzle/game.svelte.js';
-	import { Solver } from '#lib/puzzle/solver.js';
+	import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
+	import { Solver } from '#lib/puzzle/solver/solver.js';
 	import EdgeMarks from '#lib/puzzle/EdgeMarks.svelte';
 
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @property {Number[]|Number[][]} [tiles]
-	 * @property {import('#lib/puzzle/game.svelte.js').Progress|undefined} [savedProgress]
+	 * @property {import('#lib/puzzle/game/game.svelte.js').Progress|undefined} [savedProgress]
 	 * @property {string} [progressStoreName]
 	 * @property {Number|undefined} [preferredPxPerCell]
 	 * @property {boolean} [showSolveButton]

@@ -212,8 +212,8 @@ export class HexaGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
+	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		let rmin = Math.floor(box.ymin / YSTEP) - 1;

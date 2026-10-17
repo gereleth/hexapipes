@@ -4,8 +4,12 @@
 	import Worker from '#lib/puzzle/worker-layers.js?worker';
 	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
 	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
-	import { PipesGame } from '#lib/puzzle/game.svelte.js';
-	import { applyRotations, buildStartLayers, planReuse } from '#lib/puzzle/generator-layers.js';
+	import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
+	import {
+		applyRotations,
+		buildStartLayers,
+		planReuse
+	} from '#lib/puzzle/generator/generator-layers.js';
 	import { createGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 
 	/**
@@ -36,14 +40,14 @@
 	// growth animation state
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let growthGrid = $state();
-	/** @type {import('#lib/puzzle/generator-layers.js').GrowthMove[]} */
+	/** @type {import('#lib/puzzle/generator/generator-layers.js').GrowthMove[]} */
 	let growthMoves = $state([]);
 	let growthApplied = $state(0);
 	/** @type {Number[][]} */
 	let growthLayers = $state([]);
 	/** @type {import('svelte/reactivity').SvelteSet<Number>} */
 	let growthVisited = new SvelteSet();
-	/** @type {import('#lib/puzzle/generator-layers.js').GrowthMove|null} */
+	/** @type {import('#lib/puzzle/generator/generator-layers.js').GrowthMove|null} */
 	let growthLastMove = $state(null);
 	/** @type {Number[]} */
 	let growthHighlightCells = $state([]);
@@ -59,12 +63,12 @@
 	let hasWorker = $state(false);
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let runGrid = $state();
-	/** @type {import('#lib/puzzle/generator-layers.js').IterationSnapshot[]} */
+	/** @type {import('#lib/puzzle/generator/generator-layers.js').IterationSnapshot[]} */
 	let snapshots = $state([]);
 	let viewIndex = $state(-1);
 
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
-	/** @type {import('#lib/puzzle/solver.js').SolverProgress|null} */
+	/** @type {import('#lib/puzzle/solver/solver.js').SolverProgress|null} */
 	let liveProgress = $state(null);
 	let liveLabel = $state('');
 	let liveSeconds = $state(0);
@@ -228,9 +232,10 @@
 		} else if (event.data.msg === 'iteration') {
 			stopLiveTimer();
 			liveProgress = null;
-			const snapshot = /** @type {import('#lib/puzzle/generator-layers.js').IterationSnapshot} */ (
-				event.data
-			);
+			const snapshot =
+				/** @type {import('#lib/puzzle/generator/generator-layers.js').IterationSnapshot} */ (
+					event.data
+				);
 			snapshots.push(snapshot);
 			viewIndex = snapshots.length - 1;
 			if (snapshot.unique) {
@@ -335,7 +340,7 @@
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator-layers.js').GrowthMove} move
+	 * @param {import('#lib/puzzle/generator/generator-layers.js').GrowthMove} move
 	 */
 	function applyGrowthMove(move) {
 		if (move.type === 'seed') {
@@ -419,7 +424,7 @@
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator-layers.js').GrowthMove} move
+	 * @param {import('#lib/puzzle/generator/generator-layers.js').GrowthMove} move
 	 */
 	function describeGrowthMove(move) {
 		if (move.type === 'seed') {

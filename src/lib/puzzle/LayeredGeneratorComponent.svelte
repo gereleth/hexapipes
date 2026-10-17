@@ -13,12 +13,12 @@
 	let worker = null;
 	let showGenProgress = $state(false);
 	const dummyProgress = { total: 1, solved: 0, guessed: 0, ambiguous: 0 };
-	/** @type {import('#lib/puzzle/solver.js').SolverProgress[]}*/
+	/** @type {import('#lib/puzzle/solver/solver.js').SolverProgress[]}*/
 	let solverProgressItems = $state([]);
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator-layers.js').GeneratorOptions} options
+	 * @param {import('#lib/puzzle/generator/generator-layers.js').GeneratorOptions} options
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 */
 	export function generate(options, grid) {

@@ -1,5 +1,5 @@
 import randomColor from 'randomcolor';
-import { createViewBox } from '#lib/puzzle/viewbox.js';
+import { createViewBox } from '#lib/puzzle/game/viewbox.js';
 import { popcount } from '#lib/puzzle/grids/abstractgrid.js';
 
 /**

@@ -16,14 +16,14 @@ import normalizeWheel from 'normalize-wheel';
 /**
  * Attaches mouse/touch controls to the game area
  * @param {Element & GlobalEventHandlers} node
- * @param {import('#lib/puzzle/game.svelte.js').PipesGame} game
+ * @param {import('#lib/puzzle/game/game.svelte.js').PipesGame} game
  * @returns
  */
 export function controls(node, game) {
 	const grid = game.grid;
 
 	/**
-	 * @type {import('#lib/puzzle/viewbox.js').ViewBox}
+	 * @type {import('#lib/puzzle/game/viewbox.js').ViewBox}
 	 */
 	let viewBox;
 

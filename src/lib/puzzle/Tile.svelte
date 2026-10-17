@@ -1,7 +1,7 @@
 <script>
 	/**
 	 * @typedef {Object} Props
-	 * @property {import('#lib/puzzle/game.svelte.js').PipesGame} game
+	 * @property {import('#lib/puzzle/game/game.svelte.js').PipesGame} game
 	 * @property {Number} i
 	 * @property {Number} [cx]
 	 * @property {Number} [cy]

@@ -1,4 +1,4 @@
-import { Solver } from '#lib/puzzle/solver.js';
+import { Solver } from '#lib/puzzle/solver/solver.js';
 
 /**
  * @typedef {'unique'|'multiple'|'whatever'} SolutionsNumber
@@ -23,7 +23,7 @@ import { Solver } from '#lib/puzzle/solver.js';
  */
 
 /**
- * @typedef {(progress: import('#lib/puzzle/solver.js').SolverProgress) => void} SolverProgressCallback
+ * @typedef {(progress: import('#lib/puzzle/solver/solver.js').SolverProgress) => void} SolverProgressCallback
  */
 
 const emptyCallback = () => {};

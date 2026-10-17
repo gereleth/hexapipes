@@ -262,8 +262,8 @@ export class TrihexaGrid extends AbstractGrid {
 	}
 
 	/**
-	 * @param {import('#lib/puzzle/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/viewbox.js').VisibleTile[]}
+	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
 	getVisibleTiles(box) {
 		let colmin = Math.floor(box.xmin / XSTEP) - 1;
@@ -342,7 +342,7 @@ export class TrihexaGrid extends AbstractGrid {
 
 			/**
 			 *
-			 * @param {import('#lib/puzzle/viewbox.js').VisibleTile} visibleTile
+			 * @param {import('#lib/puzzle/game/viewbox.js').VisibleTile} visibleTile
 			 * @return {boolean}
 			 */
 			function shouldEmpty(visibleTile) {
@@ -383,7 +383,7 @@ export class TrihexaGrid extends AbstractGrid {
 
 			/**
 			 *
-			 * @param {import('#lib/puzzle/viewbox.js').VisibleTile} visibleTile
+			 * @param {import('#lib/puzzle/game/viewbox.js').VisibleTile} visibleTile
 			 * @return {boolean}
 			 */
 			function shouldEmpty(visibleTile) {
@@ -419,7 +419,7 @@ export class TrihexaGrid extends AbstractGrid {
 			const xright = (ymiddle % 2 === 0 ? -XSTEP : 0) + 2 * (this.w - ymiddle + 1) * XSTEP;
 			/**
 			 *
-			 * @param {import('#lib/puzzle/viewbox.js').VisibleTile} visibleTile
+			 * @param {import('#lib/puzzle/game/viewbox.js').VisibleTile} visibleTile
 			 * @return {boolean}
 			 */
 			function shouldEmpty(visibleTile) {

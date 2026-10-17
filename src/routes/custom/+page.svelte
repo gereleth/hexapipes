@@ -20,7 +20,7 @@
 	let avoidStraights = $state(0.0);
 	let layeringAmount = $state(0.6);
 	let autosolve = $state(false);
-	/** @type {import('#lib/puzzle/generator.js').SolutionsNumber}*/
+	/** @type {import('#lib/puzzle/generator/generator.js').SolutionsNumber}*/
 	let solutionsNumber = $state('unique');
 	let errorMessage = $state('');
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Generator, computeCellObviousTiles } from '#lib/puzzle/generator.js';
+import { Generator, computeCellObviousTiles } from '#lib/puzzle/generator/generator.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
-import { Solver } from '#lib/puzzle/solver.js';
+import { Solver } from '#lib/puzzle/solver/solver.js';
 import { SnubSquareGrid } from '#lib/puzzle/grids/snubsquaregrid.js';
 
 describe('Test Prims pregeneration', () => {
