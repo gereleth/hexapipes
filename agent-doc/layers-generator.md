@@ -186,7 +186,7 @@ iteration as `startLayers` (`keptCount` = how many cells that was). Per iteratio
   degenerate (the start cell keeps a zero layer, rejected here) — irrelevant, not a playable board.
 - `randomRotate(layers, grid)`: scramble; one random rotation per cell, all layers together.
 - `applyRotations(grid, layers, rotations)`: rotate each cell's layers; solver sentinel rotations
-  count as no-op. Shared with `solver-layers.test.js`.
+  count as no-op. Shared with `solver.test.js`.
 - `buildStartLayers(grid, layers, marked)`: solved board + marked rotations → `StartLayers` (`null`
   for empty cells and `AMBIGUOUS`/`UNSOLVED` sentinels).
 

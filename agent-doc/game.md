@@ -126,7 +126,7 @@ animate rotations with the `.animation-*` classes.
 as a single string (pre-unification saves) or a per-layer array, so old saves on the size pages and
 `/daily` keep working. No route or wrapper code knows about the variant shapes.
 
-`unleashTheSolver` and `measureSolveTime` construct one `LayeredSolver` for both variants — like
+`unleashTheSolver` and `measureSolveTime` construct one `Solver` for both variants — like
 `PipesGame`, the solver accepts classic tiles (`Number[]`) and normalizes them to a one-layer board,
 so there is no branch on `game.isLayered`. Solver steps and solutions are rotation counts, applied
 through `setTileRotation`. `measureSolveTime` runs a full `solve(true)` synchronously, so heavy

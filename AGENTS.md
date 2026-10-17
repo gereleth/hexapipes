@@ -11,7 +11,7 @@ sessions — detailed docs live in `agent-doc/`.
 - Agents, one shot: `npx vitest run` — the full suite, ~25 s.
 - `npm run test` is the same suite in vitest **watch mode** — interactive, meant for humans.
 - Layered test suite:
-  `npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver-layers.test.js`
+  `npx vitest run src/lib/puzzle/generator-layers.test.js src/lib/puzzle/game-layers.svelte.test.js src/lib/puzzle/solver.test.js`
 
 ## The "layers" variant
 
@@ -43,16 +43,15 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 - [game.md](agent-doc/game.md) — the unified `PipesGame` (`game.svelte.js`, classic + layered in one
   class) + `Tile.svelte`/`LayeredTile.svelte` + `Puzzle.svelte` wiring: state model, rendering, user
   input, solved checking.
-- [layers-solver.md](agent-doc/layers-solver.md) — `LayeredSolver` (`solver-layers.js`): rotation
-  state classes, sub-cell tree constraint via slot components, deadend facts, propagation, search,
-  `markAmbiguousTiles`; differences vs classic `Solver` (unification pending).
+- [layers-solver.md](agent-doc/layers-solver.md) — the unified `Solver` (`solver.js`, classic +
+  layered in one class, like `PipesGame`): rotation state classes, sub-cell tree constraint via slot
+  components, deadend facts, propagation, search, `markAmbiguousTiles`.
 - [layers-generator.md](agent-doc/layers-generator.md) — `pregenerate_layers`, startLayers reuse via
   `planReuse`, `LayeredGenerator` uniqueness loop, worker + `/generator-debug` tooling, convergence
   research; differences vs classic generator.
 
 ## Known quirks
 
-- `npm run check` reports 0 errors and 18 warnings, all benign `state_referenced_locally` init
-  captures (annotate with `// svelte-ignore` only where the compiler needs it, as in
-  `Puzzle.svelte`); only worry about check findings you introduce in touched files. `npm run lint`
-  is clean.
+- `npm run check` reports 0 errors and 10 warnings, all benign `state_referenced_locally` init
+  captures in `LayeredTile.svelte` (annotate with `// svelte-ignore` only where the compiler needs
+  it); only worry about check findings you introduce in touched files. `npm run lint` is clean.

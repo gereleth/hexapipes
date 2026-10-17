@@ -14,9 +14,6 @@
 // loader below fails with creation instructions instead of a cryptic
 // import error.
 //
-// Once a gated vitest file in src/lib/puzzle (solver-layers-stats.test.js);
-// now a plain script.
-//
 // Usage:
 //   BENCH_SEED=<seed> node scratch/layered-mark-ambiguous-paired-bench.mjs
 // Optional environment:

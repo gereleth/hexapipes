@@ -1,24 +1,24 @@
-# Layers variant: solver (`LayeredSolver`)
+# The solver (`Solver`)
 
-Files: `src/lib/puzzle/solver-layers.js` (`LayeredCell`, `LayeredSolver`) and
+Files: `src/lib/puzzle/solver.js` (`LayeredCell`, `Solver`) and
 `src/lib/puzzle/components-registry.js` (`ComponentsRegistry`, the component registry the solver
-drives). Classic counterpart: `solver.js` (`Solver`; no runtime consumers left — tests only,
-retirement pending). Tests: `solver-layers.test.js`; safety nets: `solver-layers-fuzz.test.js`
-(solution-equivalence fuzz, env-gated vitest) and `scratch/layered-mark-ambiguous-paired-bench.mjs`
-(paired benchmark, plain script) — described in the harness section below. Consumers:
-`Puzzle.svelte` (solve animation + stats readout, both variants), the classic `Generator`
-(uniqueness/patience loop, classic boards solved one-layer) and `LayeredGenerator` (same for layered
-boards), `worker-layers.js` and `/generator-debug` (progress messages).
+drives). This is the one solver for both variants (unified 2026-10-17, retiring the classic `Solver`
+and its `Cell` helper): it accepts both tile encodings, mirroring `PipesGame`. Tests:
+`solver.test.js`; safety nets: `solver-fuzz.test.js` (solution-equivalence fuzz, env-gated vitest)
+and `scratch/layered-mark-ambiguous-paired-bench.mjs` (paired benchmark, plain script) — described
+in the harness section below. Consumers: `Puzzle.svelte` (solve animation + stats readout, both
+variants), the classic `Generator` (uniqueness/patience loop, classic boards solved one-layer) and
+`LayeredGenerator` (same for layered boards), `worker-layers.js` and `/generator-debug` (progress
+messages).
 
 Boards are assumed to have a single connected playable region — grids with disconnected areas are
 not supported.
 
-The solver accepts both tile encodings, mirroring `PipesGame`: classic tiles (`Number[]`, one
-bitmask per cell) are normalized in the constructor to a one-layer board (`Number[][]`). All outputs
-(`solution`, `solutions`, `marked`, steps) are per-cell rotations and identical for both input
-shapes — `marked` rotations convert back to classic masks losslessly via
-`grid.rotate(tiles[index], rotation, index)` because both state maps keep the smallest rotation per
-indistinguishability class.
+Classic tiles (`Number[]`, one bitmask per cell) are normalized in the constructor to a one-layer
+board (`Number[][]`). All outputs (`solution`, `solutions`, `marked`, steps) are per-cell rotations
+and identical for both input shapes — `marked` rotations convert back to classic masks losslessly
+via `grid.rotate(tiles[index], rotation, index)` because both state maps keep the smallest rotation
+per indistinguishability class.
 
 ## Core model: possible states
 
@@ -329,18 +329,21 @@ cells under lazy cloning (see search).
 
 ## Fuzz and benchmark harnesses
 
-Both harnesses compare the current solver against a frozen snapshot copy of this same file (their
-failure messages say how to recreate the snapshot after a fresh clone); snapshot mismatches mean the
-solver's behaviour changed. The snapshot was recreated from the **pre-tileType-tricks** state on
-2026-10-16, so the paired harnesses gate exactly that change; a later freeze rolls the tricks into
-the baseline. As of the 2026-09 SoA registry rewrite the current solver is **intentionally
-decision-shifted** vs the snapshot: work counters and occasional `numAmbiguous` values move, while
-`solvable`/`unique` and full solution lists still agree (gated per `agent-doc/solver-perf-plan.md`).
+Both harnesses compare the current solver against a frozen snapshot copy of this same file
+(`solver-baseline.js`, untracked; their failure messages say how to recreate it after a fresh
+clone); snapshot mismatches mean the solver's behaviour changed. The snapshot was regenerated from
+the renamed solver on 2026-10-17 — the unification rename itself is decision-free, so the freeze
+rolls the SoA registry rewrite and the hexa/octa TileType tricks into the baseline, and the
+harnesses self-compare until the next solver change, which they gate against exactly that state.
+After an **intentional** decision shift, regenerate the snapshot per the failure-message
+instructions: work counters and occasional `numAmbiguous` values may then move between the sides,
+while `solvable`/`unique` and full solution lists must still agree (gated per
+`agent-doc/solver-perf-plan.md`).
 
-- `solver-layers-fuzz.test.js` — the soundness gate for any solver change. Run with
-  `FUZZ_SOLUTIONS=1` (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full
-  `solve(true)` solution list must match the snapshot's, every solution must pass `validateLayers`,
-  and `markAmbiguousTiles` must report unique boards exactly. The current solver's
+- `solver-fuzz.test.js` — the soundness gate for any solver change. Run with `FUZZ_SOLUTIONS=1`
+  (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full `solve(true)` solution
+  list must match the snapshot's, every solution must pass `validateLayers`, and
+  `markAmbiguousTiles` must report unique boards exactly. The current solver's
   `ComponentsRegistry.validate()` runs after each full enumeration and each unique-board marking,
   asserting the registry's structural invariants. Failing boards are saved as JSON reproducers into
   `generator_stats/`.
@@ -354,14 +357,3 @@ decision-shifted** vs the snapshot: work counters and occasional `numAmbiguous` 
 - The shared `stats` counters (`iterations`, `trialClones`, `shortTrials`, `dirtyProcessings`)
   accumulate across each trial tree and are the deterministic work metric to compare between
   variants.
-
-## Differences vs classic Solver at a glance
-
-| Aspect           | classic                        | layered                                                                                                                   |
-| ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| cell state       | set of orientation masks       | map of representative rotation → rotated layers                                                                           |
-| identity         | cell index                     | cell for constraints, sub-cell for the tree                                                                               |
-| deadends         | static tile-type check at init | per-direction facts with weights, chained through cells, exact-weight island facts                                        |
-| loop detection   | component walls + merge check  | slot/sub-cell components: join-time loop checks, per-layer forbid queues, island check                                    |
-| solved cells     | eager, `unsolved` is complete  | lazy cloning, `totalUnsolved` counter, completion by count                                                                |
-| local deductions | tileTypes hexa tricks          | outer walls + the same hexa/octa tileTypes tricks, read off tile unions (single-piece deductions gated to classic boards) |
