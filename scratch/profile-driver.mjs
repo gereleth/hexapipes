@@ -20,10 +20,10 @@
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import inspector from 'node:inspector';
-import { pregenerate_layers, validateLayers } from '../src/lib/puzzle/generator-layers.js';
-import { Solver } from '../src/lib/puzzle/solver.js';
-import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
-import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
+import { pregenerate_layers, validateLayers } from '#lib/puzzle/generator-layers.js';
+import { Solver } from '#lib/puzzle/solver.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 
 const env = process.env;
 const SEED = Number(env.BENCH_SEED);
@@ -72,9 +72,9 @@ function mulberry32(seed) {
 /**
  * One untimed markAmbiguousTiles run on a fresh solver, mirroring the
  * benchmark's call (ambiguousLimit = max(100, 0.1 * total))
- * @param {import('../src/lib/puzzle/solver.js').Solver} SolverClass
+ * @param {import('#lib/puzzle/solver.js').Solver} SolverClass
  * @param {Number[][]} layers
- * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  */
 function runOnce(SolverClass, layers, grid) {
 	const solver = new SolverClass(layers, grid);
@@ -86,7 +86,7 @@ function runOnce(SolverClass, layers, grid) {
 // sequence is identical for the same seed
 Math.random = mulberry32(SEED);
 
-/** @type {Array<[String, () => import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */
+/** @type {Array<[String, () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */
 const grids = [
 	['square', () => new SquareGrid(20, 20, false)],
 	['hexagonal', () => new HexaGrid(20, 20, false)]

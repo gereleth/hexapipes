@@ -7,14 +7,10 @@
 // writes the scrambled tiles as handed to Solver, plus a fresh
 // re-scramble (randomRotate, seeded) with its own solve facts.
 import { writeFileSync, readFileSync } from 'node:fs';
-import {
-	pregenerate_layers,
-	validateLayers,
-	randomRotate
-} from '../src/lib/puzzle/generator-layers.js';
-import { Solver } from '../src/lib/puzzle/solver.js';
-import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
-import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
+import { pregenerate_layers, validateLayers, randomRotate } from '#lib/puzzle/generator-layers.js';
+import { Solver } from '#lib/puzzle/solver.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 
 const SEED = Number(process.env.BENCH_SEED);
 if (!SEED) {

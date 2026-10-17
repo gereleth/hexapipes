@@ -34,10 +34,10 @@
 //   MODE=instr RUNS=200 node scratch/zombie-detector.mjs
 //   MODE=clean RUNS=200 node scratch/zombie-detector.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
-import { pregenerate_layers } from '../src/lib/puzzle/generator-layers.js';
-import { Solver } from '../src/lib/puzzle/solver.js';
-import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
-import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
+import { pregenerate_layers } from '#lib/puzzle/generator-layers.js';
+import { Solver } from '#lib/puzzle/solver.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 
 const SEED = Number(process.env.BENCH_SEED ?? 20260921);
 const RUNS = Number(process.env.RUNS ?? 200);
@@ -154,7 +154,7 @@ proto.mergeComponents = function (subcellComponent, slotComponent, subCellId) {
 /**
  * One untimed markAmbiguousTiles run on a fresh solver (benchmark protocol)
  * @param {Number[][]} layers
- * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  */
 function runOnce(layers, grid) {
 	const solver = new Solver(layers, grid);

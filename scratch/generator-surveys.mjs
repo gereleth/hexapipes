@@ -10,13 +10,13 @@
 //   node scratch/generator-surveys.mjs <name>
 //   node scratch/generator-surveys.mjs   # lists the available names
 import fs from 'node:fs';
-import { Generator } from '../src/lib/puzzle/generator.js';
-import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
-import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
-import { Solver } from '../src/lib/puzzle/solver.js';
-import { EtratGrid } from '../src/lib/puzzle/grids/etratgrid.js';
-import { OctaGrid } from '../src/lib/puzzle/grids/octagrid.js';
-import { CubeGrid } from '../src/lib/puzzle/grids/cubegrid.js';
+import { Generator } from '#lib/puzzle/generator.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { Solver } from '#lib/puzzle/solver.js';
+import { EtratGrid } from '#lib/puzzle/grids/etratgrid.js';
+import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
+import { CubeGrid } from '#lib/puzzle/grids/cubegrid.js';
 
 /**
  * Solution-count distribution of generated 20x20 wrap boards

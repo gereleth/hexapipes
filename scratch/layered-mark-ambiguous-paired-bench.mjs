@@ -23,11 +23,11 @@
 //   BENCH_MARK_AMBIGUOUS_CAP_MS - wall-clock cap per single solve
 //     (default 60000); capped runs are excluded from the statistics
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { pregenerate_layers, validateLayers } from '../src/lib/puzzle/generator-layers.js';
-import { Solver as CurrentSolver } from '../src/lib/puzzle/solver.js';
-import { SquareGrid } from '../src/lib/puzzle/grids/squaregrid.js';
-import { HexaGrid } from '../src/lib/puzzle/grids/hexagrid.js';
-import { OctaGrid } from '../src/lib/puzzle/grids/octagrid.js';
+import { pregenerate_layers, validateLayers } from '#lib/puzzle/generator-layers.js';
+import { Solver as CurrentSolver } from '#lib/puzzle/solver.js';
+import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
+import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
+import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 
 const env = /** @type {any} */ (globalThis).process?.env || {};
 const NUM_RUNS = Number(env.BENCH_MARK_AMBIGUOUS_RUNS) || 200;
@@ -44,13 +44,13 @@ const LAYERING = 0.6;
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
  * file (a verbatim copy of solver.js frozen at the last intentional decision
  * shift), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('../src/lib/puzzle/solver.js').Solver>}
+ * @returns {Promise<typeof import('#lib/puzzle/solver.js').Solver>}
  */
 async function loadBaselineSolver() {
 	try {
 		// computed specifier keeps the import runtime-only, so a missing file
 		// reaches the catch below instead of failing module resolution
-		const module = await import('../src/lib/puzzle/solver-baseline'.concat('.js'));
+		const module = await import('#lib/puzzle/solver-baseline'.concat('.js'));
 		return module.Solver;
 	} catch (error) {
 		throw new Error(
@@ -290,9 +290,9 @@ function flush() {
 
 /**
  * Runs markAmbiguousTiles once on a fresh solver instance
- * @param {typeof import('../src/lib/puzzle/solver.js').Solver} SolverClass
- * @param {import('../src/lib/puzzle/generator-layers.js').LayeredTiles} layers
- * @param {import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {typeof import('#lib/puzzle/solver.js').Solver} SolverClass
+ * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} layers
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {SolverRunRecord}
  */
 function runSolver(SolverClass, layers, grid) {
@@ -432,7 +432,7 @@ try {
 	for (const [
 		label,
 		makeGrid
-	] of /** @type {Array<[String, () => import('../src/lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
+	] of /** @type {Array<[String, () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid]>} */ ([
 		['square', () => new SquareGrid(20, 20, false)],
 		['hexagonal', () => new HexaGrid(20, 20, false)],
 		['octagonal', () => new OctaGrid(20, 20, false)]
