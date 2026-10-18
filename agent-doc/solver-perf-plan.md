@@ -10,12 +10,13 @@ Status: series in progress on the `layers` branch.
   does not matter. The goal is throughput and tail headroom (larger boards, faster patience-loop
   convergence).
 - Priority grid: hexagonal 20×20 (mean and tail); square tracked as a sanity side.
-- Solver changes are compared against a reference snapshot: `src/lib/puzzle/solver/solver-baseline.js` —
-  verbatim copy of the pre-change solver, untracked on purpose (recreate after a fresh checkout with
-  `cp src/lib/puzzle/solver/solver.js src/lib/puzzle/solver/solver-baseline.js`). Re-baseline only on an
-  intentional, user-endorsed decision shift; the current freeze dates from 2026-10-17 (the solver
-  unification rename — decision-free, but the pre-rename snapshot's `LayeredSolver` export would no
-  longer load).
+- Solver changes are compared against a reference snapshot:
+  `src/lib/puzzle/solver/solver-baseline.js` — verbatim copy of the pre-change solver, untracked on
+  purpose (recreate after a fresh checkout with
+  `cp src/lib/puzzle/solver/solver.js src/lib/puzzle/solver/solver-baseline.js`). Re-baseline only
+  on an intentional, user-endorsed decision shift; the current freeze dates from 2026-10-17 (the
+  solver unification rename — decision-free, but the pre-rename snapshot's `LayeredSolver` export
+  would no longer load).
 - The main comparison tool is the paired benchmark:
   `BENCH_SEED=20260921 node scratch/layered-mark-ambiguous-paired-bench.mjs`, 2×200 boards.
 - Decision-preserving candidates require 0 capped, 0 verdict disagreements and all-zero work-counter
@@ -244,8 +245,8 @@ Fix for general correctness: `getCell` adds the freshly born cell to `dirty` rig
 One add suffices: after initial deductions every root cell is materialized, so only the birth path
 can produce never-processed cells, and cells materialized mid-drain by queries are swept by that
 same drain. Clones only materialize via the parent path (already-processed cells). Regression test
-in `solver/solver.test.js` ("Dirty-processes every materialized cell") pins hardcoded generated tiles (4×4
-wrap grid) whose pre-fix run leaves one such root cell (cell 10).
+in `solver/solver.test.js` ("Dirty-processes every materialized cell") pins hardcoded generated
+tiles (4×4 wrap grid) whose pre-fix run leaves one such root cell (cell 10).
 
 Gates (decision-shifting vs the pre-fix snapshot, seed 20260921): 0 capped, 0 solvable/unique
 disagreements on 2×200 boards, fuzz (`FUZZ_SOLUTIONS=1 FUZZ_STABLE_RUNS=1000`) green; numAmbiguous
@@ -392,11 +393,12 @@ deleted-with-reserved-position) is enough: a re-add reactivates the reserved pos
 component is visited at most once per flush without any sequence numbers. Two fewer arrays per
 solver, no append-scan, no order-preservation invariants left to maintain.
 
-Side-find: `generator/generator-layers.test.js` "Mirrors growth events with startLayers reuse" is **inherently
-flaky** — it is unseeded, and over 200 seeded runs the `applyGrowthMoves` animation replay
-mismatches the generator on the SAME 5 seeds (56, 58, 94, 136, 159) pre-SoA and post-SoA alike (a
-`move` push can leave a direction duplicated in a cell the generator later resolved differently).
-Not a solver regression; worth fixing separately (seed it, or make the replay faithful).
+Side-find: `generator/generator-layers.test.js` "Mirrors growth events with startLayers reuse" is
+**inherently flaky** — it is unseeded, and over 200 seeded runs the `applyGrowthMoves` animation
+replay mismatches the generator on the SAME 5 seeds (56, 58, 94, 136, 159) pre-SoA and post-SoA
+alike (a `move` push can leave a direction duplicated in a cell the generator later resolved
+differently). Not a solver regression; worth fixing separately (seed it, or make the replay
+faithful).
 
 Gates, decision-shifting: solvable/unique 0 diffs on all 400 paired boards; fuzz
 `FUZZ_SOLUTIONS=1 FUZZ_STABLE_RUNS=1000` green; unit + layered suites 268 green; check/prettier

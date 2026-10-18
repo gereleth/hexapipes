@@ -3,9 +3,10 @@
 Files: `src/lib/puzzle/generator/generator-layers.js`, `src/lib/puzzle/worker-layers.js` (web
 worker), `src/routes/custom/+page.svelte` + `LayeredGeneratorComponent.svelte` (UI wiring),
 `/generator-debug` (research tooling, no nav link). Classic counterpart: `generator/generator.js`
-(`pregenerate_growingtree`, `Generator`). Tests: `generator/generator-layers.test.js` (pregeneration,
-scrambling, startLayers reuse, `LayeredGenerator` modes, worker smoke tests, growth-event mirroring,
-`uniqueIterations`). Run: `npx vitest run src/lib/puzzle/generator/generator-layers.test.js`.
+(`pregenerate_growingtree`, `Generator`). Tests: `generator/generator-layers.test.js`
+(pregeneration, scrambling, startLayers reuse, `LayeredGenerator` modes, worker smoke tests,
+growth-event mirroring, `uniqueIterations`). Run:
+`npx vitest run src/lib/puzzle/generator/generator-layers.test.js`.
 
 ## `pregenerate_layers(grid, layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount, onMove)`
 

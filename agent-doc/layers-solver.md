@@ -1,14 +1,13 @@
 # The solver (`Solver`)
 
 Files: `src/lib/puzzle/solver/cell.js` (`Cell`, the per-cell constraint state),
-`src/lib/puzzle/solver/solver.js` (`Solver`) and
-`src/lib/puzzle/solver/components-registry.js` (`ComponentsRegistry`, the component registry the
-solver drives). This is the one solver for both variants (unified 2026-10-17, retiring the classic
-`Solver` and its `Cell` helper): it accepts both tile encodings, mirroring `PipesGame`. Tests:
-`solver/solver.test.js`; safety nets: `solver/solver-fuzz.test.js` (solution-equivalence fuzz,
-env-gated vitest)
-and `scratch/layered-mark-ambiguous-paired-bench.mjs` (paired benchmark, plain script) — described
-in the harness section below. Consumers: `Puzzle.svelte` (solve animation + stats readout, both
+`src/lib/puzzle/solver/solver.js` (`Solver`) and `src/lib/puzzle/solver/components-registry.js`
+(`ComponentsRegistry`, the component registry the solver drives). This is the one solver for both
+variants (unified 2026-10-17, retiring the classic `Solver` and its `Cell` helper): it accepts both
+tile encodings, mirroring `PipesGame`. Tests: `solver/solver.test.js`; safety nets:
+`solver/solver-fuzz.test.js` (solution-equivalence fuzz, env-gated vitest) and
+`scratch/layered-mark-ambiguous-paired-bench.mjs` (paired benchmark, plain script) — described in
+the harness section below. Consumers: `Puzzle.svelte` (solve animation + stats readout, both
 variants), the classic `Generator` (uniqueness/patience loop, classic boards solved one-layer) and
 `LayeredGenerator` (same for layered boards), `worker-layers.js` and `/generator-debug` (progress
 messages).
@@ -26,11 +25,11 @@ per indistinguishability class.
 
 - The decision variable is the **cell rotation**: rotating a cell rotates all its layers at once, so
   a cell has `num_directions` possible states, not a free choice per layer.
-- `Cell.possible: Map<rotation, layers[]>` — each state is stored as its smallest
-  representative rotation together with the rotated layer masks at that rotation. `buildPossible`
-  deduplicates rotations that are indistinguishable up to layer relabeling (same multiset of rotated
-  masks), so constraints are tracked per surviving state and any representative rotation can stand
-  in for its class.
+- `Cell.possible: Map<rotation, layers[]>` — each state is stored as its smallest representative
+  rotation together with the rotated layer masks at that rotation. `buildPossible` deduplicates
+  rotations that are indistinguishable up to layer relabeling (same multiset of rotated masks), so
+  constraints are tracked per surviving state and any representative rotation can stand in for its
+  class.
 - Results and steps are expressed in these representative rotations: `solution` holds one rotation
   per cell (`UNSOLVED = -1` while the cell is undecided), `solutions` collects every found solution,
   and `markAmbiguousTiles` marks cells whose rotation differs between solutions with
@@ -43,8 +42,8 @@ per indistinguishability class.
 
 ## Cell constraints
 
-- `Cell` keeps classic-style direction bitmasks `walls` and `connections` (union over
-  layers), same semantics as classic.
+- `Cell` keeps classic-style direction bitmasks `walls` and `connections` (union over layers), same
+  semantics as classic.
 - `applyConstraints(weightLimit)` runs per dirty-cell pass:
   1. `mustHaveAllConnections(connections)` — the union of layer masks at the rotation must include
      all known connections;
@@ -152,8 +151,7 @@ mass is what island deadend weights price — and a cleared `subcellOwner` doubl
 what the next attach decision's `getSubcellComponent === 0` arm reads.
 
 State — the registry lives in `src/lib/puzzle/solver/components-registry.js` (`ComponentsRegistry`,
-the
-split of 2026-09 out of the solver; the SoA perf rewrite it extracted is documented in
+the split of 2026-09 out of the solver; the SoA perf rewrite it extracted is documented in
 `agent-doc/solver-perf-plan.md`). The solver holds it as `this.components` and only says _what
 happened_ — a slot resolved, two components met — while the registry decides _how_ it is recorded:
 rows, lists, counts and queues are its private bookkeeping, and it is the only writer of its arrays.
@@ -333,20 +331,20 @@ cells under lazy cloning (see search).
 ## Fuzz and benchmark harnesses
 
 Both harnesses compare the current solver against a frozen snapshot copy of this same file
-(`solver/solver-baseline.js`, gitignored; their failure messages say how to recreate it after a fresh
-clone); snapshot mismatches mean the solver's behaviour changed. The snapshot was regenerated from
-the renamed solver on 2026-10-17 — the unification rename itself is decision-free, so the freeze
-rolls the SoA registry rewrite and the hexa/octa TileType tricks into the baseline, and the
+(`solver/solver-baseline.js`, gitignored; their failure messages say how to recreate it after a
+fresh clone); snapshot mismatches mean the solver's behaviour changed. The snapshot was regenerated
+from the renamed solver on 2026-10-17 — the unification rename itself is decision-free, so the
+freeze rolls the SoA registry rewrite and the hexa/octa TileType tricks into the baseline, and the
 harnesses self-compare until the next solver change, which they gate against exactly that state.
 After an **intentional** decision shift, regenerate the snapshot per the failure-message
 instructions: work counters and occasional `numAmbiguous` values may then move between the sides,
 while `solvable`/`unique` and full solution lists must still agree (gated per
 `agent-doc/solver-perf-plan.md`).
 
-- `solver/solver-fuzz.test.js` — the soundness gate for any solver change. Run with `FUZZ_SOLUTIONS=1`
-  (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full `solve(true)` solution
-  list must match the snapshot's, every solution must pass `validateLayers`, and
-  `markAmbiguousTiles` must report unique boards exactly. The current solver's
+- `solver/solver-fuzz.test.js` — the soundness gate for any solver change. Run with
+  `FUZZ_SOLUTIONS=1` (reproducible board sequence via `FUZZ_SEED`): on fresh boards, the full
+  `solve(true)` solution list must match the snapshot's, every solution must pass `validateLayers`,
+  and `markAmbiguousTiles` must report unique boards exactly. The current solver's
   `ComponentsRegistry.validate()` runs after each full enumeration and each unique-board marking,
   asserting the registry's structural invariants. Failing boards are saved as JSON reproducers into
   `generator_stats/`.
