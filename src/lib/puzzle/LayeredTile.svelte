@@ -12,15 +12,22 @@
 	/** @type {Props} */
 	let { i, game, cx = 0, cy = 0, solved = false, controlMode = 'rotate_lock' } = $props();
 
+	// tile geometry is fixed per instance, game/i never change
+	// svelte-ignore state_referenced_locally
 	let data = game.tileStates[i];
+	// svelte-ignore state_referenced_locally
 	const polygon = game.grid.polygon_at(i);
+	// svelte-ignore state_referenced_locally
 	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
+	// svelte-ignore state_referenced_locally
 	const pipeWidth = game.grid.PIPE_WIDTH * 0.7;
 
+	// svelte-ignore state_referenced_locally
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
 
 	const paths = data.layers.map((layer) => polygon.get_pipes_path(-layer));
 
+	// svelte-ignore state_referenced_locally
 	const [guideX, guideY] = game.grid.getGuideDotPosition(data.tile, i);
 
 	// sinks mark deadend layers, drawn on the pipe stub away from the center

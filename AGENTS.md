@@ -52,6 +52,4 @@ Layers variant: each grid cell holds up to `num_directions` **independent layers
 
 ## Known quirks
 
-- `npm run check` reports 0 errors and 10 warnings, all benign `state_referenced_locally` init
-  captures in `LayeredTile.svelte` (annotate with `// svelte-ignore` only where the compiler needs
-  it); only worry about check findings you introduce in touched files. `npm run lint` is clean.
+- `npm run check` and `npm run lint` are clean, keep them that way.
