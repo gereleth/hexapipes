@@ -1,6 +1,7 @@
 # The solver (`Solver`)
 
-Files: `src/lib/puzzle/solver/solver.js` (`LayeredCell`, `Solver`) and
+Files: `src/lib/puzzle/solver/cell.js` (`Cell`, the per-cell constraint state),
+`src/lib/puzzle/solver/solver.js` (`Solver`) and
 `src/lib/puzzle/solver/components-registry.js` (`ComponentsRegistry`, the component registry the
 solver drives). This is the one solver for both variants (unified 2026-10-17, retiring the classic
 `Solver` and its `Cell` helper): it accepts both tile encodings, mirroring `PipesGame`. Tests:
@@ -25,7 +26,7 @@ per indistinguishability class.
 
 - The decision variable is the **cell rotation**: rotating a cell rotates all its layers at once, so
   a cell has `num_directions` possible states, not a free choice per layer.
-- `LayeredCell.possible: Map<rotation, layers[]>` — each state is stored as its smallest
+- `Cell.possible: Map<rotation, layers[]>` — each state is stored as its smallest
   representative rotation together with the rotated layer masks at that rotation. `buildPossible`
   deduplicates rotations that are indistinguishable up to layer relabeling (same multiset of rotated
   masks), so constraints are tracked per surviving state and any representative rotation can stand
@@ -42,7 +43,7 @@ per indistinguishability class.
 
 ## Cell constraints
 
-- `LayeredCell` keeps classic-style direction bitmasks `walls` and `connections` (union over
+- `Cell` keeps classic-style direction bitmasks `walls` and `connections` (union over
   layers), same semantics as classic.
 - `applyConstraints(weightLimit)` runs per dirty-cell pass:
   1. `mustHaveAllConnections(connections)` — the union of layer masks at the rotation must include
@@ -76,7 +77,7 @@ per indistinguishability class.
 The layered generalization of classic's "avoid connecting deadends", taken further: facts are per
 direction, carry mass, and propagate through neighbouring cells.
 
-- `LayeredCell` holds two derived masks, each backed by a weight map:
+- `Cell` holds two derived masks, each backed by a weight map:
   - `neighbourDeadends` — directions where the neighbour can only answer a connection with a
     deadend-effective layer (or has a wall). `neighbourDeadendWeights: Map<direction, weight>` — how
     many sub-cells hide behind that neighbour's deadend portion (it might be a whole island with one
