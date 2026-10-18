@@ -17,7 +17,7 @@ import { Cell, NoOrientationsPossibleException } from '#lib/puzzle/solver/cell.j
 
 /**
  * Solve step represents processing new info on a single cell
- * @typedef {Object} LayeredStep
+ * @typedef {Object} SolverStep
  * @property {Number} index
  * @property {Number} rotation - representative rotation that fits currently known facts
  * @property {Boolean} final - true if this state is the only one left
@@ -501,7 +501,7 @@ export class Solver {
 	/**
 	 * Process new info on a single cell and propagate constraints
 	 * @param {Number} index
-	 * @returns {LayeredStep}
+	 * @returns {SolverStep}
 	 * @throws {NoOrientationsPossibleException|IslandDetectedException|LoopDetectedException}
 	 */
 	processDirtyCell(index) {
@@ -623,7 +623,7 @@ export class Solver {
 
 	/**
 	 * Process new info on cells and propagate constraints
-	 * @yields {LayeredStep} - info about the processed cell
+	 * @yields {SolverStep} - info about the processed cell
 	 * @throws {NoOrientationsPossibleException}
 	 */
 	*processDirtyCells() {
@@ -636,7 +636,7 @@ export class Solver {
 
 	/**
 	 * Initialize all cells and process any constraints found
-	 * @yields {LayeredStep} - info about the processed cell
+	 * @yields {SolverStep} - info about the processed cell
 	 * @throws {NoOrientationsPossibleException}
 	 */
 	*processInitialDeductions() {
@@ -766,7 +766,7 @@ export class Solver {
 	 * Solve the puzzle
 	 * @param {boolean} allSolutions = false, whether to find all solutions.
 	 * If false then stops as soon as the first one is found
-	 * @yields {{stage:{SolvingStage}, step:{LayeredStep}}}
+	 * @yields {{stage:{SolvingStage}, step:{SolverStep}}}
 	 */
 	*solve(allSolutions = false) {
 		// Initial processing, touches every cell

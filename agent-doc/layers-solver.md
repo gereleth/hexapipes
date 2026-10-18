@@ -34,7 +34,7 @@ per indistinguishability class.
   per cell (`UNSOLVED = -1` while the cell is undecided), `solutions` collects every found solution,
   and `markAmbiguousTiles` marks cells whose rotation differs between solutions with
   `AMBIGUOUS = -2` in its returned array. The propagation generators yield a
-  `LayeredStep {index, rotation, final}` per processed cell — the cell index, a rotation that still
+  `SolverStep {index, rotation, final}` per processed cell — the cell index, a rotation that still
   fits the known facts, and whether it is the only one left.
 - State sets only ever shrink: the filters delete map entries and never mutate the stored mask
   arrays, so mask arrays are freely shared between a solver and its clones. Several invariants below
