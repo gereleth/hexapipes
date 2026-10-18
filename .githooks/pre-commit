@@ -1,0 +1,12 @@
+#!/bin/sh
+# Formats staged files with prettier and re-stages them.
+# Note: a partially staged file ends up fully staged (this repo commits whole files).
+set -e
+
+files=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -z "$files" ]; then
+	exit 0
+fi
+
+npx prettier --write --ignore-unknown -- $files
+git add -- $files
