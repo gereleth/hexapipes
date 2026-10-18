@@ -41,7 +41,6 @@
 		"transformation-matrix": "^2.15.0"
 	},
 	"imports": {
-		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*"
 	}
 }
