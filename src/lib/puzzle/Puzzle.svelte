@@ -375,7 +375,7 @@
 		onsave={save.soon}
 	>
 		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
-			{#if game.isLayered}
+			{#if game.isMulti}
 				<LayeredTile
 					i={visibleTile.index}
 					solved={game.solved}

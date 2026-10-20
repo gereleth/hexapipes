@@ -267,7 +267,7 @@ export function controls(node, game) {
 				if (leftButton) {
 					const { tileX, tileY } = mouseDownOrigin;
 					const timesRotate = game.grid.clickOrientTile(
-						tileState.tile,
+						tileState.pipeUnion,
 						tileState.rotations,
 						x - tileX,
 						y - tileY,
@@ -562,7 +562,7 @@ export function controls(node, game) {
 					} else if (currentSettings.controlMode === 'orient_lock') {
 						const { tileX, tileY } = t;
 						const timesRotate = game.grid.clickOrientTile(
-							tileState.tile,
+							tileState.pipeUnion,
 							tileState.rotations,
 							x - tileX,
 							y - tileY,

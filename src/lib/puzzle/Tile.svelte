@@ -1,4 +1,6 @@
 <script>
+	import { popcount } from '#lib/puzzle/grids/bitmasks.js';
+
 	/**
 	 * @typedef {Object} Props
 	 * @property {import('#lib/puzzle/game/game.svelte.js').PipesGame} game
@@ -19,18 +21,15 @@
 	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
 
 	// svelte-ignore state_referenced_locally
-	const myDirections = game.grid.getDirections(data.tile, 0, i);
-
-	// svelte-ignore state_referenced_locally
-	const [guideX, guideY] = game.grid.getGuideDotPosition(data.tile, i);
+	const [guideX, guideY] = game.grid.getGuideDotPosition(data.pipeUnion, i);
 
 	// svelte-ignore state_referenced_locally
 	const pipeWidth = game.grid.PIPE_WIDTH;
 
 	// svelte-ignore state_referenced_locally
-	let path = game.grid.getPipesPath(data.tile, i);
+	let path = game.grid.getPipesPath(data.pipeUnion, i);
 	// svelte-ignore state_referenced_locally
-	const isSink = myDirections.length === 1;
+	const isSink = popcount(data.pipeUnion) === 1;
 
 	// svelte-ignore state_referenced_locally
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';

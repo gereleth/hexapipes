@@ -25,14 +25,14 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(0);
 			expect(data.colors[0]).toBe('white');
 			expect(data.locked).toBe(false);
-			expect(data.tile).toBe(tiles[index]);
+			expect(data.pipeUnion).toBe(tiles[index]);
 			expect(data.isPartOfLoop[0]).toBe(false);
 		});
 		game.components.forEach((component, index) => {
 			if (index === 3 || index === 4) {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([3, 4]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([3, 4]));
 			} else {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([index]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([index]));
 			}
 		});
 	});
@@ -48,14 +48,14 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(0);
 			expect(data.colors[0]).toBe('white');
 			expect(data.locked).toBe(false);
-			expect(data.tile).toBe(myTiles[index]);
+			expect(data.pipeUnion).toBe(myTiles[index]);
 			expect(data.isPartOfLoop[0]).toBe([1, 3, 4].some((x) => x === index));
 		});
 		game.components.forEach((component, index) => {
 			if ([1, 3, 4].some((x) => x === index)) {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([1, 3, 4]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([1, 3, 4]));
 			} else {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([index]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([index]));
 			}
 		});
 	});
@@ -81,16 +81,16 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
 			expect(data.colors[0]).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);
-			expect(data.tile).toBe(tiles[index]);
+			expect(data.pipeUnion).toBe(tiles[index]);
 			expect(data.isPartOfLoop[0]).toBe(false);
 		});
 		game.components.forEach((component, index) => {
 			if ([5, 8].some((x) => x === index)) {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([5, 8]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([5, 8]));
 			} else if (index === 2) {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([2]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([2]));
 			} else {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([0, 1, 3, 4, 6, 7]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([0, 1, 3, 4, 6, 7]));
 			}
 		});
 	});
@@ -116,14 +116,14 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
 			expect(data.colors[0]).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);
-			expect(data.tile).toBe(tiles[index]);
+			expect(data.pipeUnion).toBe(tiles[index]);
 			expect(data.isPartOfLoop[0]).toBe([1, 3, 4].some((x) => x === index));
 		});
 		game.components.forEach((component, index) => {
 			if ([1, 3, 4].some((x) => x === index)) {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([1, 3, 4]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([1, 3, 4]));
 			} else {
-				expect([...component.subcells]).toEqual(expect.arrayContaining([index]));
+				expect([...component.nodes]).toEqual(expect.arrayContaining([index]));
 			}
 		});
 	});
@@ -207,9 +207,9 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.solved).toBe(false);
 		expect(game.isSolved()).toBe(true);
 		expect(game.openEnds.size).toBe(0);
-		expect(game.shareDisconnectedSubcells).toBe(0);
+		expect(game.disconnectedShare).toBe(0);
 		const component = game.components.get(0);
-		expect(component?.subcells.size).toBe(playableCells);
+		expect(component?.nodes.size).toBe(playableCells);
 		game.tileStates.forEach((state) => {
 			expect(state.colors[0]).toBe('white');
 			expect(state.isPartOfLoop[0]).toBe(false);
@@ -233,14 +233,14 @@ describe('Test classic game behavior on a generated board', () => {
 		expect(game.openEnds.has(neighbour)).toBe(true);
 		expect(game.openEnds.size).toBe(2);
 		// the leaf splits off as its own component
-		expect(game.components.get(leaf.index)?.subcells).toEqual(new Set([leaf.index]));
-		expect(game.components.get(neighbour)?.subcells.size).toBe(playableCells - 1);
+		expect(game.components.get(leaf.index)?.nodes).toEqual(new Set([leaf.index]));
+		expect(game.components.get(neighbour)?.nodes.size).toBe(playableCells - 1);
 		expect(game.components.get(neighbour)).not.toBe(game.components.get(leaf.index));
 
 		game.rotateTile(leaf.index, -1);
 		expect(game.solved).toBe(true);
 		expect(game.openEnds.size).toBe(0);
-		expect(game.components.get(0)?.subcells.size).toBe(playableCells);
+		expect(game.components.get(0)?.nodes.size).toBe(playableCells);
 		// merging assigns the shared component color to all tiles
 		const color = game.tileStates[0].colors[0];
 		expect(color).not.toBe('white');
@@ -349,8 +349,8 @@ describe('Test classic game micro behaviors', () => {
 		// two separate closed chains: 0-1 and 2-3
 		const tiles = [1, 4, 1, 4];
 		const game = new PipesGame(grid, tiles, undefined);
-		expect(game.components.get(0)?.subcells).toEqual(new Set([0, 1]));
-		expect(game.components.get(2)?.subcells).toEqual(new Set([2, 3]));
+		expect(game.components.get(0)?.nodes).toEqual(new Set([0, 1]));
+		expect(game.components.get(2)?.nodes).toEqual(new Set([2, 3]));
 		expect(game.openEnds.size).toBe(0);
 		game.tileStates.forEach((state, index) => {
 			expect(state.isPartOfIsland[0], `tile ${index} is part of an island`).toBe(true);
@@ -365,7 +365,7 @@ describe('Test classic game micro behaviors', () => {
 		const tiles = [1, 48, 3, 11, 6, 5, 1, 1, 1];
 		const game = new PipesGame(grid, tiles, undefined);
 		expect(game.tileStates[1].isPartOfLoop[0]).toBe(false);
-		expect(game.components.get(1)?.subcells).toEqual(new Set([1, 3, 4]));
+		expect(game.components.get(1)?.nodes).toEqual(new Set([1, 3, 4]));
 
 		game.rotateTile(4, 5);
 		[1, 3, 4].forEach((index) => {
@@ -451,7 +451,7 @@ describe('Test classic game micro behaviors', () => {
 		// rotate cell 4 from N+S to W+E: it severs two island links and
 		// connects to cells 3 and 5 in the same turn
 		game.rotateTile(4, 1);
-		expect(game.components.get(4)?.subcells).toEqual(new Set([3, 4, 5]));
+		expect(game.components.get(4)?.nodes).toEqual(new Set([3, 4, 5]));
 		expect(game.openEnds).toEqual(new Set([1, 3, 7]));
 		// 3 is an open end, no island highlights in the component
 		[3, 4, 5].forEach((index) => {
