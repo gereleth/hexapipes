@@ -81,7 +81,7 @@
 	const viewSnapshot = $derived(viewIndex >= 0 ? snapshots[viewIndex] : undefined);
 	const visibleCells = $derived(
 		runGrid
-			? runGrid.getVisibleTiles({
+			? runGrid.getVisibleCells({
 					xmin: runGrid.XMIN,
 					ymin: runGrid.YMIN,
 					width: runGrid.XMAX - runGrid.XMIN,
@@ -91,7 +91,7 @@
 	);
 	const growthVisibleCells = $derived(
 		growthGrid
-			? growthGrid.getVisibleTiles({
+			? growthGrid.getVisibleCells({
 					xmin: growthGrid.XMIN,
 					ymin: growthGrid.YMIN,
 					width: growthGrid.XMAX - growthGrid.XMIN,
@@ -637,10 +637,10 @@
 				{#each visibleCells as cell (cell.key)}
 					<g transform="translate({cell.x},{cell.y})">
 						<path
-							d={runGrid.getTilePath(cell.index)}
+							d={runGrid.getCellPath(cell.index)}
 							fill={statusFill(cell.index)}
 							opacity={changedCells.has(cell.index) || !highlightChanges ? 1 : 0.6}
-							style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}
+							style="transform: {runGrid.getCellTransformCSS(cell.index) || ''}
 								; pointer-events: none"
 						/>
 					</g>
@@ -658,16 +658,16 @@
 				{@const cellLayers = reusePlan.cells.get(cell.index)?.layers || []}
 				<g transform="translate({cell.x},{cell.y})">
 					<path
-						d={runGrid.getTilePath(cell.index)}
+						d={runGrid.getCellPath(cell.index)}
 						fill={role === 'live' ? '#dfeadf' : role === 'island' ? '#dbe4f4' : '#f2dede'}
 						stroke="#ccc"
 						stroke-width="0.02"
-						style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}"
+						style="transform: {runGrid.getCellTransformCSS(cell.index) || ''}"
 					/>
 					{#if cellLayers.length > 0}
-						<g style="transform: {runGrid.getTileTransformCSS(cell.index) || ''}">
+						<g style="transform: {runGrid.getCellTransformCSS(cell.index) || ''}">
 							{#each cellLayers as layer, layerIndex (layerIndex)}
-								{@const path = runGrid.getPipesPath(-layer, cell.index)}
+								{@const path = runGrid.getPipePath(-layer, cell.index)}
 								{@const pipeWidth = runGrid.PIPE_WIDTH * 0.7}
 								{@const isDeadend = (layer & (layer - 1)) === 0 && layer > 0}
 								<path
@@ -678,7 +678,7 @@
 									stroke-linecap="round"
 								/>
 								{#if isDeadend}
-									{@const center = runGrid.polygon_at(cell.index).get_layer_center(layer)}
+									{@const center = runGrid.polygonAt(cell.index).getPipeCenter(layer)}
 									<circle
 										cx={center.cx}
 										cy={-center.cy}
@@ -712,16 +712,16 @@
 				{@const highlight = growthHighlightCells.includes(cell.index)}
 				<g transform="translate({cell.x},{cell.y})">
 					<path
-						d={growthGrid.getTilePath(cell.index)}
+						d={growthGrid.getCellPath(cell.index)}
 						fill={growthVisited.has(cell.index) ? '#dfeadf' : '#f6f6f6'}
 						stroke={highlight ? '#3d7ab8' : '#ccc'}
 						stroke-width={highlight ? '0.08' : '0.02'}
-						style="transform: {growthGrid.getTileTransformCSS(cell.index) || ''}"
+						style="transform: {growthGrid.getCellTransformCSS(cell.index) || ''}"
 					/>
 					{#if cellLayers.length > 0}
-						<g style="transform: {growthGrid.getTileTransformCSS(cell.index) || ''}">
+						<g style="transform: {growthGrid.getCellTransformCSS(cell.index) || ''}">
 							{#each cellLayers as layer, layerIndex (layerIndex)}
-								{@const path = growthGrid.getPipesPath(-layer, cell.index)}
+								{@const path = growthGrid.getPipePath(-layer, cell.index)}
 								{@const pipeWidth = growthGrid.PIPE_WIDTH * 0.7}
 								{@const isDeadend = (layer & (layer - 1)) === 0 && layer > 0}
 								<path
@@ -732,7 +732,7 @@
 									stroke-linecap="round"
 								/>
 								{#if isDeadend}
-									{@const center = growthGrid.polygon_at(cell.index).get_layer_center(layer)}
+									{@const center = growthGrid.polygonAt(cell.index).getPipeCenter(layer)}
 									<circle
 										cx={center.cx}
 										cy={-center.cy}

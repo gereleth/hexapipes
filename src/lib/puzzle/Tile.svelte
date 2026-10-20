@@ -27,12 +27,12 @@
 	const pipeWidth = game.grid.PIPE_WIDTH;
 
 	// svelte-ignore state_referenced_locally
-	let path = game.grid.getPipesPath(data.pipes[0], i);
+	let path = game.grid.getPipePath(data.pipes[0], i);
 	// svelte-ignore state_referenced_locally
 	const isSink = popcount(data.pipes[0]) === 1;
 
 	// svelte-ignore state_referenced_locally
-	const tile_transform = game.grid.getTileTransformCSS(i) || '';
+	const tile_transform = game.grid.getCellTransformCSS(i) || '';
 
 	let bgColor = $derived.by(() => {
 		if (data.isPartOfLoop[0]) {
@@ -64,13 +64,13 @@
 	let outlineWidth = $derived(2 * strokeWidth + game.grid.PIPE_WIDTH);
 
 	// svelte-ignore state_referenced_locally
-	const style = game.grid.polygon_at(i).style || undefined;
+	const style = game.grid.polygonAt(i).style || undefined;
 </script>
 
 <g class="tile" transform="translate({cx},{cy})" {style}>
 	<!-- Tile hexagon -->
 	<path
-		d={game.grid.getTilePath(i)}
+		d={game.grid.getCellPath(i)}
 		stroke="#aaa"
 		stroke-width="0.02"
 		fill={bgColor}

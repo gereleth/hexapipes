@@ -30,7 +30,7 @@
 	// svelte-ignore state_referenced_locally
 	const tileState = game.tileStates[i];
 	// svelte-ignore state_referenced_locally
-	const tile_transform = game.grid.getTileTransformCSS(i) || '';
+	const tile_transform = game.grid.getCellTransformCSS(i) || '';
 
 	// /** @type {VisibleMark[]} */
 	// let visibleEdgeMarks = [];
@@ -56,7 +56,7 @@
 			const mark = { x1, y1, x2, y2, edgemark, direction };
 			visibleEdgeMarks.push(mark);
 			if (game.grid.BEND_EDGEMARKS && edgemark === 'conn') {
-				const { neighbour } = game.grid.find_neighbour(i, direction);
+				const { neighbour } = game.grid.findNeighbour(i, direction);
 				const oppositeDirection = game.grid.OPPOSITE.get(direction) || 0;
 				const { x1, y1, x2, y2, grid_x2, grid_y2 } = game.grid.getEdgemarkLine(
 					oppositeDirection,
@@ -66,7 +66,7 @@
 				const oppositeMark = {
 					cx: cx + (edgeMarkLine.grid_x2 - grid_x2),
 					cy: cy + (edgeMarkLine.grid_y2 - grid_y2),
-					transform: game.grid.getTileTransformCSS(neighbour) || '',
+					transform: game.grid.getCellTransformCSS(neighbour) || '',
 					mark: { x1, x2, y1, y2, edgemark, direction: oppositeDirection }
 				};
 				reflectedEdgeMarks.push(oppositeMark);

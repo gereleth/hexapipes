@@ -16,26 +16,26 @@
 	// svelte-ignore state_referenced_locally
 	let data = game.tileStates[i];
 	// svelte-ignore state_referenced_locally
-	const polygon = game.grid.polygon_at(i);
+	const polygon = game.grid.polygonAt(i);
 	// svelte-ignore state_referenced_locally
 	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
 	// svelte-ignore state_referenced_locally
 	const pipeWidth = game.grid.PIPE_WIDTH * 0.7;
 
 	// svelte-ignore state_referenced_locally
-	const tile_transform = game.grid.getTileTransformCSS(i) || '';
+	const tile_transform = game.grid.getCellTransformCSS(i) || '';
 
-	const paths = data.layers.map((layer) => polygon.get_pipes_path(-layer));
+	const paths = data.pipes.map((pipe) => polygon.getPipePath(-pipe));
 
 	// svelte-ignore state_referenced_locally
-	const [guideX, guideY] = game.grid.getGuideDotPosition(data.tile, i);
+	const [guideX, guideY] = game.grid.getGuideDotPosition(data.pipeUnion, i);
 
-	// sinks mark deadend layers, drawn on the pipe stub away from the center
-	const sinks = data.layers.map((layer, layerIndex) => {
-		if (game.grid.getDirections(layer, 0, i).length === 1) {
-			const { cx, cy } = polygon.get_layer_center(layer);
+	// sinks mark deadend pipes
+	const sinks = data.pipes.map((pipe, pipeIndex) => {
+		if (game.grid.getDirections(pipe, 0, i).length === 1) {
+			const { cx, cy } = polygon.getPipeCenter(pipe);
 			return {
-				layerIndex,
+				pipeIndex,
 				x: cx,
 				y: -cy
 			};
@@ -54,13 +54,13 @@
 	});
 
 	let strokes = $derived.by(() => {
-		return data.layers.map((layer, layerIndex) => {
-			if (data.hasDisconnects[layerIndex]) {
+		return data.pipes.map((_, pipeIndex) => {
+			if (data.hasDisconnects[pipeIndex]) {
 				return {
 					strokeColor: game.disconnectStrokeColor,
 					strokeWidth: game.grid.STROKE_WIDTH * game.disconnectStrokeWidthScale
 				};
-			} else if (data.isPartOfIsland[layerIndex]) {
+			} else if (data.isPartOfIsland[pipeIndex]) {
 				return { strokeColor: '#b55', strokeWidth: game.grid.STROKE_WIDTH };
 			} else {
 				return { strokeColor: '#888', strokeWidth: game.grid.STROKE_WIDTH };
@@ -74,37 +74,37 @@
 <g class="tile" transform="translate({cx},{cy})" {style}>
 	<!-- Tile polygon -->
 	<path
-		d={game.grid.getTilePath(i)}
+		d={game.grid.getCellPath(i)}
 		stroke="#aaa"
 		stroke-width="0.02"
 		fill={bgColor}
 		style="transform: {tile_transform}"
 	/>
 
-	<!-- Pipe layers, rotated together -->
+	<!-- Pipes, rotated together -->
 	<g
 		class="pipe"
 		style="transform: {tile_transform} rotate({game.grid.getAngle(data.rotations, i)}rad)"
 	>
-		{#each paths as path, layerIndex (layerIndex)}
+		{#each paths as path, pipeIndex (pipeIndex)}
 			<!-- Pipe outlines -->
 			<path
 				d={path}
-				stroke={strokes[layerIndex].strokeColor}
-				stroke-width={2 * strokes[layerIndex].strokeWidth + pipeWidth}
+				stroke={strokes[pipeIndex].strokeColor}
+				stroke-width={2 * strokes[pipeIndex].strokeWidth + pipeWidth}
 				stroke-linejoin="bevel"
 				stroke-linecap="round"
 			/>
-			<!-- Sink circles on deadend layers -->
-			{@const sink = sinks[layerIndex]}
+			<!-- Sink circles on deadend pipes -->
+			{@const sink = sinks[pipeIndex]}
 			{#if sink !== null}
 				<circle
 					cx={sink.x}
 					cy={sink.y}
 					r={game.grid.SINK_RADIUS * 0.7}
-					fill={data.colors[sink.layerIndex]}
-					stroke={strokes[sink.layerIndex].strokeColor}
-					stroke-width={strokes[sink.layerIndex].strokeWidth}
+					fill={data.colors[sink.pipeIndex]}
+					stroke={strokes[sink.pipeIndex].strokeColor}
+					stroke-width={strokes[sink.pipeIndex].strokeWidth}
 					class="sink"
 				/>
 			{/if}
@@ -112,7 +112,7 @@
 			<path
 				class="inside"
 				d={path}
-				stroke={data.colors[layerIndex]}
+				stroke={data.colors[pipeIndex]}
 				stroke-width={pipeWidth}
 				stroke-linejoin={game.grid.LINE_JOIN}
 				stroke-linecap="round"

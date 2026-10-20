@@ -20,20 +20,20 @@
 	const pipeWidth = grid.PIPE_WIDTH;
 
 	// svelte-ignore state_referenced_locally
-	let path = grid.getPipesPath(tile, i);
+	let path = grid.getPipePath(tile, i);
 	// svelte-ignore state_referenced_locally
 	const isSink = grid.getDirections(tile, 0, i).length === 1;
 
 	// svelte-ignore state_referenced_locally
-	const tile_transform = grid.getTileTransformCSS(i) || '';
+	const tile_transform = grid.getCellTransformCSS(i) || '';
 	// svelte-ignore state_referenced_locally
-	const style = grid.polygon_at(i).style || undefined;
+	const style = grid.polygonAt(i).style || undefined;
 </script>
 
 <g class="tile" transform="translate({cx},{cy})" {style}>
 	<!-- Tile background -->
 	<path
-		d={grid.getTilePath(i)}
+		d={grid.getCellPath(i)}
 		stroke="#aaa"
 		stroke-width="0.02"
 		fill={bgColor}

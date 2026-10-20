@@ -40,7 +40,7 @@
 	}
 
 	// svelte-ignore state_referenced_locally
-	const visibleTiles = grid.getVisibleTiles(viewBox);
+	const visibleTiles = grid.getVisibleCells(viewBox);
 </script>
 
 <div class="puzzle">
