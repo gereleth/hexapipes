@@ -26,17 +26,11 @@
 	 * @property {VisibleMark} mark
 	 */
 
-	// tile geometry is fixed per instance, game/i never change
+	// cell geometry is fixed per instance, game/i never change
 	// svelte-ignore state_referenced_locally
 	const tileState = game.tileStates[i];
 	// svelte-ignore state_referenced_locally
-	const tile_transform = game.grid.getCellTransformCSS(i) || '';
-
-	// /** @type {VisibleMark[]} */
-	// let visibleEdgeMarks = [];
-
-	// /** @type {ReflectedMark[]} */
-	// let reflectedEdgeMarks = [];
+	const cellTransform = game.grid.getCellTransformCSS(i) || '';
 
 	// svelte-ignore state_referenced_locally
 	const width = game.grid.EDGEMARK_WIDTH;
@@ -76,7 +70,7 @@
 	});
 </script>
 
-<g class="edgemarks" style="transform: translate({cx}px,{cy}px) {tile_transform}">
+<g class="edgemarks" style="transform: translate({cx}px,{cy}px) {cellTransform}">
 	{#each visibleEdgeMarks as { x1, y1, x2, y2, edgemark, direction } (direction)}
 		<line
 			transition:fade={{ duration: 100 }}
