@@ -139,7 +139,7 @@ export class AbstractGrid {
 	 * @returns {Number} - angle in radians
 	 */
 	getAngle(rotations, index) {
-		return this.polygonAt(index).get_angle(rotations);
+		return this.polygonAt(index).getAngle(rotations);
 	}
 
 	/**
@@ -158,7 +158,7 @@ export class AbstractGrid {
 	 * @returns {Number[]}
 	 */
 	getDirections(pipe, rotations = 0, index = 0) {
-		return this.polygonAt(index).get_directions(pipe, rotations);
+		return this.polygonAt(index).getDirections(pipe, rotations);
 	}
 
 	/**
@@ -176,7 +176,7 @@ export class AbstractGrid {
 	 * @returns {String}
 	 */
 	getCellPath(index) {
-		return this.polygonAt(index).contour_path;
+		return this.polygonAt(index).contourPath;
 	}
 
 	/**
@@ -185,7 +185,7 @@ export class AbstractGrid {
 	 * @param {Number} index
 	 */
 	getPipePath(pipe, index) {
-		return this.polygonAt(index).get_pipes_path(pipe);
+		return this.polygonAt(index).getPipePath(pipe);
 	}
 
 	/**
@@ -195,7 +195,7 @@ export class AbstractGrid {
 	 * @returns {Number[]}
 	 */
 	getGuideDotPosition(pipe, index = 0) {
-		const [dx, dy] = this.polygonAt(index).get_guide_dot_position(pipe);
+		const [dx, dy] = this.polygonAt(index).getGuideDotPosition(pipe);
 		return [0.8 * dx, 0.8 * dy];
 	}
 
@@ -208,7 +208,7 @@ export class AbstractGrid {
 	 * @param {Number} [index = 0]
 	 */
 	clickOrientPipe(pipe, old_rotations, tx, ty, index = 0) {
-		return this.polygonAt(index).click_orient_tile(pipe, old_rotations, tx, ty);
+		return this.polygonAt(index).clickOrientPipe(pipe, old_rotations, tx, ty);
 	}
 
 	/**
@@ -223,7 +223,7 @@ export class AbstractGrid {
 		if (this.BEND_EDGEMARKS) {
 			extendOut = isWall;
 		}
-		return this.polygonAt(index).get_edgemark_line(direction, extendOut);
+		return this.polygonAt(index).getEdgemarkLine(direction, extendOut);
 	}
 
 	/**
@@ -238,7 +238,7 @@ export class AbstractGrid {
 	 */
 	detectEdgemarkGesture(index, cell_x, cell_y, x1, x2, y1, y2) {
 		const polygon = this.polygonAt(index);
-		return polygon.detect_edgemark_gesture(x1 - cell_x, x2 - cell_x, y1 - cell_y, y2 - cell_y);
+		return polygon.detectEdgemarkGesture(x1 - cell_x, x2 - cell_x, y1 - cell_y, y2 - cell_y);
 	}
 
 	/**
@@ -249,7 +249,7 @@ export class AbstractGrid {
 		const { x, y, tileX, tileY, tileIndex: index } = point;
 		const dx = x - tileX;
 		const dy = y - tileY;
-		return this.polygonAt(index).is_close_to_edge(dx, dy);
+		return this.polygonAt(index).isCloseToEdge(dx, dy);
 	}
 
 	/**

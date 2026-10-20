@@ -282,7 +282,7 @@ export class CubeGrid extends AbstractGrid {
 	 * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index) {
-		const [dx, dy] = this.polygonAt(index).get_guide_dot_position(tile);
+		const [dx, dy] = this.polygonAt(index).getGuideDotPosition(tile);
 		return [0.8 * dx, 0.8 * dy];
 	}
 

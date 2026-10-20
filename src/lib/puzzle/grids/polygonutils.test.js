@@ -178,20 +178,20 @@ describe('Test square tile get directions', () => {
 
 	it('Straight tile', () => {
 		const tile = 5;
-		expect(square.get_directions(tile, 0)).toEqual(expect.arrayContaining([1, 4]));
-		expect(square.get_directions(tile, -1)).toEqual(expect.arrayContaining([2, 8]));
-		expect(square.get_directions(tile, -2)).toEqual(expect.arrayContaining([1, 4]));
-		expect(square.get_directions(tile, 1)).toEqual(expect.arrayContaining([2, 8]));
-		expect(square.get_directions(tile, 2)).toEqual(expect.arrayContaining([1, 4]));
+		expect(square.getDirections(tile, 0)).toEqual(expect.arrayContaining([1, 4]));
+		expect(square.getDirections(tile, -1)).toEqual(expect.arrayContaining([2, 8]));
+		expect(square.getDirections(tile, -2)).toEqual(expect.arrayContaining([1, 4]));
+		expect(square.getDirections(tile, 1)).toEqual(expect.arrayContaining([2, 8]));
+		expect(square.getDirections(tile, 2)).toEqual(expect.arrayContaining([1, 4]));
 	});
 
 	it('Turn tile', () => {
 		const tile = 3;
-		expect(square.get_directions(tile, 0)).toEqual(expect.arrayContaining([1, 2]));
-		expect(square.get_directions(tile, -1)).toEqual(expect.arrayContaining([2, 4]));
-		expect(square.get_directions(tile, -2)).toEqual(expect.arrayContaining([4, 8]));
-		expect(square.get_directions(tile, 1)).toEqual(expect.arrayContaining([8, 1]));
-		expect(square.get_directions(tile, 2)).toEqual(expect.arrayContaining([4, 8]));
+		expect(square.getDirections(tile, 0)).toEqual(expect.arrayContaining([1, 2]));
+		expect(square.getDirections(tile, -1)).toEqual(expect.arrayContaining([2, 4]));
+		expect(square.getDirections(tile, -2)).toEqual(expect.arrayContaining([4, 8]));
+		expect(square.getDirections(tile, 1)).toEqual(expect.arrayContaining([8, 1]));
+		expect(square.getDirections(tile, 2)).toEqual(expect.arrayContaining([4, 8]));
 	});
 });
 
@@ -200,20 +200,20 @@ describe('Test octagrid square tile get directions', () => {
 
 	it('Straight tile', () => {
 		const tile = 34;
-		expect(square.get_directions(tile, 0)).toEqual(expect.arrayContaining([2, 32]));
-		expect(square.get_directions(tile, -1)).toEqual(expect.arrayContaining([8, 128]));
-		expect(square.get_directions(tile, -2)).toEqual(expect.arrayContaining([2, 32]));
-		expect(square.get_directions(tile, 1)).toEqual(expect.arrayContaining([8, 128]));
-		expect(square.get_directions(tile, 2)).toEqual(expect.arrayContaining([2, 32]));
+		expect(square.getDirections(tile, 0)).toEqual(expect.arrayContaining([2, 32]));
+		expect(square.getDirections(tile, -1)).toEqual(expect.arrayContaining([8, 128]));
+		expect(square.getDirections(tile, -2)).toEqual(expect.arrayContaining([2, 32]));
+		expect(square.getDirections(tile, 1)).toEqual(expect.arrayContaining([8, 128]));
+		expect(square.getDirections(tile, 2)).toEqual(expect.arrayContaining([2, 32]));
 	});
 
 	it('Turn tile', () => {
 		const tile = 10;
-		expect(square.get_directions(tile, 0)).toEqual(expect.arrayContaining([2, 8]));
-		expect(square.get_directions(tile, -1)).toEqual(expect.arrayContaining([8, 32]));
-		expect(square.get_directions(tile, -2)).toEqual(expect.arrayContaining([32, 128]));
-		expect(square.get_directions(tile, 1)).toEqual(expect.arrayContaining([128, 2]));
-		expect(square.get_directions(tile, 2)).toEqual(expect.arrayContaining([32, 128]));
+		expect(square.getDirections(tile, 0)).toEqual(expect.arrayContaining([2, 8]));
+		expect(square.getDirections(tile, -1)).toEqual(expect.arrayContaining([8, 32]));
+		expect(square.getDirections(tile, -2)).toEqual(expect.arrayContaining([32, 128]));
+		expect(square.getDirections(tile, 1)).toEqual(expect.arrayContaining([128, 2]));
+		expect(square.getDirections(tile, 2)).toEqual(expect.arrayContaining([32, 128]));
 	});
 });
 
@@ -221,17 +221,17 @@ describe('Test square tile types', () => {
 	const square = new RegularPolygonCell(4, 0, 0.5);
 
 	it('Has correct tiles count', () => {
-		expect(square.tileTypes.size).toBe(15);
+		expect(square.pipeShapes.size).toBe(15);
 	});
 
 	it('Has correct types count', () => {
-		const types = new Set([...square.tileTypes.values()].map((x) => x.str));
+		const types = new Set([...square.pipeShapes.values()].map((x) => x.str));
 		expect(types.size).toBe(5);
 	});
 
 	it('Deadend tile', () => {
 		for (let tile of [1, 2, 4, 8]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('1000');
 			expect(type?.isDeadend).toBe(true);
@@ -245,7 +245,7 @@ describe('Test square tile types', () => {
 
 	it('Turn tile', () => {
 		for (let tile of [3, 6, 9, 12]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('1100');
 			expect(type?.isDeadend).toBe(false);
@@ -259,7 +259,7 @@ describe('Test square tile types', () => {
 
 	it('Straight tile', () => {
 		for (let tile of [5, 10]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('1010');
 			expect(type?.isDeadend).toBe(false);
@@ -273,7 +273,7 @@ describe('Test square tile types', () => {
 
 	it('T tile', () => {
 		for (let tile of [14, 13, 11, 7]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('1110');
 			expect(type?.isDeadend).toBe(false);
@@ -287,7 +287,7 @@ describe('Test square tile types', () => {
 
 	it('+ tile', () => {
 		for (let tile of [15]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('1111');
 			expect(type?.isDeadend).toBe(false);
@@ -304,17 +304,17 @@ describe('Test triangle tile types', () => {
 	const square = new RegularPolygonCell(3, 0, 0.5, [1, 4, 8]);
 
 	it('Has correct tiles count', () => {
-		expect(square.tileTypes.size).toBe(7);
+		expect(square.pipeShapes.size).toBe(7);
 	});
 
 	it('Has correct types count', () => {
-		const types = new Set([...square.tileTypes.values()].map((x) => x.str));
+		const types = new Set([...square.pipeShapes.values()].map((x) => x.str));
 		expect(types.size).toBe(3);
 	});
 
 	it('Deadend tile', () => {
 		for (let tile of [1, 4, 8]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('100');
 			expect(type?.isDeadend).toBe(true);
@@ -328,7 +328,7 @@ describe('Test triangle tile types', () => {
 
 	it('Turn tile', () => {
 		for (let tile of [5, 9, 12]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('110');
 			expect(type?.isDeadend).toBe(false);
@@ -342,7 +342,7 @@ describe('Test triangle tile types', () => {
 
 	it('Fully connected tile', () => {
 		for (let tile of [13]) {
-			const type = square.tileTypes.get(tile);
+			const type = square.pipeShapes.get(tile);
 			expect(type).toBeDefined();
 			expect(type?.str).toBe('111');
 			expect(type?.isDeadend).toBe(false);
@@ -365,7 +365,7 @@ describe('Test is_inside check for square', () => {
 			{ x: 0.49, y: 0.49, msg: 'corner' }
 		];
 		for (let point of points) {
-			const inside = square.is_inside(point.x, point.y);
+			const inside = square.isInside(point.x, point.y);
 			expect(inside, point.msg).toBe(true);
 		}
 	});
@@ -378,7 +378,7 @@ describe('Test is_inside check for square', () => {
 			{ x: 0.49, y: -0.6, msg: 'small y' }
 		];
 		for (let point of points) {
-			const inside = square.is_inside(point.x, point.y);
+			const inside = square.isInside(point.x, point.y);
 			expect(inside, point.msg).toBe(false);
 		}
 	});

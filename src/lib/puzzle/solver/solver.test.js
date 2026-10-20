@@ -464,7 +464,7 @@ describe('Test solver emit format (classic input)', () => {
 			expect(['initial', 'guess', 'aftercheck']).toContain(stage);
 			// rotations stay within a cell's orbit - masks would fall outside
 			expect(step.rotation).toBeGreaterThanOrEqual(0);
-			expect(step.rotation).toBeLessThan(grid.polygonAt(step.index).num_directions);
+			expect(step.rotation).toBeLessThan(grid.polygonAt(step.index).numDirections);
 			if (step.final) {
 				finalRotations.set(step.index, step.rotation);
 			}

@@ -20,28 +20,28 @@ const TRIANGLE_5 = new RegularPolygonCell(3, (Math.PI * 3) / 12, TRIANGLE_RADIUS
 const polygons = [SQUARE_0, TRIANGLE_1, TRIANGLE_2, SQUARE_3, TRIANGLE_4, TRIANGLE_5];
 const offsets = [
 	{
-		dx: SQUARE_0.radius_out * Math.cos((Math.PI * 5) / 6),
-		dy: -SQUARE_0.radius_out * Math.sin((Math.PI * 5) / 6)
+		dx: SQUARE_0.radiusOut * Math.cos((Math.PI * 5) / 6),
+		dy: -SQUARE_0.radiusOut * Math.sin((Math.PI * 5) / 6)
 	},
 	{
-		dx: TRIANGLE_1.radius_out * Math.cos((Math.PI * 5) / 12),
-		dy: -TRIANGLE_1.radius_out * Math.sin((Math.PI * 5) / 12)
+		dx: TRIANGLE_1.radiusOut * Math.cos((Math.PI * 5) / 12),
+		dy: -TRIANGLE_1.radiusOut * Math.sin((Math.PI * 5) / 12)
 	},
 	{
-		dx: TRIANGLE_2.radius_out * Math.cos(Math.PI / 12),
-		dy: -TRIANGLE_2.radius_out * Math.sin(Math.PI / 12)
+		dx: TRIANGLE_2.radiusOut * Math.cos(Math.PI / 12),
+		dy: -TRIANGLE_2.radiusOut * Math.sin(Math.PI / 12)
 	},
 	{
-		dx: SQUARE_3.radius_out * Math.cos(-Math.PI / 3),
-		dy: -SQUARE_3.radius_out * Math.sin(-Math.PI / 3)
+		dx: SQUARE_3.radiusOut * Math.cos(-Math.PI / 3),
+		dy: -SQUARE_3.radiusOut * Math.sin(-Math.PI / 3)
 	},
 	{
-		dx: TRIANGLE_4.radius_out * Math.cos(-(Math.PI * 3) / 4),
-		dy: -TRIANGLE_4.radius_out * Math.sin(-(Math.PI * 3) / 4)
+		dx: TRIANGLE_4.radiusOut * Math.cos(-(Math.PI * 3) / 4),
+		dy: -TRIANGLE_4.radiusOut * Math.sin(-(Math.PI * 3) / 4)
 	},
 	{
-		dx: 2 * TRIANGLE_5.radius_out * Math.cos(-(Math.PI * 3) / 4),
-		dy: -2 * TRIANGLE_5.radius_out * Math.sin(-(Math.PI * 3) / 4)
+		dx: 2 * TRIANGLE_5.radiusOut * Math.cos(-(Math.PI * 3) / 4),
+		dy: -2 * TRIANGLE_5.radiusOut * Math.sin(-(Math.PI * 3) / 4)
 	}
 ];
 
@@ -140,7 +140,7 @@ export class SnubSquareGrid extends AbstractGrid {
 			const { dx, dy } = offsets[i];
 			const x0 = c * STEP;
 			const y0 = r * STEP;
-			const inside = polygon.is_inside(x - x0 - dx, y - y0 - dy);
+			const inside = polygon.isInside(x - x0 - dx, y - y0 - dy);
 			if (inside) {
 				if (this.emptyCells.has(index)) {
 					return { index: -1, x: 0, y: 0 };

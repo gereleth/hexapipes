@@ -269,7 +269,7 @@ export class OctaGrid extends AbstractGrid {
 	 * * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index = 0) {
-		const [dx, dy] = this.polygonAt(index).get_guide_dot_position(tile);
+		const [dx, dy] = this.polygonAt(index).getGuideDotPosition(tile);
 		return [0.7 * dx, 0.7 * dy];
 	}
 

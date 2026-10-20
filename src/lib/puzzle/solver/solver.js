@@ -173,14 +173,14 @@ export class Solver {
 	/**
 	 * Return the tile type of cell's union
 	 * @param {Number} index
-	 * @returns {import('#lib/puzzle/grids/polygonutils.js').TileType|null}
+	 * @returns {import('#lib/puzzle/grids/polygonutils.js').PipeShape|null}
 	 */
 	getTileType(index) {
 		let union = 0;
 		for (let layer of this.tiles[index]) {
 			union |= layer;
 		}
-		return this.grid.polygonAt(index).tileTypes.get(union) || null;
+		return this.grid.polygonAt(index).pipeShapes.get(union) || null;
 	}
 
 	/**
@@ -195,7 +195,7 @@ export class Solver {
 			// either empty or fully connected, is solved right away
 			return;
 		}
-		/** @type {(import('#lib/puzzle/grids/polygonutils.js').TileType|null)[]|null} */
+		/** @type {(import('#lib/puzzle/grids/polygonutils.js').PipeShape|null)[]|null} */
 		let neighbourTiles = null;
 		if (this.hasTileTypeTricks) {
 			neighbourTiles = [];
@@ -228,7 +228,7 @@ export class Solver {
 	 * single piece and only hold when every cell is one piece.
 	 * @param {Number} index
 	 * @param {Cell} cell - cell at index
-	 * @param {(import('#lib/puzzle/grids/polygonutils.js').TileType|null)[]} neighbourTiles -
+	 * @param {(import('#lib/puzzle/grids/polygonutils.js').PipeShape|null)[]} neighbourTiles -
 	 * neighbour tile union types aligned with cell.polygon.directions, null for
 	 * empty neighbours
 	 */
@@ -363,7 +363,7 @@ export class Solver {
 			// derived from probing them would be vacuous
 			return;
 		}
-		let directions = cell.polygon.fully_connected & ~cell.walls;
+		let directions = cell.polygon.fullyConnected & ~cell.walls;
 		for (let layerIndex of cell.layers.keys()) {
 			const subcellId = this.grid.pipeNodeId(index, layerIndex);
 			// subtract what this cell's subcells already contribute; an unowned

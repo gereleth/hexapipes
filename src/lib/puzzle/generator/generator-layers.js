@@ -746,8 +746,8 @@ function pregenerate_layers_attempt(
 				}
 				const fullyConnected =
 					checkFullyConnected &&
-					((used | direction) === polygon.fully_connected ||
-						(neighbourUsed | backDirection) === grid.polygonAt(neighbour).fully_connected);
+					((used | direction) === polygon.fullyConnected ||
+						(neighbourUsed | backDirection) === grid.polygonAt(neighbour).fullyConnected);
 				if (fullyConnected && !unvisited.has(neighbour)) {
 					// completely disregard moves that make a tile fully connected
 					// without reaching unvisited places
@@ -1048,7 +1048,7 @@ function pregenerate_layers_attempt(
 				}
 				const neighbourOwners = /** @type {Number[]} */ (owners.get(neighbour));
 				const neighbourUsed = usedDirections(layers[neighbour]);
-				const neighbourFullyConnected = grid.polygonAt(neighbour).fully_connected;
+				const neighbourFullyConnected = grid.polygonAt(neighbour).fullyConnected;
 				const backDirection = opposite.get(direction) || 0;
 				for (let layerIndex = 0; layerIndex < cellOwners.length; layerIndex++) {
 					for (
@@ -1070,7 +1070,7 @@ function pregenerate_layers_attempt(
 						// a fully connected union is a last resort, as during growth
 						const fullyConnected =
 							checkFullyConnected &&
-							((used | direction) === polygon.fully_connected ||
+							((used | direction) === polygon.fullyConnected ||
 								(neighbourUsed | backDirection) === neighbourFullyConnected);
 						if (fullyConnected) {
 							fullyConnectedCandidates.push(candidate);
@@ -1138,7 +1138,7 @@ export function randomRotate(layers, grid) {
 			return [];
 		}
 		const polygon = grid.polygonAt(index);
-		const rotations = Math.floor(Math.random() * polygon.num_directions);
+		const rotations = Math.floor(Math.random() * polygon.numDirections);
 		return cellLayers.map((layer) => polygon.rotate(layer, rotations));
 	});
 }
@@ -1418,7 +1418,7 @@ export function validateLayers(grid, layers) {
 			if (layer === 0) {
 				throw new Error(`Cell ${index} layer ${layerIndex} has no connections`);
 			}
-			if ((layer | polygon.fully_connected) !== polygon.fully_connected) {
+			if ((layer | polygon.fullyConnected) !== polygon.fullyConnected) {
 				throw new Error(`Cell ${index} layer ${layerIndex} has invalid direction bits`);
 			}
 			const from = key(index, layerIndex);

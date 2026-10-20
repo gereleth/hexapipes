@@ -403,7 +403,7 @@ export class PipesGame {
 		if (tileState === undefined || tileState.pipes.length === 0) {
 			return;
 		}
-		const numDirections = this.grid.polygonAt(index).num_directions;
+		const numDirections = this.grid.polygonAt(index).numDirections;
 		const current = ((tileState.rotations % numDirections) + numDirections) % numDirections;
 		let delta = (rotation - current) % numDirections;
 		if (delta < 0) {

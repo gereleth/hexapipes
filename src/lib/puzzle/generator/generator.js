@@ -76,11 +76,11 @@ export function computeCellObviousTiles(grid, indexes) {
 			forbidden.set(walls, wallForbidden);
 			/** @type {Map<String, Set<Number>>} shape class => surviving orientations */
 			const survivors = new Map();
-			for (let orientation of polygon.tileTypes.keys()) {
+			for (let orientation of polygon.pipeShapes.keys()) {
 				if ((orientation & walls) !== 0) {
 					continue;
 				}
-				const str = polygon.tileTypes.get(orientation)?.str || '';
+				const str = polygon.pipeShapes.get(orientation)?.str || '';
 				const group = survivors.get(str);
 				if (group) {
 					group.add(orientation);
@@ -115,7 +115,7 @@ function randomRotate(tiles, grid) {
 			return 0;
 		}
 		const polygon = grid.polygonAt(index);
-		const numDirections = polygon.num_directions;
+		const numDirections = polygon.numDirections;
 		let rotated = polygon.rotate(tile, Math.floor(Math.random() * numDirections));
 		return rotated;
 	});
@@ -195,7 +195,7 @@ export class Generator {
 					continue;
 				}
 				const polygon = this.grid.polygonAt(index);
-				if (non_triangular_grid && polygon.tileTypes.get(startTiles[index])?.isFullyConnected) {
+				if (non_triangular_grid && polygon.pipeShapes.get(startTiles[index])?.isFullyConnected) {
 					// fully connected tile, ignore it too
 					continue;
 				}
@@ -213,8 +213,8 @@ export class Generator {
 							empty ||
 							startTiles[neighbour] < 0 ||
 							component.has(neighbour) ||
-							(npolygon.num_directions > 3 &&
-								npolygon.tileTypes.get(startTiles[neighbour])?.isFullyConnected)
+							(npolygon.numDirections > 3 &&
+								npolygon.pipeShapes.get(startTiles[neighbour])?.isFullyConnected)
 						) {
 							continue;
 						}
@@ -301,11 +301,11 @@ export class Generator {
 				// classify this neighbour by priority
 				if (
 					non_triangular_grid &&
-					(polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
+					(polygon.pipeShapes.get(connections + direction)?.isFullyConnected ||
 						(tiles[neighbour] > 0 &&
 							this.grid
 								.polygonAt(neighbour)
-								.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
+								.pipeShapes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
 								?.isFullyConnected))
 				) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
@@ -318,7 +318,7 @@ export class Generator {
 						continue;
 					}
 				}
-				if (polygon.tileTypes.get(connections + direction)?.isStraight) {
+				if (polygon.pipeShapes.get(connections + direction)?.isStraight) {
 					if (Math.random() < avoidStraights) {
 						straightNeighbours.push({ neighbour, direction });
 						continue;

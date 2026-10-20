@@ -140,7 +140,7 @@
 			}
 			if (!layer) {
 				t.forEach((tile, index) => {
-					if (tile < 0 || tile > gr.polygonAt(index).fully_connected) {
+					if (tile < 0 || tile > gr.polygonAt(index).fullyConnected) {
 						throw `Bad tile value at index ${index}: ${tile}`;
 					}
 				});

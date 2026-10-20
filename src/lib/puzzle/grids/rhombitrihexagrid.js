@@ -150,7 +150,7 @@ export class RhombitrihexaGrid extends AbstractGrid {
 				const x0 = r * ROW_DX + c * COL_DX + this.OFFSETS[i].dx;
 				const y0 = r * ROW_DY + this.OFFSETS[i].dy;
 				const polygon = this.POLYGONS[i];
-				if (polygon.is_inside(x - x0, y - y0)) {
+				if (polygon.isInside(x - x0, y - y0)) {
 					if (this.emptyCells.has(index)) {
 						return { x: 0, y: 0, index: -1 };
 					} else {

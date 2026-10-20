@@ -187,7 +187,7 @@ describe('Test layered scrambling', () => {
 				let xored = 0;
 				cellLayers.forEach((layer) => {
 					expect(layer).toBeGreaterThan(0);
-					expect((layer | polygon.fully_connected) === polygon.fully_connected).toBe(true);
+					expect((layer | polygon.fullyConnected) === polygon.fullyConnected).toBe(true);
 					used |= layer;
 					xored ^= layer;
 				});

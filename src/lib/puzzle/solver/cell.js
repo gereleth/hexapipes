@@ -34,7 +34,7 @@ function buildPossible(layers, polygon) {
 	const seen = new Set();
 	/** @type {Map<Number, Number[]>} */
 	const possible = new Map();
-	const numDirections = polygon.num_directions;
+	const numDirections = polygon.numDirections;
 	for (let rotation = 0; rotation < numDirections; rotation++) {
 		const masks = layers.map((layer) => polygon.rotate(layer, rotation));
 		const id = visualId(masks);
@@ -125,7 +125,7 @@ export class Cell {
 			const layerCount = this.layers.length;
 			// grid direction space spanned by this shape: bit positions 0
 			// through the highest bit of the union of all its directions
-			const rows = 32 - Math.clz32(this.polygon.fully_connected);
+			const rows = 32 - Math.clz32(this.polygon.fullyConnected);
 			this.answerRotations = new Uint32Array(rows * layerCount);
 			for (let [rotation, masks] of this.possible) {
 				for (let i = 0; i < layerCount; i++) {
@@ -385,7 +385,7 @@ export class Cell {
 	 */
 	get ownDeadendDirections() {
 		if (!(this.hasDeadends || this.neighbourDeadends > 0)) return 0;
-		let deadends = this.polygon.fully_connected & ~this.walls & ~this.neighbourDeadends;
+		let deadends = this.polygon.fullyConnected & ~this.walls & ~this.neighbourDeadends;
 		const w = this.ownDeadendWeights;
 		for (let [rotation, layers] of this.possible) {
 			for (let [index, layer] of layers.entries()) {
@@ -415,7 +415,7 @@ export class Cell {
 	 * @returns {Number}
 	 */
 	getLayerDefiniteConnections(layerIndex) {
-		let connections = this.polygon.fully_connected & ~this.walls;
+		let connections = this.polygon.fullyConnected & ~this.walls;
 		for (let layers of this.possible.values()) {
 			connections &= layers[layerIndex];
 		}
@@ -442,7 +442,7 @@ export class Cell {
 	 * @returns {{addedWalls:Number, addedConnections: Number, addedDeadends: Number}}
 	 */
 	applyConstraints(weightLimit = Infinity) {
-		const full = this.polygon.fully_connected;
+		const full = this.polygon.fullyConnected;
 		const result = {
 			addedWalls: 0,
 			addedConnections: 0,
