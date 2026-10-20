@@ -3,7 +3,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import Worker from '#lib/puzzle/worker-layers.js?worker';
 	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
-	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
+	import MultiTile from '#lib/puzzle/MultiTile.svelte';
 	import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
 	import {
 		applyRotations,
@@ -630,10 +630,10 @@
 					runGrid.YMIN}"
 			>
 				{#each visibleCells as cell (cell.key)}
-					<LayeredTile {game} i={cell.index} cx={cell.x} cy={cell.y} />
+					<MultiTile {game} i={cell.index} cx={cell.x} cy={cell.y} />
 				{/each}
 				<!-- status overlay goes ON TOP of the tiles:
-					LayeredTile paints its own opaque tile background -->
+					MultiTile paints its own opaque tile background -->
 				{#each visibleCells as cell (cell.key)}
 					<g transform="translate({cell.x},{cell.y})">
 						<path

@@ -4,7 +4,7 @@
 	import { settings } from '#lib/stores.js';
 	import { controls } from '#lib/puzzle/game/controls.js';
 	import Tile from '#lib/puzzle/Tile.svelte';
-	import LayeredTile from '#lib/puzzle/LayeredTile.svelte';
+	import MultiTile from '#lib/puzzle/MultiTile.svelte';
 	import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
 	import { Solver } from '#lib/puzzle/solver/solver.js';
 	import EdgeMarks from '#lib/puzzle/EdgeMarks.svelte';
@@ -376,7 +376,7 @@
 	>
 		{#each $visibleCells as visibleCell, i (visibleCell.key)}
 			{#if game.isMulti}
-				<LayeredTile
+				<MultiTile
 					i={visibleCell.index}
 					solved={game.solved}
 					{game}
