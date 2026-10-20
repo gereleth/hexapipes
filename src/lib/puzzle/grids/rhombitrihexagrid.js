@@ -1,4 +1,4 @@
-import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { RegularPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 const EAST = 1;
@@ -16,12 +16,12 @@ const COL_DX = 1 + SQRT3;
 const ROW_DX = COL_DX / 2;
 const ROW_DY = SQRT3 / 2 + 3 / 2;
 
-const HEXAGON = new RegularPolygonTile(6, 0, SQRT3 / 2, [1, 2, 8, 16, 32, 128]);
-const SQUARE1 = new RegularPolygonTile(4, 0, 0.5, [1, 4, 16, 64]);
-const SQUARE2 = new RegularPolygonTile(4, Math.PI / 3, 0.5, [2, 8, 32, 128]);
-const SQUARE3 = new RegularPolygonTile(4, Math.PI / 6, 0.5, [2, 8, 32, 128]);
-const TRIANGLE1 = new RegularPolygonTile(3, Math.PI / 6, SQRT3 / 6, [2, 8, 64]);
-const TRIANGLE2 = new RegularPolygonTile(3, Math.PI / 2, SQRT3 / 6, [4, 32, 128]);
+const HEXAGON = new RegularPolygonCell(6, 0, SQRT3 / 2, [1, 2, 8, 16, 32, 128]);
+const SQUARE1 = new RegularPolygonCell(4, 0, 0.5, [1, 4, 16, 64]);
+const SQUARE2 = new RegularPolygonCell(4, Math.PI / 3, 0.5, [2, 8, 32, 128]);
+const SQUARE3 = new RegularPolygonCell(4, Math.PI / 6, 0.5, [2, 8, 32, 128]);
+const TRIANGLE1 = new RegularPolygonCell(3, Math.PI / 6, SQRT3 / 6, [2, 8, 64]);
+const TRIANGLE2 = new RegularPolygonCell(3, Math.PI / 2, SQRT3 / 6, [4, 32, 128]);
 
 export class RhombitrihexaGrid extends AbstractGrid {
 	DIRECTIONS = [EAST, NORTHEAST, NORTH, NORTHWEST, WEST, SOUTHWEST, SOUTH, SOUTHEAST];
@@ -297,7 +297,7 @@ export class RhombitrihexaGrid extends AbstractGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {RegularPolygonTile}
+	 * @returns {RegularPolygonCell}
 	 */
 	polygonAt(index) {
 		const unitIndex = index % 6;

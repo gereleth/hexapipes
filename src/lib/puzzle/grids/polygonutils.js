@@ -23,7 +23,7 @@ export class TileType {
 	}
 }
 
-export class RegularPolygonTile {
+export class RegularPolygonCell {
 	/** @type {String|null} */
 	transformCSS = null;
 	/** @type {String|null} */
@@ -34,8 +34,8 @@ export class RegularPolygonTile {
 	 * @param {Number} num_directions
 	 * @param {Number} angle_offset
 	 * @param {Number} radius_in
-	 * @param {Number[]} directions
-	 * @param {Number} border_width
+	 * @param {Number[]} [directions = []]
+	 * @param {Number} [border_width = 0.01]
 	 */
 	constructor(num_directions, angle_offset, radius_in, directions = [], border_width = 0.01) {
 		this.num_directions = num_directions;
@@ -547,10 +547,10 @@ export class RegularPolygonTile {
 }
 
 /**
- * Polygon tile with skew/scale/rotate transformations applied
- * @extends RegularPolygonTile
+ * Polygon cell with skew/scale/rotate transformations applied
+ * @extends RegularPolygonCell
  */
-export class TransformedPolygonTile extends RegularPolygonTile {
+export class TransformedPolygonCell extends RegularPolygonCell {
 	/**
 	 *
 	 * @param {Number} num_directions

@@ -26,7 +26,7 @@ function visualId(masks) {
  * to the rotated layers at that rotation
  * States are deduplicated using visualId
  * @param {Number[]} layers - layer bitmasks at rotation 0
- * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile} polygon
+ * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonCell} polygon
  * @returns {Map<Number, Number[]>}
  */
 function buildPossible(layers, polygon) {
@@ -56,7 +56,7 @@ export class Cell {
 	/**
 	 *
 	 * @param {Number[]} layers
-	 * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile} polygon
+	 * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonCell} polygon
 	 * @param {Number} index
 	 * @param {ReturnType<buildPossible>|undefined} possible
 	 * @param {Number|undefined} repeatLayersMask - precomputed for a superset

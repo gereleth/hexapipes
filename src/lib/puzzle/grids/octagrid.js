@@ -1,4 +1,4 @@
-import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { RegularPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 const EAST = 1;
@@ -15,8 +15,8 @@ const R0 = 0.49;
 const d = Roct * Math.sin(Math.PI / 8);
 const d0 = R0 * Math.sin(Math.PI / 8);
 const Rsq = ((Roct - d) * Math.SQRT2) / 2;
-const OCTAGON = new RegularPolygonTile(8, 0, 0.5);
-const SQUARE = new RegularPolygonTile(4, Math.PI / 4, Rsq, [2, 8, 32, 128]);
+const OCTAGON = new RegularPolygonCell(8, 0, 0.5);
+const SQUARE = new RegularPolygonCell(4, Math.PI / 4, Rsq, [2, 8, 32, 128]);
 
 /**
  * Octagonal grid
@@ -246,7 +246,7 @@ export class OctaGrid extends AbstractGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {RegularPolygonTile}
+	 * @returns {RegularPolygonCell}
 	 */
 	polygonAt(index) {
 		if (index >= this.width * this.height) {

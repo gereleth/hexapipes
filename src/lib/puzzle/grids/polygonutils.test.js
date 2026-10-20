@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { RegularPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 
 describe('Test square tile rotations', () => {
-	const square = new RegularPolygonTile(4, 0, 0.5);
+	const square = new RegularPolygonCell(4, 0, 0.5);
 
 	it('Rotate an end tile counter-clockwise', () => {
 		let rotated = 1;
@@ -54,7 +54,7 @@ describe('Test square tile rotations', () => {
 });
 
 describe('Test octagrid square tile rotations', () => {
-	const square = new RegularPolygonTile(4, Math.PI / 4, 0.5, [2, 8, 32, 128]);
+	const square = new RegularPolygonCell(4, Math.PI / 4, 0.5, [2, 8, 32, 128]);
 
 	it('Rotate an end tile counter-clockwise', () => {
 		let rotated = 2;
@@ -106,7 +106,7 @@ describe('Test octagrid square tile rotations', () => {
 });
 
 describe('Test tile rotations', () => {
-	const hexagon = new RegularPolygonTile(6, 0, 0.5);
+	const hexagon = new RegularPolygonCell(6, 0, 0.5);
 
 	it('Rotate an end tile counter-clockwise', () => {
 		let rotated = 1;
@@ -174,7 +174,7 @@ describe('Test tile rotations', () => {
 });
 
 describe('Test square tile get directions', () => {
-	const square = new RegularPolygonTile(4, 0, 0.5);
+	const square = new RegularPolygonCell(4, 0, 0.5);
 
 	it('Straight tile', () => {
 		const tile = 5;
@@ -196,7 +196,7 @@ describe('Test square tile get directions', () => {
 });
 
 describe('Test octagrid square tile get directions', () => {
-	const square = new RegularPolygonTile(4, 0, 0.5, [2, 8, 32, 128]);
+	const square = new RegularPolygonCell(4, 0, 0.5, [2, 8, 32, 128]);
 
 	it('Straight tile', () => {
 		const tile = 34;
@@ -218,7 +218,7 @@ describe('Test octagrid square tile get directions', () => {
 });
 
 describe('Test square tile types', () => {
-	const square = new RegularPolygonTile(4, 0, 0.5);
+	const square = new RegularPolygonCell(4, 0, 0.5);
 
 	it('Has correct tiles count', () => {
 		expect(square.tileTypes.size).toBe(15);
@@ -301,7 +301,7 @@ describe('Test square tile types', () => {
 });
 
 describe('Test triangle tile types', () => {
-	const square = new RegularPolygonTile(3, 0, 0.5, [1, 4, 8]);
+	const square = new RegularPolygonCell(3, 0, 0.5, [1, 4, 8]);
 
 	it('Has correct tiles count', () => {
 		expect(square.tileTypes.size).toBe(7);
@@ -356,7 +356,7 @@ describe('Test triangle tile types', () => {
 });
 
 describe('Test is_inside check for square', () => {
-	const square = new RegularPolygonTile(4, 0, 0.5);
+	const square = new RegularPolygonCell(4, 0, 0.5);
 
 	it('Correctly identifies inside points', () => {
 		const points = [

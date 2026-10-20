@@ -1,4 +1,4 @@
-import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { RegularPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 
@@ -10,12 +10,12 @@ const SOUTH = 8;
 const STEP = 2 * Math.cos(Math.PI / 12);
 const TRIANGLE_RADIUS_IN = Math.sqrt(3) / 6;
 
-const SQUARE_0 = new RegularPolygonTile(4, Math.PI / 12, 0.5);
-const SQUARE_3 = new RegularPolygonTile(4, -Math.PI / 12, 0.5);
-const TRIANGLE_1 = new RegularPolygonTile(3, (-3 * Math.PI) / 12, TRIANGLE_RADIUS_IN, [1, 2, 4]);
-const TRIANGLE_2 = new RegularPolygonTile(3, Math.PI / 12, TRIANGLE_RADIUS_IN, [1, 4, 8]);
-const TRIANGLE_4 = new RegularPolygonTile(3, (-Math.PI * 1) / 12, TRIANGLE_RADIUS_IN, [1, 2, 4]);
-const TRIANGLE_5 = new RegularPolygonTile(3, (Math.PI * 3) / 12, TRIANGLE_RADIUS_IN, [1, 4, 8]);
+const SQUARE_0 = new RegularPolygonCell(4, Math.PI / 12, 0.5);
+const SQUARE_3 = new RegularPolygonCell(4, -Math.PI / 12, 0.5);
+const TRIANGLE_1 = new RegularPolygonCell(3, (-3 * Math.PI) / 12, TRIANGLE_RADIUS_IN, [1, 2, 4]);
+const TRIANGLE_2 = new RegularPolygonCell(3, Math.PI / 12, TRIANGLE_RADIUS_IN, [1, 4, 8]);
+const TRIANGLE_4 = new RegularPolygonCell(3, (-Math.PI * 1) / 12, TRIANGLE_RADIUS_IN, [1, 2, 4]);
+const TRIANGLE_5 = new RegularPolygonCell(3, (Math.PI * 3) / 12, TRIANGLE_RADIUS_IN, [1, 4, 8]);
 
 const polygons = [SQUARE_0, TRIANGLE_1, TRIANGLE_2, SQUARE_3, TRIANGLE_4, TRIANGLE_5];
 const offsets = [
@@ -246,7 +246,7 @@ export class SnubSquareGrid extends AbstractGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {RegularPolygonTile}
+	 * @returns {RegularPolygonCell}
 	 */
 	polygonAt(index) {
 		const unitIndex = index % 6;

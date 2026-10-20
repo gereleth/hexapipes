@@ -1,4 +1,4 @@
-import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { RegularPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 const EAST = 1;
@@ -6,7 +6,7 @@ const NORTH = 2;
 const WEST = 4;
 const SOUTH = 8;
 
-const SQUARE = new RegularPolygonTile(4, 0, 0.5);
+const SQUARE = new RegularPolygonCell(4, 0, 0.5);
 
 /**
  * Square grid
@@ -115,7 +115,7 @@ export class SquareGrid extends AbstractGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {RegularPolygonTile}
+	 * @returns {RegularPolygonCell}
 	 */
 	polygonAt(index) {
 		return SQUARE;

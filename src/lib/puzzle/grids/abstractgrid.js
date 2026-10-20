@@ -114,8 +114,8 @@ export class AbstractGrid {
 	/**
 	 * Return polygon at index
 	 * @param {Number} index
-	 * @returns {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile|
-	 * import('#lib/puzzle/grids/polygonutils.js').TransformedPolygonTile}
+	 * @returns {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonCell|
+	 * import('#lib/puzzle/grids/polygonutils.js').TransformedPolygonCell}
 	 */
 	polygonAt(index) {
 		throw 'Implement polygonAt(index) method';

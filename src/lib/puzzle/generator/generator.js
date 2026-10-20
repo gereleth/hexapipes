@@ -48,7 +48,7 @@ function getRandomElement(array) {
  */
 export function computeCellObviousTiles(grid, indexes) {
 	/**
-	 * @type {Map<import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile, Map<Number, Set<Number>>>}
+	 * @type {Map<import('#lib/puzzle/grids/polygonutils.js').RegularPolygonCell, Map<Number, Set<Number>>>}
 	 * polygon => (cell walls => set of forbidden orientations) */
 	const polygonForbidden = new Map();
 	/** @type {Map<Number, Set<Number>>} cell index => forbidden orientations */

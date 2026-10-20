@@ -1,4 +1,4 @@
-import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { RegularPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 export const EAST = 1;
@@ -10,7 +10,7 @@ export const SOUTHEAST = 32;
 
 const YSTEP = Math.sqrt(3) / 2;
 
-const HEXAGON = new RegularPolygonTile(6, 0, 0.5);
+const HEXAGON = new RegularPolygonCell(6, 0, 0.5);
 
 /**
  * Hexagonal grid
@@ -205,7 +205,7 @@ export class HexaGrid extends AbstractGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {RegularPolygonTile}
+	 * @returns {RegularPolygonCell}
 	 */
 	polygonAt(index) {
 		return HEXAGON;

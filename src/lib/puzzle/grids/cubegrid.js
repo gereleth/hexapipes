@@ -1,4 +1,4 @@
-import { TransformedPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { TransformedPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 import {
 	HexaGrid,
 	EAST,
@@ -17,7 +17,7 @@ const DIRD = 8;
 
 const SCALE = 1.5; // cube (x, y) = SCALE * hexagon (x, y)
 
-const RIGHT_FACE = new TransformedPolygonTile(
+const RIGHT_FACE = new TransformedPolygonCell(
 	4,
 	0,
 	0.5 * SCALE,
@@ -30,7 +30,7 @@ const RIGHT_FACE = new TransformedPolygonTile(
 	-Math.PI / 2,
 	'filter: brightness(0.96)'
 );
-const TOP_FACE = new TransformedPolygonTile(
+const TOP_FACE = new TransformedPolygonCell(
 	4,
 	0,
 	0.5 * SCALE,
@@ -43,7 +43,7 @@ const TOP_FACE = new TransformedPolygonTile(
 	(5 * Math.PI) / 6,
 	'filter: brightness(1.04)'
 );
-const LEFT_FACE = new TransformedPolygonTile(
+const LEFT_FACE = new TransformedPolygonCell(
 	4,
 	0,
 	0.5 * SCALE,
@@ -234,7 +234,7 @@ export class CubeGrid extends AbstractGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {TransformedPolygonTile}
+	 * @returns {TransformedPolygonCell}
 	 */
 	polygonAt(index) {
 		return FACES[index % 3];

@@ -1,4 +1,4 @@
-import { RegularPolygonTile } from '#lib/puzzle/grids/polygonutils.js';
+import { RegularPolygonCell } from '#lib/puzzle/grids/polygonutils.js';
 import { AbstractGrid } from '#lib/puzzle/grids/abstractgrid.js';
 
 const EAST = 1;
@@ -12,8 +12,8 @@ const COL_DX = 1;
 const ROW_DX = COL_DX / 2;
 const ROW_DY = SQRT3 / 2;
 
-const TRIANGLE_UP = new RegularPolygonTile(3, Math.PI / 6, SQRT3 / 6, [1, 4, 8]);
-const TRIANGLE_DOWN = new RegularPolygonTile(3, -Math.PI / 6, SQRT3 / 6, [1, 2, 4]);
+const TRIANGLE_UP = new RegularPolygonCell(3, Math.PI / 6, SQRT3 / 6, [1, 4, 8]);
+const TRIANGLE_DOWN = new RegularPolygonCell(3, -Math.PI / 6, SQRT3 / 6, [1, 2, 4]);
 
 export class TriangularGrid extends AbstractGrid {
 	DIRECTIONS = [EAST, NORTH, WEST, SOUTH];
@@ -204,7 +204,7 @@ export class TriangularGrid extends AbstractGrid {
 
 	/**
 	 * @param {Number} index
-	 * @returns {RegularPolygonTile}
+	 * @returns {RegularPolygonCell}
 	 */
 	polygonAt(index) {
 		const unitIndex = index % 2;
