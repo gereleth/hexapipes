@@ -186,10 +186,10 @@ export class CubeGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number, rh: Number}}
 	 */
-	which_tile_at(x, y) {
+	whichCellAt(x, y) {
 		const xhex = x / SCALE;
 		const yhex = y / SCALE;
-		const { index: index0, x: x0, y: y0 } = this.hexagrid.which_tile_at(xhex, yhex);
+		const { index: index0, x: x0, y: y0 } = this.hexagrid.whichCellAt(xhex, yhex);
 		const rhomb0 = this.angle_to_rhomb(Math.atan2(-(yhex - y0), xhex - x0));
 		const index = index0 >= 0 ? 3 * index0 + rhomb0 : -1;
 		const { dx, dy } = RHOMB_OFFSETS[rhomb0];
@@ -201,7 +201,7 @@ export class CubeGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		const rhomb = index % 3;
 		const cubei = (index - rhomb) / 3;
 		let c = cubei % this.hexWidth;
@@ -210,7 +210,7 @@ export class CubeGrid extends AbstractGrid {
 
 		const [hexdir, rh] = this.#RHOMB_NEIGHBOURS.get(rhomb)?.get(direction) || [0, 0];
 		if (hexdir != 0) {
-			const { neighbour, empty } = this.hexagrid.find_neighbour(cubei, hexdir);
+			const { neighbour, empty } = this.hexagrid.findNeighbour(cubei, hexdir);
 			const cubeNeighbour = neighbour === -1 ? -1 : neighbour * 3 + rh;
 			const cubeEmpty = empty || this.emptyCells.has(cubeNeighbour);
 			return { neighbour: cubeNeighbour, empty: cubeEmpty };
@@ -236,7 +236,7 @@ export class CubeGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {TransformedPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		return FACES[index % 3];
 	}
 
@@ -244,9 +244,9 @@ export class CubeGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
+	getVisibleCells(box) {
 		const { xmin, ymin, width, height } = box;
-		const visibleHexagons = this.hexagrid.getVisibleTiles({
+		const visibleHexagons = this.hexagrid.getVisibleCells({
 			xmin: xmin / SCALE,
 			ymin: ymin / SCALE,
 			width: width / SCALE,
@@ -282,7 +282,7 @@ export class CubeGrid extends AbstractGrid {
 	 * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index) {
-		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
+		const [dx, dy] = this.polygonAt(index).get_guide_dot_position(tile);
 		return [0.8 * dx, 0.8 * dy];
 	}
 

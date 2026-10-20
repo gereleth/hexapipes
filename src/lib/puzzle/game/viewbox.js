@@ -89,7 +89,7 @@ export function createViewBox(grid) {
 		if (visibleTilesTimeoutId === null) {
 			visibleTilesTimeoutId = setTimeout(() => {
 				visibleTilesTimeoutId = null;
-				const visible = grid.getVisibleTiles(lastBox);
+				const visible = grid.getVisibleCells(lastBox);
 				visibleTiles.set(visible);
 			}, 100);
 		}

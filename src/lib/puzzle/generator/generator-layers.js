@@ -100,7 +100,7 @@ function findBackSubCell(grid, startLayers, cell, backDirection) {
 	}
 	for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
 		if ((cellLayers[layerIndex] & backDirection) > 0) {
-			return grid.subcellId(cell, layerIndex);
+			return grid.pipeNodeId(cell, layerIndex);
 		}
 	}
 	return -1;
@@ -191,13 +191,13 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		const queue = [startId];
 		while (queue.length > 0) {
 			const current = /** @type {Number} */ (queue.pop());
-			const [currentCell, currentLayer] = grid.cellLayerOf(current);
+			const [currentCell, currentLayer] = grid.cellIndexPipeIndexOf(current);
 			const layerMask = /** @type {Number[]} */ (startLayers[currentCell])[currentLayer];
 			let bits = layerMask;
 			while (bits > 0) {
 				const direction = bits & -bits;
 				bits ^= direction;
-				const { neighbour, empty } = grid.find_neighbour(currentCell, direction);
+				const { neighbour, empty } = grid.findNeighbour(currentCell, direction);
 				if (empty) {
 					continue;
 				}
@@ -228,7 +228,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 	for (let cell of keepable) {
 		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
 		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-			allSubCells.add(grid.subcellId(cell, layerIndex));
+			allSubCells.add(grid.pipeNodeId(cell, layerIndex));
 		}
 	}
 	/** @type {Set<Number>[]} sets of sub-cell ids (cell + layer * total) */
@@ -255,7 +255,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		const cellLayers = /** @type {Number[]} */ (startLayers[cell]);
 		const result = [];
 		for (let layerIndex = 0; layerIndex < cellLayers.length; layerIndex++) {
-			if (!component.has(grid.subcellId(cell, layerIndex))) {
+			if (!component.has(grid.pipeNodeId(cell, layerIndex))) {
 				continue;
 			}
 			let mask = cellLayers[layerIndex];
@@ -263,7 +263,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			while (bits > 0) {
 				const direction = bits & -bits;
 				bits ^= direction;
-				const { neighbour, empty } = grid.find_neighbour(cell, direction);
+				const { neighbour, empty } = grid.findNeighbour(cell, direction);
 				const backId = empty
 					? -1
 					: findBackSubCell(grid, startLayers, neighbour, grid.OPPOSITE.get(direction) || 0);
@@ -304,7 +304,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		/** @type {Set<Number>} cells hosting live sub-cells */
 		const liveCells = new Set();
 		for (let id of live) {
-			liveCells.add(grid.cellLayerOf(id)[0]);
+			liveCells.add(grid.cellIndexPipeIndexOf(id)[0]);
 		}
 		for (let cell of liveCells) {
 			const pruned = pruneCellLayers(cell, live);
@@ -333,7 +333,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			for (let rest = index; rest < components.length; rest++) {
 				stats.tooSmallLostSubCells += components[rest].size;
 				for (let id of components[rest]) {
-					const cell = grid.cellLayerOf(id)[0];
+					const cell = grid.cellIndexPipeIndexOf(id)[0];
 					if (!cells.has(cell)) {
 						cells.set(cell, { role: 'dissolved', layers: [] });
 					}
@@ -344,7 +344,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 		/** @type {Set<Number>} cells hosting this island's sub-cells */
 		const islandCells = new Set();
 		for (let id of component) {
-			islandCells.add(grid.cellLayerOf(id)[0]);
+			islandCells.add(grid.cellIndexPipeIndexOf(id)[0]);
 		}
 		// carve the island around cells already claimed by bigger
 		// components instead of dissolving it: bigger components win
@@ -375,7 +375,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			/** @type {Set<Number>} sub-cells of this island not at claimed cells */
 			const carved = new Set();
 			for (let id of component) {
-				if (!claimed.has(grid.cellLayerOf(id)[0])) {
+				if (!claimed.has(grid.cellIndexPipeIndexOf(id)[0])) {
 					carved.add(id);
 				}
 			}
@@ -401,7 +401,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			if (piece.size < minIslandSize) {
 				stats.fragmentLostSubCells += piece.size;
 				for (let id of piece) {
-					const cell = grid.cellLayerOf(id)[0];
+					const cell = grid.cellIndexPipeIndexOf(id)[0];
 					if (!cells.has(cell)) {
 						cells.set(cell, { role: 'dissolved', layers: [] });
 					}
@@ -411,7 +411,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			/** @type {Set<Number>} cells hosting this piece's sub-cells */
 			const pieceCells = new Set();
 			for (let id of piece) {
-				pieceCells.add(grid.cellLayerOf(id)[0]);
+				pieceCells.add(grid.cellIndexPipeIndexOf(id)[0]);
 			}
 			let pieceConflict = false;
 			for (let cell of pieceCells) {
@@ -423,7 +423,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
 			if (pieceConflict) {
 				stats.fragmentLostSubCells += piece.size;
 				for (let id of piece) {
-					const cell = grid.cellLayerOf(id)[0];
+					const cell = grid.cellIndexPipeIndexOf(id)[0];
 					if (!cells.has(cell)) {
 						cells.set(cell, { role: 'dissolved', layers: [] });
 					}
@@ -592,7 +592,7 @@ function pregenerate_layers_attempt(
 	 * @param {Number} subCell
 	 */
 	const syncTreeFrontier = (tree, subCell) => {
-		const [cell, layerIndex] = grid.cellLayerOf(subCell);
+		const [cell, layerIndex] = grid.cellIndexPipeIndexOf(subCell);
 		const wantsExtend = popcount(layers[cell][layerIndex]) <= 1;
 		syncFrontierList(tree.extending, subCell, wantsExtend);
 		syncFrontierList(tree.branching, subCell, !wantsExtend);
@@ -617,11 +617,11 @@ function pregenerate_layers_attempt(
 	 * @returns {Number}
 	 */
 	const inBoardFreeDirections = (cell) => {
-		const polygon = grid.polygon_at(cell);
+		const polygon = grid.polygonAt(cell);
 		const used = usedDirections(layers[cell]);
 		let count = 0;
 		for (let direction of polygon.directions) {
-			if ((used & direction) === 0 && !grid.find_neighbour(cell, direction).empty) {
+			if ((used & direction) === 0 && !grid.findNeighbour(cell, direction).empty) {
 				count += 1;
 			}
 		}
@@ -642,7 +642,7 @@ function pregenerate_layers_attempt(
 	 */
 	const applyMove = (tree, treeIndex, fromSubCell, direction, neighbour, syncSource) => {
 		// the direction is free for every layer of the cell
-		const [fromNode, layerIndex] = grid.cellLayerOf(fromSubCell);
+		const [fromNode, layerIndex] = grid.cellIndexPipeIndexOf(fromSubCell);
 		layers[fromNode][layerIndex] |= direction;
 		if (syncSource) {
 			syncTreeFrontier(tree, fromSubCell);
@@ -653,7 +653,7 @@ function pregenerate_layers_attempt(
 			unvisited.delete(neighbour);
 		}
 		tree.cells.add(neighbour);
-		syncTreeFrontier(tree, grid.subcellId(neighbour, layers[neighbour].length - 1));
+		syncTreeFrontier(tree, grid.pipeNodeId(neighbour, layers[neighbour].length - 1));
 		const neighbourOwners = owners.get(neighbour);
 		if (neighbourOwners) {
 			neighbourOwners.push(treeIndex);
@@ -696,9 +696,9 @@ function pregenerate_layers_attempt(
 				return false;
 			}
 			const fromPrimary = sourceList !== tree.lastResort;
-			const fromNode = grid.cellLayerOf(fromSubCell)[0];
+			const fromNode = grid.cellIndexPipeIndexOf(fromSubCell)[0];
 
-			const polygon = grid.polygon_at(fromNode);
+			const polygon = grid.polygonAt(fromNode);
 			const used = usedDirections(layers[fromNode]);
 			// a mixed cell (several subtrees share it) must keep a spare
 			// in-board free direction for the final merge connections —
@@ -715,7 +715,7 @@ function pregenerate_layers_attempt(
 				if ((used & direction) > 0) {
 					continue;
 				}
-				const { neighbour, empty } = grid.find_neighbour(fromNode, direction);
+				const { neighbour, empty } = grid.findNeighbour(fromNode, direction);
 				if (empty) {
 					continue;
 				}
@@ -747,7 +747,7 @@ function pregenerate_layers_attempt(
 				const fullyConnected =
 					checkFullyConnected &&
 					((used | direction) === polygon.fully_connected ||
-						(neighbourUsed | backDirection) === grid.polygon_at(neighbour).fully_connected);
+						(neighbourUsed | backDirection) === grid.polygonAt(neighbour).fully_connected);
 				if (fullyConnected && !unvisited.has(neighbour)) {
 					// completely disregard moves that make a tile fully connected
 					// without reaching unvisited places
@@ -836,7 +836,7 @@ function pregenerate_layers_attempt(
 				unvisited.delete(cell);
 				tree.cells.add(cell);
 				for (let layerIndex = 0; layerIndex < cellPlan.layers.length; layerIndex++) {
-					syncTreeFrontier(tree, grid.subcellId(cell, layerIndex));
+					syncTreeFrontier(tree, grid.pipeNodeId(cell, layerIndex));
 				}
 				// the event must snapshot the layers: the board keeps the
 				// cellPlan array and later pushes would mutate a shared payload
@@ -865,7 +865,7 @@ function pregenerate_layers_attempt(
 			const tree = { extending: [], branching: [], lastResort: [], cells: new Set() };
 			trees.push(tree);
 			tree.cells.add(cell);
-			const seedId = grid.subcellId(cell, 0);
+			const seedId = grid.pipeNodeId(cell, 0);
 			syncTreeFrontier(tree, seedId);
 			owners.set(cell, [treeIndex]);
 			seedCells.push(seedId);
@@ -891,18 +891,18 @@ function pregenerate_layers_attempt(
 		for (const treeIndex of order) {
 			const tree = trees[treeIndex];
 			const seedId = seedCells[treeIndex - freshStart];
-			const cell = grid.cellLayerOf(seedId)[0];
+			const cell = grid.cellIndexPipeIndexOf(seedId)[0];
 			/** @type {Number[]} */
 			const directions = [];
-			for (let direction of grid.polygon_at(cell).directions) {
-				const { neighbour, empty } = grid.find_neighbour(cell, direction);
+			for (let direction of grid.polygonAt(cell).directions) {
+				const { neighbour, empty } = grid.findNeighbour(cell, direction);
 				if (!empty && unvisited.has(neighbour)) {
 					directions.push(direction);
 				}
 			}
 			if (directions.length > 0) {
 				const direction = /** @type {Number} */ (getRandomElement(directions));
-				const neighbour = /** @type {Number} */ (grid.find_neighbour(cell, direction).neighbour);
+				const neighbour = /** @type {Number} */ (grid.findNeighbour(cell, direction).neighbour);
 				applyMove(tree, treeIndex, seedId, direction, neighbour, true);
 			}
 		}
@@ -971,12 +971,12 @@ function pregenerate_layers_attempt(
 				continue;
 			}
 			const used = usedDirections(layers[cell]);
-			const polygon = grid.polygon_at(cell);
+			const polygon = grid.polygonAt(cell);
 			for (let direction of polygon.directions) {
 				if ((used & direction) > 0) {
 					continue;
 				}
-				const { neighbour, empty } = grid.find_neighbour(cell, direction);
+				const { neighbour, empty } = grid.findNeighbour(cell, direction);
 				if (empty) {
 					continue;
 				}
@@ -1037,18 +1037,18 @@ function pregenerate_layers_attempt(
 				continue;
 			}
 			const used = usedDirections(layers[cell]);
-			const polygon = grid.polygon_at(cell);
+			const polygon = grid.polygonAt(cell);
 			for (let direction of polygon.directions) {
 				if ((used & direction) > 0) {
 					continue;
 				}
-				const { neighbour, empty } = grid.find_neighbour(cell, direction);
+				const { neighbour, empty } = grid.findNeighbour(cell, direction);
 				if (empty) {
 					continue;
 				}
 				const neighbourOwners = /** @type {Number[]} */ (owners.get(neighbour));
 				const neighbourUsed = usedDirections(layers[neighbour]);
-				const neighbourFullyConnected = grid.polygon_at(neighbour).fully_connected;
+				const neighbourFullyConnected = grid.polygonAt(neighbour).fully_connected;
 				const backDirection = opposite.get(direction) || 0;
 				for (let layerIndex = 0; layerIndex < cellOwners.length; layerIndex++) {
 					for (
@@ -1137,7 +1137,7 @@ export function randomRotate(layers, grid) {
 		if (cellLayers.length === 0) {
 			return [];
 		}
-		const polygon = grid.polygon_at(index);
+		const polygon = grid.polygonAt(index);
 		const rotations = Math.floor(Math.random() * polygon.num_directions);
 		return cellLayers.map((layer) => polygon.rotate(layer, rotations));
 	});
@@ -1159,7 +1159,7 @@ export function applyRotations(grid, layers, rotations) {
 		}
 		const rotation = rotations[index];
 		const amount = typeof rotation === 'number' && rotation > 0 ? rotation : 0;
-		const polygon = grid.polygon_at(index);
+		const polygon = grid.polygonAt(index);
 		return cellLayers.map((layer) => polygon.rotate(layer, amount));
 	});
 }
@@ -1179,7 +1179,7 @@ export function buildStartLayers(grid, layers, marked) {
 		if (cellLayers.length === 0 || typeof rotation !== 'number' || rotation < 0) {
 			return null;
 		}
-		const polygon = grid.polygon_at(index);
+		const polygon = grid.polygonAt(index);
 		return cellLayers.map((layer) => polygon.rotate(layer, rotation));
 	});
 }
@@ -1407,7 +1407,7 @@ export function validateLayers(grid, layers) {
 		if (cellLayers.length === 0 && playable > 1) {
 			throw new Error(`Cell ${index} has no layers`);
 		}
-		const polygon = grid.polygon_at(index);
+		const polygon = grid.polygonAt(index);
 		const used = usedDirections(cellLayers);
 		const xored = cellLayers.reduce((a, b) => a ^ b, 0);
 		if (used !== xored) {
@@ -1432,7 +1432,7 @@ export function validateLayers(grid, layers) {
 				const direction = bits & -bits;
 				bits ^= direction;
 				connectionEnds += 1;
-				const { neighbour, empty } = grid.find_neighbour(index, direction);
+				const { neighbour, empty } = grid.findNeighbour(index, direction);
 				if (empty || neighbour < 0) {
 					throw new Error(`Cell ${index} connects outside the board in direction ${direction}`);
 				}

@@ -99,7 +99,7 @@ export class OctaGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
+	whichCellAt(x, y) {
 		const x1 = Math.floor(x);
 		const x2 = Math.ceil(x);
 		const xm = (x1 + x2) * 0.5;
@@ -132,7 +132,7 @@ export class OctaGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		let c = 0;
 		let r = 0;
 		if (index >= this.width * this.height) {
@@ -192,7 +192,7 @@ export class OctaGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
+	getVisibleCells(box) {
 		let rmin = Math.floor(box.ymin) - 1;
 		let rmax = Math.ceil(box.ymin + box.height) + 1;
 		if (!this.wrap) {
@@ -248,7 +248,7 @@ export class OctaGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		if (index >= this.width * this.height) {
 			return SQUARE;
 		}
@@ -258,7 +258,7 @@ export class OctaGrid extends AbstractGrid {
 	/**
 	 * @param {Number} index
 	 */
-	getTileTransformCSS(index) {
+	getCellTransformCSS(index) {
 		return null;
 	}
 
@@ -269,7 +269,7 @@ export class OctaGrid extends AbstractGrid {
 	 * * @returns {Number[]}
 	 */
 	getGuideDotPosition(tile, index = 0) {
-		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
+		const [dx, dy] = this.polygonAt(index).get_guide_dot_position(tile);
 		return [0.7 * dx, 0.7 * dy];
 	}
 
@@ -301,17 +301,17 @@ export class OctaGrid extends AbstractGrid {
 				let cell = start_cell;
 				this.makeEmpty(start_cell);
 				while (true) {
-					let new_cell = this.find_neighbour(cell, shift_direction);
+					let new_cell = this.findNeighbour(cell, shift_direction);
 					if (new_cell.empty) {
 						break;
 					} else {
 						cell = new_cell.neighbour;
 					}
 					this.makeEmpty(cell);
-					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					let { neighbour, empty } = this.findNeighbour(cell, erase_direction);
 					while (!empty) {
 						this.makeEmpty(neighbour);
-						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+						({ neighbour, empty } = this.findNeighbour(neighbour, erase_direction));
 					}
 				}
 			}
@@ -321,7 +321,7 @@ export class OctaGrid extends AbstractGrid {
 				let middle_octagon = Math.floor(n / 2);
 				this.makeEmpty(middle_octagon);
 				this.DIRECTIONS.forEach((direction) => {
-					const { neighbour, empty } = this.find_neighbour(middle_octagon, direction);
+					const { neighbour, empty } = this.findNeighbour(middle_octagon, direction);
 					if (!empty) {
 						this.makeEmpty(neighbour);
 					}
@@ -330,7 +330,7 @@ export class OctaGrid extends AbstractGrid {
 				let middle_square = n - 1 + Math.floor((n - w) / 2);
 				this.makeEmpty(middle_square);
 				this.DIRECTIONS.forEach((direction) => {
-					const { neighbour, empty } = this.find_neighbour(middle_square, direction);
+					const { neighbour, empty } = this.findNeighbour(middle_square, direction);
 					if (!empty) {
 						this.makeEmpty(neighbour);
 					}
@@ -348,13 +348,13 @@ export class OctaGrid extends AbstractGrid {
 			let bottom_cell = w * (h - cutoff) + Math.floor((w - cutoff) / 2) + 1;
 			let left_cell = w * Math.floor(h / 2) + cutoff - 1;
 			if (w % 2 === 0) {
-				top_cell = this.find_neighbour(
+				top_cell = this.findNeighbour(
 					top_cell,
 					top_cell % w > (w - 1) / 2 ? SOUTHWEST : SOUTHEAST
 				).neighbour;
-				right_cell = this.find_neighbour(right_cell, NORTHWEST).neighbour;
-				left_cell = this.find_neighbour(left_cell, NORTHEAST).neighbour;
-				bottom_cell = this.find_neighbour(
+				right_cell = this.findNeighbour(right_cell, NORTHWEST).neighbour;
+				left_cell = this.findNeighbour(left_cell, NORTHEAST).neighbour;
+				bottom_cell = this.findNeighbour(
 					bottom_cell,
 					bottom_cell % w > (w - 1) / 2 ? NORTHWEST : NORTHEAST
 				).neighbour;
@@ -368,12 +368,12 @@ export class OctaGrid extends AbstractGrid {
 				let cell = start_cell;
 				while (true) {
 					this.makeEmpty(cell);
-					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					let { neighbour, empty } = this.findNeighbour(cell, erase_direction);
 					while (!empty) {
 						this.makeEmpty(neighbour);
-						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+						({ neighbour, empty } = this.findNeighbour(neighbour, erase_direction));
 					}
-					let new_cell = this.find_neighbour(cell, shift_direction);
+					let new_cell = this.findNeighbour(cell, shift_direction);
 					if (new_cell.empty) {
 						break;
 					} else {

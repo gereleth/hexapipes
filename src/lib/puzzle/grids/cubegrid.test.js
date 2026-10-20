@@ -38,56 +38,56 @@ describe('Test making a cell empty', () => {
 	grid.makeEmpty(14);
 
 	it('Reports an empty neighbour', () => {
-		const { neighbour, empty } = grid.find_neighbour(9, 8);
+		const { neighbour, empty } = grid.findNeighbour(9, 8);
 		expect(neighbour).toBe(14);
 		expect(empty).toBe(true);
 	});
 
 	it('Reports another empty neighbour', () => {
-		const { neighbour, empty } = grid.find_neighbour(12, 2);
+		const { neighbour, empty } = grid.findNeighbour(12, 2);
 		expect(neighbour).toBe(14);
 		expect(empty).toBe(true);
 	});
 
 	it('Reports a non-empty neighbour', () => {
-		const { neighbour, empty } = grid.find_neighbour(9, 4);
+		const { neighbour, empty } = grid.findNeighbour(9, 4);
 		expect(neighbour).toBe(22);
 		expect(empty).toBe(false);
 	});
 
 	it('Reports a non-neighbour when going outside the grid', () => {
-		const { neighbour, empty } = grid.find_neighbour(18, 4);
+		const { neighbour, empty } = grid.findNeighbour(18, 4);
 		expect(neighbour).toBe(-1);
 		expect(empty).toBe(true);
 	});
 
 	it('Reports a non-neighbour when going outside the grid', () => {
-		const { neighbour, empty } = grid.find_neighbour(4, 4);
+		const { neighbour, empty } = grid.findNeighbour(4, 4);
 		expect(neighbour).toBe(-1);
 		expect(empty).toBe(true);
 	});
 
 	it('Reports a non-neighbour when going outside the grid', () => {
-		const { neighbour, empty } = grid.find_neighbour(4, 8);
+		const { neighbour, empty } = grid.findNeighbour(4, 8);
 		expect(neighbour).toBe(-1);
 		expect(empty).toBe(true);
 	});
 
 	it('Reports a non-neighbour when going outside the grid', () => {
-		const { neighbour, empty } = grid.find_neighbour(11, 4);
+		const { neighbour, empty } = grid.findNeighbour(11, 4);
 		expect(neighbour).toBe(-1);
 		expect(empty).toBe(true);
 	});
 
 	it('Reports a non-neighbour when going outside the grid', () => {
-		const { neighbour, empty } = grid.find_neighbour(24, 8);
+		const { neighbour, empty } = grid.findNeighbour(24, 8);
 		expect(neighbour).toBe(-1);
 		expect(empty).toBe(true);
 	});
 
 	it('Does not return empty face in visible tiles', () => {
 		const visible = grid
-			.getVisibleTiles({ xmin: 0, ymin: 0, width: 5, height: 5 })
+			.getVisibleCells({ xmin: 0, ymin: 0, width: 5, height: 5 })
 			.map((v) => v.index);
 		expect(visible).not.toContain(14);
 	});

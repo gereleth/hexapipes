@@ -99,7 +99,7 @@ export class TrihexaGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
+	whichCellAt(x, y) {
 		const row = Math.round(y);
 		const col = Math.round(x / XSTEP);
 		const col_offset = this.even ? 0 : Math.floor(row / this.h);
@@ -163,7 +163,7 @@ export class TrihexaGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		// const polygon = this.polygon_at(index);
 		// if (polygon.directions.every((d) => d !== direction)) {
 		// 	return { neighbour: -1, empty: true };
@@ -242,7 +242,7 @@ export class TrihexaGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		const unitIndex = index % 3;
 		if (unitIndex === 0) {
 			return HEXAGON;
@@ -257,7 +257,7 @@ export class TrihexaGrid extends AbstractGrid {
 	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
-	getTileTransformCSS(index) {
+	getCellTransformCSS(index) {
 		return null;
 	}
 
@@ -265,7 +265,7 @@ export class TrihexaGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
+	getVisibleCells(box) {
 		let colmin = Math.floor(box.xmin / XSTEP) - 1;
 		let colmax = Math.ceil((box.xmin + box.width) / XSTEP) + 1;
 		let rowmin = Math.floor(box.ymin) - 1;
@@ -330,7 +330,7 @@ export class TrihexaGrid extends AbstractGrid {
 				this.wrap = false;
 				wrap = true;
 			}
-			const visible = this.getVisibleTiles({
+			const visible = this.getVisibleCells({
 				xmin: this.XMIN,
 				ymin: this.YMIN,
 				width: this.XMAX - this.XMIN,
@@ -372,7 +372,7 @@ export class TrihexaGrid extends AbstractGrid {
 				this.wrap = false;
 				wrap = true;
 			}
-			const visible = this.getVisibleTiles({
+			const visible = this.getVisibleCells({
 				xmin: this.XMIN,
 				ymin: this.YMIN,
 				width: this.XMAX - this.XMIN,
@@ -408,7 +408,7 @@ export class TrihexaGrid extends AbstractGrid {
 				wrap = true;
 			}
 			this.emptyCells.clear();
-			const visible = this.getVisibleTiles({
+			const visible = this.getVisibleCells({
 				xmin: this.XMIN,
 				ymin: this.YMIN,
 				width: this.XMAX - this.XMIN,

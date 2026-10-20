@@ -22,12 +22,12 @@ describe('Test find neighbour', () => {
 			[4, [6, -1, 3]]
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			const polygon = grid.polygon_at(index);
+			const polygon = grid.polygonAt(index);
 			for (let i = 0; i < polygon.directions.length; i++) {
 				const neighbourExpected = neighbours[i];
 				const direction = polygon.directions[i];
 				// console.log({ index, direction });
-				const { neighbour, empty } = grid.find_neighbour(index, direction);
+				const { neighbour, empty } = grid.findNeighbour(index, direction);
 				const msg = `Index ${index}, direction ${direction} => neighbour ${neighbour} empty ${empty}`;
 				expect(empty, msg).toBe(neighbourExpected === -1 || grid.emptyCells.has(neighbour));
 				expect(neighbour, msg).toBe(neighbourExpected);
@@ -48,12 +48,12 @@ describe('Test find neighbour', () => {
 			[4, [6, 39, 3]]
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			const polygon = grid.polygon_at(index);
+			const polygon = grid.polygonAt(index);
 			for (let i = 0; i < polygon.directions.length; i++) {
 				const neighbourExpected = neighbours[i];
 				const direction = polygon.directions[i];
 				// console.log({ index, direction });
-				const { neighbour, empty } = grid.find_neighbour(index, direction);
+				const { neighbour, empty } = grid.findNeighbour(index, direction);
 				const msg = `Index ${index}, direction ${direction} => neighbour ${neighbour} empty ${empty}`;
 				expect(empty, msg).toBe(neighbourExpected === -1 || grid.emptyCells.has(neighbour));
 				expect(neighbour, msg).toBe(neighbourExpected);
@@ -80,12 +80,12 @@ describe('Test find neighbour', () => {
 			[7, [0, 24, 6]] // top-right corner
 		]);
 		for (let [index, neighbours] of expected.entries()) {
-			const polygon = grid.polygon_at(index);
+			const polygon = grid.polygonAt(index);
 			for (let i = 0; i < polygon.directions.length; i++) {
 				const neighbourExpected = neighbours[i];
 				const direction = polygon.directions[i];
 				// console.log({ index, direction });
-				const { neighbour, empty } = grid.find_neighbour(index, direction);
+				const { neighbour, empty } = grid.findNeighbour(index, direction);
 				const msg = `Index ${index}, direction ${direction} => neighbour ${neighbour} empty ${empty}`;
 				expect(empty, msg).toBe(neighbourExpected === -1 || grid.emptyCells.has(neighbour));
 				expect(neighbour, msg).toBe(neighbourExpected);

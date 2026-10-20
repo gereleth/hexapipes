@@ -196,7 +196,7 @@ describe('Test classic game behavior on a generated board', () => {
 	}
 
 	const leaf = findLeaf(solvedTiles);
-	const neighbour = grid.find_neighbour(leaf.index, leaf.direction).neighbour;
+	const neighbour = grid.findNeighbour(leaf.index, leaf.direction).neighbour;
 	const playableCells = grid.total - grid.emptyCells.size;
 
 	it('Starts solved with all tiles in one component', () => {

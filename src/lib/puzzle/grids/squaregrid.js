@@ -59,7 +59,7 @@ export class SquareGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
+	whichCellAt(x, y) {
 		const x0 = Math.round(x);
 		const y0 = Math.round(y);
 		let index = this.rc_to_index(y0, x0);
@@ -74,7 +74,7 @@ export class SquareGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		let c = index % this.width;
 		let r = (index - c) / this.width;
 		let neighbour = -1;
@@ -117,7 +117,7 @@ export class SquareGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		return SQUARE;
 	}
 
@@ -125,7 +125,7 @@ export class SquareGrid extends AbstractGrid {
 	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
-	getTileTransformCSS(index) {
+	getCellTransformCSS(index) {
 		return null;
 	}
 
@@ -133,7 +133,7 @@ export class SquareGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
+	getVisibleCells(box) {
 		let rmin = Math.floor(box.ymin) - 1;
 		let rmax = Math.ceil(box.ymin + box.height) + 1;
 		if (!this.wrap) {

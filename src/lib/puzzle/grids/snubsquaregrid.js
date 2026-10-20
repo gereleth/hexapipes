@@ -94,7 +94,7 @@ export class SnubSquareGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
+	whichCellAt(x, y) {
 		const c0 = Math.round(x / STEP);
 		const r0 = Math.round(y / STEP);
 		const to_check = [];
@@ -136,7 +136,7 @@ export class SnubSquareGrid extends AbstractGrid {
 				continue;
 			}
 			const index = sqIndex * 6 + i;
-			const polygon = this.polygon_at(index);
+			const polygon = this.polygonAt(index);
 			const { dx, dy } = offsets[i];
 			const x0 = c * STEP;
 			const y0 = r * STEP;
@@ -166,7 +166,7 @@ export class SnubSquareGrid extends AbstractGrid {
 			const empty = this.emptyCells.has(neighbour);
 			return { neighbour, empty };
 		} else {
-			const square_neighbour = this.squaregrid.find_neighbour(squareIndex, direction);
+			const square_neighbour = this.squaregrid.findNeighbour(squareIndex, direction);
 			if (square_neighbour.empty) {
 				return { neighbour: -1, empty: true };
 			}
@@ -180,7 +180,7 @@ export class SnubSquareGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		const squareIndex = Math.floor(index / 6);
 		const unitIndex = index - 6 * squareIndex;
 		if (unitIndex === 0) {
@@ -248,7 +248,7 @@ export class SnubSquareGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		const unitIndex = index % 6;
 		return polygons[unitIndex];
 	}
@@ -257,7 +257,7 @@ export class SnubSquareGrid extends AbstractGrid {
 	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
-	getTileTransformCSS(index) {
+	getCellTransformCSS(index) {
 		return null;
 	}
 
@@ -265,8 +265,8 @@ export class SnubSquareGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
-		const visibleSquares = this.squaregrid.getVisibleTiles({
+	getVisibleCells(box) {
+		const visibleSquares = this.squaregrid.getVisibleCells({
 			xmin: box.xmin / STEP,
 			width: box.width / STEP,
 			ymin: box.ymin / STEP,

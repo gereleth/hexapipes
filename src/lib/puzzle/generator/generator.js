@@ -54,10 +54,10 @@ export function computeCellObviousTiles(grid, indexes) {
 	/** @type {Map<Number, Set<Number>>} cell index => forbidden orientations */
 	const cellForbidden = new Map();
 	for (let index of indexes) {
-		const polygon = grid.polygon_at(index);
+		const polygon = grid.polygonAt(index);
 		let walls = 0;
 		for (let direction of polygon.directions) {
-			const { empty } = grid.find_neighbour(index, direction);
+			const { empty } = grid.findNeighbour(index, direction);
 			if (empty) {
 				walls += direction;
 			}
@@ -114,7 +114,7 @@ function randomRotate(tiles, grid) {
 		if (tile === 0) {
 			return 0;
 		}
-		const polygon = grid.polygon_at(index);
+		const polygon = grid.polygonAt(index);
 		const numDirections = polygon.num_directions;
 		let rotated = polygon.rotate(tile, Math.floor(Math.random() * numDirections));
 		return rotated;
@@ -194,7 +194,7 @@ export class Generator {
 					// ambiguous tile, ignore it
 					continue;
 				}
-				const polygon = this.grid.polygon_at(index);
+				const polygon = this.grid.polygonAt(index);
 				if (non_triangular_grid && polygon.tileTypes.get(startTiles[index])?.isFullyConnected) {
 					// fully connected tile, ignore it too
 					continue;
@@ -207,8 +207,8 @@ export class Generator {
 					to_check.delete(i);
 					component.add(i);
 					for (let direction of this.grid.getDirections(startTiles[i], 0, i)) {
-						const { neighbour, empty } = this.grid.find_neighbour(i, direction);
-						const npolygon = this.grid.polygon_at(neighbour);
+						const { neighbour, empty } = this.grid.findNeighbour(i, direction);
+						const npolygon = this.grid.polygonAt(neighbour);
 						if (
 							empty ||
 							startTiles[neighbour] < 0 ||
@@ -227,7 +227,7 @@ export class Generator {
 			// components[0] now has the largest region of non-ambiguous connected tiles
 			for (let index of components[0] || []) {
 				for (let direction of this.grid.getDirections(startTiles[index], 0, index)) {
-					const { neighbour } = this.grid.find_neighbour(index, direction);
+					const { neighbour } = this.grid.findNeighbour(index, direction);
 					if (components[0].has(neighbour)) {
 						tiles[index] += direction;
 					}
@@ -243,7 +243,7 @@ export class Generator {
 				for (let index of component) {
 					startComponents.set(index, component);
 					for (let direction of this.grid.getDirections(startTiles[index], 0, index)) {
-						const { neighbour } = this.grid.find_neighbour(index, direction);
+						const { neighbour } = this.grid.findNeighbour(index, direction);
 						if (component.has(neighbour)) {
 							tiles[index] += direction;
 						}
@@ -289,12 +289,12 @@ export class Generator {
 			const obviousNeighbours = []; // these should be avoided with avoidObvious setting
 			const fullyConnectedNeighbours = []; // making a fully connected tile is a total last resort
 			const connections = tiles[fromNode];
-			const polygon = this.grid.polygon_at(fromNode);
+			const polygon = this.grid.polygonAt(fromNode);
 			for (let direction of polygon.directions) {
 				if ((direction & connections) > 0) {
 					continue;
 				}
-				const { neighbour, empty } = this.grid.find_neighbour(fromNode, direction);
+				const { neighbour, empty } = this.grid.findNeighbour(fromNode, direction);
 				if (empty || !unvisited.has(neighbour)) {
 					continue;
 				}
@@ -304,7 +304,7 @@ export class Generator {
 					(polygon.tileTypes.get(connections + direction)?.isFullyConnected ||
 						(tiles[neighbour] > 0 &&
 							this.grid
-								.polygon_at(neighbour)
+								.polygonAt(neighbour)
 								.tileTypes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
 								?.isFullyConnected))
 				) {

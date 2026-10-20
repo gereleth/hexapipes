@@ -182,7 +182,7 @@ describe('Test layered scrambling', () => {
 			expect(scrambled.length).toBe(grid.total);
 			scrambled.forEach((cellLayers, index) => {
 				expect(cellLayers.length).toBe(solved[index].length);
-				const polygon = grid.polygon_at(index);
+				const polygon = grid.polygonAt(index);
 				let used = 0;
 				let xored = 0;
 				cellLayers.forEach((layer) => {

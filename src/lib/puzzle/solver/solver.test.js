@@ -18,7 +18,7 @@ import {
 
 describe('Test Cell possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);
-	const polygon = grid.polygon_at(0);
+	const polygon = grid.polygonAt(0);
 	it('Starts with correct possible states from initial layers - deadend', () => {
 		const cell = new Cell([1], polygon, 0);
 		expect(cell.possible.size).toBe(6);
@@ -56,7 +56,7 @@ describe('Test Cell possible states initialization', () => {
 });
 describe('Test Cell applyConstraints', () => {
 	const grid = new HexaGrid(3, 3, false);
-	const polygon = grid.polygon_at(0);
+	const polygon = grid.polygonAt(0);
 
 	it('Throws error if no orientations are possible', () => {
 		const cell = new Cell([9, 18], polygon, 0); // two straights form an X
@@ -154,7 +154,7 @@ describe('Test Cell applyConstraints', () => {
 
 describe('Test layered cell cloning', () => {
 	const grid = new HexaGrid(1, 1, false);
-	const polygon = grid.polygon_at(0);
+	const polygon = grid.polygonAt(0);
 
 	it('Makes a copy of the cell', () => {
 		const cell = new Cell([1], polygon, 0);
@@ -464,7 +464,7 @@ describe('Test solver emit format (classic input)', () => {
 			expect(['initial', 'guess', 'aftercheck']).toContain(stage);
 			// rotations stay within a cell's orbit - masks would fall outside
 			expect(step.rotation).toBeGreaterThanOrEqual(0);
-			expect(step.rotation).toBeLessThan(grid.polygon_at(step.index).num_directions);
+			expect(step.rotation).toBeLessThan(grid.polygonAt(step.index).num_directions);
 			if (step.final) {
 				finalRotations.set(step.index, step.rotation);
 			}

@@ -100,7 +100,7 @@ export class HexaGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
+	whichCellAt(x, y) {
 		const r = y / YSTEP;
 		const r0 = Math.round(r);
 		const c0 = Math.round(x - (r0 % 2 === 0 ? 0 : 0.5));
@@ -131,7 +131,7 @@ export class HexaGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		let c = index % this.width;
 		let r = (index - c) / this.width;
 		let neighbour = -1;
@@ -207,7 +207,7 @@ export class HexaGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		return HEXAGON;
 	}
 
@@ -215,7 +215,7 @@ export class HexaGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
+	getVisibleCells(box) {
 		let rmin = Math.floor(box.ymin / YSTEP) - 1;
 		let rmax = Math.ceil((box.ymin + box.height) / YSTEP) + 1;
 		if (!this.wrap) {
@@ -266,16 +266,16 @@ export class HexaGrid extends AbstractGrid {
 			]) {
 				let cell = start_cell;
 				for (let delta_row = 1; delta_row < middle_row + 1; delta_row++) {
-					let new_cell = this.find_neighbour(cell, shift_direction);
+					let new_cell = this.findNeighbour(cell, shift_direction);
 					if (new_cell.empty) {
 						break;
 					} else {
 						cell = new_cell.neighbour;
 					}
-					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					let { neighbour, empty } = this.findNeighbour(cell, erase_direction);
 					while (!empty) {
 						this.makeEmpty(neighbour);
-						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+						({ neighbour, empty } = this.findNeighbour(neighbour, erase_direction));
 					}
 				}
 			}
@@ -299,16 +299,16 @@ export class HexaGrid extends AbstractGrid {
 			]) {
 				let cell = start_cell;
 				while (true) {
-					let new_cell = this.find_neighbour(cell, shift_direction);
+					let new_cell = this.findNeighbour(cell, shift_direction);
 					if (new_cell.empty) {
 						break;
 					} else {
 						cell = new_cell.neighbour;
 					}
-					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					let { neighbour, empty } = this.findNeighbour(cell, erase_direction);
 					while (!empty) {
 						this.makeEmpty(neighbour);
-						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+						({ neighbour, empty } = this.findNeighbour(neighbour, erase_direction));
 					}
 				}
 			}
@@ -328,16 +328,16 @@ export class HexaGrid extends AbstractGrid {
 			]) {
 				let cell = start_cell;
 				for (let delta_row = 1; delta_row < middle_row + 1; delta_row++) {
-					let new_cell = this.find_neighbour(cell, shift_direction);
+					let new_cell = this.findNeighbour(cell, shift_direction);
 					if (new_cell.empty) {
 						break;
 					} else {
 						cell = new_cell.neighbour;
 					}
-					let { neighbour, empty } = this.find_neighbour(cell, erase_direction);
+					let { neighbour, empty } = this.findNeighbour(cell, erase_direction);
 					while (!empty) {
 						this.makeEmpty(neighbour);
-						({ neighbour, empty } = this.find_neighbour(neighbour, erase_direction));
+						({ neighbour, empty } = this.findNeighbour(neighbour, erase_direction));
 					}
 				}
 			}
@@ -346,7 +346,7 @@ export class HexaGrid extends AbstractGrid {
 			const middle_index = Math.floor(this.total / 2);
 			this.emptyCells.add(middle_index);
 			this.DIRECTIONS.forEach((direction) => {
-				const { neighbour } = this.find_neighbour(middle_index, direction);
+				const { neighbour } = this.findNeighbour(middle_index, direction);
 				this.emptyCells.add(neighbour);
 			});
 		} else if (shape === 'half-wrap-horizontal') {

@@ -87,7 +87,7 @@ export class TriangularGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
+	whichCellAt(x, y) {
 		let row_frac = y / ROW_DY;
 		let col_frac = (x - row_frac * ROW_DX) / COL_DX;
 		let row = Math.round(row_frac);
@@ -169,7 +169,7 @@ export class TriangularGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		const unitIndex = index % 2;
 		const tileIndex = (index - unitIndex) / 2;
 		const r = Math.floor(tileIndex / this.w);
@@ -206,7 +206,7 @@ export class TriangularGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		const unitIndex = index % 2;
 		return this.POLYGONS[unitIndex];
 	}
@@ -215,7 +215,7 @@ export class TriangularGrid extends AbstractGrid {
 	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
-	getTileTransformCSS(index) {
+	getCellTransformCSS(index) {
 		return null;
 	}
 
@@ -223,7 +223,7 @@ export class TriangularGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
+	getVisibleCells(box) {
 		let r0 = Math.floor(box.ymin / ROW_DY) - 1;
 		let total_rows = Math.ceil(box.height / ROW_DY) + 3;
 		if (!this.wrap) {

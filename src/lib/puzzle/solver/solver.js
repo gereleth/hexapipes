@@ -136,7 +136,7 @@ export class Solver {
 		};
 		/** @type {(subcellId: Number, component: Number) => void} */
 		this.mergedSubcellHook = (subcellId, component) => {
-			const [index, layer] = this.grid.cellLayerOf(subcellId);
+			const [index, layer] = this.grid.cellIndexPipeIndexOf(subcellId);
 			this.avoidSubcellLoops(index, layer, this.getCell(index), component);
 		};
 	}
@@ -161,7 +161,7 @@ export class Solver {
 			this.unsolved.set(index, clone);
 			return clone;
 		}
-		cell = new Cell(this.tiles[index], this.grid.polygon_at(index), index);
+		cell = new Cell(this.tiles[index], this.grid.polygonAt(index), index);
 		this.unsolved.set(index, cell);
 		this.doLocalDeductions(index, cell);
 		// a freshly born cell must be dirty-processed even when doLocalDeductions
@@ -180,7 +180,7 @@ export class Solver {
 		for (let layer of this.tiles[index]) {
 			union |= layer;
 		}
-		return this.grid.polygon_at(index).tileTypes.get(union) || null;
+		return this.grid.polygonAt(index).tileTypes.get(union) || null;
 	}
 
 	/**
@@ -202,7 +202,7 @@ export class Solver {
 		}
 		let walls = 0;
 		for (let direction of cell.polygon.directions) {
-			const { neighbour, empty } = this.grid.find_neighbour(index, direction);
+			const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 			if (empty) {
 				walls += direction;
 				if (neighbourTiles !== null) {
@@ -296,7 +296,7 @@ export class Solver {
 	 * @param {Number} direction
 	 */
 	addConnection(index, direction) {
-		const { neighbour } = this.grid.find_neighbour(index, direction);
+		const { neighbour } = this.grid.findNeighbour(index, direction);
 		const opposite = this.grid.OPPOSITE.get(direction) || 0;
 		const neighbourCell = this.getCell(neighbour);
 		neighbourCell.addConnection(opposite);
@@ -321,12 +321,12 @@ export class Solver {
 		const slotComp = this.components.getSlotComponent(index, direction);
 		if (slotComp !== 0) return slotComp;
 		// ask the neighbour
-		const { neighbour } = this.grid.find_neighbour(index, direction);
+		const { neighbour } = this.grid.findNeighbour(index, direction);
 		const opposite = this.grid.OPPOSITE.get(direction) || 0;
 		const neighbourCell = this.getCell(neighbour);
 		const layerIndex = neighbourCell.getAnsweringLayer(opposite);
 		if (layerIndex !== undefined) {
-			const subcellId = this.grid.subcellId(neighbour, layerIndex);
+			const subcellId = this.grid.pipeNodeId(neighbour, layerIndex);
 			return this.components.getSubcellComponent(subcellId);
 		}
 		return 0;
@@ -339,7 +339,7 @@ export class Solver {
 	 * @param {Number} component - component id
 	 */
 	avoidSubcellLoops(index, layerIndex, cell, component) {
-		const subCellId = this.grid.subcellId(index, layerIndex);
+		const subCellId = this.grid.pipeNodeId(index, layerIndex);
 		const potential = cell.getLayerPotentialConnections(layerIndex);
 		const known = this.components.getSubcellDirections(subCellId, component);
 		for (let direction of iterate_directions(potential & ~known)) {
@@ -365,7 +365,7 @@ export class Solver {
 		}
 		let directions = cell.polygon.fully_connected & ~cell.walls;
 		for (let layerIndex of cell.layers.keys()) {
-			const subcellId = this.grid.subcellId(index, layerIndex);
+			const subcellId = this.grid.pipeNodeId(index, layerIndex);
 			// subtract what this cell's subcells already contribute; an unowned
 			// subcell contributes nothing
 			directions &= ~this.components.getSubcellDirections(subcellId);
@@ -411,7 +411,7 @@ export class Solver {
 			this.avoidSlotLoops(index, component)
 		);
 		for (let layerIndex of cell.layers.keys()) {
-			const subCellId = this.grid.subcellId(index, layerIndex);
+			const subCellId = this.grid.pipeNodeId(index, layerIndex);
 			const component = this.components.getSubcellComponent(subCellId);
 			if (component === 0) continue;
 			this.avoidSubcellLoops(index, layerIndex, cell, component);
@@ -429,7 +429,7 @@ export class Solver {
 			this.components.forEachSlot(index, (direction, component) => {
 				const layerIndex = cell.getAnsweringLayer(direction);
 				if (layerIndex === undefined) return;
-				const subCellId = this.grid.subcellId(index, layerIndex);
+				const subCellId = this.grid.pipeNodeId(index, layerIndex);
 				const otherComponent = this.components.getSubcellComponent(subCellId);
 				if (otherComponent === 0) {
 					this.components.attachSubcell(component, subCellId, direction);
@@ -456,7 +456,7 @@ export class Solver {
 		// for our subcells in components see if there are new definite connections to neighbours
 		// and create new slots
 		for (let layerIndex of cell.layers.keys()) {
-			const subCellId = this.grid.subcellId(index, layerIndex);
+			const subCellId = this.grid.pipeNodeId(index, layerIndex);
 			const component = this.components.getSubcellComponent(subCellId);
 			if (component === 0) continue;
 			const connections = cell.getLayerDefiniteConnections(layerIndex);
@@ -465,7 +465,7 @@ export class Solver {
 			if (newDirections > 0) {
 				this.components.setSubcellDirections(subCellId, connections);
 				for (let direction of iterate_directions(newDirections)) {
-					const { neighbour } = this.grid.find_neighbour(index, direction);
+					const { neighbour } = this.grid.findNeighbour(index, direction);
 					const opposite = this.grid.OPPOSITE.get(direction) || 0;
 					const otherComponent = this.components.getSlotComponent(neighbour, opposite);
 					if (otherComponent === 0) {
@@ -515,7 +515,7 @@ export class Solver {
 			// console.log({ addedWalls, addedConnections, addedDeadends });
 			if (addedWalls > 0) {
 				for (let direction of iterate_directions(addedWalls)) {
-					const { neighbour, empty } = grid.find_neighbour(index, direction);
+					const { neighbour, empty } = grid.findNeighbour(index, direction);
 					if (empty) continue;
 					const opposite = grid.OPPOSITE.get(direction) || 0;
 					const neighbourCell = this.getCell(neighbour);
@@ -530,7 +530,7 @@ export class Solver {
 			}
 			if (addedDeadends > 0) {
 				for (let direction of iterate_directions(addedDeadends)) {
-					const { neighbour, empty } = grid.find_neighbour(index, direction);
+					const { neighbour, empty } = grid.findNeighbour(index, direction);
 					// avoid telling our deadend facts to solved neighbours
 					// possibly needs to be handled in components logic?..
 					if (empty || this.solution[neighbour] !== this.UNSOLVED) continue;
@@ -590,7 +590,7 @@ export class Solver {
 					// Valid handling is not implemented yet
 				} else if (slots === 0 && subcells === 1) {
 					this.components.forEachComponentSubcell(component, (subcellId, directions) => {
-						const [index] = this.grid.cellLayerOf(subcellId);
+						const [index] = this.grid.cellIndexPipeIndexOf(subcellId);
 						const c = this.getCell(index);
 						const deadendsBefore = c.neighbourDeadends;
 						let weight = this.components.totalSubcellCount(component) - 1; // don't count this subcell itself

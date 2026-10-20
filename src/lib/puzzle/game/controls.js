@@ -109,7 +109,7 @@ export function controls(node, game) {
 			tileY: 0,
 			locking
 		};
-		const tile = game.grid.which_tile_at(x, y);
+		const tile = game.grid.whichCellAt(x, y);
 		if (tile.index !== -1) {
 			mouseDownOrigin.tileIndex = tile.index;
 			mouseDownOrigin.tileX = tile.x;
@@ -194,7 +194,7 @@ export function controls(node, game) {
 		if (state === 'panning') {
 			game.viewBox.pan(dx, dy);
 		} else if (state === 'locking' || state === 'unlocking') {
-			const tile = game.grid.which_tile_at(x, y);
+			const tile = game.grid.whichCellAt(x, y);
 			if (tile.index !== -1) {
 				if (!lockingSet.has(tile.index)) {
 					lockingSet.add(tile.index);
@@ -266,7 +266,7 @@ export function controls(node, game) {
 			} else if (currentSettings.controlMode === 'orient_lock') {
 				if (leftButton) {
 					const { tileX, tileY } = mouseDownOrigin;
-					const timesRotate = game.grid.clickOrientTile(
+					const timesRotate = game.grid.clickOrientPipe(
 						tileState.pipeUnion,
 						tileState.rotations,
 						x - tileX,
@@ -381,7 +381,7 @@ export function controls(node, game) {
 					tileY: 0,
 					width: viewBox.width
 				};
-				const tile = game.grid.which_tile_at(x, y);
+				const tile = game.grid.whichCellAt(x, y);
 				if (tile.index !== -1) {
 					data.tileIndex = tile.index;
 					data.tileX = tile.x;
@@ -485,7 +485,7 @@ export function controls(node, game) {
 		} else if (touchState === 'locking' || touchState === 'unlocking') {
 			event.preventDefault();
 			const [x, y] = getEventCoordinates(event.touches[0]);
-			const tile = grid.which_tile_at(x, y);
+			const tile = grid.whichCellAt(x, y);
 			if (tile.index !== -1) {
 				if (!lockingSet.has(tile.index)) {
 					lockingSet.add(tile.index);
@@ -546,7 +546,7 @@ export function controls(node, game) {
 				}
 			}
 			if (touchState === 'touchdown' && t.tileIndex !== -1 && distance <= 0.2) {
-				const upTile = grid.which_tile_at(x, y);
+				const upTile = grid.whichCellAt(x, y);
 				if (upTile.index === t.tileIndex) {
 					// stayed in the same tile, process this as a click
 					// rotate or lock a tile
@@ -561,7 +561,7 @@ export function controls(node, game) {
 						save();
 					} else if (currentSettings.controlMode === 'orient_lock') {
 						const { tileX, tileY } = t;
-						const timesRotate = game.grid.clickOrientTile(
+						const timesRotate = game.grid.clickOrientPipe(
 							tileState.pipeUnion,
 							tileState.rotations,
 							x - tileX,

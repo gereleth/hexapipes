@@ -6,19 +6,19 @@ describe('Test making a cell empty', () => {
 	grid.makeEmpty(4);
 
 	it('Reports an empty neighbour', () => {
-		const { neighbour, empty } = grid.find_neighbour(3, 1);
+		const { neighbour, empty } = grid.findNeighbour(3, 1);
 		expect(neighbour).toBe(4);
 		expect(empty).toBe(true);
 	});
 
 	it('Reports an non-empty neighbour', () => {
-		const { neighbour, empty } = grid.find_neighbour(3, 2);
+		const { neighbour, empty } = grid.findNeighbour(3, 2);
 		expect(neighbour).toBe(1);
 		expect(empty).toBe(false);
 	});
 
 	it('Reports an non-neighbour when going outside the grid', () => {
-		const { neighbour, empty } = grid.find_neighbour(3, 8);
+		const { neighbour, empty } = grid.findNeighbour(3, 8);
 		expect(neighbour).toBe(-1);
 		expect(empty).toBe(true);
 	});

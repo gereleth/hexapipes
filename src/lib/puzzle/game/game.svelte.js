@@ -189,7 +189,7 @@ export class PipesGame {
 				const edgeMarks = [...defaultEdgeMarks];
 				if (!this.grid.wrap) {
 					this.grid.EDGEMARK_DIRECTIONS.forEach((direction, direction_index) => {
-						const { empty } = this.grid.find_neighbour(index, direction);
+						const { empty } = this.grid.findNeighbour(index, direction);
 						if (empty) {
 							edgeMarks[direction_index] = 'none';
 						}
@@ -208,7 +208,7 @@ export class PipesGame {
 		while (this.grid.emptyCells.has(firstValidCell)) {
 			firstValidCell += 1;
 		}
-		this.firstValidNode = this.grid.subcellId(firstValidCell, 0);
+		this.firstValidNode = this.grid.pipeNodeId(firstValidCell, 0);
 
 		this.initializeBoard();
 	}
@@ -246,11 +246,11 @@ export class PipesGame {
 		// only mutual links are stored, empty tiles are skipped
 		this.tileStates.forEach((state, index) => {
 			for (let pipeIndex = 0; pipeIndex < state.pipes.length; pipeIndex++) {
-				const nodeId = this.grid.subcellId(index, pipeIndex);
+				const nodeId = this.grid.pipeNodeId(index, pipeIndex);
 				const connections = new Set();
 				this.connections.set(nodeId, connections);
 				for (let direction of this.pipeDirections(index, pipeIndex)) {
-					const { neighbour, empty } = this.grid.find_neighbour(index, direction);
+					const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 					if (empty) {
 						state.hasDisconnects[pipeIndex] = true;
 						continue;
@@ -260,7 +260,7 @@ export class PipesGame {
 						state.hasDisconnects[pipeIndex] = true;
 						continue;
 					}
-					connections.add(this.grid.subcellId(neighbour, ansPipeIndex));
+					connections.add(this.grid.pipeNodeId(neighbour, ansPipeIndex));
 				}
 			}
 		});
@@ -269,7 +269,7 @@ export class PipesGame {
 		for (let index = 0; index < this.totalCells; index++) {
 			const state = this.tileStates[index]; // FIXME what of empty tiles?
 			for (let pipeIndex = 0; pipeIndex < state.pipes.length; pipeIndex++) {
-				const nodeId = this.grid.subcellId(index, pipeIndex);
+				const nodeId = this.grid.pipeNodeId(index, pipeIndex);
 				if (checked.has(nodeId)) {
 					continue;
 				}
@@ -283,7 +283,7 @@ export class PipesGame {
 				let loop = false;
 				while (toCheck.size > 0) {
 					const [nodeId] = toCheck;
-					const [memberIndex, memberPipeIndex] = this.grid.cellLayerOf(nodeId);
+					const [memberIndex, memberPipeIndex] = this.grid.cellIndexPipeIndexOf(nodeId);
 					const tileState = this.tileStates[memberIndex];
 					toCheck.delete(nodeId);
 					checked.add(nodeId);
@@ -312,13 +312,13 @@ export class PipesGame {
 				if (loop) {
 					const loopNodes = this.detectLoops(component.nodes);
 					for (let loopNodeId of loopNodes) {
-						const [loopCell, loopPipeIndex] = this.grid.cellLayerOf(loopNodeId);
+						const [loopCell, loopPipeIndex] = this.grid.cellIndexPipeIndexOf(loopNodeId);
 						this.tileStates[loopCell].isPartOfLoop[loopPipeIndex] = true;
 					}
 				}
 				if (component.openEnds.size === 0) {
 					for (let islandNodeId of component.nodes) {
-						const [islandCell, islandPipeIndex] = this.grid.cellLayerOf(islandNodeId);
+						const [islandCell, islandPipeIndex] = this.grid.cellIndexPipeIndexOf(islandNodeId);
 						this.tileStates[islandCell].isPartOfIsland[islandPipeIndex] = true;
 					}
 				}
@@ -403,7 +403,7 @@ export class PipesGame {
 		if (tileState === undefined || tileState.pipes.length === 0) {
 			return;
 		}
-		const numDirections = this.grid.polygon_at(index).num_directions;
+		const numDirections = this.grid.polygonAt(index).num_directions;
 		const current = ((tileState.rotations % numDirections) + numDirections) % numDirections;
 		let delta = (rotation - current) % numDirections;
 		if (delta < 0) {
@@ -426,8 +426,8 @@ export class PipesGame {
 		// Process connections that were severed: delete connections, add new openEnds,
 		// clear island highlighting, disconnect components
 		dirOut.forEach(({ pipeIndex, direction }) => {
-			const nodeId = this.grid.subcellId(index, pipeIndex);
-			const { neighbour, empty } = this.grid.find_neighbour(index, direction);
+			const nodeId = this.grid.pipeNodeId(index, pipeIndex);
+			const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 			if (empty) {
 				return;
 			}
@@ -436,7 +436,7 @@ export class PipesGame {
 				// this connection wasn't mutual, nothing is stored
 				return;
 			}
-			const neighbourNodeId = this.grid.subcellId(neighbour, ansPipeIndex);
+			const neighbourNodeId = this.grid.pipeNodeId(neighbour, ansPipeIndex);
 			this.connections.get(nodeId)?.delete(neighbourNodeId);
 			this.connections.get(neighbourNodeId)?.delete(nodeId);
 			// update disconnected status of neighbour node
@@ -455,8 +455,8 @@ export class PipesGame {
 		 * didn't all end up in mutual connections */
 		const knownDisconnected = new Set();
 		dirIn.forEach(({ pipeIndex, direction }) => {
-			const nodeId = this.grid.subcellId(index, pipeIndex);
-			const { neighbour, empty } = this.grid.find_neighbour(index, direction);
+			const nodeId = this.grid.pipeNodeId(index, pipeIndex);
+			const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 			if (empty) {
 				knownDisconnected.add(pipeIndex);
 				return;
@@ -467,7 +467,7 @@ export class PipesGame {
 				knownDisconnected.add(pipeIndex);
 				return;
 			}
-			const neighbourNodeId = this.grid.subcellId(neighbour, ansPipeIndex);
+			const neighbourNodeId = this.grid.pipeNodeId(neighbour, ansPipeIndex);
 			this.connections.get(nodeId)?.add(neighbourNodeId);
 			this.connections.get(neighbourNodeId)?.add(nodeId);
 			this.mergeComponents(nodeId, neighbourNodeId);
@@ -498,7 +498,7 @@ export class PipesGame {
 	 * is already known, omit to recompute
 	 */
 	updateOpenEnds(index, pipeIndex, knownDisconnected = false) {
-		const nodeId = this.grid.subcellId(index, pipeIndex);
+		const nodeId = this.grid.pipeNodeId(index, pipeIndex);
 		const hasDisconnects =
 			knownDisconnected ||
 			this.connections.get(nodeId)?.size !== popcount(this.tiles[index][pipeIndex]);
@@ -530,7 +530,7 @@ export class PipesGame {
 	 */
 	markIsland(component, isIsland) {
 		for (let nodeId of component.nodes) {
-			const [index, pipeIndex] = this.grid.cellLayerOf(nodeId);
+			const [index, pipeIndex] = this.grid.cellIndexPipeIndexOf(nodeId);
 			this.tileStates[index].isPartOfIsland[pipeIndex] = isIsland;
 		}
 	}
@@ -569,7 +569,7 @@ export class PipesGame {
 			// it's a loop
 			const loopNodes = this.detectLoops(fromComponent.nodes);
 			for (let nodeId of fromComponent.nodes) {
-				const [index, pipeIndex] = this.grid.cellLayerOf(nodeId);
+				const [index, pipeIndex] = this.grid.cellIndexPipeIndexOf(nodeId);
 				this.tileStates[index].isPartOfLoop[pipeIndex] = loopNodes.has(nodeId);
 			}
 			return;
@@ -587,7 +587,7 @@ export class PipesGame {
 			}
 			if (constantComponent.color !== newColor) {
 				constantComponent.nodes.forEach((nodeId) => {
-					const [index, pipeIndex] = this.grid.cellLayerOf(nodeId);
+					const [index, pipeIndex] = this.grid.cellIndexPipeIndexOf(nodeId);
 					this.tileStates[index].colors[pipeIndex] = newColor;
 				});
 			}
@@ -596,7 +596,7 @@ export class PipesGame {
 		for (let changedNodeId of changedComponent.nodes) {
 			this.components.set(changedNodeId, constantComponent);
 			constantComponent.nodes.add(changedNodeId);
-			const [changedIndex, changedPipeIndex] = this.grid.cellLayerOf(changedNodeId);
+			const [changedIndex, changedPipeIndex] = this.grid.cellIndexPipeIndexOf(changedNodeId);
 			this.tileStates[changedIndex].colors[changedPipeIndex] = constantComponent.color;
 		}
 		for (let changedNodeId of changedComponent.openEnds) {
@@ -623,8 +623,8 @@ export class PipesGame {
 			tileState.toggleLocked();
 		}
 		if (targetState && assistant) {
-			for (let direction of this.grid.polygon_at(index).directions) {
-				const { neighbour, empty } = this.grid.find_neighbour(index, direction);
+			for (let direction of this.grid.polygonAt(index).directions) {
+				const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 				if (empty) {
 					continue;
 				}
@@ -642,7 +642,7 @@ export class PipesGame {
 	 * @param {Boolean} assistant
 	 */
 	toggleEdgeMark(mark, index, direction, assistant = false) {
-		const { neighbour, empty } = this.grid.find_neighbour(index, direction);
+		const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 		if (empty) {
 			// no edgemarks on outer borders
 			return;
@@ -679,9 +679,9 @@ export class PipesGame {
 		}
 		let walls = 0;
 		let connections = 0;
-		const polygon = this.grid.polygon_at(index);
+		const polygon = this.grid.polygonAt(index);
 		for (let direction of polygon.directions) {
-			const { neighbour, empty } = this.grid.find_neighbour(index, direction);
+			const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 			if (empty) {
 				walls += direction;
 				continue;
@@ -742,7 +742,7 @@ export class PipesGame {
 			// it was a loop or maybe it still is
 			const loopNodes = this.detectLoops(fromComponent.nodes);
 			for (let nodeId of fromComponent.nodes) {
-				const [index, pipeIndex] = this.grid.cellLayerOf(nodeId);
+				const [index, pipeIndex] = this.grid.cellIndexPipeIndexOf(nodeId);
 				this.tileStates[index].isPartOfLoop[pipeIndex] = loopNodes.has(nodeId);
 			}
 			return;
@@ -762,7 +762,7 @@ export class PipesGame {
 			if (fromComponent.openEnds.delete(nodeId)) {
 				newComponent.openEnds.add(nodeId);
 			}
-			const [index, pipeIndex] = this.grid.cellLayerOf(nodeId);
+			const [index, pipeIndex] = this.grid.cellIndexPipeIndexOf(nodeId);
 			this.tileStates[index].colors[pipeIndex] = newComponent.color;
 		}
 	}

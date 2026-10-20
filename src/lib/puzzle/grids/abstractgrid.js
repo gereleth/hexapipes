@@ -63,44 +63,43 @@ export class AbstractGrid {
 	}
 
 	/**
-	 * Determines which tile a point at (x, y) belongs to
-	 * Returns tile index and tile center coordinates
-	 * If the point is over empty space then tileIndex is -1
+	 * Determines which cell a point at (x, y) belongs to
+	 * Returns cell index and coordinates of cell center
+	 * If the point is over empty space then index is -1
 	 * @param {Number} x
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
-		throw 'Implement which_tile_at(x, y) method';
+	whichCellAt(x, y) {
+		throw 'Implement whichCellAt(x, y) method';
 	}
 
 	/**
-	 * Finds neighbour of tile at index in a certain direction
+	 * Finds neighbour of cell at index in a certain direction
 	 * @param {Number} index
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
-		throw 'Implement find_neighbour(index, direction) method';
+	findNeighbour(index, direction) {
+		throw 'Implement findNeighbour(index, direction) method';
 	}
 
 	/**
-	 * Sub-cell id for a layer of a cell: the shared encoding of the layers
-	 * family (game, generator, solver each used to keep a private copy)
-	 * @param {Number} cell
-	 * @param {Number} layer
+	 * Pipe node id for a single pipe of a tile at index
+	 * @param {Number} index
+	 * @param {Number} pipeIndex
 	 * @returns {Number}
 	 */
-	subcellId(cell, layer) {
-		return cell + layer * this.total;
+	pipeNodeId(index, pipeIndex) {
+		return index + pipeIndex * this.total;
 	}
 
 	/**
-	 * Cell index and layer of a sub-cell id
+	 * Cell index and pipe index of a pipe node id
 	 * @param {Number} id
-	 * @returns {Number[]} - [cell, layer]
+	 * @returns {Number[]} - [index, pipeIndex]
 	 */
-	cellLayerOf(id) {
+	cellIndexPipeIndexOf(id) {
 		return [id % this.total, Math.floor(id / this.total)];
 	}
 
@@ -118,19 +117,19 @@ export class AbstractGrid {
 	 * @returns {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonTile|
 	 * import('#lib/puzzle/grids/polygonutils.js').TransformedPolygonTile}
 	 */
-	polygon_at(index) {
-		throw 'Implement polygon_at(index) method';
+	polygonAt(index) {
+		throw 'Implement polygonAt(index) method';
 	}
 
 	/**
-	 * Compute tile orientation after a number of rotations
-	 * @param {Number} tile
+	 * Compute pipe bitmask after a number of rotations
+	 * @param {Number} pipe
 	 * @param {Number} rotations
-	 * @param {Number} index
+	 * @param {Number} [index = 0]
 	 * @returns
 	 */
-	rotate(tile, rotations, index = 0) {
-		return this.polygon_at(index).rotate(tile, rotations);
+	rotate(pipe, rotations, index = 0) {
+		return this.polygonAt(index).rotate(pipe, rotations);
 	}
 
 	/**
@@ -140,83 +139,83 @@ export class AbstractGrid {
 	 * @returns {Number} - angle in radians
 	 */
 	getAngle(rotations, index) {
-		return this.polygon_at(index).get_angle(rotations);
+		return this.polygonAt(index).get_angle(rotations);
 	}
 
 	/**
-	 * Get CSS transform string for this tile
+	 * Get CSS transform string for this cell
 	 * @param {Number} index
 	 */
-	getTileTransformCSS(index) {
-		return this.polygon_at(index).transformCSS;
+	getCellTransformCSS(index) {
+		return this.polygonAt(index).transformCSS;
 	}
 
 	/**
-	 * Get array of directions where the tile is currently pointing
-	 * @param {Number} tile
-	 * @param {Number} rotations
-	 * @param {Number} index
+	 * Get array of directions where the pipe bitmask is currently pointing
+	 * @param {Number} pipe
+	 * @param {Number} [rotations = 0]
+	 * @param {Number} [index = 0]
 	 * @returns {Number[]}
 	 */
-	getDirections(tile, rotations = 0, index = 0) {
-		return this.polygon_at(index).get_directions(tile, rotations);
+	getDirections(pipe, rotations = 0, index = 0) {
+		return this.polygonAt(index).get_directions(pipe, rotations);
 	}
 
 	/**
-	 * Given a viewbox return an array of visible tiles
+	 * Given a viewbox return an array of visible cells
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
-		throw 'Implement getVisibleTiles(box) method';
+	getVisibleCells(box) {
+		throw 'Implement getVisibleCells(box) method';
 	}
 
 	/**
-	 * Tile contour path for svg drawing
+	 * Cell contour path for svg drawing
 	 * @param {Number} index
 	 * @returns {String}
 	 */
-	getTilePath(index) {
-		return this.polygon_at(index).contour_path;
+	getCellPath(index) {
+		return this.polygonAt(index).contour_path;
 	}
 
 	/**
-	 * Pipes lines path
-	 * @param {Number} tile
+	 * SVG path for drawing a pipe bitmask
+	 * @param {Number} pipe
 	 * @param {Number} index
 	 */
-	getPipesPath(tile, index) {
-		return this.polygon_at(index).get_pipes_path(tile);
+	getPipePath(pipe, index) {
+		return this.polygonAt(index).get_pipes_path(pipe);
 	}
 
 	/**
-	 * Computes position for drawing the tile guiding dot
-	 * @param {Number} tile
-	 * @param {Number} index
+	 * Computes position for drawing the pipe's guiding dot
+	 * @param {Number} pipe
+	 * @param {Number} [index = 0]
 	 * @returns {Number[]}
 	 */
-	getGuideDotPosition(tile, index = 0) {
-		const [dx, dy] = this.polygon_at(index).get_guide_dot_position(tile);
+	getGuideDotPosition(pipe, index = 0) {
+		const [dx, dy] = this.polygonAt(index).get_guide_dot_position(pipe);
 		return [0.8 * dx, 0.8 * dy];
 	}
 
 	/**
-	 * Compute number of rotations for orienting a tile with "click to orient" control mode
-	 * @param {Number} tile
+	 * Compute number of rotations for orienting a pipe with "click to orient" control mode
+	 * @param {Number} pipe
 	 * @param {Number} old_rotations
-	 * @param {Number} tx
-	 * @param {Number} ty
-	 * @param {Number} index
+	 * @param {Number} tx - x of clicked point relative to cell center
+	 * @param {Number} ty - y of clicked point relative to cell center
+	 * @param {Number} [index = 0]
 	 */
-	clickOrientTile(tile, old_rotations, tx, ty, index = 0) {
-		return this.polygon_at(index).click_orient_tile(tile, old_rotations, tx, ty);
+	clickOrientPipe(pipe, old_rotations, tx, ty, index = 0) {
+		return this.polygonAt(index).click_orient_tile(pipe, old_rotations, tx, ty);
 	}
 
 	/**
 	 * Returns coordinates of endpoints of edgemark line
 	 * @param {Number} direction
 	 * @param {Boolean} isWall
-	 * @param {Number} index
+	 * @param {Number} [index = 0]
 	 * @returns
 	 */
 	getEdgemarkLine(direction, isWall, index = 0) {
@@ -224,33 +223,33 @@ export class AbstractGrid {
 		if (this.BEND_EDGEMARKS) {
 			extendOut = isWall;
 		}
-		return this.polygon_at(index).get_edgemark_line(direction, extendOut);
+		return this.polygonAt(index).get_edgemark_line(direction, extendOut);
 	}
 
 	/**
 	 * Check if a drag gesture resembles drawing an edge mark
-	 * @param {Number} tile_index
-	 * @param {Number} tile_x
-	 * @param {Number} tile_y
+	 * @param {Number} index
+	 * @param {Number} cell_x
+	 * @param {Number} cell_y
 	 * @param {Number} x1
 	 * @param {Number} x2
 	 * @param {Number} y1
 	 * @param {Number} y2
 	 */
-	detectEdgemarkGesture(tile_index, tile_x, tile_y, x1, x2, y1, y2) {
-		const polygon = this.polygon_at(tile_index);
-		return polygon.detect_edgemark_gesture(x1 - tile_x, x2 - tile_x, y1 - tile_y, y2 - tile_y);
+	detectEdgemarkGesture(index, cell_x, cell_y, x1, x2, y1, y2) {
+		const polygon = this.polygonAt(index);
+		return polygon.detect_edgemark_gesture(x1 - cell_x, x2 - cell_x, y1 - cell_y, y2 - cell_y);
 	}
 
 	/**
-	 * Tells if a point is close to one of tile's edges
+	 * Tells if a point is close to one of cell's edges
 	 * @param {import('#lib/puzzle/game/controls.js').PointerOrigin} point
 	 */
 	whichEdge(point) {
-		const { x, y, tileX, tileY, tileIndex } = point;
+		const { x, y, tileX, tileY, tileIndex: index } = point;
 		const dx = x - tileX;
 		const dy = y - tileY;
-		return this.polygon_at(tileIndex).is_close_to_edge(dx, dy);
+		return this.polygonAt(index).is_close_to_edge(dx, dy);
 	}
 
 	/**

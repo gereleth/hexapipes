@@ -72,8 +72,8 @@ export class EtratGrid extends AbstractGrid {
 	 * @param {Number} y
 	 * @returns {{index: Number, x:Number, y: Number}}
 	 */
-	which_tile_at(x, y) {
-		const hexTile = this.hexagrid.which_tile_at(x, (y * HEXYSTEP) / YSTEP);
+	whichCellAt(x, y) {
+		const hexTile = this.hexagrid.whichCellAt(x, (y * HEXYSTEP) / YSTEP);
 		const x0 = hexTile.x;
 		const y0 = (hexTile.y * YSTEP) / HEXYSTEP;
 		const i0 = hexTile.index * 3;
@@ -100,7 +100,7 @@ export class EtratGrid extends AbstractGrid {
 	 * @param {Number} direction
 	 * @returns {{neighbour: Number, empty: boolean}} - neighbour index, is the neighbour an empty cell or outside the board
 	 */
-	find_neighbour(index, direction) {
+	findNeighbour(index, direction) {
 		const hexIndex = Math.floor(index / 3);
 		const unitIndex = index - 3 * hexIndex;
 		if (unitIndex === 0) {
@@ -112,7 +112,7 @@ export class EtratGrid extends AbstractGrid {
 				return { neighbour: -1, empty: true };
 			} else {
 				const hexDirection = direction === EAST ? 2 : 4;
-				const hexNeighbour = this.hexagrid.find_neighbour(hexIndex, hexDirection);
+				const hexNeighbour = this.hexagrid.findNeighbour(hexIndex, hexDirection);
 				if (hexNeighbour.empty) {
 					return hexNeighbour;
 				}
@@ -128,7 +128,7 @@ export class EtratGrid extends AbstractGrid {
 				return { neighbour: -1, empty: true };
 			} else {
 				const hexDirection = direction === EAST ? 32 : 16;
-				const hexNeighbour = this.hexagrid.find_neighbour(hexIndex, hexDirection);
+				const hexNeighbour = this.hexagrid.findNeighbour(hexIndex, hexDirection);
 				if (hexNeighbour.empty) {
 					return hexNeighbour;
 				}
@@ -145,7 +145,7 @@ export class EtratGrid extends AbstractGrid {
 				return { neighbour, empty: this.emptyCells.has(neighbour) };
 			} else {
 				const hexDirection = direction === EAST ? 1 : 8;
-				const hexNeighbour = this.hexagrid.find_neighbour(hexIndex, hexDirection);
+				const hexNeighbour = this.hexagrid.findNeighbour(hexIndex, hexDirection);
 				if (hexNeighbour.empty) {
 					return hexNeighbour;
 				}
@@ -159,7 +159,7 @@ export class EtratGrid extends AbstractGrid {
 	 * @param {Number} index
 	 * @returns {RegularPolygonTile}
 	 */
-	polygon_at(index) {
+	polygonAt(index) {
 		const unitIndex = index % 3;
 		if (unitIndex === 0) {
 			return UPTRIANGLE;
@@ -174,7 +174,7 @@ export class EtratGrid extends AbstractGrid {
 	 * Get CSS transform function parameters for this tile
 	 * @param {Number} index
 	 */
-	getTileTransformCSS(index) {
+	getCellTransformCSS(index) {
 		return null;
 	}
 
@@ -182,8 +182,8 @@ export class EtratGrid extends AbstractGrid {
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
 	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
 	 */
-	getVisibleTiles(box) {
-		const visibleHexagons = this.hexagrid.getVisibleTiles({
+	getVisibleCells(box) {
+		const visibleHexagons = this.hexagrid.getVisibleCells({
 			xmin: box.xmin,
 			width: box.width,
 			ymin: (box.ymin * HEXYSTEP) / YSTEP,
