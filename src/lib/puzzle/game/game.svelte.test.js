@@ -25,7 +25,7 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(0);
 			expect(data.colors[0]).toBe('white');
 			expect(data.locked).toBe(false);
-			expect(data.pipeUnion).toBe(tiles[index]);
+			expect(data.pipes[0]).toBe(tiles[index]);
 			expect(data.isPartOfLoop[0]).toBe(false);
 		});
 		game.components.forEach((component, index) => {
@@ -48,7 +48,7 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(0);
 			expect(data.colors[0]).toBe('white');
 			expect(data.locked).toBe(false);
-			expect(data.pipeUnion).toBe(myTiles[index]);
+			expect(data.pipes[0]).toBe(myTiles[index]);
 			expect(data.isPartOfLoop[0]).toBe([1, 3, 4].some((x) => x === index));
 		});
 		game.components.forEach((component, index) => {
@@ -81,7 +81,7 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
 			expect(data.colors[0]).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);
-			expect(data.pipeUnion).toBe(tiles[index]);
+			expect(data.pipes[0]).toBe(tiles[index]);
 			expect(data.isPartOfLoop[0]).toBe(false);
 		});
 		game.components.forEach((component, index) => {
@@ -116,7 +116,7 @@ describe('Test initialize board', () => {
 			expect(data.rotations).toBe(progress.tiles[index].rotations);
 			expect(data.colors[0]).toBe(progress.tiles[index].color);
 			expect(data.locked).toBe(progress.tiles[index].locked);
-			expect(data.pipeUnion).toBe(tiles[index]);
+			expect(data.pipes[0]).toBe(tiles[index]);
 			expect(data.isPartOfLoop[0]).toBe([1, 3, 4].some((x) => x === index));
 		});
 		game.components.forEach((component, index) => {

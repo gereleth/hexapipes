@@ -21,15 +21,15 @@
 	const guideDotRadius = game.grid.GUIDE_DOT_RADIUS;
 
 	// svelte-ignore state_referenced_locally
-	const [guideX, guideY] = game.grid.getGuideDotPosition(data.pipeUnion, i);
+	const [guideX, guideY] = game.grid.getGuideDotPosition(data.pipes[0], i);
 
 	// svelte-ignore state_referenced_locally
 	const pipeWidth = game.grid.PIPE_WIDTH;
 
 	// svelte-ignore state_referenced_locally
-	let path = game.grid.getPipesPath(data.pipeUnion, i);
+	let path = game.grid.getPipesPath(data.pipes[0], i);
 	// svelte-ignore state_referenced_locally
-	const isSink = popcount(data.pipeUnion) === 1;
+	const isSink = popcount(data.pipes[0]) === 1;
 
 	// svelte-ignore state_referenced_locally
 	const tile_transform = game.grid.getTileTransformCSS(i) || '';
