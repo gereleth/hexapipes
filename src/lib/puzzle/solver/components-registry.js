@@ -19,6 +19,8 @@
  * All writes go through the helper methods; clone() slices the arrays.
  */
 
+import { iterate_directions, popcount } from '#lib/puzzle/grids/bitmasks.js';
+
 /**
  * Grows a typed array to newCapacity, preserving contents (the rest stays
  * zeroed, which keeps fresh component ids all-zero-initialized)
@@ -45,35 +47,6 @@ function sliceCapacity(src, newCapacity) {
 	const out = new Int32Array(newCapacity);
 	out.set(src.subarray(0, Math.min(src.length, newCapacity)));
 	return out;
-}
-
-/**
- * Iterates directions present in a layer mask
- * @param {Number} mask
- * @yields {Number}
- */
-export function* iterate_directions(mask) {
-	let bits = mask;
-	while (bits > 0) {
-		const direction = bits & -bits;
-		yield direction;
-		bits ^= direction;
-	}
-}
-
-/**
- * Counts total directions in a mask
- * @param {Number} mask
- * @returns {Number}
- */
-export function popcount(mask) {
-	let count = 0;
-	let bits = mask;
-	while (bits > 0) {
-		bits ^= bits & -bits;
-		count += 1;
-	}
-	return count;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { popcount, iterate_directions } from '#lib/puzzle/solver/components-registry.js';
+import { popcount, iterate_directions } from '#lib/puzzle/grids/bitmasks.js';
 
 /**
  * A cell has no more viable rotation states

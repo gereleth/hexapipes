@@ -1,4 +1,5 @@
 import { Solver } from '#lib/puzzle/solver/solver.js';
+import { popcount } from '#lib/puzzle/grids/bitmasks.js';
 
 /**
  * @typedef {Number[][]} LayeredTiles - for every grid cell a list of layers,
@@ -48,21 +49,6 @@ function usedDirections(cellLayers) {
 		used |= layer;
 	}
 	return used;
-}
-
-/**
- * Counts the set bits in a mask
- * @param {Number} mask
- * @returns {Number}
- */
-function popcount(mask) {
-	let bits = mask;
-	let count = 0;
-	while (bits > 0) {
-		bits ^= bits & -bits;
-		count += 1;
-	}
-	return count;
 }
 
 /**
