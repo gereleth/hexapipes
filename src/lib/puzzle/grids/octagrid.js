@@ -190,7 +190,7 @@ export class OctaGrid extends AbstractGrid {
 
 	/**
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		let rmin = Math.floor(box.ymin) - 1;
@@ -205,7 +205,7 @@ export class OctaGrid extends AbstractGrid {
 			cmin = Math.max(0, cmin);
 			cmax = Math.min(this.width - 1, cmax);
 		}
-		const visibleTiles = [];
+		const visibleCells = [];
 		for (let r = rmin; r <= rmax; r++) {
 			// add octagons row
 			for (let c = cmin; c <= cmax; c++) {
@@ -214,7 +214,7 @@ export class OctaGrid extends AbstractGrid {
 					const x = c;
 					const y = r;
 					const key = `${Math.round(2 * x)}_${Math.round(2 * y)}`;
-					visibleTiles.push({
+					visibleCells.push({
 						index: indexOct,
 						x,
 						y,
@@ -232,7 +232,7 @@ export class OctaGrid extends AbstractGrid {
 					const x = cs;
 					const y = rs;
 					const key = `${Math.round(2 * x)}_${Math.round(2 * y)}`;
-					visibleTiles.push({
+					visibleCells.push({
 						index: indexSquare,
 						x,
 						y,
@@ -241,7 +241,7 @@ export class OctaGrid extends AbstractGrid {
 				}
 			}
 		}
-		return visibleTiles;
+		return visibleCells;
 	}
 
 	/**

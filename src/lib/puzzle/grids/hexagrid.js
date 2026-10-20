@@ -213,7 +213,7 @@ export class HexaGrid extends AbstractGrid {
 
 	/**
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		let rmin = Math.floor(box.ymin / YSTEP) - 1;
@@ -228,7 +228,7 @@ export class HexaGrid extends AbstractGrid {
 			cmin = Math.max(0, cmin);
 			cmax = Math.min(this.width - 1, cmax);
 		}
-		const visibleTiles = [];
+		const visibleCells = [];
 		for (let r = rmin; r <= rmax; r++) {
 			for (let c = cmin; c <= cmax; c++) {
 				const index = this.rc_to_index(r, c);
@@ -238,10 +238,10 @@ export class HexaGrid extends AbstractGrid {
 				const x = c + (r % 2 === 0 ? 0.0 : 0.5);
 				const y = r * YSTEP;
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}`;
-				visibleTiles.push({ index, x, y, key });
+				visibleCells.push({ index, x, y, key });
 			}
 		}
-		return visibleTiles;
+		return visibleCells;
 	}
 
 	/**

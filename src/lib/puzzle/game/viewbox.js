@@ -10,8 +10,8 @@ import { writable } from 'svelte/store';
  */
 
 /**
- * VisibleTile represents a tile within view
- * @typedef {Object} VisibleTile
+ * VisibleCell represents a non-empty grid cell within view
+ * @typedef {Object} VisibleCell
  * @property {Number} index
  * @property {Number} x
  * @property {Number} y
@@ -78,19 +78,19 @@ export function createViewBox(grid) {
 	}
 
 	/** @type {ReturnType<typeof setTimeout>|null} */
-	let visibleTilesTimeoutId = null;
+	let visibleCellsTimeoutId = null;
 	/** @type {ViewBox} */
 	let lastBox;
 
-	const visibleTiles = writable(/** @type {VisibleTile[]} */ ([]));
+	const visibleCells = writable(/** @type {VisibleCell[]} */ ([]));
 
 	subscribe((box) => {
 		lastBox = box;
-		if (visibleTilesTimeoutId === null) {
-			visibleTilesTimeoutId = setTimeout(() => {
-				visibleTilesTimeoutId = null;
+		if (visibleCellsTimeoutId === null) {
+			visibleCellsTimeoutId = setTimeout(() => {
+				visibleCellsTimeoutId = null;
 				const visible = grid.getVisibleCells(lastBox);
-				visibleTiles.set(visible);
+				visibleCells.set(visible);
 			}, 100);
 		}
 	});
@@ -142,6 +142,6 @@ export function createViewBox(grid) {
 		set,
 		pan,
 		zoom,
-		visibleTiles: { subscribe: visibleTiles.subscribe }
+		visibleCells: { subscribe: visibleCells.subscribe }
 	};
 }

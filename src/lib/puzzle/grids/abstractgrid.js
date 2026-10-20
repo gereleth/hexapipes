@@ -164,7 +164,7 @@ export class AbstractGrid {
 	/**
 	 * Given a viewbox return an array of visible cells
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		throw 'Implement getVisibleCells(box) method';

@@ -40,7 +40,7 @@
 	}
 
 	// svelte-ignore state_referenced_locally
-	const visibleTiles = grid.getVisibleCells(viewBox);
+	const visibleCells = grid.getVisibleCells(viewBox);
 </script>
 
 <div class="puzzle">
@@ -49,13 +49,13 @@
 		height={svgHeight}
 		viewBox="{viewBox.xmin} {viewBox.ymin} {viewBox.width} {viewBox.height}"
 	>
-		{#each visibleTiles as visibleTile, i (visibleTile.key)}
+		{#each visibleCells as visibleCell, i (visibleCell.key)}
 			<ExampleTile
 				{grid}
-				i={visibleTile.index}
-				tile={tiles[visibleTile.index]}
-				cx={visibleTile.x}
-				cy={visibleTile.y}
+				i={visibleCell.index}
+				tile={tiles[visibleCell.index]}
+				cx={visibleCell.x}
+				cy={visibleCell.y}
 			/>
 		{/each}
 	</svg>

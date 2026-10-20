@@ -131,7 +131,7 @@ export class SquareGrid extends AbstractGrid {
 
 	/**
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		let rmin = Math.floor(box.ymin) - 1;
@@ -146,7 +146,7 @@ export class SquareGrid extends AbstractGrid {
 			cmin = Math.max(0, cmin);
 			cmax = Math.min(this.width - 1, cmax);
 		}
-		const visibleTiles = [];
+		const visibleCells = [];
 		for (let r = rmin; r <= rmax; r++) {
 			for (let c = cmin; c <= cmax; c++) {
 				const index = this.rc_to_index(r, c);
@@ -156,7 +156,7 @@ export class SquareGrid extends AbstractGrid {
 				const x = c;
 				const y = r;
 				const key = `${Math.round(x)}_${Math.round(y)}`;
-				visibleTiles.push({
+				visibleCells.push({
 					index,
 					x,
 					y,
@@ -164,6 +164,6 @@ export class SquareGrid extends AbstractGrid {
 				});
 			}
 		}
-		return visibleTiles;
+		return visibleCells;
 	}
 }

@@ -221,7 +221,7 @@ export class TriangularGrid extends AbstractGrid {
 
 	/**
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		let r0 = Math.floor(box.ymin / ROW_DY) - 1;
@@ -236,7 +236,7 @@ export class TriangularGrid extends AbstractGrid {
 			c0 = Math.max(Math.floor((-r0 * ROW_DX) / COL_DX) - 1, c0);
 			total_cols = Math.min(this.w + 1, total_cols);
 		}
-		const visibleTiles = [];
+		const visibleCells = [];
 		for (let r = r0; r < r0 + total_rows; r++) {
 			let dc = Math.floor((r - r0) / 2);
 			for (let c = c0 - dc; c < c0 - dc + total_cols; c++) {
@@ -252,7 +252,7 @@ export class TriangularGrid extends AbstractGrid {
 					if (this.emptyCells.has(index)) {
 						continue;
 					}
-					visibleTiles.push({
+					visibleCells.push({
 						index,
 						x: x0 + dx,
 						y: y0 + dy,
@@ -261,7 +261,7 @@ export class TriangularGrid extends AbstractGrid {
 				}
 			}
 		}
-		// console.log({ r0, c0, total_rows, total_cols, n: visibleTiles.length });
-		return visibleTiles;
+		// console.log({ r0, c0, total_rows, total_cols, n: visibleCells.length });
+		return visibleCells;
 	}
 }

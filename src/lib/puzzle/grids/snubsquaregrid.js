@@ -263,7 +263,7 @@ export class SnubSquareGrid extends AbstractGrid {
 
 	/**
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		const visibleSquares = this.squaregrid.getVisibleCells({
@@ -272,7 +272,7 @@ export class SnubSquareGrid extends AbstractGrid {
 			ymin: box.ymin / STEP,
 			height: box.height / STEP
 		});
-		const visibleTiles = [];
+		const visibleCells = [];
 		for (let square of visibleSquares) {
 			const x0 = square.x * STEP;
 			const y0 = square.y * STEP;
@@ -281,7 +281,7 @@ export class SnubSquareGrid extends AbstractGrid {
 				const index = i0 + i;
 				if (!this.emptyCells.has(index)) {
 					const { dx, dy } = offsets[i];
-					visibleTiles.push({
+					visibleCells.push({
 						index,
 						x: x0 + dx,
 						y: y0 + dy,
@@ -290,6 +290,6 @@ export class SnubSquareGrid extends AbstractGrid {
 				}
 			}
 		}
-		return visibleTiles;
+		return visibleCells;
 	}
 }

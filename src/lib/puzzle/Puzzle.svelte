@@ -59,7 +59,7 @@
 	$viewBox.width = Math.min(grid.XMAX - grid.XMIN, 500 / pxPerCell);
 	// svelte-ignore state_referenced_locally
 	$viewBox.height = Math.min(grid.YMAX - grid.YMIN, 500 / pxPerCell);
-	const visibleTiles = viewBox.visibleTiles;
+	const visibleCells = viewBox.visibleCells;
 
 	export const startOver = function () {
 		game.startOver();
@@ -374,30 +374,30 @@
 		oncontextmenu={preventDefault}
 		onsave={save.soon}
 	>
-		{#each $visibleTiles as visibleTile, i (visibleTile.key)}
+		{#each $visibleCells as visibleCell, i (visibleCell.key)}
 			{#if game.isMulti}
 				<LayeredTile
-					i={visibleTile.index}
+					i={visibleCell.index}
 					solved={game.solved}
 					{game}
-					cx={visibleTile.x}
-					cy={visibleTile.y}
+					cx={visibleCell.x}
+					cy={visibleCell.y}
 					controlMode={$settings.controlMode}
 				/>
 			{:else}
 				<Tile
-					i={visibleTile.index}
+					i={visibleCell.index}
 					solved={game.solved}
 					{game}
-					cx={visibleTile.x}
-					cy={visibleTile.y}
+					cx={visibleCell.x}
+					cy={visibleCell.y}
 					controlMode={$settings.controlMode}
 				/>
 			{/if}
 		{/each}
 		{#if !game.solved}
-			{#each $visibleTiles as visibleTile, i (visibleTile.key)}
-				<EdgeMarks i={visibleTile.index} {game} cx={visibleTile.x} cy={visibleTile.y} />
+			{#each $visibleCells as visibleCell, i (visibleCell.key)}
+				<EdgeMarks i={visibleCell.index} {game} cx={visibleCell.x} cy={visibleCell.y} />
 			{/each}
 		{/if}
 	</svg>

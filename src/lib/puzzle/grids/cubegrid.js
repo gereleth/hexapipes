@@ -242,7 +242,7 @@ export class CubeGrid extends AbstractGrid {
 
 	/**
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		const { xmin, ymin, width, height } = box;
@@ -252,7 +252,7 @@ export class CubeGrid extends AbstractGrid {
 			width: width / SCALE,
 			height: height / SCALE
 		});
-		const visibleTiles = [];
+		const visibleCells = [];
 		for (const vt of visibleHexagons) {
 			let { x, y } = vt;
 			x *= SCALE;
@@ -264,7 +264,7 @@ export class CubeGrid extends AbstractGrid {
 				}
 				const { dx, dy } = RHOMB_OFFSETS[b];
 				const key = `${Math.round(10 * x)}_${Math.round(10 * y)}_${b}`;
-				visibleTiles.push({
+				visibleCells.push({
 					index: vt.index * 3 + b,
 					x: x + dx,
 					y: y + dy,
@@ -272,7 +272,7 @@ export class CubeGrid extends AbstractGrid {
 				});
 			}
 		}
-		return visibleTiles;
+		return visibleCells;
 	}
 
 	/**

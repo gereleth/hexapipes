@@ -180,7 +180,7 @@ export class EtratGrid extends AbstractGrid {
 
 	/**
 	 * @param {import('#lib/puzzle/game/viewbox.js').ViewBox} box
-	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleTile[]}
+	 * @returns {import('#lib/puzzle/game/viewbox.js').VisibleCell[]}
 	 */
 	getVisibleCells(box) {
 		const visibleHexagons = this.hexagrid.getVisibleCells({
@@ -189,13 +189,13 @@ export class EtratGrid extends AbstractGrid {
 			ymin: (box.ymin * HEXYSTEP) / YSTEP,
 			height: (box.height * HEXYSTEP) / YSTEP
 		});
-		const visibleTiles = [];
+		const visibleCells = [];
 		for (let hexagon of visibleHexagons) {
 			const y0 = (hexagon.y * YSTEP) / HEXYSTEP;
 			const i0 = hexagon.index * 3;
 			if (!this.emptyCells.has(i0)) {
 				// up triangle
-				visibleTiles.push({
+				visibleCells.push({
 					index: i0,
 					x: hexagon.x,
 					y: y0 - 0.5 - TRIANGLE_RADIUS_IN,
@@ -204,7 +204,7 @@ export class EtratGrid extends AbstractGrid {
 			}
 			if (!this.emptyCells.has(i0 + 1)) {
 				// square
-				visibleTiles.push({
+				visibleCells.push({
 					index: i0 + 1,
 					x: hexagon.x,
 					y: y0,
@@ -213,7 +213,7 @@ export class EtratGrid extends AbstractGrid {
 			}
 			if (!this.emptyCells.has(i0 + 2)) {
 				// down triangle
-				visibleTiles.push({
+				visibleCells.push({
 					index: i0 + 2,
 					x: hexagon.x,
 					y: y0 + 0.5 + TRIANGLE_RADIUS_IN,
@@ -221,6 +221,6 @@ export class EtratGrid extends AbstractGrid {
 				});
 			}
 		}
-		return visibleTiles;
+		return visibleCells;
 	}
 }
