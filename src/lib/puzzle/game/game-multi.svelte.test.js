@@ -4,7 +4,7 @@ import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { pregenerate_layers, randomRotate } from '#lib/puzzle/generator/generator-layers.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 
-describe('Test layered game', () => {
+describe('Test multipipes game', () => {
 	it('Tracks connections and solved state on a simple chain', () => {
 		const grid = new SquareGrid(2, 1, false);
 		const tiles = [[1], [4]];
@@ -48,16 +48,16 @@ describe('Test layered game', () => {
 		expect(game.components.get(0)?.nodes).toEqual(new Set([0, 1]));
 		expect(game.components.get(2)?.nodes).toEqual(new Set([2, 3]));
 		game.tileStates.forEach((state, index) => {
-			expect(state.isPartOfIsland[0], `cell ${index} is part of an island`).toBe(true);
+			expect(state.isPartOfIsland[0], `tile ${index} is part of an island`).toBe(true);
 		});
 		expect(game.isSolved()).toBe(false);
 	});
 
-	it('Tracks disconnects per layer', () => {
+	it('Tracks disconnects per pipe', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4, 2], [1], [4]];
 		const game = new PipesGame(grid, tiles, undefined);
-		// cell 1 second layer points outside the board
+		// tile 1 second pipe points outside the board
 		expect(game.tileStates[1].hasDisconnects).toEqual([false, true]);
 		expect(game.components.get(5)?.nodes).toEqual(new Set([5]));
 		expect(game.disconnectedShare).toBeCloseTo(1 / 5);
@@ -67,21 +67,21 @@ describe('Test layered game', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [3], [6]];
 		const game = new PipesGame(grid, tiles, undefined);
-		// two components: cells 0-1 and 2-3
-		// cell 2 and 3 point at not yet connected neighbours
+		// two components: tiles 0-1 and 2-3
+		// tiles 2 and 3 point at not yet connected neighbours
 		expect(game.components.get(0)?.nodes).toEqual(new Set([0, 1]));
 		expect(game.components.get(2)?.nodes).toEqual(new Set([2, 3]));
 		expect(game.tileStates[2].hasDisconnects[0]).toBe(true);
 		expect(game.tileStates[3].hasDisconnects[0]).toBe(true);
 
-		// rotating cell 1 breaks the connection to cell 0
-		// and connects to cell 3 instead
+		// rotating tile 1 breaks the connection to tile 0
+		// and connects to tile 3 instead
 		game.rotateTile(1, 3);
 		expect(game.solved).toBe(false);
 		expect(game.components.get(0)?.nodes).toEqual(new Set([0]));
 		expect(game.components.get(1)?.nodes).toEqual(new Set([1, 2, 3]));
 
-		// rotating cell 0 connects it to cell 2 and solves the puzzle
+		// rotating tile 0 connects it to tile 2 and solves the puzzle
 		game.rotateTile(0, 1);
 		expect(game.solved).toBe(true);
 		expect(game.components.get(0)?.nodes).toEqual(new Set([0, 1, 2, 3]));
@@ -90,13 +90,13 @@ describe('Test layered game', () => {
 		const color = game.tileStates[0].colors[0];
 		expect(color).not.toBe('white');
 		game.tileStates.forEach((state, index) => {
-			expect(state.colors[0], `cell ${index} has the component color`).toBe(color);
+			expect(state.colors[0], `tile ${index} has the component color`).toBe(color);
 		});
 	});
 
-	it('Detects loops over layers', () => {
+	it('Detects loops over pipe nodes', () => {
 		const grid = new SquareGrid(2, 2, false);
-		// all four cells connect in a loop
+		// all four tiles connect in a loop
 		const tiles = [[9], [12], [3], [6]];
 		const game = new PipesGame(grid, tiles, undefined);
 		expect(game.tileStates[0].isPartOfLoop[0]).toBe(true);
@@ -105,23 +105,23 @@ describe('Test layered game', () => {
 		expect(game.tileStates[3].isPartOfLoop[0]).toBe(true);
 		expect(game.isSolved()).toBe(false);
 
-		// rotating cell 1 breaks the loop
-		// and leaves cells 0 and 1 with disconnects
+		// rotating tile 1 breaks the loop
+		// and leaves tile 0 and 1 with disconnects
 		game.rotateTile(1, 3);
 		game.tileStates.forEach((state, index) => {
-			expect(state.isPartOfLoop[0], `cell ${index} is not part of a loop`).toBe(false);
+			expect(state.isPartOfLoop[0], `tile ${index} is not part of a loop`).toBe(false);
 		});
 		expect(game.tileStates[0].hasDisconnects[0]).toBe(true);
 		expect(game.tileStates[1].hasDisconnects[0]).toBe(true);
 		expect(game.solved).toBe(false);
 	});
 
-	it('Rotates to match a locked neighbour pointing at the cell', () => {
+	it('Rotates to match a locked neighbour pointing at the tile', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[2], [4], [1], [4]];
 		const game = new PipesGame(grid, tiles, undefined);
-		// cell 1 is locked and points at cell 0,
-		// cell 0 must rotate to connect back to it
+		// tile 1 is locked and points at tile 0,
+		// tile 0 must rotate to connect back to it
 		game.toggleLocked(1, true);
 		game.rotateToMatchMarks(0);
 		expect(game.pipeDirections(0, 0).includes(1)).toBe(true);
@@ -154,12 +154,11 @@ describe('Test layered game', () => {
 	it('Solves a scrambled generated board', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const solvedTiles = pregenerate_layers(grid, 1.0, 0.5);
-		// rotate every cell by a random amount to scramble the board,
-		// all layers of a cell rotate together
+		// rotate every tile by a random amount to scramble the board,
 		const scrambles = solvedTiles.map(() => Math.floor(Math.random() * 4));
-		const scrambled = solvedTiles.map((cellLayers, index) => {
-			return cellLayers.map((layer) => {
-				return grid.rotate(layer, scrambles[index], index);
+		const scrambled = solvedTiles.map((pipes, index) => {
+			return pipes.map((pipe) => {
+				return grid.rotate(pipe, scrambles[index], index);
 			});
 		});
 		const game = new PipesGame(grid, scrambled, undefined);
@@ -171,7 +170,7 @@ describe('Test layered game', () => {
 	});
 });
 
-describe('Test layered solver wiring', () => {
+describe('Test multipipes solver wiring', () => {
 	it('Rotates to absolute rotations with setTileRotation', () => {
 		const grid = new SquareGrid(2, 2, false);
 		const tiles = [[1], [4], [1], [4]];
