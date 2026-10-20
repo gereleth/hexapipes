@@ -6,20 +6,20 @@ import normalizeWheel from 'normalize-wheel';
  * @typedef PointerOrigin
  * @property {Number} x
  * @property {Number} y
- * @property {Number} tileX
- * @property {Number} tileY
- * @property {Number} tileIndex
+ * @property {Number} cellX
+ * @property {Number} cellY
+ * @property {Number} index
  * @property {Number} button
  * @property {Boolean} locking - true if a click like this should result in locking a tile
  */
 
 /**
  * Attaches mouse/touch controls to the game area
- * @param {Element & GlobalEventHandlers} node
+ * @param {Element & GlobalEventHandlers} DOMnode
  * @param {import('#lib/puzzle/game/game.svelte.js').PipesGame} game
  * @returns
  */
-export function controls(node, game) {
+export function controls(DOMnode, game) {
 	const grid = game.grid;
 
 	/**
@@ -43,7 +43,7 @@ export function controls(node, game) {
 	// changes will take effect on page refresh
 	const useZoomPan = !currentSettings.disableZoomPan;
 
-	const rect = node.getBoundingClientRect();
+	const rect = DOMnode.getBoundingClientRect();
 	const pixelsWidth = rect.width;
 	const pixelsHeight = rect.height;
 
@@ -56,9 +56,9 @@ export function controls(node, game) {
 		x: 0,
 		y: 0,
 		button: 0,
-		tileIndex: 0,
-		tileX: 0,
-		tileY: 0,
+		index: 0,
+		cellX: 0,
+		cellY: 0,
 		locking: false
 	};
 
@@ -73,7 +73,7 @@ export function controls(node, game) {
 	 * @returns {Number[]}
 	 */
 	function getEventCoordinates(event) {
-		const { x, y, width, height } = node.getBoundingClientRect();
+		const { x, y, width, height } = DOMnode.getBoundingClientRect();
 		const relativeX = (event.clientX - x) / width;
 		const relativeY = (event.clientY - y) / height;
 		const gameX = viewBox.xmin + relativeX * viewBox.width;
@@ -82,7 +82,7 @@ export function controls(node, game) {
 	}
 
 	function save() {
-		node.dispatchEvent(new CustomEvent('save'));
+		DOMnode.dispatchEvent(new CustomEvent('save'));
 	}
 
 	/** @type {ReturnType<typeof setTimeout>} */
@@ -104,19 +104,19 @@ export function controls(node, game) {
 			x,
 			y,
 			button: event.button,
-			tileIndex: -1,
-			tileX: 0,
-			tileY: 0,
+			index: -1,
+			cellX: 0,
+			cellY: 0,
 			locking
 		};
-		const tile = game.grid.whichCellAt(x, y);
-		if (tile.index !== -1) {
-			mouseDownOrigin.tileIndex = tile.index;
-			mouseDownOrigin.tileX = tile.x;
-			mouseDownOrigin.tileY = tile.y;
+		const cell = game.grid.whichCellAt(x, y);
+		if (cell.index !== -1) {
+			mouseDownOrigin.index = cell.index;
+			mouseDownOrigin.cellX = cell.x;
+			mouseDownOrigin.cellY = cell.y;
 		}
 
-		if (mouseDownOrigin.tileIndex === -1) {
+		if (mouseDownOrigin.index === -1) {
 			if (!useZoomPan) {
 				state = 'idle';
 			} else if (!grid.wrap && (x < grid.XMIN || x > grid.XMAX || y < grid.YMIN || y > grid.YMAX)) {
@@ -130,20 +130,15 @@ export function controls(node, game) {
 				// close to the edge, may be wanting an edge mark
 				edgeMarkTimer = setTimeout(() => {
 					const mark = mouseDownOrigin.button === 0 ? 'wall' : 'conn';
-					game.toggleEdgeMark(
-						mark,
-						mouseDownOrigin.tileIndex,
-						direction,
-						currentSettings.assistant
-					);
+					game.toggleEdgeMark(mark, mouseDownOrigin.index, direction, currentSettings.assistant);
 					state = 'edgemark';
 				}, 300);
 				state = 'mousedown';
 			} else {
 				if (mouseDownOrigin.locking) {
-					lockingSet.add(mouseDownOrigin.tileIndex);
+					lockingSet.add(mouseDownOrigin.index);
 					const locked = game.toggleLocked(
-						mouseDownOrigin.tileIndex,
+						mouseDownOrigin.index,
 						undefined,
 						currentSettings.assistant
 					);
@@ -180,9 +175,9 @@ export function controls(node, game) {
 			if (distance >= 0.05) {
 				clearTimeout(edgeMarkTimer);
 				if (mouseDownOrigin.locking) {
-					lockingSet.add(mouseDownOrigin.tileIndex);
+					lockingSet.add(mouseDownOrigin.index);
 					const locked = game.toggleLocked(
-						mouseDownOrigin.tileIndex,
+						mouseDownOrigin.index,
 						undefined,
 						currentSettings.assistant
 					);
@@ -194,11 +189,11 @@ export function controls(node, game) {
 		if (state === 'panning') {
 			game.viewBox.pan(dx, dy);
 		} else if (state === 'locking' || state === 'unlocking') {
-			const tile = game.grid.whichCellAt(x, y);
-			if (tile.index !== -1) {
-				if (!lockingSet.has(tile.index)) {
-					lockingSet.add(tile.index);
-					game.toggleLocked(tile.index, state === 'locking', currentSettings.assistant);
+			const cell = game.grid.whichCellAt(x, y);
+			if (cell.index !== -1) {
+				if (!lockingSet.has(cell.index)) {
+					lockingSet.add(cell.index);
+					game.toggleLocked(cell.index, state === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -220,62 +215,62 @@ export function controls(node, game) {
 		const dy = y - mouseDownOrigin.y;
 		const distance = Math.sqrt(dx * dx + dy * dy);
 
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance >= 0.2) {
-			const tileIndex = mouseDownOrigin.tileIndex;
+		if (state === 'mousedown' && mouseDownOrigin.index !== -1 && distance >= 0.2) {
+			const index = mouseDownOrigin.index;
 			// this might be drawing an edge mark
 			const { mark, direction } = grid.detectEdgemarkGesture(
-				tileIndex,
-				mouseDownOrigin.tileX,
-				mouseDownOrigin.tileY,
+				index,
+				mouseDownOrigin.cellX,
+				mouseDownOrigin.cellY,
 				mouseDownOrigin.x,
 				x,
 				mouseDownOrigin.y,
 				y
 			);
 			if (mark !== 'none') {
-				game.toggleEdgeMark(mark, tileIndex, direction, currentSettings.assistant);
+				game.toggleEdgeMark(mark, index, direction, currentSettings.assistant);
 				save();
 				touchState = 'idle';
 			}
 		}
-		if (state === 'mousedown' && mouseDownOrigin.tileIndex !== -1 && distance <= 0.2) {
+		if (state === 'mousedown' && mouseDownOrigin.index !== -1 && distance <= 0.2) {
 			// process this as a click
 			// rotate or lock a tile
-			const tileIndex = mouseDownOrigin.tileIndex;
-			const tileState = game.tileStates[tileIndex];
+			const index = mouseDownOrigin.index;
+			const tileState = game.tileStates[index];
 			const leftButton = mouseDownOrigin.button === 0;
 			const rightButton = mouseDownOrigin.button === 2;
 			if (currentSettings.controlMode === 'rotate_lock') {
 				let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
 				if (leftButton && !event.ctrlKey) {
-					game.rotateTile(tileIndex, rotationTimes);
+					game.rotateTile(index, rotationTimes);
 				} else if (leftButton && event.ctrlKey) {
-					game.rotateTile(tileIndex, -rotationTimes);
+					game.rotateTile(index, -rotationTimes);
 				} else if (rightButton) {
-					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+					game.toggleLocked(index, undefined, currentSettings.assistant);
 				}
 			} else if (currentSettings.controlMode === 'rotate_rotate') {
 				let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
 				if (leftButton && event.ctrlKey) {
-					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+					game.toggleLocked(index, undefined, currentSettings.assistant);
 				} else if (leftButton && !event.ctrlKey) {
-					game.rotateTile(tileIndex, rotationTimes);
+					game.rotateTile(index, rotationTimes);
 				} else if (rightButton) {
-					game.rotateTile(tileIndex, -rotationTimes);
+					game.rotateTile(index, -rotationTimes);
 				}
 			} else if (currentSettings.controlMode === 'orient_lock') {
 				if (leftButton) {
-					const { tileX, tileY } = mouseDownOrigin;
+					const { cellX, cellY } = mouseDownOrigin;
 					const timesRotate = game.grid.clickOrientPipe(
 						tileState.pipeUnion,
 						tileState.rotations,
-						x - tileX,
-						y - tileY,
-						tileIndex
+						x - cellX,
+						y - cellY,
+						index
 					);
-					game.rotateTile(tileIndex, timesRotate);
+					game.rotateTile(index, timesRotate);
 				} else if (rightButton) {
-					game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+					game.toggleLocked(index, undefined, currentSettings.assistant);
 				}
 			}
 			save();
@@ -343,9 +338,9 @@ export function controls(node, game) {
 	 * @property {Number} id
 	 * @property {Number} x
 	 * @property {Number} y
-	 * @property {Number} tileX
-	 * @property {Number} tileY
-	 * @property {Number} tileIndex
+	 * @property {Number} cellX
+	 * @property {Number} cellY
+	 * @property {Number} index
 	 * @property {Number} clientX
 	 * @property {Number} clientY
 	 * @property {Number} width
@@ -376,25 +371,25 @@ export function controls(node, game) {
 					id: touch.identifier,
 					clientX: touch.clientX,
 					clientY: touch.clientY,
-					tileIndex: -1,
-					tileX: 0,
-					tileY: 0,
+					index: -1,
+					cellX: 0,
+					cellY: 0,
 					width: viewBox.width
 				};
-				const tile = game.grid.whichCellAt(x, y);
-				if (tile.index !== -1) {
-					data.tileIndex = tile.index;
-					data.tileX = tile.x;
-					data.tileY = tile.y;
+				const cell = game.grid.whichCellAt(x, y);
+				if (cell.index !== -1) {
+					data.index = cell.index;
+					data.cellX = cell.x;
+					data.cellY = cell.y;
 				}
 				ongoingTouches.push(data);
 			}
 		}
 		if (touchState === 'idle') {
-			const tileIndex = ongoingTouches[0].tileIndex;
+			const index = ongoingTouches[0].index;
 			const x = ongoingTouches[0].x;
 			const y = ongoingTouches[0].y;
-			if (tileIndex !== -1) {
+			if (index !== -1) {
 				touchState = 'touchdown';
 				// event.preventDefault();
 				// start locking/unlocking if user holds for long enough
@@ -403,13 +398,13 @@ export function controls(node, game) {
 						currentSettings.controlMode === 'rotate_lock' ||
 						currentSettings.controlMode === 'orient_lock'
 					) {
-						const locked = game.toggleLocked(tileIndex, undefined, currentSettings.assistant);
+						const locked = game.toggleLocked(index, undefined, currentSettings.assistant);
 						save();
 						touchState = locked ? 'locking' : 'unlocking';
-						lockingSet.add(tileIndex);
+						lockingSet.add(index);
 					} else if (currentSettings.controlMode === 'rotate_rotate') {
 						const rotationTimes = currentSettings.invertRotationDirection ? 1 : -1;
-						game.rotateTile(tileIndex, rotationTimes);
+						game.rotateTile(index, rotationTimes);
 						save();
 						touchState = 'idle';
 						ongoingTouches = [];
@@ -456,15 +451,15 @@ export function controls(node, game) {
 				if (touch === null) {
 					continue;
 				}
-				const index = ids.indexOf(touch.identifier);
-				if (index === -1) {
+				const touchIndex = ids.indexOf(touch.identifier);
+				if (touchIndex === -1) {
 					continue;
 				}
 				const [x, y] = getEventCoordinates(touch);
-				newTouches[index].x = x;
-				newTouches[index].y = y;
-				newTouches[index].clientX = touch.clientX;
-				newTouches[index].clientY = touch.clientY;
+				newTouches[touchIndex].x = x;
+				newTouches[touchIndex].y = y;
+				newTouches[touchIndex].clientX = touch.clientX;
+				newTouches[touchIndex].clientY = touch.clientY;
 			}
 			// panning
 			const oldx = 0.5 * (ongoingTouches[0].x + ongoingTouches[1].x);
@@ -485,11 +480,11 @@ export function controls(node, game) {
 		} else if (touchState === 'locking' || touchState === 'unlocking') {
 			event.preventDefault();
 			const [x, y] = getEventCoordinates(event.touches[0]);
-			const tile = grid.whichCellAt(x, y);
-			if (tile.index !== -1) {
-				if (!lockingSet.has(tile.index)) {
-					lockingSet.add(tile.index);
-					game.toggleLocked(tile.index, touchState === 'locking', currentSettings.assistant);
+			const cell = grid.whichCellAt(x, y);
+			if (cell.index !== -1) {
+				if (!lockingSet.has(cell.index)) {
+					lockingSet.add(cell.index);
+					game.toggleLocked(cell.index, touchState === 'locking', currentSettings.assistant);
 					save();
 				}
 			}
@@ -529,46 +524,46 @@ export function controls(node, game) {
 			const t = ongoingTouches[0];
 			const distance = Math.sqrt((x - t.x) ** 2 + (y - t.y) ** 2);
 
-			if (t.tileIndex !== -1 && distance >= 0.2) {
+			if (t.index !== -1 && distance >= 0.2) {
 				const { mark, direction } = grid.detectEdgemarkGesture(
-					t.tileIndex,
-					t.tileX,
-					t.tileY,
+					t.index,
+					t.cellX,
+					t.cellY,
 					t.x,
 					x,
 					t.y,
 					y
 				);
 				if (mark !== 'none') {
-					game.toggleEdgeMark(mark, t.tileIndex, direction, currentSettings.assistant);
+					game.toggleEdgeMark(mark, t.index, direction, currentSettings.assistant);
 					save();
 					touchState = 'idle';
 				}
 			}
-			if (touchState === 'touchdown' && t.tileIndex !== -1 && distance <= 0.2) {
-				const upTile = grid.whichCellAt(x, y);
-				if (upTile.index === t.tileIndex) {
+			if (touchState === 'touchdown' && t.index !== -1 && distance <= 0.2) {
+				const upCell = grid.whichCellAt(x, y);
+				if (upCell.index === t.index) {
 					// stayed in the same tile, process this as a click
 					// rotate or lock a tile
-					const tileIndex = t.tileIndex;
-					const tileState = game.tileStates[tileIndex];
+					const index = t.index;
+					const tileState = game.tileStates[index];
 					if (
 						currentSettings.controlMode === 'rotate_lock' ||
 						currentSettings.controlMode === 'rotate_rotate'
 					) {
 						let rotationTimes = currentSettings.invertRotationDirection ? -1 : 1;
-						game.rotateTile(tileIndex, rotationTimes);
+						game.rotateTile(index, rotationTimes);
 						save();
 					} else if (currentSettings.controlMode === 'orient_lock') {
-						const { tileX, tileY } = t;
+						const { cellX, cellY } = t;
 						const timesRotate = game.grid.clickOrientPipe(
 							tileState.pipeUnion,
 							tileState.rotations,
-							x - tileX,
-							y - tileY,
-							tileIndex
+							x - cellX,
+							y - cellY,
+							index
 						);
-						game.rotateTile(tileIndex, timesRotate);
+						game.rotateTile(index, timesRotate);
 						save();
 					}
 				}
@@ -594,34 +589,34 @@ export function controls(node, game) {
 	 */
 	function handleKeyUp(event) {}
 
-	node.addEventListener('mousedown', handleMouseDown);
-	node.addEventListener('mousemove', handleMouseMove);
+	DOMnode.addEventListener('mousedown', handleMouseDown);
+	DOMnode.addEventListener('mousemove', handleMouseMove);
 	document.addEventListener('mouseup', handleMouseUp);
 	document.addEventListener('keydown', handleKeyDown);
 	document.addEventListener('keyup', handleKeyUp);
 	if (useZoomPan) {
-		node.addEventListener('wheel', handleWheel, { passive: false });
+		DOMnode.addEventListener('wheel', handleWheel, { passive: false });
 	}
 
-	node.addEventListener('touchstart', handleTouchStart, { passive: false });
-	node.addEventListener('touchmove', handleTouchMove, { passive: false });
-	node.addEventListener('touchend', handleTouchEnd, { passive: false });
-	node.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+	DOMnode.addEventListener('touchstart', handleTouchStart, { passive: false });
+	DOMnode.addEventListener('touchmove', handleTouchMove, { passive: false });
+	DOMnode.addEventListener('touchend', handleTouchEnd, { passive: false });
+	DOMnode.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
 	return {
 		destroy() {
-			node.removeEventListener('mousedown', handleMouseDown);
-			node.removeEventListener('mousemove', handleMouseMove);
+			DOMnode.removeEventListener('mousedown', handleMouseDown);
+			DOMnode.removeEventListener('mousemove', handleMouseMove);
 			document.removeEventListener('mouseup', handleMouseUp);
 			document.addEventListener('keydown', handleKeyDown);
 			document.addEventListener('keyup', handleKeyUp);
-			node.removeEventListener('wheel', handleWheel);
+			DOMnode.removeEventListener('wheel', handleWheel);
 			window.removeEventListener('wheel', checkForTouchpad);
 
-			node.removeEventListener('touchstart', handleTouchStart);
-			node.removeEventListener('touchmove', handleTouchMove);
-			node.removeEventListener('touchend', handleTouchEnd);
-			node.removeEventListener('touchcancel', handleTouchEnd);
+			DOMnode.removeEventListener('touchstart', handleTouchStart);
+			DOMnode.removeEventListener('touchmove', handleTouchMove);
+			DOMnode.removeEventListener('touchend', handleTouchEnd);
+			DOMnode.removeEventListener('touchcancel', handleTouchEnd);
 
 			unsubscribeViewBox();
 			unsubscribeSettings();

@@ -246,9 +246,9 @@ export class AbstractGrid {
 	 * @param {import('#lib/puzzle/game/controls.js').PointerOrigin} point
 	 */
 	whichEdge(point) {
-		const { x, y, tileX, tileY, tileIndex: index } = point;
-		const dx = x - tileX;
-		const dy = y - tileY;
+		const { x, y, cellX, cellY, index } = point;
+		const dx = x - cellX;
+		const dy = y - cellY;
 		return this.polygonAt(index).isCloseToEdge(dx, dy);
 	}
 
