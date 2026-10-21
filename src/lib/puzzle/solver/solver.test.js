@@ -8,7 +8,7 @@ import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { TriangularGrid } from '#lib/puzzle/grids/triangulargrid.js';
 import { TrihexaGrid } from '#lib/puzzle/grids/trihexagrid.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
-import { Cell } from '#lib/puzzle/solver/cell.js';
+import { Cell } from '#lib/puzzle/solver/solver-tile.js';
 import {
 	applyRotations,
 	pregenerate_layers,

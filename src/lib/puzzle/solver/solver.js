@@ -2,7 +2,7 @@ import { ComponentsRegistry } from '#lib/puzzle/solver/components-registry.js';
 import { popcount, iterate_directions } from '#lib/puzzle/grids/bitmasks.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
-import { Cell, NoOrientationsPossibleException } from '#lib/puzzle/solver/cell.js';
+import { Cell, NoOrientationsPossibleException } from '#lib/puzzle/solver/solver-tile.js';
 
 /**
  * Solving stage
