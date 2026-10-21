@@ -19,39 +19,39 @@ import {
 describe('Test Cell possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);
 	const polygon = grid.polygonAt(0);
-	it('Starts with correct possible states from initial layers - deadend', () => {
-		const cell = new SolverTile([1], polygon, 0);
-		expect(cell.possible.size).toBe(6);
-		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2, 3, 4, 5]));
+	it('Starts with correct possible states from initial pipes - deadend', () => {
+		const tile = new SolverTile([1], polygon, 0);
+		expect(tile.possible.size).toBe(6);
+		expect([...tile.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2, 3, 4, 5]));
 	});
-	it('Starts with correct possible states from initial layers - straight', () => {
-		const cell = new SolverTile([9], polygon, 0);
-		expect(cell.possible.size).toBe(3);
-		expect(cell.possible.get(0)).toEqual([9]);
-		expect(cell.possible.get(1)).toEqual([36]);
-		expect(cell.possible.get(2)).toEqual([18]);
+	it('Starts with correct possible states from initial pipes - straight', () => {
+		const tile = new SolverTile([9], polygon, 0);
+		expect(tile.possible.size).toBe(3);
+		expect(tile.possible.get(0)).toEqual([9]);
+		expect(tile.possible.get(1)).toEqual([36]);
+		expect(tile.possible.get(2)).toEqual([18]);
 	});
-	it('Starts with correct possible states from initial layers - deadend + bend', () => {
-		const cell = new SolverTile([1, 6], polygon, 0);
-		expect(cell.possible.size).toBe(6);
-		expect(cell.possible.get(0)).toEqual([1, 6]);
-		expect(cell.possible.get(1)).toEqual([32, 3]);
-		expect(cell.possible.get(2)).toEqual([16, 33]);
-		expect(cell.possible.get(3)).toEqual([8, 48]);
-		expect(cell.possible.get(4)).toEqual([4, 24]);
-		expect(cell.possible.get(5)).toEqual([2, 12]);
+	it('Starts with correct possible states from initial pipes - deadend + bend', () => {
+		const tile = new SolverTile([1, 6], polygon, 0);
+		expect(tile.possible.size).toBe(6);
+		expect(tile.possible.get(0)).toEqual([1, 6]);
+		expect(tile.possible.get(1)).toEqual([32, 3]);
+		expect(tile.possible.get(2)).toEqual([16, 33]);
+		expect(tile.possible.get(3)).toEqual([8, 48]);
+		expect(tile.possible.get(4)).toEqual([4, 24]);
+		expect(tile.possible.get(5)).toEqual([2, 12]);
 	});
-	it('Starts with correct possible states from initial layers - two opposite deadends', () => {
-		const cell = new SolverTile([1, 8], polygon, 0);
-		expect(cell.possible.size).toBe(3);
-		expect(cell.possible.get(0)).toEqual([1, 8]);
-		expect(cell.possible.get(1)).toEqual([32, 4]);
-		expect(cell.possible.get(2)).toEqual([16, 2]);
+	it('Starts with correct possible states from initial pipes - two opposite deadends', () => {
+		const tile = new SolverTile([1, 8], polygon, 0);
+		expect(tile.possible.size).toBe(3);
+		expect(tile.possible.get(0)).toEqual([1, 8]);
+		expect(tile.possible.get(1)).toEqual([32, 4]);
+		expect(tile.possible.get(2)).toEqual([16, 2]);
 	});
 	it('Empty cell has a single empty state', () => {
-		const cell = new SolverTile([], polygon, 0);
-		expect(cell.possible.size).toBe(1);
-		expect(cell.possible.get(0)).toEqual([]);
+		const tile = new SolverTile([], polygon, 0);
+		expect(tile.possible.size).toBe(1);
+		expect(tile.possible.get(0)).toEqual([]);
 	});
 });
 describe('Test Cell applyConstraints', () => {
@@ -59,127 +59,127 @@ describe('Test Cell applyConstraints', () => {
 	const polygon = grid.polygonAt(0);
 
 	it('Throws error if no orientations are possible', () => {
-		const cell = new SolverTile([9, 18], polygon, 0); // two straights form an X
-		cell.addWall(1 + 2);
-		expect(() => cell.applyConstraints()).toThrowError('No orientations possible');
+		const tile = new SolverTile([9, 18], polygon, 0); // two straights form an X
+		tile.addWall(1 + 2);
+		expect(() => tile.applyConstraints()).toThrow('No orientations possible');
 	});
-	it('Reports own deadends - two deadend layers', () => {
-		const cell = new SolverTile([1, 8], polygon, 0);
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
+	it('Reports own deadends - two deadend pipes', () => {
+		const tile = new SolverTile([1, 8], polygon, 0);
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(63);
 	});
 	it('Reports own deadends - deadend + bend', () => {
-		const cell = new SolverTile([1, 6], polygon, 0);
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
+		const tile = new SolverTile([1, 6], polygon, 0);
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(0);
 	});
 	it('Applies wall constraint', () => {
-		const cell = new SolverTile([1, 6], polygon, 0);
-		cell.addWall(1);
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
-		expect(cell.possible.size).toBe(3);
-		expect(cell.possible.get(3)).toEqual([8, 48]);
-		expect(cell.possible.get(4)).toEqual([4, 24]);
-		expect(cell.possible.get(5)).toEqual([2, 12]);
+		const tile = new SolverTile([1, 6], polygon, 0);
+		tile.addWall(1);
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
+		expect(tile.possible.size).toBe(3);
+		expect(tile.possible.get(3)).toEqual([8, 48]);
+		expect(tile.possible.get(4)).toEqual([4, 24]);
+		expect(tile.possible.get(5)).toEqual([2, 12]);
 		expect(addedConnections).toEqual(8);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(2);
 	});
 	it('Applies connection constraint', () => {
-		const cell = new SolverTile([1, 6], polygon, 0);
-		cell.addConnection(1);
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
-		expect(cell.possible.size).toBe(3);
-		expect(cell.possible.get(0)).toEqual([1, 6]);
-		expect(cell.possible.get(1)).toEqual([32, 3]);
-		expect(cell.possible.get(2)).toEqual([16, 33]);
+		const tile = new SolverTile([1, 6], polygon, 0);
+		tile.addConnection(1);
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
+		expect(tile.possible.size).toBe(3);
+		expect(tile.possible.get(0)).toEqual([1, 6]);
+		expect(tile.possible.get(1)).toEqual([32, 3]);
+		expect(tile.possible.get(2)).toEqual([16, 33]);
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(8);
 		expect(addedDeadends).toEqual(16);
 	});
 	it('Applies neighbour deadend constraint', () => {
-		const cell = new SolverTile([1, 6], polygon, 0);
-		cell.addNeighbourDeadend(1, 1);
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
-		expect(cell.possible.size).toBe(5);
-		expect(cell.possible.get(1)).toEqual([32, 3]);
-		expect(cell.possible.get(2)).toEqual([16, 33]);
-		expect(cell.possible.get(3)).toEqual([8, 48]);
-		expect(cell.possible.get(4)).toEqual([4, 24]);
-		expect(cell.possible.get(5)).toEqual([2, 12]);
+		const tile = new SolverTile([1, 6], polygon, 0);
+		tile.addNeighbourDeadend(1, 1);
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
+		expect(tile.possible.size).toBe(5);
+		expect(tile.possible.get(1)).toEqual([32, 3]);
+		expect(tile.possible.get(2)).toEqual([16, 33]);
+		expect(tile.possible.get(3)).toEqual([8, 48]);
+		expect(tile.possible.get(4)).toEqual([4, 24]);
+		expect(tile.possible.get(5)).toEqual([2, 12]);
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(2);
 	});
 	it('Applies neighbour deadend constraint - a bend must escape deadend area', () => {
-		const cell = new SolverTile([3], polygon, 0);
+		const tile = new SolverTile([3], polygon, 0);
 		// direction 1 is the only escape route
-		polygon.directions.forEach((d) => d === 1 || cell.addNeighbourDeadend(d, 1));
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
-		expect(cell.possible.size).toBe(2);
-		expect(cell.possible.get(0)).toEqual([3]);
-		expect(cell.possible.get(1)).toEqual([33]);
+		polygon.directions.forEach((d) => d === 1 || tile.addNeighbourDeadend(d, 1));
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
+		expect(tile.possible.size).toBe(2);
+		expect(tile.possible.get(0)).toEqual([3]);
+		expect(tile.possible.get(1)).toEqual([33]);
 		expect(addedConnections).toEqual(1);
 		expect(addedWalls).toEqual(4 + 8 + 16);
 		expect(addedDeadends).toEqual(1);
-		expect(cell.ownDeadendWeights.get(1)).toEqual(2);
+		expect(tile.ownDeadendWeights.get(1)).toEqual(2);
 	});
 	it('Transfers neighbour deadend constraints through itself', () => {
-		const cell = new SolverTile([9], polygon, 0);
-		cell.addNeighbourDeadend(1, 1);
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
-		expect(cell.possible.size).toBe(3);
+		const tile = new SolverTile([9], polygon, 0);
+		tile.addNeighbourDeadend(1, 1);
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
+		expect(tile.possible.size).toBe(3);
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(8);
-		expect(cell.ownDeadendWeights.get(8)).toEqual(2);
+		expect(tile.ownDeadendWeights.get(8)).toEqual(2);
 	});
 	it('Uses max over neighbour deadends for deriving own deadends', () => {
-		const cell = new SolverTile([3], polygon, 0);
-		cell.addConnection(1);
-		cell.addNeighbourDeadend(2, 1);
-		cell.addNeighbourDeadend(32, 5);
-		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
-		expect(cell.possible.size).toBe(2);
+		const tile = new SolverTile([3], polygon, 0);
+		tile.addConnection(1);
+		tile.addNeighbourDeadend(2, 1);
+		tile.addNeighbourDeadend(32, 5);
+		const { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints();
+		expect(tile.possible.size).toBe(2);
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(4 + 8 + 16);
 		expect(addedDeadends).toEqual(1);
-		expect(cell.ownDeadendWeights.get(1)).toEqual(6);
+		expect(tile.ownDeadendWeights.get(1)).toEqual(6);
 	});
 });
 
-describe('Test layered cell cloning', () => {
+describe('Test SolverTile cloning', () => {
 	const grid = new HexaGrid(1, 1, false);
 	const polygon = grid.polygonAt(0);
 
-	it('Makes a copy of the cell', () => {
-		const cell = new SolverTile([1], polygon, 0);
-		const clone = cell.clone();
-		expect(clone.index).toBe(cell.index);
-		expect([...clone.possible.keys()]).toEqual(expect.arrayContaining([...cell.possible.keys()]));
+	it('Makes a copy of the solver tile', () => {
+		const tile = new SolverTile([1], polygon, 0);
+		const clone = tile.clone();
+		expect(clone.index).toBe(tile.index);
+		expect([...clone.possible.keys()]).toEqual(expect.arrayContaining([...tile.possible.keys()]));
 	});
 
-	it('Removing state from cell does not affect clone', () => {
-		const cell = new SolverTile([1], polygon, 0);
-		const rotations = [...cell.possible.keys()];
-		const clone = cell.clone();
-		cell.possible.delete(0);
+	it('Removing state from parent tile does not affect clone', () => {
+		const tile = new SolverTile([1], polygon, 0);
+		const rotations = [...tile.possible.keys()];
+		const clone = tile.clone();
+		tile.possible.delete(0);
 		expect([...clone.possible.keys()]).toEqual(expect.arrayContaining(rotations));
-		expect([...cell.possible.keys()]).toEqual(
+		expect([...tile.possible.keys()]).toEqual(
 			expect.arrayContaining(rotations.filter((x) => x !== 0))
 		);
 	});
 
-	it('Removing state from clone does not affect cell', () => {
-		const cell = new SolverTile([1], polygon, 0);
-		const rotations = [...cell.possible.keys()];
-		const clone = cell.clone();
+	it('Removing state from clone does not affect parent tile', () => {
+		const tile = new SolverTile([1], polygon, 0);
+		const rotations = [...tile.possible.keys()];
+		const clone = tile.clone();
 		clone.possible.delete(0);
-		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining(rotations));
+		expect([...tile.possible.keys()]).toEqual(expect.arrayContaining(rotations));
 		expect([...clone.possible.keys()]).toEqual(
 			expect.arrayContaining(rotations.filter((x) => x !== 0))
 		);
@@ -190,36 +190,36 @@ describe('Test solver border constraints', () => {
 	const grid = new SquareGrid(3, 3, false);
 	const tiles = [[1, 8], [12], [8], [11], [6, 8], [10], [3], [7], [6]];
 
-	it('Adds walls to border cells', () => {
+	it('Adds walls to border tiles', () => {
 		const solver = new Solver(tiles, grid);
-		let cell = solver.getCell(0);
-		expect(cell.walls).toBe(6);
-		cell = solver.getCell(1);
-		expect(cell.walls).toBe(2);
-		cell = solver.getCell(2);
-		expect(cell.walls).toBe(3);
-		cell = solver.getCell(7);
-		expect(cell.walls).toBe(8);
+		let tile = solver.getCell(0);
+		expect(tile.walls).toBe(6);
+		tile = solver.getCell(1);
+		expect(tile.walls).toBe(2);
+		tile = solver.getCell(2);
+		expect(tile.walls).toBe(3);
+		tile = solver.getCell(7);
+		expect(tile.walls).toBe(8);
 		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2, 7]));
 	});
 
-	it('Adds full and empty cells to dirty set', () => {
+	it('Adds full and empty tiles to dirty set', () => {
 		const solver = new Solver([[], [9], [4, 8], [9], [15], [6], [1, 2], [6], []], grid);
-		const emptyCell = solver.getCell(0);
-		expect(emptyCell.walls).toBe(0);
-		expect(emptyCell.possible.size).toBe(1);
+		const emptyTile = solver.getCell(0);
+		expect(emptyTile.walls).toBe(0);
+		expect(emptyTile.possible.size).toBe(1);
 		expect(solver.dirty).toContain(0);
-		const fullCell = solver.getCell(4);
-		expect(fullCell.connections).toBe(0);
-		expect(fullCell.possible.size).toBe(1);
+		const fullTile = solver.getCell(4);
+		expect(fullTile.connections).toBe(0);
+		expect(fullTile.possible.size).toBe(1);
 		expect(solver.dirty).toContain(4);
 	});
 
-	it('Does not add constraints to cells in a wrap puzzle', () => {
+	it('Does not add constraints to tiles in a wrap puzzle', () => {
 		const grid = new HexaGrid(3, 1, true);
 		const solver = new Solver([[3], [3], [3]], grid);
-		const cell = solver.getCell(0);
-		expect(cell.walls).toBe(0);
+		const tile = solver.getCell(0);
+		expect(tile.walls).toBe(0);
 		// materialization itself always dirties the cell, even with no facts to deduce
 		expect(solver.dirty).toContain(0);
 	});
