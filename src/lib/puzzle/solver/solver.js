@@ -327,7 +327,7 @@ export class Solver {
 		const layerIndex = neighbourCell.getAnsweringPipe(opposite);
 		if (layerIndex !== undefined) {
 			const subcellId = this.grid.pipeNodeId(neighbour, layerIndex);
-			return this.components.getSubcellComponent(subcellId);
+			return this.components.getNodeComponent(subcellId);
 		}
 		return 0;
 	}
@@ -341,7 +341,7 @@ export class Solver {
 	avoidSubcellLoops(index, layerIndex, cell, component) {
 		const subCellId = this.grid.pipeNodeId(index, layerIndex);
 		const potential = cell.getPipePotentialConnections(layerIndex);
-		const known = this.components.getSubcellDirections(subCellId, component);
+		const known = this.components.getNodeDirections(subCellId, component);
 		for (let direction of iterate_directions(potential & ~known)) {
 			const answering = this.getAnsweringComponent(index, direction);
 			if (answering === component) {
@@ -368,7 +368,7 @@ export class Solver {
 			const subcellId = this.grid.pipeNodeId(index, layerIndex);
 			// subtract what this cell's subcells already contribute; an unowned
 			// subcell contributes nothing
-			directions &= ~this.components.getSubcellDirections(subcellId);
+			directions &= ~this.components.getNodeDirections(subcellId);
 			// detect solved layers to avoid resurrecting neighbours: layers
 			// without repeated masks differ between any two surviving
 			// rotations, so they can only be solved when possible.size === 1,
@@ -412,7 +412,7 @@ export class Solver {
 		);
 		for (let layerIndex of cell.pipes.keys()) {
 			const subCellId = this.grid.pipeNodeId(index, layerIndex);
-			const component = this.components.getSubcellComponent(subCellId);
+			const component = this.components.getNodeComponent(subCellId);
 			if (component === 0) continue;
 			this.avoidSubcellLoops(index, layerIndex, cell, component);
 		}
@@ -430,9 +430,9 @@ export class Solver {
 				const layerIndex = cell.getAnsweringPipe(direction);
 				if (layerIndex === undefined) return;
 				const subCellId = this.grid.pipeNodeId(index, layerIndex);
-				const otherComponent = this.components.getSubcellComponent(subCellId);
+				const otherComponent = this.components.getNodeComponent(subCellId);
 				if (otherComponent === 0) {
-					this.components.attachSubcell(component, subCellId, direction);
+					this.components.attachNode(component, subCellId, direction);
 					// subcell joined a component - check if it has
 					// any neighbours already in component
 					this.avoidSubcellLoops(index, layerIndex, cell, component);
@@ -457,13 +457,13 @@ export class Solver {
 		// and create new slots
 		for (let layerIndex of cell.pipes.keys()) {
 			const subCellId = this.grid.pipeNodeId(index, layerIndex);
-			const component = this.components.getSubcellComponent(subCellId);
+			const component = this.components.getNodeComponent(subCellId);
 			if (component === 0) continue;
 			const connections = cell.getPipeDefiniteConnections(layerIndex);
-			const known = this.components.getSubcellDirections(subCellId, component);
+			const known = this.components.getNodeDirections(subCellId, component);
 			const newDirections = connections & ~known;
 			if (newDirections > 0) {
-				this.components.setSubcellDirections(subCellId, connections);
+				this.components.setNodeDirections(subCellId, connections);
 				for (let direction of iterate_directions(newDirections)) {
 					const { neighbour } = this.grid.findNeighbour(index, direction);
 					const opposite = this.grid.OPPOSITE.get(direction) || 0;
@@ -489,7 +489,7 @@ export class Solver {
 				}
 			}
 			if (popcount(connections) === cell.pipePopcounts[layerIndex]) {
-				this.components.removeSubcell(component, subCellId);
+				this.components.removeNode(component, subCellId);
 			}
 		}
 		this.pruneLoop(index, cell);
@@ -565,10 +565,10 @@ export class Solver {
 
 			for (const component of this.islandChecks) {
 				const slots = this.components.slotCount(component);
-				const subcells = this.components.subcellCount(component);
+				const subcells = this.components.nodeCount(component);
 				if (slots === 0 && subcells === 0) {
 					// a sealed component holding every subcell is just the finished puzzle
-					if (this.components.totalSubcellCount(component) < this.totalSubcells) {
+					if (this.components.totalNodeCount(component) < this.totalSubcells) {
 						throw ISLAND_DETECTED;
 					}
 				} else if (slots === 1 && subcells === 0) {
@@ -578,7 +578,7 @@ export class Solver {
 						const deadendsBefore = c.neighbourDeadends;
 						// override weight because component size is exact at this point
 						c.addNeighbourDeadend(directions, 0);
-						c.neighbourDeadendWeights.set(directions, this.components.totalSubcellCount(component));
+						c.neighbourDeadendWeights.set(directions, this.components.totalNodeCount(component));
 						if (c.neighbourDeadends !== deadendsBefore) {
 							this.dirty.add(cellIndex);
 						}
@@ -589,11 +589,11 @@ export class Solver {
 					// Deadend machinery treats all deadends as independent => doesn't work for this case
 					// Valid handling is not implemented yet
 				} else if (slots === 0 && subcells === 1) {
-					this.components.forEachComponentSubcell(component, (subcellId, directions) => {
+					this.components.forEachComponentNode(component, (subcellId, directions) => {
 						const [index] = this.grid.cellIndexPipeIndexOf(subcellId);
 						const c = this.getCell(index);
 						const deadendsBefore = c.neighbourDeadends;
-						let weight = this.components.totalSubcellCount(component) - 1; // don't count this subcell itself
+						let weight = this.components.totalNodeCount(component) - 1; // don't count this subcell itself
 						for (let direction of iterate_directions(directions)) {
 							c.addNeighbourDeadend(direction, weight);
 							c.neighbourDeadendWeights.set(direction, weight);
