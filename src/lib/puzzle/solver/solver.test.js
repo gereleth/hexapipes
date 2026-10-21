@@ -8,7 +8,7 @@ import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { TriangularGrid } from '#lib/puzzle/grids/triangulargrid.js';
 import { TrihexaGrid } from '#lib/puzzle/grids/trihexagrid.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
-import { Cell } from '#lib/puzzle/solver/solver-tile.js';
+import { SolverTile } from '#lib/puzzle/solver/solver-tile.js';
 import {
 	applyRotations,
 	pregenerate_layers,
@@ -20,19 +20,19 @@ describe('Test Cell possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);
 	const polygon = grid.polygonAt(0);
 	it('Starts with correct possible states from initial layers - deadend', () => {
-		const cell = new Cell([1], polygon, 0);
+		const cell = new SolverTile([1], polygon, 0);
 		expect(cell.possible.size).toBe(6);
 		expect([...cell.possible.keys()]).toEqual(expect.arrayContaining([0, 1, 2, 3, 4, 5]));
 	});
 	it('Starts with correct possible states from initial layers - straight', () => {
-		const cell = new Cell([9], polygon, 0);
+		const cell = new SolverTile([9], polygon, 0);
 		expect(cell.possible.size).toBe(3);
 		expect(cell.possible.get(0)).toEqual([9]);
 		expect(cell.possible.get(1)).toEqual([36]);
 		expect(cell.possible.get(2)).toEqual([18]);
 	});
 	it('Starts with correct possible states from initial layers - deadend + bend', () => {
-		const cell = new Cell([1, 6], polygon, 0);
+		const cell = new SolverTile([1, 6], polygon, 0);
 		expect(cell.possible.size).toBe(6);
 		expect(cell.possible.get(0)).toEqual([1, 6]);
 		expect(cell.possible.get(1)).toEqual([32, 3]);
@@ -42,14 +42,14 @@ describe('Test Cell possible states initialization', () => {
 		expect(cell.possible.get(5)).toEqual([2, 12]);
 	});
 	it('Starts with correct possible states from initial layers - two opposite deadends', () => {
-		const cell = new Cell([1, 8], polygon, 0);
+		const cell = new SolverTile([1, 8], polygon, 0);
 		expect(cell.possible.size).toBe(3);
 		expect(cell.possible.get(0)).toEqual([1, 8]);
 		expect(cell.possible.get(1)).toEqual([32, 4]);
 		expect(cell.possible.get(2)).toEqual([16, 2]);
 	});
 	it('Empty cell has a single empty state', () => {
-		const cell = new Cell([], polygon, 0);
+		const cell = new SolverTile([], polygon, 0);
 		expect(cell.possible.size).toBe(1);
 		expect(cell.possible.get(0)).toEqual([]);
 	});
@@ -59,26 +59,26 @@ describe('Test Cell applyConstraints', () => {
 	const polygon = grid.polygonAt(0);
 
 	it('Throws error if no orientations are possible', () => {
-		const cell = new Cell([9, 18], polygon, 0); // two straights form an X
+		const cell = new SolverTile([9, 18], polygon, 0); // two straights form an X
 		cell.addWall(1 + 2);
 		expect(() => cell.applyConstraints()).toThrowError('No orientations possible');
 	});
 	it('Reports own deadends - two deadend layers', () => {
-		const cell = new Cell([1, 8], polygon, 0);
+		const cell = new SolverTile([1, 8], polygon, 0);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(63);
 	});
 	it('Reports own deadends - deadend + bend', () => {
-		const cell = new Cell([1, 6], polygon, 0);
+		const cell = new SolverTile([1, 6], polygon, 0);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(addedConnections).toEqual(0);
 		expect(addedWalls).toEqual(0);
 		expect(addedDeadends).toEqual(0);
 	});
 	it('Applies wall constraint', () => {
-		const cell = new Cell([1, 6], polygon, 0);
+		const cell = new SolverTile([1, 6], polygon, 0);
 		cell.addWall(1);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(cell.possible.size).toBe(3);
@@ -90,7 +90,7 @@ describe('Test Cell applyConstraints', () => {
 		expect(addedDeadends).toEqual(2);
 	});
 	it('Applies connection constraint', () => {
-		const cell = new Cell([1, 6], polygon, 0);
+		const cell = new SolverTile([1, 6], polygon, 0);
 		cell.addConnection(1);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(cell.possible.size).toBe(3);
@@ -102,7 +102,7 @@ describe('Test Cell applyConstraints', () => {
 		expect(addedDeadends).toEqual(16);
 	});
 	it('Applies neighbour deadend constraint', () => {
-		const cell = new Cell([1, 6], polygon, 0);
+		const cell = new SolverTile([1, 6], polygon, 0);
 		cell.addNeighbourDeadend(1, 1);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(cell.possible.size).toBe(5);
@@ -116,7 +116,7 @@ describe('Test Cell applyConstraints', () => {
 		expect(addedDeadends).toEqual(2);
 	});
 	it('Applies neighbour deadend constraint - a bend must escape deadend area', () => {
-		const cell = new Cell([3], polygon, 0);
+		const cell = new SolverTile([3], polygon, 0);
 		// direction 1 is the only escape route
 		polygon.directions.forEach((d) => d === 1 || cell.addNeighbourDeadend(d, 1));
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
@@ -129,7 +129,7 @@ describe('Test Cell applyConstraints', () => {
 		expect(cell.ownDeadendWeights.get(1)).toEqual(2);
 	});
 	it('Transfers neighbour deadend constraints through itself', () => {
-		const cell = new Cell([9], polygon, 0);
+		const cell = new SolverTile([9], polygon, 0);
 		cell.addNeighbourDeadend(1, 1);
 		const { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints();
 		expect(cell.possible.size).toBe(3);
@@ -139,7 +139,7 @@ describe('Test Cell applyConstraints', () => {
 		expect(cell.ownDeadendWeights.get(8)).toEqual(2);
 	});
 	it('Uses max over neighbour deadends for deriving own deadends', () => {
-		const cell = new Cell([3], polygon, 0);
+		const cell = new SolverTile([3], polygon, 0);
 		cell.addConnection(1);
 		cell.addNeighbourDeadend(2, 1);
 		cell.addNeighbourDeadend(32, 5);
@@ -157,14 +157,14 @@ describe('Test layered cell cloning', () => {
 	const polygon = grid.polygonAt(0);
 
 	it('Makes a copy of the cell', () => {
-		const cell = new Cell([1], polygon, 0);
+		const cell = new SolverTile([1], polygon, 0);
 		const clone = cell.clone();
 		expect(clone.index).toBe(cell.index);
 		expect([...clone.possible.keys()]).toEqual(expect.arrayContaining([...cell.possible.keys()]));
 	});
 
 	it('Removing state from cell does not affect clone', () => {
-		const cell = new Cell([1], polygon, 0);
+		const cell = new SolverTile([1], polygon, 0);
 		const rotations = [...cell.possible.keys()];
 		const clone = cell.clone();
 		cell.possible.delete(0);
@@ -175,7 +175,7 @@ describe('Test layered cell cloning', () => {
 	});
 
 	it('Removing state from clone does not affect cell', () => {
-		const cell = new Cell([1], polygon, 0);
+		const cell = new SolverTile([1], polygon, 0);
 		const rotations = [...cell.possible.keys()];
 		const clone = cell.clone();
 		clone.possible.delete(0);

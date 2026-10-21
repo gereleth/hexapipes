@@ -1,160 +1,151 @@
 import { popcount, iterate_directions } from '#lib/puzzle/grids/bitmasks.js';
 
 /**
- * A cell has no more viable rotation states
- * @param {Cell} cell
+ * A tile has no more viable rotation states
+ * @param {SolverTile} tile
  */
-export function NoOrientationsPossibleException(cell) {
+export function NoOrientationsPossibleException(tile) {
 	this.name = 'NoOrientationsPossible';
-	this.message = `No orientations possible at cell ${cell.index}`;
+	this.message = `No orientations possible for tile ${tile.index}`;
 }
 
 /**
- * Returns a canonical id for a rotation state: the sorted list of layer masks.
- * Rotations of a cell that have the same multiset of
- * per-layer masks share an id,
- * letting us deduplicate indistinguishable rotations.
- * @param {Number[]} masks - rotated layer masks
+ * Returns a canonical id for a rotation state: the sorted list of pipe bitmasks
+ * Same multiset of pipes = indistinguishable rotation state
+ * @param {Number[]} pipes - rotated pipe bitmasks
  * @returns {String}
  */
-function visualId(masks) {
-	const sorted = [...masks].sort((a, b) => a - b);
+function visualId(pipes) {
+	const sorted = [...pipes].sort((a, b) => a - b);
 	return sorted.join('-') || '0';
 }
+
 /**
- * Builds the possible states of a cell: map of rotation
- * to the rotated layers at that rotation
- * States are deduplicated using visualId
- * @param {Number[]} layers - layer bitmasks at rotation 0
+ * Builds possible states of a tile - deduplicated using visualId
+ * @param {Number[]} pipes - pipe bitmasks at rotation 0
  * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonCell} polygon
- * @returns {Map<Number, Number[]>}
+ * @returns {Map<Number, Number[]>} rotation => pipe bitmasks at that rotation
  */
-function buildPossible(layers, polygon) {
+function buildPossible(pipes, polygon) {
 	/** @type {Set<String>} */
 	const seen = new Set();
 	/** @type {Map<Number, Number[]>} */
 	const possible = new Map();
 	const numDirections = polygon.numDirections;
 	for (let rotation = 0; rotation < numDirections; rotation++) {
-		const masks = layers.map((layer) => polygon.rotate(layer, rotation));
-		const id = visualId(masks);
+		const rotated = pipes.map((pipe) => polygon.rotate(pipe, rotation));
+		const id = visualId(rotated);
 		if (!seen.has(id)) {
 			seen.add(id);
-			possible.set(rotation, masks);
+			possible.set(rotation, rotated);
 		}
 	}
 	return possible;
 }
 /**
- * Constraint state for a single grid cell of a layered puzzle.
- * The decision variable is the cell rotation (all layers rotate together).
- * Possible states are deduplicated using visualId.
- * Walls/connections are direction bitmask facts, same as in the classic solver.
+ * Constraint state for a single tile of a multipipes puzzle.
+ * The decision variable is tile rotation.
  */
-
-export class Cell {
+export class SolverTile {
 	/**
 	 *
-	 * @param {Number[]} layers
+	 * @param {Number[]} pipes
 	 * @param {import('#lib/puzzle/grids/polygonutils.js').RegularPolygonCell} polygon
 	 * @param {Number} index
-	 * @param {ReturnType<buildPossible>|undefined} possible
-	 * @param {Number|undefined} repeatLayersMask - precomputed for a superset
+	 * @param {ReturnType<buildPossible>|undefined} [possible]
+	 * @param {Number|undefined} [repeatPipesMask] - precomputed for a superset
 	 * of possible, e.g. passed down by clone; computed here when omitted
-	 * @param {Uint32Array|undefined} answerRotations - birth table for a
+	 * @param {Uint32Array|undefined} [answerRotations] - birth table for a
 	 * superset of possible, e.g. passed down by clone; computed here when omitted
 	 */
 	constructor(
-		layers,
+		pipes,
 		polygon,
 		index,
 		possible = undefined,
-		repeatLayersMask = undefined,
+		repeatPipesMask = undefined,
 		answerRotations = undefined
 	) {
-		this.layers = layers;
+		this.pipes = pipes;
 		this.polygon = polygon;
 		this.index = index; // only for error messages
-		this.possible = possible || buildPossible(layers, polygon);
+		this.possible = possible || buildPossible(pipes, polygon);
+		/** Bitmask of wall constraints on this tile */
 		this.walls = 0;
+		/** Bitmask of connection constraints on this tile */
 		this.connections = 0;
-		this.layerPopcounts = layers.map((x) => popcount(x));
-		this.hasDeadends = this.layerPopcounts.some((x) => x === 1);
+		this.pipePopcounts = pipes.map((x) => popcount(x));
+		this.hasDeadends = this.pipePopcounts.some((x) => x === 1);
 		/** Deadend constraints pushed into us by neighbours - all our
-		 * directions where the neighbour either has a wall or a deadend layer
+		 * directions where the neighbour either has a wall or a deadend pipe
 		 */
 		this.neighbourDeadends = 0;
-		/** @type {Map<Number,Number>} - how many subcells might be hiding behind this deadend*/
+		/** @type {Map<Number,Number>} - direction => how many pipe nodes might be hiding behind this deadend */
 		this.neighbourDeadendWeights = new Map();
 		/**
 		 * Deadend constraints we push into neighbours - all our directions
-		 * where we either have a wall or a deadend layer
+		 * where we either have a wall or a deadend pipe
 		 */
 		this.ownDeadends = 0;
-		// /**@type {Map<Number,Set<Number>>} for each direction - which layers might answer the connection*/
-		/** @type {Map<Number,Number>} - how many subcells might be hiding behind this deadend*/
+		/** @type {Map<Number,Number>} - direction => how many pipe nodes might be hiding behind this deadend*/
 		this.ownDeadendWeights = new Map();
-		/** Bitmask of layer indices whose masks repeat across the rotations in
-		 * this.possible - only these layers can be solved (all surviving
-		 * rotations agreeing) while possible.size > 1. */
-		if (repeatLayersMask !== undefined) {
-			this.repeatLayersMask = repeatLayersMask;
+		/** Bitmask of pipe indices where the pipe has fewer distinct states than the whole tile
+		 * - only these pipes can be already solved while possible.size > 1 */
+		if (repeatPipesMask !== undefined) {
+			this.repeatPipesMask = repeatPipesMask;
 		} else {
-			this.repeatLayersMask = 0;
+			this.repeatPipesMask = 0;
 			const masksPerRotation = [...this.possible.values()];
-			for (let layerIndex = 0; layerIndex < this.layers.length; layerIndex++) {
-				const distinct = new Set(masksPerRotation.map((layers) => layers[layerIndex]));
+			for (let pipeIndex = 0; pipeIndex < this.pipes.length; pipeIndex++) {
+				const distinct = new Set(masksPerRotation.map((pipes) => pipes[pipeIndex]));
 				if (distinct.size < masksPerRotation.length) {
-					this.repeatLayersMask |= 1 << layerIndex;
+					this.repeatPipesMask |= 1 << pipeIndex;
 				}
 			}
 		}
-		/** Per (grid direction bit position, layer index): bitmask of rotation
-		 * numbers whose mask connects that direction through that layer.
-		 * Fixed at birth - rotation numbers are the stable keys of possible,
-		 * and filtering only shrinks the survivor set, so a table computed
-		 * for a map stays sound for any subset of it. Rows for directions
-		 * the polygon never uses stay zero: nothing can ever answer them.
-		 * Single-layer cells skip the table: getAnsweringLayer resolves them
-		 * to layer 0 directly, so nothing descends into the table
+		/** Per (grid direction bit position, pipe index): bitmask of rotation
+		 * numbers where that pipe connects to that direction.
+		 * Fixed at birth and stays true while possible shrinks.
+		 * Rows for directions the polygon never uses stay zero.
+		 * Single-pipe tiles skip the table.
 		 * @type {Uint32Array|undefined} */
 		this.answerRotations = undefined;
 		if (answerRotations !== undefined) {
 			this.answerRotations = answerRotations;
-		} else if (this.layers.length > 1) {
-			const layerCount = this.layers.length;
-			// grid direction space spanned by this shape: bit positions 0
+		} else if (this.pipes.length > 1) {
+			const pipeCount = this.pipes.length;
+			// grid direction space spanned by this tile: bit positions 0
 			// through the highest bit of the union of all its directions
 			const rows = 32 - Math.clz32(this.polygon.fullyConnected);
-			this.answerRotations = new Uint32Array(rows * layerCount);
-			for (let [rotation, masks] of this.possible) {
-				for (let i = 0; i < layerCount; i++) {
-					let mask = masks[i];
-					while (mask) {
-						const low = mask & -mask;
+			this.answerRotations = new Uint32Array(rows * pipeCount);
+			for (let [rotation, pipes] of this.possible) {
+				for (let i = 0; i < pipeCount; i++) {
+					let pipe = pipes[i];
+					while (pipe) {
+						const low = pipe & -pipe;
 						const k = 31 - Math.clz32(low);
-						this.answerRotations[k * layerCount + i] |= 1 << rotation;
-						mask ^= low;
+						this.answerRotations[k * pipeCount + i] |= 1 << rotation;
+						pipe ^= low;
 					}
 				}
 			}
 		}
 	}
 	/**
-	 * Clone this cell assigning new possible states
+	 * Clone this tile assigning new possible states
 	 * @param {ReturnType<buildPossible>|undefined} newPossible
-	 * @returns {Cell}
+	 * @returns {SolverTile}
 	 */
 	clone(newPossible = undefined) {
-		// the parent's repeatLayersMask and answerRotations were computed for
+		// the parent's repeatPipesMask and answerRotations were computed for
 		// a superset of newPossible, which keeps them sound - pass them down
 		// to skip the birth computations
-		const copy = new Cell(
-			this.layers,
+		const copy = new SolverTile(
+			this.pipes,
 			this.polygon,
 			this.index,
 			newPossible,
-			this.repeatLayersMask,
+			this.repeatPipesMask,
 			this.answerRotations
 		);
 		copy.walls = this.walls;
@@ -167,14 +158,14 @@ export class Cell {
 	}
 
 	/**
-	 * Union of all layer masks at a given rotation
+	 * Union of all pipes at a given rotation
 	 * @param {Number} rotation
 	 * @returns {Number}
 	 */
 	unionAt(rotation) {
 		let union = 0;
-		for (let layer of this.possible.get(rotation) || []) {
-			union |= layer;
+		for (let pipe of this.possible.get(rotation) || []) {
+			union |= pipe;
 		}
 		return union;
 	}
@@ -183,7 +174,7 @@ export class Cell {
 	 * @param {Number} direction
 	 */
 	addWall(direction) {
-		this.walls |= direction - ((this.connections | this.walls) & direction);
+		this.walls |= direction & ~((this.connections | this.walls) & direction);
 		this.neighbourDeadends |= this.walls;
 		this.ownDeadends |= this.walls;
 	}
@@ -192,12 +183,12 @@ export class Cell {
 	 * @param {Number} direction
 	 */
 	addConnection(direction) {
-		this.connections |= direction - ((this.connections | this.walls) & direction);
+		this.connections |= direction & ~((this.connections | this.walls) & direction);
 	}
 
 	/**
-	 * Inform this cell that the neighbour in direction could only answer a connection
-	 * with a deadend layer (if at all). Weight is how many subcells belong to the
+	 * Inform this tile that the neighbour in direction could only answer a connection
+	 * with a deadend pipe (if at all). Weight is how many pipe nodes belong to the
 	 * deadend portion (it might be a whole island with one free link left).
 	 * @param {Number} direction
 	 * @param {Number} weight
@@ -217,8 +208,8 @@ export class Cell {
 	 */
 	mustHaveAllWalls(directions) {
 		const remove = [];
-		for (let [rotation, layers] of this.possible) {
-			if (layers.some((layer) => (layer & directions) > 0)) {
+		for (let [rotation, pipes] of this.possible) {
+			if (pipes.some((pipe) => (pipe & directions) > 0)) {
 				remove.push(rotation);
 			}
 		}
@@ -228,8 +219,8 @@ export class Cell {
 
 	/**
 	 * Filters out orientations that connect all the mentioned directions, so
-	 * every survivor keeps at least one wall among them. Union-based: on
-	 * classic one-layer cells this is exactly the classic mustHaveSomeWalls
+	 * every survivor keeps at least one wall among them.
+	 * Implemented union-based but actually only used on classic boards.
 	 * @param {Number} directions
 	 * @return {Number} count of removed orientations
 	 */
@@ -271,9 +262,9 @@ export class Cell {
 	 */
 	mustNotSealDeadends(directions, unlessThisBig = Infinity) {
 		const remove = [];
-		for (let [rotation, layers] of this.possible) {
-			for (let layer of layers) {
-				if ((layer & directions) === layer && this.getDeadendWeight(layer) < unlessThisBig) {
+		for (let [rotation, pipes] of this.possible) {
+			for (let pipe of pipes) {
+				if ((pipe & directions) === pipe && this.getDeadendWeight(pipe) < unlessThisBig) {
 					remove.push(rotation);
 					break;
 				}
@@ -284,27 +275,27 @@ export class Cell {
 	}
 
 	/**
-	 *
-	 * @param {Number} layer
+	 * Sums up neighbour deadend weights behind each of the pipe's directions
+	 * @param {Number} pipe
 	 */
-	getDeadendWeight(layer) {
+	getDeadendWeight(pipe) {
 		let total = 1;
-		for (let direction of iterate_directions(layer)) {
+		for (let direction of iterate_directions(pipe)) {
 			total += this.neighbourDeadendWeights.get(direction) || 0;
 		}
 		return total;
 	}
 
 	/**
-	 * Forbid orientations where a certain layer connects in direction
-	 * (use case: layer is in component and direction connects to the same component, avoid loop)
-	 * @param {Number} layerIndex
+	 * Forbid orientations where a certain pipe connects in direction
+	 * (use case: pipe is in a component and direction connects to the same component, avoid loop)
+	 * @param {Number} pipeIndex
 	 * @param {Number} direction
 	 */
-	forbidLayerConnection(layerIndex, direction) {
+	forbidPipeDirection(pipeIndex, direction) {
 		const remove = [];
-		for (let [rotation, layers] of this.possible) {
-			if ((layers[layerIndex] & direction) > 0) {
+		for (let [rotation, pipes] of this.possible) {
+			if ((pipes[pipeIndex] & direction) > 0) {
 				remove.push(rotation);
 			}
 		}
@@ -313,17 +304,18 @@ export class Cell {
 	}
 
 	/**
-	 * Forbid orientations where any layer connects at least two of the directions
+	 * Forbid orientations where any pipe connects at least two of the directions
 	 * (use case: all given directions lead to the same component, avoid loop)
 	 * @param {Number} directions
 	 */
-	forbidLayerBridge(directions) {
+	forbidBridge(directions) {
 		const remove = [];
-		for (let [rotation, layers] of this.possible) {
-			for (let [index, layer] of layers.entries()) {
-				const intersection = layer & directions;
+		for (let [rotation, pipes] of this.possible) {
+			for (let pipe of pipes) {
+				const intersection = pipe & directions;
 				if (popcount(intersection) >= 2) {
 					remove.push(rotation);
+					break;
 				}
 			}
 		}
@@ -332,22 +324,21 @@ export class Cell {
 	}
 
 	/**
-	 * Which layers might answer a connection in this direction, as a bitmask
-	 * of layer indices: 0 = none, single bit = unique, several = ambiguous.
+	 * Which pipes might answer a connection in this direction, as a bitmask
+	 * of pipe indices: 0 = none, single bit = unique, several = ambiguous.
 	 * Directions are single-bit masks, the table row is their bit position.
-	 * A layer answers iff any of its birth rotations that connect this
+	 * A pipe answers iff any of its birth rotations that connect this
 	 * direction is still a survivor
 	 * @param {Number} direction
 	 * @returns {Number}
 	 */
-	getAnsweringLayersMask(direction) {
+	getAnsweringPipesMask(direction) {
 		const rotations = this.answerRotations;
 		if (rotations === undefined) {
-			// single-layer cell, no birth table: layer 0 answers iff any
-			// surviving rotation connects this direction. getAnsweringLayer
-			// answers single-layer cells directly and never descends here
-			for (let layers of this.possible.values()) {
-				if (layers[0] & direction) return 1;
+			// single-pipe tile, no birth table.
+			// getAnsweringPipe never actually descends here
+			for (let pipes of this.possible.values()) {
+				if (pipes[0] & direction) return 1;
 			}
 			return 0;
 		}
@@ -355,9 +346,9 @@ export class Cell {
 		let survivors = 0;
 		for (let rotation of this.possible.keys()) survivors |= 1 << rotation;
 		let answering = 0;
-		const layerCount = this.layers.length;
-		for (let i = 0; i < layerCount; i++) {
-			if (rotations[row * layerCount + i] & survivors) {
+		const pipeCount = this.pipes.length;
+		for (let i = 0; i < pipeCount; i++) {
+			if (rotations[row * pipeCount + i] & survivors) {
 				answering |= 1 << i;
 			}
 		}
@@ -365,14 +356,14 @@ export class Cell {
 	}
 
 	/**
-	 * The unique layer index that might answer a connection in this
-	 * direction, or undefined when none or several layers answer
+	 * The unique pipe index that might answer a connection in this
+	 * direction, or undefined when none or several pipes answer
 	 * @param {Number} direction
 	 * @returns {Number|undefined}
 	 */
-	getAnsweringLayer(direction) {
-		if (this.layers.length === 1) return 0;
-		const answering = this.getAnsweringLayersMask(direction);
+	getAnsweringPipe(direction) {
+		if (this.pipes.length === 1) return 0;
+		const answering = this.getAnsweringPipesMask(direction);
 		if (answering !== 0 && popcount(answering) === 1) {
 			return 31 - Math.clz32(answering);
 		}
@@ -380,68 +371,68 @@ export class Cell {
 	}
 
 	/**
-	 * @returns {Number} our directions where we can only use deadend tiles
-	 * or only use layers that connect to neighbour deadends
+	 * @returns {Number} our directions where we can only use deadend pipes
+	 * or only use pipes that connect to neighbour deadends
 	 */
 	get ownDeadendDirections() {
 		if (!(this.hasDeadends || this.neighbourDeadends > 0)) return 0;
 		let deadends = this.polygon.fullyConnected & ~this.walls & ~this.neighbourDeadends;
 		const w = this.ownDeadendWeights;
-		for (let [rotation, layers] of this.possible) {
-			for (let [index, layer] of layers.entries()) {
-				if (this.layerPopcounts[index] === 1) {
-					w.set(layer, Math.max(1, w.get(layer) || 0));
+		for (let pipes of this.possible.values()) {
+			for (let [index, pipe] of pipes.entries()) {
+				if (this.pipePopcounts[index] === 1) {
+					w.set(pipe, Math.max(1, w.get(pipe) || 0));
 					continue;
 				}
-				const effectiveLayer = layer & ~this.neighbourDeadends;
-				if (effectiveLayer === 0) continue;
-				else if (popcount(effectiveLayer) === 1) {
+				const effectivePipe = pipe & ~this.neighbourDeadends;
+				if (effectivePipe === 0) continue;
+				else if (popcount(effectivePipe) === 1) {
 					let weight = 1;
-					for (let direction of iterate_directions(layer & this.neighbourDeadends)) {
+					for (let direction of iterate_directions(pipe & this.neighbourDeadends)) {
 						weight += this.neighbourDeadendWeights.get(direction) || 0;
 					}
-					w.set(effectiveLayer, Math.max(weight, w.get(effectiveLayer) || 0));
+					w.set(effectivePipe, Math.max(weight, w.get(effectivePipe) || 0));
 					continue;
 				}
-				deadends &= ~effectiveLayer;
+				deadends &= ~effectivePipe;
 			}
 		}
 		return deadends;
 	}
 
 	/**
-	 * Where this layer definitely connects
-	 * @param {Number} layerIndex
+	 * Where this pipe definitely connects
+	 * @param {Number} pipeIndex
 	 * @returns {Number}
 	 */
-	getLayerDefiniteConnections(layerIndex) {
+	getPipeDefiniteConnections(pipeIndex) {
 		let connections = this.polygon.fullyConnected & ~this.walls;
-		for (let layers of this.possible.values()) {
-			connections &= layers[layerIndex];
+		for (let pipes of this.possible.values()) {
+			connections &= pipes[pipeIndex];
 		}
 		return connections;
 	}
 
 	/**
-	 * Where this layer might potentially connect
-	 * @param {Number} layerIndex
+	 * Where this pipe might potentially connect
+	 * @param {Number} pipeIndex
 	 * @returns {Number}
 	 */
-	getLayerPotentialConnections(layerIndex) {
+	getPipePotentialConnections(pipeIndex) {
 		let connections = 0;
-		for (let layers of this.possible.values()) {
-			connections |= layers[layerIndex];
+		for (let pipes of this.possible.values()) {
+			connections |= pipes[pipeIndex];
 		}
 		return connections & ~this.walls;
 	}
 
 	/**
 	 * Filters out rotations that contradict known constraints
-	 * @param {Number} weightLimit - deadend sealing prevented if total sealed weight < weightLimit
+	 * @param {Number} weightRequired - deadend sealing prevented if total sealed weight < weightLimit
 	 * @throws {NoOrientationsPossibleException}
 	 * @returns {{addedWalls:Number, addedConnections: Number, addedDeadends: Number}}
 	 */
-	applyConstraints(weightLimit = Infinity) {
+	applyConstraints(weightRequired = Infinity) {
 		const full = this.polygon.fullyConnected;
 		const result = {
 			addedWalls: 0,
@@ -453,19 +444,18 @@ export class Cell {
 		const removedCount =
 			this.mustHaveAllConnections(this.connections) +
 			this.mustHaveAllWalls(this.walls) +
-			this.mustNotSealDeadends(this.neighbourDeadends, weightLimit);
-		// if (removedCount === 0) return result;
+			this.mustNotSealDeadends(this.neighbourDeadends, weightRequired);
 		if (this.possible.size === 0) {
 			throw new NoOrientationsPossibleException(this);
 		}
 		for (let rotation of this.possible.keys()) {
 			const union = this.unionAt(rotation);
-			newWalls = newWalls & (full - union);
+			newWalls = newWalls & (full & ~union);
 			newConnections = newConnections & union;
 		}
-		result.addedWalls = newWalls - this.walls;
+		result.addedWalls = newWalls & ~this.walls;
 		this.walls = newWalls;
-		result.addedConnections = newConnections - this.connections;
+		result.addedConnections = newConnections & ~this.connections;
 		this.connections = newConnections;
 		if ((this.hasDeadends || this.neighbourDeadends > 0) && this.ownDeadends !== full) {
 			const newDeadends = this.ownDeadendDirections;
