@@ -16,7 +16,7 @@ import {
 	validateLayers
 } from '#lib/puzzle/generator/generator-layers.js';
 
-describe('Test Cell possible states initialization', () => {
+describe('Test SolverTile possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);
 	const polygon = grid.polygonAt(0);
 	it('Starts with correct possible states from initial pipes - deadend', () => {
@@ -48,13 +48,13 @@ describe('Test Cell possible states initialization', () => {
 		expect(tile.possible.get(1)).toEqual([32, 4]);
 		expect(tile.possible.get(2)).toEqual([16, 2]);
 	});
-	it('Empty cell has a single empty state', () => {
+	it('Empty tile has a single empty state', () => {
 		const tile = new SolverTile([], polygon, 0);
 		expect(tile.possible.size).toBe(1);
 		expect(tile.possible.get(0)).toEqual([]);
 	});
 });
-describe('Test Cell applyConstraints', () => {
+describe('Test Tile applyConstraints', () => {
 	const grid = new HexaGrid(3, 3, false);
 	const polygon = grid.polygonAt(0);
 
@@ -192,24 +192,24 @@ describe('Test solver border constraints', () => {
 
 	it('Adds walls to border tiles', () => {
 		const solver = new Solver(tiles, grid);
-		let tile = solver.getCell(0);
+		let tile = solver.getTile(0);
 		expect(tile.walls).toBe(6);
-		tile = solver.getCell(1);
+		tile = solver.getTile(1);
 		expect(tile.walls).toBe(2);
-		tile = solver.getCell(2);
+		tile = solver.getTile(2);
 		expect(tile.walls).toBe(3);
-		tile = solver.getCell(7);
+		tile = solver.getTile(7);
 		expect(tile.walls).toBe(8);
 		expect([...solver.dirty]).toEqual(expect.arrayContaining([0, 1, 2, 7]));
 	});
 
 	it('Adds full and empty tiles to dirty set', () => {
 		const solver = new Solver([[], [9], [4, 8], [9], [15], [6], [1, 2], [6], []], grid);
-		const emptyTile = solver.getCell(0);
+		const emptyTile = solver.getTile(0);
 		expect(emptyTile.walls).toBe(0);
 		expect(emptyTile.possible.size).toBe(1);
 		expect(solver.dirty).toContain(0);
-		const fullTile = solver.getCell(4);
+		const fullTile = solver.getTile(4);
 		expect(fullTile.connections).toBe(0);
 		expect(fullTile.possible.size).toBe(1);
 		expect(solver.dirty).toContain(4);
@@ -218,9 +218,9 @@ describe('Test solver border constraints', () => {
 	it('Does not add constraints to tiles in a wrap puzzle', () => {
 		const grid = new HexaGrid(3, 1, true);
 		const solver = new Solver([[3], [3], [3]], grid);
-		const tile = solver.getCell(0);
+		const tile = solver.getTile(0);
 		expect(tile.walls).toBe(0);
-		// materialization itself always dirties the cell, even with no facts to deduce
+		// materialization itself always dirties the tile, even with no facts to deduce
 		expect(solver.dirty).toContain(0);
 	});
 });
@@ -230,19 +230,19 @@ describe('Test solver cloning', () => {
 		const grid = new HexaGrid(3, 1, true);
 		const tiles = [[1], [9], [1]];
 		const solver = new Solver(tiles, grid);
-		const cell = solver.getCell(0);
+		const tile = solver.getTile(0);
 		const clone = solver.clone();
-		const cloneCell = clone.getCell(0);
-		cell.possible.delete(0);
-		cell.addWall(1);
-		expect([...cloneCell.possible.keys()]).toContain(0);
-		expect(cloneCell.walls).toBe(cell.walls - 1);
-		cloneCell.addConnection(2);
-		expect(cell.connections).toBe(0);
+		const cloneTile = clone.getTile(0);
+		tile.possible.delete(0);
+		tile.addWall(1);
+		expect([...cloneTile.possible.keys()]).toContain(0);
+		expect(cloneTile.walls).toBe(tile.walls - 1);
+		cloneTile.addConnection(2);
+		expect(tile.connections).toBe(0);
 	});
 });
 
-describe('Test solutions check and marking ambiguous cells', () => {
+describe('Test solutions check and marking ambiguous tiles', () => {
 	it('Detects unsolvable puzzle - quickly from border constraints', () => {
 		const grid = new HexaGrid(2, 2, false);
 		const tiles = [[9], [5], [5], [3]];
@@ -259,7 +259,7 @@ describe('Test solutions check and marking ambiguous cells', () => {
 		expect(solvable).toBe(false);
 	});
 
-	it('Detects a sub-cell loop that can never be a tree', () => {
+	it('Detects a pipe node loop that can never be a tree', () => {
 		const grid = new SquareGrid(2, 2, true);
 		const tiles = [[9], [12], [3], [6]];
 		const solver = new Solver(tiles, grid);
@@ -296,10 +296,10 @@ describe('Test solutions check and marking ambiguous cells', () => {
 		const { marked, solvable, unique } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 		expect(unique).toBe(false);
-		const ambiguousCells = marked
+		const ambiguousTiles = marked
 			.map((rotation, index) => (rotation === solver.AMBIGUOUS ? index : -1))
 			.filter((index) => index !== -1);
-		expect(ambiguousCells).toEqual([2, 4, 5, 8]);
+		expect(ambiguousTiles).toEqual([2, 4, 5, 8]);
 		const solved = applyRotations(grid, tiles, marked);
 		expect([solved[0][0], solved[1][0], solved[3][0], solved[6][0], solved[7][0]]).toEqual([
 			1, 40, 1, 1, 10
@@ -313,17 +313,17 @@ describe('Test solutions check and marking ambiguous cells', () => {
 		const { marked, solvable, unique } = solver.markAmbiguousTiles();
 		expect(solvable).toBe(true);
 		expect(unique).toBe(false);
-		const ambiguousCells = marked
+		const ambiguousTiles = marked
 			.map((rotation, index) => (rotation === solver.AMBIGUOUS ? index : -1))
 			.filter((index) => index !== -1);
-		expect(ambiguousCells).toEqual([2, 4, 5, 8]);
+		expect(ambiguousTiles).toEqual([2, 4, 5, 8]);
 		const solved = applyRotations(grid, tiles, marked);
 		expect([solved[0][0], solved[1][0], solved[3][0], solved[6][0], solved[7][0]]).toEqual([
 			1, 24, 43, 1, 12
 		]);
 	});
 
-	it('Detects a puzzle with an empty cell and a unique solution', () => {
+	it('Detects a puzzle with an empty tile and a unique solution', () => {
 		const tiles = [[3], [9], [5], [5], [], [1], [3], [9], [1]];
 		const grid = new HexaGrid(3, 3, false, tiles);
 		const solver = new Solver(tiles, grid);
@@ -334,7 +334,7 @@ describe('Test solutions check and marking ambiguous cells', () => {
 		expect(() => validateLayers(grid, solved)).not.toThrow();
 	});
 
-	it('Detects a wrap puzzle with an empty cell and a unique solution', () => {
+	it('Detects a wrap puzzle with an empty tile and a unique solution', () => {
 		const tiles = [[3], [9], [5], [5], [], [1], [3], [9], [1]];
 		const grid = new HexaGrid(3, 3, true, tiles);
 		const solver = new Solver(tiles, grid);
@@ -345,7 +345,7 @@ describe('Test solutions check and marking ambiguous cells', () => {
 		expect(() => validateLayers(grid, solved)).not.toThrow();
 	});
 
-	it('Detects a puzzle with many empty cells and a unique solution', () => {
+	it('Detects a puzzle with many empty tiles and a unique solution', () => {
 		const classicTiles = [
 			0, 0, 16, 1, 25, 40, 0, 0, 18, 1, 42, 16, 4, 0, 0, 18, 32, 32, 7, 25, 8, 35, 8, 20, 36, 19, 8,
 			16, 0, 36, 19, 9, 62, 17, 10, 0, 6, 32, 18, 7, 8, 0, 0, 0, 1, 15, 9, 8, 0
@@ -363,7 +363,7 @@ describe('Test solutions check and marking ambiguous cells', () => {
 
 describe('Test solutions check and marking ambiguous tiles (classic input)', () => {
 	// classic Number[] tiles through the unified class: pins the constructor's
-	// one-layer normalization and the per-cell rotation output format
+	// one-layer normalization and the per-tile rotation output format
 	it('Detects unsolvable puzzle - quickly from border constraints', () => {
 		const grid = new HexaGrid(2, 2, false);
 		const tiles = [9, 5, 5, 3];
@@ -422,7 +422,7 @@ describe('Test solutions check and marking ambiguous tiles (classic input)', () 
 		expect(marked).toStrictEqual(expect.arrayContaining([0, 3, a, 0, a, a, 0, 4, a]));
 	});
 
-	it('Detects a puzzle with an empty cell and a unique solution', () => {
+	it('Detects a puzzle with an empty tile and a unique solution', () => {
 		const tiles = [3, 9, 5, 5, 0, 1, 3, 9, 1];
 		const grid = new HexaGrid(3, 3, false, tiles);
 		const solver = new Solver(tiles, grid);
@@ -431,7 +431,7 @@ describe('Test solutions check and marking ambiguous tiles (classic input)', () 
 		expect(unique).toBe(true);
 	});
 
-	it('Detects a wrap puzzle with an empty cell and a unique solution', () => {
+	it('Detects a wrap puzzle with an empty tile and a unique solution', () => {
 		const tiles = [3, 9, 5, 5, 0, 1, 3, 9, 1];
 		const grid = new HexaGrid(3, 3, true, tiles);
 		const solver = new Solver(tiles, grid);
@@ -440,7 +440,7 @@ describe('Test solutions check and marking ambiguous tiles (classic input)', () 
 		expect(unique).toBe(true);
 	});
 
-	it('Detects a puzzle with many empty cells and a unique solution', () => {
+	it('Detects a puzzle with many empty tiles and a unique solution', () => {
 		const tiles = [
 			0, 0, 16, 1, 25, 40, 0, 0, 18, 1, 42, 16, 4, 0, 0, 18, 32, 32, 7, 25, 8, 35, 8, 20, 36, 19, 8,
 			16, 0, 36, 19, 9, 62, 17, 10, 0, 6, 32, 18, 7, 8, 0, 0, 0, 1, 15, 9, 8, 0
@@ -462,7 +462,7 @@ describe('Test solver emit format (classic input)', () => {
 		const finalRotations = new Map();
 		for (let { stage, step } of solver.solve(true)) {
 			expect(['initial', 'guess', 'aftercheck']).toContain(stage);
-			// rotations stay within a cell's orbit - masks would fall outside
+			// rotations stay within a tile's orbit - masks would fall outside
 			expect(step.rotation).toBeGreaterThanOrEqual(0);
 			expect(step.rotation).toBeLessThan(grid.polygonAt(step.index).numDirections);
 			if (step.final) {
@@ -476,7 +476,7 @@ describe('Test solver emit format (classic input)', () => {
 		}
 	});
 
-	it('Does not report processing an empty cell as a step', () => {
+	it('Does not report processing an empty tile as a step', () => {
 		const tiles = [3, 9, 5, 5, 0, 1, 3, 9, 1];
 		const grid = new HexaGrid(3, 3, false, tiles);
 		const solver = new Solver(tiles, grid);
@@ -510,13 +510,7 @@ describe('Test multi-layer boards', () => {
 		}
 	}, 60000);
 
-	it('Dirty-processes every materialized cell', () => {
-		// query paths (getAnsweringComponent etc.) materialize cells via getCell
-		// without dirtying them; every materialized cell must still go through
-		// processDirtyCell at least once, or its deadend/wall facts never reach
-		// its neighbours. Tiles generated by pregenerate_layers on a 4x4 wrap
-		// grid, picked because the pre-fix solver leaves cell 10 materialized
-		// but never dirty-processed on this board.
+	it('Dirty-processes every materialized tile', () => {
 		const tiles = [
 			[14],
 			[3],
@@ -536,10 +530,10 @@ describe('Test multi-layer boards', () => {
 			[2, 4, 1]
 		];
 		const grid = new SquareGrid(4, 4, true);
-		const originalProcess = Solver.prototype.processDirtyCell;
+		const originalProcess = Solver.prototype.processDirtyTile;
 		/** @type {Set<Number>} */
 		const rootProcessed = new Set();
-		Solver.prototype.processDirtyCell = function (/** @type {Number} */ index) {
+		Solver.prototype.processDirtyTile = function (/** @type {Number} */ index) {
 			// clones materialize nothing themselves, so only root-side
 			// processing matters for this invariant
 			if (this.parent === null) {
@@ -555,17 +549,17 @@ describe('Test multi-layer boards', () => {
 				expect(rootProcessed.has(index)).toBe(true);
 			}
 		} finally {
-			Solver.prototype.processDirtyCell = originalProcess;
+			Solver.prototype.processDirtyTile = originalProcess;
 		}
 	});
 
-	it('Reports progress while marking ambiguous cells', () => {
+	it('Reports progress while marking ambiguous tiles', () => {
 		const grid = new SquareGrid(3, 3, false);
 		const tiles = [[1], [13], [4], [9], [5, 10], [4], [3], [7], [4]];
 		const solver = new Solver(tiles, grid);
 		/** @type {import('#lib/puzzle/solver/solver.js').SolverProgress[]} */
 		const calls = [];
-		solver.progress_callback = (progress) => calls.push({ ...progress });
+		solver.progressCallback = (progress) => calls.push({ ...progress });
 		solver.markAmbiguousTiles();
 		expect(calls.length).toBeGreaterThan(0);
 		for (const progress of calls) {
@@ -631,45 +625,43 @@ describe('Test Solver loop avoidance', () => {
 		const tiles = [[9], [12], [8], [3], [4, 3], [14], [1], [5], [6]];
 		const solver = new Solver(tiles, grid);
 		[0, 1, 3].forEach((i) => solver.dirty.add(i));
-		[0, 1, 3].forEach((i) => solver.processDirtyCell(i));
-		const cell = solver.getCell(4);
-		expect(cell.connections).toEqual(6);
-		expect(cell.walls).toEqual(0);
-		expect(cell.neighbourDeadends).toEqual(0);
-		solver.processDirtyCell(4);
-		expect(cell.possible.size).toEqual(1);
+		[0, 1, 3].forEach((i) => solver.processDirtyTile(i));
+		const tile = solver.getTile(4);
+		expect(tile.connections).toEqual(6);
+		expect(tile.walls).toEqual(0);
+		expect(tile.neighbourDeadends).toEqual(0);
+		solver.processDirtyTile(4);
+		expect(tile.possible.size).toEqual(1);
 	});
 	it('Puts a wall between one-layered Ts over a U-join', () => {
 		const grid = new SquareGrid(4, 3, false);
 		const tiles = [[1], [13], [13], [4], [1], [14], [11], [4], [1], [6], [3], [4]];
 		const solver = new Solver(tiles, grid);
-		const cell6 = solver.getCell(6);
+		const tile6 = solver.getTile(6);
 		[1, 2, 5, 6].forEach((i) => solver.dirty.add(i));
-		[1, 2, 5, 6].forEach((i) => solver.processDirtyCell(i));
-		expect(cell6.possible.size).toEqual(1);
-		expect(cell6.connections).toEqual(11);
-		expect(cell6.walls).toEqual(4);
+		[1, 2, 5, 6].forEach((i) => solver.processDirtyTile(i));
+		expect(tile6.possible.size).toEqual(1);
+		expect(tile6.connections).toEqual(11);
+		expect(tile6.walls).toEqual(4);
 	});
 	it('Prunes a bend+deadend orientation paired with a T over a U-join', () => {
 		const grid = new SquareGrid(4, 3, false);
 		const tiles = [[1], [13], [13], [4], [1], [14], [3, 8], [4], [1], [6], [3], [4]];
 		const solver = new Solver(tiles, grid);
-		const cell6 = solver.getCell(6);
-		const cell5 = solver.getCell(5);
+		const tile6 = solver.getTile(6);
 		[1, 2, 5].forEach((i) => solver.dirty.add(i));
-		[1, 2, 5].forEach((i) => solver.processDirtyCell(i));
-		solver.processDirtyCell(6);
-		expect(cell6.possible.size).toEqual(2);
-		expect([...cell6.possible.keys()]).toEqual([0, 2]);
+		[1, 2, 5].forEach((i) => solver.processDirtyTile(i));
+		solver.processDirtyTile(6);
+		expect(tile6.possible.size).toEqual(2);
+		expect([...tile6.possible.keys()]).toEqual([0, 2]);
 	});
 });
 
 describe('Test Solver on every grid kind', () => {
 	it('Solves small pregenerated boards on all grid kinds', () => {
 		// The component registry sizes itself from grid.DIRECTIONS (the union
-		// of all direction bits); mixed grids have cells with different
-		// direction subsets, so exercise every grid kind. The layered suite
-		// otherwise only covers square + hexa.
+		// of all direction bits); mixed grids have tiles with different
+		// direction subsets, so exercise every grid kind.
 		/** @type {Array<[String, () => any]>} */
 		const cases = [
 			['square', () => new SquareGrid(4, 4, false)],
@@ -680,101 +672,97 @@ describe('Test Solver on every grid kind', () => {
 			['trihexagonal', () => new TrihexaGrid(3, 3, false)],
 			['snub square', () => new SnubSquareGrid(4, 4, false)],
 			['triangular', () => new TriangularGrid(4, 4, false)],
-			['etrat', () => new EtratGrid(2, 2, false)]
+			['etrat', () => new EtratGrid(3, 3, false)]
 		];
 		for (const [name, makeGrid] of cases) {
 			const grid = makeGrid();
-			const layers = pregenerate_layers(grid, 0.6, 0.5, 0.25);
-			validateLayers(grid, layers);
-			const solver = new Solver(layers, grid);
+			const tiles = pregenerate_layers(grid, 0.6, 0.5, 0.25);
+			validateLayers(grid, tiles);
+			const solver = new Solver(tiles, grid);
 			const result = solver.markAmbiguousTiles(Math.max(100, 0.1 * grid.total));
 			expect(result.solvable, `${name} board must stay solvable`).toBe(true);
 		}
 	});
 });
 
-describe('Test hexa/octa TileType deductions', () => {
-	it('Sets the isLayered and hasTileTypeTricks flags', () => {
-		const hexa = new HexaGrid(2, 2, false);
-		// classic Number[] input is normalized to one layer per cell
-		expect(new Solver([1, 2, 4, 8], hexa).isLayered).toBe(false);
-		expect(new Solver([[1], [2], [4], [8]], hexa).isLayered).toBe(false);
-		expect(new Solver([[1], [2, 4], [8], [1]], hexa).isLayered).toBe(true);
-		expect(new Solver([[1], [2], [4], [8]], hexa).hasTileTypeTricks).toBe(true);
-		expect(new Solver([[1], [2], [4], [8]], new SquareGrid(2, 2, false)).hasTileTypeTricks).toBe(
+describe('Test hexa/octa PipeShape deductions', () => {
+	it('Sets the isMulti and hasPipeShapeTricks flags', () => {
+		const grid = new HexaGrid(2, 2, false);
+		expect(new Solver([1, 2, 4, 8], grid).isMulti).toBe(false);
+		expect(new Solver([[1], [2], [4], [8]], grid).isMulti).toBe(false);
+		expect(new Solver([[1], [2, 4], [8], [1]], grid).isMulti).toBe(true);
+		expect(new Solver([[1], [2], [4], [8]], grid).hasPipeShapeTricks).toBe(true);
+		expect(new Solver([[1], [2], [4], [8]], new SquareGrid(2, 2, false)).hasPipeShapeTricks).toBe(
 			false
 		);
 	});
 
 	it('Must connect adjacent psi-likes on a classic board', () => {
 		const grid = new HexaGrid(3, 2, false);
-		// tile 23 is the psi (E, NE, NW, SW), tile 21 is the Y (E, NW, SW) -
-		// both have no adjacent walls, so cell 0 must connect east. The east
-		// neighbour is a Y, not a sharp-turning tile, so the middle-prongs
-		// deduction cannot fire and this isolates the psi deduction: the two
-		// rotations missing E are out
+		// pipe 23 is the psi (E, NE, NW, SW), pipe 21 is the Y (E, NW, SW) -
+		// both have no adjacent walls, so tile 0 must connect east.
 		const tiles = [23, 21, 9, 9, 9, 9];
 		const solver = new Solver(tiles, grid);
-		const cell = solver.getCell(0);
-		expect(cell.possible.size).toBe(4);
-		const masks = [...cell.possible.values()].map(([mask]) => mask).sort((a, b) => a - b);
+		const tile = solver.getTile(0);
+		expect(tile.possible.size).toBe(4);
+		const masks = [...tile.possible.values()].map(([mask]) => mask).sort((a, b) => a - b);
 		expect(masks).toEqual([23, 29, 43, 53]);
 		// control: a straight neighbour is not a psi-like, nothing is forced
 		const control = new Solver([23, 9, 9, 9, 9, 9], grid);
-		expect(control.getCell(0).possible.size).toBe(6);
+		expect(control.getTile(0).possible.size).toBe(6);
 	});
 
 	it("Can't connect middle prongs to a sharp turn on a classic board", () => {
 		const grid = new HexaGrid(3, 3, false);
-		// tile 7 is a trident (E, NE, NW); the sharp pair 3 (E + NE) sits east
+		// pipe 7 is a trident (E, NE, NW); the sharp pair 3 (E + NE) sits east
 		// of it, so the trident occupying the whole E/NE/SE trio is out
 		const tiles = [9, 9, 9, 7, 3, 9, 9, 9, 9];
 		const solver = new Solver(tiles, grid);
-		const cell = solver.getCell(3);
-		expect(cell.possible.size).toBe(5);
-		for (let layers of cell.possible.values()) {
+		const tile = solver.getTile(3);
+		expect(tile.possible.size).toBe(5);
+		for (let layers of tile.possible.values()) {
 			// no surviving orientation connects the whole E/NE/SE trio
 			expect((layers[0] & 35) === 35).toBe(false);
 		}
 		// control: a straight neighbour does not trigger the deduction
 		const control = new Solver([9, 9, 9, 7, 9, 9, 9, 9, 9], grid);
-		expect(control.getCell(3).possible.size).toBe(6);
+		expect(control.getTile(3).possible.size).toBe(6);
 	});
 
-	it("Can't connect middle prongs to a sharp turn on a classic board - what it actually needs to do", () => {
+	it("Can't connect middle prongs to a sharp turn on a classic board - with more consequences", () => {
 		const grid = new HexaGrid(3, 3, true);
-		// tile 5 (mask 15) should get a connection in direction 4, away
-		// from the sharp turns neighbour tile 6 (mask 48)
+		// tile 5 (pipe 15) should get a connection in direction 4, away
+		// from the sharp turns neighbour tile 6 (pipe 48)
 		// two orientations that point middle prongs at tile 6 should be removed
 		const tiles = [26, 4, 2, 2, 34, 15, 48, 4, 16];
 		const solver = new Solver(tiles, grid);
-		const cell = solver.getCell(5);
-		expect(cell.possible.size).toBe(4);
-		for (let layers of cell.possible.values()) {
+		const tile = solver.getTile(5);
+		expect(tile.possible.size).toBe(4);
+		for (let pipes of tile.possible.values()) {
 			// all survivors connect to dir 4
-			expect((layers[0] & 4) === 4).toBe(true);
+			expect((pipes[0] & 4) === 4).toBe(true);
 		}
 	});
 
-	it('Never leaves two adjacent walls next to a psi-like union on a layered board', () => {
+	it('Never leaves two adjacent walls next to a psi-like union on a multipipes board', () => {
 		const grid = new OctaGrid(2, 2, false);
-		// cell 1 is an octagon missing only W (a psi-like union), cell 4 is a
-		// square connecting NE + SW (no adjacent connections). Cell 0's union
-		// is an E-W straight [17]; cell 2 holds two layers with union 26, which
-		// keeps the board layered without changing the unions cell 0 sees.
+		// tile 1 is an octagon missing only W (a psi-like union), tile 4 is a
+		// square connecting NE + SW (no adjacent connections). Tile 0's union
+		// is an E-W straight [17]; tile 2 holds two layers with union 26, which
+		// keeps the board layered without changing the unions tile 0 sees.
 		// The rotation connecting SE + NW would wall off the psi-like while
 		// connecting into the square, which is impossible.
 		const tiles = [[17], [239], [2, 24], [17], [34], [], [], []];
 		const solver = new Solver(tiles, grid);
-		const cell = solver.getCell(0);
-		expect(cell.possible.size).toBe(3);
-		for (let layers of cell.possible.values()) {
+		const tile = solver.getTile(0);
+		expect(tile.possible.size).toBe(3);
+		for (let layers of tile.possible.values()) {
 			// no surviving orientation connects SE without also connecting E
 			expect((layers[0] & 128) > 0 && (layers[0] & 1) === 0).toBe(false);
 		}
 		// control: a non-psi-like eastern neighbour (missing W and SW, so it
 		// has adjacent walls) may be walled off
 		const control = new Solver([[17], [207], [2, 24], [17], [34], [], [], []], grid);
-		expect(control.getCell(0).possible.size).toBe(4);
+		expect(control.getTile(0).possible.size).toBe(4);
 	});
 });

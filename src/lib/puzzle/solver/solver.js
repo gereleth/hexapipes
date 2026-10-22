@@ -13,7 +13,7 @@ import { SolverTile, NoOrientationsPossibleException } from '#lib/puzzle/solver/
  */
 
 /**
- * Solve step represents processing new info on a single cell
+ * Solve step represents processing new info on a single tile
  * @typedef {Object} SolverStep
  * @property {Number} index
  * @property {Number} rotation - representative rotation that fits currently known facts
@@ -53,47 +53,46 @@ export class Solver {
 	UNSOLVED = -1;
 	AMBIGUOUS = -2;
 
-	/** @type {ComponentsRegistry} - owns all component/slot/subcell state */
+	/** @type {ComponentsRegistry} - owns all component/slot/pipe node data */
 	components;
-	/** @type {Boolean} - true when any cell holds more than one layer (the layers
-	 * variant). Classic boards have more TileType deductions. */
-	isLayered;
-	/** @type {Boolean} - hexa/octa boards run the classic TileType shape
-	 * deductions at init */
-	hasTileTypeTricks;
+	/**
+	 * @type {Boolean} - true when any tile holds more than one pipe. */
+	isMulti;
+	/**
+	 * @type {Boolean} - hexa/octa boards run the classic PipeShape deductions at init */
+	hasPipeShapeTricks;
 	/**
 	 *
-	 * @param {Number[]|Number[][]} tiles - one bitmask per cell (classic, solved as a
-	 * one-layer board) or a list of layer bitmasks per cell (layered)
+	 * @param {Number[]|Number[][]} tiles - classic/multi
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
-	 * @param {Solver|null} parent
+	 * @param {Solver|null} [parent = null]
 	 */
 	constructor(tiles, grid, parent = null) {
-		/** @type {Number[][]} - classic tiles normalized to one layer per cell */
-		const layers = Number.isInteger(tiles[0])
-			? /** @type {Number[]} */ (tiles).map((tile) => (tile === 0 ? [] : [tile]))
+		/** @type {Number[][]} - classic tiles normalized to [pipe] per cell */
+		const normalized = Number.isInteger(tiles[0])
+			? /** @type {Number[]} */ (tiles).map((pipe) => (pipe === 0 ? [] : [pipe]))
 			: /** @type {Number[][]} */ (tiles);
-		this.tiles = layers;
+		this.initial = normalized;
 		this.grid = grid;
 		this.parent = parent;
-		this.isLayered = layers.some((cellLayers) => cellLayers.length > 1);
-		this.hasTileTypeTricks = grid instanceof HexaGrid || grid instanceof OctaGrid;
-		this.progress_callback = emptyCallback;
+		this.isMulti = normalized.some((pipes) => pipes.length > 1);
+		this.hasPipeShapeTricks = grid instanceof HexaGrid || grid instanceof OctaGrid;
+		this.progressCallback = emptyCallback;
 		/** @type {Number} */
-		this.totalSubcells = parent ? parent.totalSubcells : 0;
+		this.totalNodes = parent ? parent.totalNodes : 0;
 		/** @type {Number} */
 		this.totalUnsolved = parent ? parent.totalUnsolved : grid.total;
 
 		/** @type {Map<Number, SolverTile>} */
 		this.unsolved = new Map();
 
-		/** @type {Number[]} - rotation per cell, or UNSOLVED */
-		this.solution = parent ? [...parent.solution] : layers.map(() => this.UNSOLVED);
+		/** @type {Number[]} - rotation per tile, or UNSOLVED */
+		this.solution = parent ? [...parent.solution] : normalized.map(() => this.UNSOLVED);
 
 		/** @type {Number[][]} - array of found solutions */
 		this.solutions = [];
 
-		/** @type {Set<Number>} */
+		/** @type {Set<Number>} - indices of tiles with new info to process */
 		this.dirty = new Set();
 
 		// components whose open ends changed and are due an island check.
@@ -105,15 +104,15 @@ export class Solver {
 		if (parent) {
 			this.components = parent.components.clone();
 		} else {
-			let maxLayers = 0;
-			for (let i = 0; i < layers.length; i++) {
-				if (layers[i].length > maxLayers) maxLayers = layers[i].length;
+			let maxPipes = 0;
+			for (let i = 0; i < normalized.length; i++) {
+				if (normalized[i].length > maxPipes) maxPipes = normalized[i].length;
 			}
-			this.components = new ComponentsRegistry(grid, maxLayers);
+			this.components = new ComponentsRegistry(grid, maxPipes);
 		}
 
 		/**
-		 * Counters of search work, shared with all clones (see clone) so that
+		 * Counters of search work, shared with all clones so that
 		 * totals accumulate across the whole trial tree of one solve run
 		 * @type {{iterations: Number, trialClones: Number, shortTrials: Number, dirtyProcessings: Number}}
 		 */
@@ -123,165 +122,160 @@ export class Solver {
 
 		this.shortTrialsIndex = 0;
 
-		/** @type {any[][]} cells to process components for */
+		/** @type {any[][]} */
 		this.avoidLoopQueue = [];
 
 		// merge hooks: the registry moves absorbed members and hands each one
-		// back so the solver can run its loop-avoidance heuristics over it.
-		// Created once per solver instance instead of per merge - merges are
-		// hot
+		// back so the solver can run its loop-avoidance logic over it.
+		// Created once per solver instance instead of per merge - merges are hot
 		/** @type {(cellIndex: Number, component: Number) => void} */
-		this.mergedSlotCellHook = (cellIndex, component) => {
+		this.mergedSlotHook = (cellIndex, component) => {
 			this.avoidSlotLoops(cellIndex, component);
 		};
-		/** @type {(subcellId: Number, component: Number) => void} */
-		this.mergedSubcellHook = (subcellId, component) => {
-			const [index, layer] = this.grid.cellIndexPipeIndexOf(subcellId);
-			this.avoidSubcellLoops(index, layer, this.getCell(index), component);
+		/** @type {(pipeNodeId: Number, component: Number) => void} */
+		this.mergedNodeHook = (pipeNodeId, component) => {
+			const [index, pipeIndex] = this.grid.cellIndexPipeIndexOf(pipeNodeId);
+			this.avoidNodeLoops(index, pipeIndex, this.getTile(index), component);
 		};
 	}
 
 	/**
-	 * Returns the cell at index. Initializes the cell if necessary.
+	 * Returns the tile at index. Initializes the tile if necessary.
 	 * Throws should never happen when the solver is working correctly
 	 * @param {Number} index
 	 * @returns {SolverTile}
 	 */
-	getCell(index) {
-		let cell = this.unsolved.get(index);
-		if (cell !== undefined) {
-			return cell;
+	getTile(index) {
+		let tile = this.unsolved.get(index);
+		if (tile !== undefined) {
+			return tile;
 		}
 		if (this.solution[index] !== this.UNSOLVED) {
-			throw `Attempted resurrection of cell ${index}`;
+			throw `Attempted resurrection of tile ${index}`;
 		}
 		if (this.parent) {
-			cell = this.parent.getCell(index);
-			const clone = cell.clone(new Map(cell.possible));
+			tile = this.parent.getTile(index);
+			const clone = tile.clone(new Map(tile.possible));
 			this.unsolved.set(index, clone);
 			return clone;
 		}
-		cell = new SolverTile(this.tiles[index], this.grid.polygonAt(index), index);
-		this.unsolved.set(index, cell);
-		this.doLocalDeductions(index, cell);
-		// a freshly born cell must be dirty-processed even when doLocalDeductions
+		tile = new SolverTile(this.initial[index], this.grid.polygonAt(index), index);
+		this.unsolved.set(index, tile);
+		this.doLocalDeductions(index, tile);
+		// a fresh born tile must be dirty-processed even when doLocalDeductions
 		// found nothing so that its deadend facts reach neighbours
 		this.dirty.add(index);
-		return cell;
+		return tile;
 	}
 
 	/**
-	 * Return the tile type of cell's union
+	 * Return the pipe shape of the tile's pipes union
 	 * @param {Number} index
 	 * @returns {import('#lib/puzzle/grids/polygonutils.js').PipeShape|null}
 	 */
-	getTileType(index) {
+	getPipeShape(index) {
 		let union = 0;
-		for (let layer of this.tiles[index]) {
-			union |= layer;
+		for (let pipe of this.initial[index]) {
+			union |= pipe;
 		}
 		return this.grid.polygonAt(index).pipeShapes.get(union) || null;
 	}
 
 	/**
-	 * Checks if any orientations can be ruled out based on
-	 * walls or empty tiles nearby, plus TileType shape deductions
+	 * Checks if any rotations can be ruled out based on
+	 * walls or empty tiles nearby, plus PipeShape deductions
 	 * on hexa/octa boards
 	 * @param {Number} index
-	 * @param {SolverTile} cell - cell at index
+	 * @param {SolverTile} tile
 	 */
-	doLocalDeductions(index, cell) {
-		if (cell.possible.size === 1) {
+	doLocalDeductions(index, tile) {
+		if (tile.possible.size === 1) {
 			// either empty or fully connected, is solved right away
 			return;
 		}
 		/** @type {(import('#lib/puzzle/grids/polygonutils.js').PipeShape|null)[]|null} */
-		let neighbourTiles = null;
-		if (this.hasTileTypeTricks) {
-			neighbourTiles = [];
+		let neighbours = null;
+		if (this.hasPipeShapeTricks) {
+			neighbours = [];
 		}
 		let walls = 0;
-		for (let direction of cell.polygon.directions) {
+		for (let direction of tile.polygon.directions) {
 			const { neighbour, empty } = this.grid.findNeighbour(index, direction);
 			if (empty) {
 				walls += direction;
-				if (neighbourTiles !== null) {
-					neighbourTiles.push(null);
+				if (neighbours !== null) {
+					neighbours.push(null);
 				}
-			} else if (neighbourTiles !== null) {
-				neighbourTiles.push(this.getTileType(neighbour));
+			} else if (neighbours !== null) {
+				neighbours.push(this.getPipeShape(neighbour));
 			}
 		}
-		// remove orientations that contradict outer walls
 		if (walls > 0) {
-			cell.addWall(walls);
+			tile.addWall(walls);
 		}
-		if (neighbourTiles !== null) {
-			this.doTileTypeDeductions(index, cell, neighbourTiles);
+		if (neighbours !== null) {
+			this.doPipeShapeDeductions(index, tile, neighbours);
 		}
 	}
 
 	/**
-	 * Hexa/octa TileType shape deductions, ported from the classic solver.
-	 * Works on tile unions, so the wall-adjacency deduction applies to layered
-	 * boards as well; the first two deductions reason about the prongs of a
-	 * single piece and only hold when every cell is one piece.
+	 * Hexa/octa PipeShape deductions
 	 * @param {Number} index
-	 * @param {SolverTile} cell - cell at index
-	 * @param {(import('#lib/puzzle/grids/polygonutils.js').PipeShape|null)[]} neighbourTiles -
-	 * neighbour tile union types aligned with cell.polygon.directions, null for
+	 * @param {SolverTile} tile
+	 * @param {(import('#lib/puzzle/grids/polygonutils.js').PipeShape|null)[]} neighbourShapes -
+	 * neighbour tile union types aligned with tile.polygon.directions, null for
 	 * empty neighbours
 	 */
-	doTileTypeDeductions(index, cell, neighbourTiles) {
-		const tileType = this.getTileType(index);
-		if (tileType === null) return;
-		const polygon = cell.polygon;
+	doPipeShapeDeductions(index, tile, neighbourShapes) {
+		const pipeShape = this.getPipeShape(index);
+		if (pipeShape === null) return;
+		const polygon = tile.polygon;
 
 		// classic only: can't connect middle prongs to a sharp turns tile
-		if (!this.isLayered && tileType.hasThreeOrMoreAdjacentConnections) {
-			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (neighbourTile?.hasOnlyAdjacentConnections) {
+		if (!this.isMulti && pipeShape.hasThreeOrMoreAdjacentConnections) {
+			for (let [i, neighbourShape] of neighbourShapes.entries()) {
+				if (neighbourShape?.hasOnlyAdjacentConnections) {
 					const direction = polygon.directions[i];
 					const forbidden =
 						direction + polygon.rotate(direction, 1) + polygon.rotate(direction, -1);
 					// no surviving orientation may connect the whole trio around
 					// the sharp-turn neighbour
-					cell.mustHaveSomeWalls(forbidden);
+					tile.mustHaveSomeWalls(forbidden);
 				}
 			}
 		}
 
 		// classic only: must connect psi-likes when they are adjacent
-		if (!this.isLayered && tileType.hasNoAdjacentWalls) {
-			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (neighbourTile?.hasNoAdjacentWalls) {
-					cell.mustHaveAllConnections(polygon.directions[i]);
+		if (!this.isMulti && pipeShape.hasNoAdjacentWalls) {
+			for (let [i, neighbourShape] of neighbourShapes.entries()) {
+				if (neighbourShape?.hasNoAdjacentWalls) {
+					tile.mustHaveAllConnections(polygon.directions[i]);
 				}
 			}
 		}
 
 		// never make two adjacent walls next to a psi & co
-		if (!tileType.hasNoAdjacentWalls) {
+		if (!pipeShape.hasNoAdjacentWalls) {
 			const numDirections = polygon.directions.length;
-			for (let [i, neighbourTile] of neighbourTiles.entries()) {
-				if (neighbourTile?.hasNoAdjacentWalls) {
+			for (let [i, neighbourShape] of neighbourShapes.entries()) {
+				if (neighbourShape?.hasNoAdjacentWalls) {
 					const direction = polygon.directions[i];
 					let forbidden = 0;
 					const i1 = (i + 1) % numDirections;
-					if (neighbourTiles[i1]?.hasNoAdjacentConnections) {
+					if (neighbourShapes[i1]?.hasNoAdjacentConnections) {
 						forbidden += polygon.directions[i1];
 					}
 					const i2 = (i + numDirections - 1) % numDirections;
-					if (neighbourTiles[i2]?.hasNoAdjacentConnections) {
+					if (neighbourShapes[i2]?.hasNoAdjacentConnections) {
 						forbidden += polygon.directions[i2];
 					}
 					if (forbidden === 0) {
 						continue;
 					}
-					for (let rotation of cell.possible.keys()) {
-						const union = cell.unionAt(rotation);
+					for (let rotation of tile.possible.keys()) {
+						const union = tile.unionAt(rotation);
 						if ((union & forbidden) > 0 && (union & direction) === 0) {
-							cell.possible.delete(rotation);
+							tile.possible.delete(rotation);
 						}
 					}
 				}
@@ -290,7 +284,7 @@ export class Solver {
 	}
 
 	/**
-	 * Register a connection from cell at index in direction
+	 * Register a connection from tile at index in direction
 	 * Creates a new component with two slots at this edge
 	 * @param {Number} index
 	 * @param {Number} direction
@@ -298,19 +292,20 @@ export class Solver {
 	addConnection(index, direction) {
 		const { neighbour } = this.grid.findNeighbour(index, direction);
 		const opposite = this.grid.OPPOSITE.get(direction) || 0;
-		const neighbourCell = this.getCell(neighbour);
-		neighbourCell.addConnection(opposite);
+		const neighbourTile = this.getTile(neighbour);
+		neighbourTile.addConnection(opposite);
 		this.dirty.add(neighbour);
-		// add connection can only be called once per edge between two cells
+		// add connection can only be called once per edge between two tiles
 
 		// Add a component between them, with two open slots
+		// Should we try and skip slot stage if a tile only has a single pipe?
 		const component = this.components.create();
 		this.components.addSlot(component, index, direction);
 		this.components.addSlot(component, neighbour, opposite);
 	}
 
 	/**
-	 * Return the component id the cell at index would join if it connects
+	 * Return the component that a pipe in the tile at index would join if it connects
 	 * in direction (0 = none)
 	 * @param {Number} index
 	 * @param {Number} direction
@@ -323,61 +318,56 @@ export class Solver {
 		// ask the neighbour
 		const { neighbour } = this.grid.findNeighbour(index, direction);
 		const opposite = this.grid.OPPOSITE.get(direction) || 0;
-		const neighbourCell = this.getCell(neighbour);
-		const layerIndex = neighbourCell.getAnsweringPipe(opposite);
-		if (layerIndex !== undefined) {
-			const subcellId = this.grid.pipeNodeId(neighbour, layerIndex);
-			return this.components.getNodeComponent(subcellId);
+		const neighbourTile = this.getTile(neighbour);
+		const pipeIndex = neighbourTile.getAnsweringPipe(opposite);
+		if (pipeIndex !== undefined) {
+			const pipeNodeId = this.grid.pipeNodeId(neighbour, pipeIndex);
+			return this.components.getNodeComponent(pipeNodeId);
 		}
 		return 0;
 	}
 	/**
-	 * See if we can deduce any walls when a subcell joins a component
+	 * See if we can deduce any walls when a pipe node joins a component
 	 * @param {Number} index
-	 * @param {Number} layerIndex
-	 * @param {SolverTile} cell
+	 * @param {Number} pipeIndex
+	 * @param {SolverTile} tile
 	 * @param {Number} component - component id
 	 */
-	avoidSubcellLoops(index, layerIndex, cell, component) {
-		const subCellId = this.grid.pipeNodeId(index, layerIndex);
-		const potential = cell.getPipePotentialConnections(layerIndex);
-		const known = this.components.getNodeDirections(subCellId, component);
+	avoidNodeLoops(index, pipeIndex, tile, component) {
+		const pipeNodeId = this.grid.pipeNodeId(index, pipeIndex);
+		const potential = tile.getPipePotentialConnections(pipeIndex);
+		const known = this.components.getNodeDirections(pipeNodeId, component);
 		for (let direction of iterate_directions(potential & ~known)) {
 			const answering = this.getAnsweringComponent(index, direction);
 			if (answering === component) {
-				this.avoidLoopQueue.push([cell, layerIndex, direction]);
+				this.avoidLoopQueue.push([tile, pipeIndex, direction]);
 			}
 		}
 	}
 
 	/**
-	 * See if we can rule out some orientations of cell layers
+	 * See if we can find cases where a pipe could link a component to itself
 	 * @param {Number} index
 	 * @param {Number} component - component id
 	 */
 	avoidSlotLoops(index, component) {
-		const cell = this.getCell(index);
-		if (cell.possible.size === 1) {
-			// the cell is solved - every remaining direction is a
-			// non-connection of its only rotation, so any bridge constraint
-			// derived from probing them would be vacuous
+		const tile = this.getTile(index);
+		if (tile.possible.size === 1) {
 			return;
 		}
-		let directions = cell.polygon.fullyConnected & ~cell.walls;
-		for (let layerIndex of cell.pipes.keys()) {
-			const subcellId = this.grid.pipeNodeId(index, layerIndex);
-			// subtract what this cell's subcells already contribute; an unowned
-			// subcell contributes nothing
-			directions &= ~this.components.getNodeDirections(subcellId);
-			// detect solved layers to avoid resurrecting neighbours: layers
-			// without repeated masks differ between any two surviving
-			// rotations, so they can only be solved when possible.size === 1,
-			// handled by the early return above
-			if (((cell.repeatPipesMask >> layerIndex) & 1) === 0) continue;
+		let directions = tile.polygon.fullyConnected & ~tile.walls;
+		for (let pipeIndex of tile.pipes.keys()) {
+			const pipeNodeId = this.grid.pipeNodeId(index, pipeIndex);
+			// subtract what this tile's nodes already contribute;
+			// an unowned node contributes nothing
+			directions &= ~this.components.getNodeDirections(pipeNodeId);
+			// detect solved pipes to avoid resurrecting neighbours
+			// skip the check if the pipe doesn't have repeating orientations
+			if (((tile.repeatPipesMask >> pipeIndex) & 1) === 0) continue;
 			let uniqueMask;
 			let isUnique = true;
-			for (let layers of cell.possible.values()) {
-				const mask = layers[layerIndex];
+			for (let pipes of tile.possible.values()) {
+				const mask = pipes[pipeIndex];
 				if (uniqueMask === undefined) {
 					uniqueMask = mask;
 				} else if (mask !== uniqueMask) {
@@ -397,45 +387,45 @@ export class Solver {
 			}
 		}
 		if (popcount(forbidden) <= 1) return;
-		this.avoidLoopQueue.push([cell, null, forbidden]);
+		this.avoidLoopQueue.push([tile, null, forbidden]);
 	}
 
 	/**
 	 *
 	 * @param {Number} index
-	 * @param {SolverTile} cell
+	 * @param {SolverTile} tile
 	 */
-	pruneLoop(index, cell) {
-		if (cell.possible.size === 1) return;
+	pruneLoop(index, tile) {
+		if (tile.possible.size === 1) return;
 		this.components.forEachSlot(index, (direction, component) =>
 			this.avoidSlotLoops(index, component)
 		);
-		for (let layerIndex of cell.pipes.keys()) {
-			const subCellId = this.grid.pipeNodeId(index, layerIndex);
-			const component = this.components.getNodeComponent(subCellId);
+		for (let pipeIndex of tile.pipes.keys()) {
+			const pipeNodeId = this.grid.pipeNodeId(index, pipeIndex);
+			const component = this.components.getNodeComponent(pipeNodeId);
 			if (component === 0) continue;
-			this.avoidSubcellLoops(index, layerIndex, cell, component);
+			this.avoidNodeLoops(index, pipeIndex, tile, component);
 		}
 	}
 
 	/**
-	 * Check if we can propagate components data through this cell
+	 * Check if we can propagate components data through this tile
 	 * @param {Number} index
-	 * @param {SolverTile} cell
+	 * @param {SolverTile} tile
 	 */
-	resolveComponents(index, cell) {
-		// see if our slots resolved to some layer
+	resolveComponents(index, tile) {
+		// see if our slots resolved to some pipe
 		if (this.components.hasOpenSlots(index)) {
 			this.components.forEachSlot(index, (direction, component) => {
-				const layerIndex = cell.getAnsweringPipe(direction);
-				if (layerIndex === undefined) return;
-				const subCellId = this.grid.pipeNodeId(index, layerIndex);
-				const otherComponent = this.components.getNodeComponent(subCellId);
+				const pipeIndex = tile.getAnsweringPipe(direction);
+				if (pipeIndex === undefined) return;
+				const pipeNodeId = this.grid.pipeNodeId(index, pipeIndex);
+				const otherComponent = this.components.getNodeComponent(pipeNodeId);
 				if (otherComponent === 0) {
-					this.components.attachNode(component, subCellId, direction);
-					// subcell joined a component - check if it has
+					this.components.attachNode(component, pipeNodeId, direction);
+					// pipe node joined a component - check if it has
 					// any neighbours already in component
-					this.avoidSubcellLoops(index, layerIndex, cell, component);
+					this.avoidNodeLoops(index, pipeIndex, tile, component);
 					this.islandChecks.add(component);
 				} else if (otherComponent === component) {
 					throw LOOP_DETECTED;
@@ -443,27 +433,27 @@ export class Solver {
 					this.components.merge(
 						otherComponent,
 						component,
-						subCellId,
+						pipeNodeId,
 						direction,
-						this.mergedSlotCellHook,
-						this.mergedSubcellHook
+						this.mergedSlotHook,
+						this.mergedNodeHook
 					);
 					this.islandChecks.add(otherComponent);
 					this.islandChecks.delete(component); // so we don't process stale components later
 				}
 			});
 		}
-		// for our subcells in components see if there are new definite connections to neighbours
+		// for our nodes in components see if there are new definite connections to neighbours
 		// and create new slots
-		for (let layerIndex of cell.pipes.keys()) {
-			const subCellId = this.grid.pipeNodeId(index, layerIndex);
-			const component = this.components.getNodeComponent(subCellId);
+		for (let pipeIndex of tile.pipes.keys()) {
+			const pipeNodeId = this.grid.pipeNodeId(index, pipeIndex);
+			const component = this.components.getNodeComponent(pipeNodeId);
 			if (component === 0) continue;
-			const connections = cell.getPipeDefiniteConnections(layerIndex);
-			const known = this.components.getNodeDirections(subCellId, component);
+			const connections = tile.getPipeDefiniteConnections(pipeIndex);
+			const known = this.components.getNodeDirections(pipeNodeId, component);
 			const newDirections = connections & ~known;
 			if (newDirections > 0) {
-				this.components.setNodeDirections(subCellId, connections);
+				this.components.setNodeDirections(pipeNodeId, connections);
 				for (let direction of iterate_directions(newDirections)) {
 					const { neighbour } = this.grid.findNeighbour(index, direction);
 					const opposite = this.grid.OPPOSITE.get(direction) || 0;
@@ -478,48 +468,46 @@ export class Solver {
 						this.components.merge(
 							component,
 							otherComponent,
-							subCellId,
+							pipeNodeId,
 							direction,
-							this.mergedSlotCellHook,
-							this.mergedSubcellHook
+							this.mergedSlotHook,
+							this.mergedNodeHook
 						);
 						this.islandChecks.add(component);
 						this.islandChecks.delete(otherComponent); // so we don't process stale entries later
 					}
 				}
 			}
-			if (popcount(connections) === cell.pipePopcounts[layerIndex]) {
-				this.components.removeNode(component, subCellId);
+			if (popcount(connections) === tile.pipePopcounts[pipeIndex]) {
+				this.components.removeNode(component, pipeNodeId);
 			}
 		}
-		this.pruneLoop(index, cell);
+		this.pruneLoop(index, tile);
 	}
 
 	/**
-	 * Process new info on a single cell and propagate constraints
+	 * Process new info on a single tile and propagate constraints
 	 * @param {Number} index
 	 * @returns {SolverStep}
 	 * @throws {NoOrientationsPossibleException|IslandDetectedException|LoopDetectedException}
 	 */
-	processDirtyCell(index) {
+	processDirtyTile(index) {
 		this.stats.dirtyProcessings += 1;
-		const cell = this.getCell(index);
+		const tile = this.getTile(index);
 		while (this.dirty.has(index)) {
-			// console.log('process dirty cell', index);
-			const possibleBefore = cell.possible.size;
+			// console.log('process dirty tile', index);
+			const possibleBefore = tile.possible.size;
 			const grid = this.grid;
-			// console.log({ index: cell.index, walls: cell.walls, connections: cell.connections });
-			let { addedWalls, addedConnections, addedDeadends } = cell.applyConstraints(
-				this.totalSubcells
-			);
+			// console.log({ index: tile.index, walls: tile.walls, connections: tile.connections });
+			let { addedWalls, addedConnections, addedDeadends } = tile.applyConstraints(this.totalNodes);
 			// console.log({ addedWalls, addedConnections, addedDeadends });
 			if (addedWalls > 0) {
 				for (let direction of iterate_directions(addedWalls)) {
 					const { neighbour, empty } = grid.findNeighbour(index, direction);
 					if (empty) continue;
 					const opposite = grid.OPPOSITE.get(direction) || 0;
-					const neighbourCell = this.getCell(neighbour);
-					neighbourCell.addWall(opposite);
+					const neighbourTile = this.getTile(neighbour);
+					neighbourTile.addWall(opposite);
 					this.dirty.add(neighbour);
 				}
 			}
@@ -535,8 +523,8 @@ export class Solver {
 					// possibly needs to be handled in components logic?..
 					if (empty || this.solution[neighbour] !== this.UNSOLVED) continue;
 					const opposite = grid.OPPOSITE.get(direction) || 0;
-					const neighbourCell = this.getCell(neighbour);
-					neighbourCell.addNeighbourDeadend(opposite, cell.ownDeadendWeights.get(direction) || 0);
+					const neighbourTile = this.getTile(neighbour);
+					neighbourTile.addNeighbourDeadend(opposite, tile.ownDeadendWeights.get(direction) || 0);
 					this.dirty.add(neighbour);
 				}
 			}
@@ -544,20 +532,20 @@ export class Solver {
 			// resolving components might cause some merges and trigger loop avoidance logic
 			// relevant prunings of possible states should happen after the resolve step completes
 			// so the prunings are added to a queue and carried out later
-			// re-dirty affected cells if removed any orientations
-			this.resolveComponents(index, cell);
-			for (let [c, l, d] of this.avoidLoopQueue) {
-				if (l === null) {
-					// came from slot logic, forbid orientation if any layer bridges any two directions
-					const removed = c.forbidBridge(d);
+			// re-dirty affected tiles if removed any orientations
+			this.resolveComponents(index, tile);
+			for (let [ti, pi, di] of this.avoidLoopQueue) {
+				if (pi === null) {
+					// came from slot logic, forbid orientation if any pipe bridges any two directions
+					const removed = ti.forbidBridge(di);
 					if (removed > 0) {
-						this.dirty.add(c.index);
+						this.dirty.add(ti.index);
 					}
 				} else {
-					// came from subcell logic, forbid direction in a specific layer
-					const removed = c.forbidPipeDirection(l, d);
+					// came from node logic, forbid direction in a specific pipe node
+					const removed = ti.forbidPipeDirection(pi, di);
 					if (removed > 0) {
-						this.dirty.add(c.index);
+						this.dirty.add(ti.index);
 					}
 				}
 			}
@@ -565,51 +553,51 @@ export class Solver {
 
 			for (const component of this.islandChecks) {
 				const slots = this.components.slotCount(component);
-				const subcells = this.components.nodeCount(component);
-				if (slots === 0 && subcells === 0) {
-					// a sealed component holding every subcell is just the finished puzzle
-					if (this.components.totalNodeCount(component) < this.totalSubcells) {
+				const nodes = this.components.nodeCount(component);
+				if (slots === 0 && nodes === 0) {
+					// a sealed component holding every node is just the finished puzzle
+					if (this.components.totalNodeCount(component) < this.totalNodes) {
 						throw ISLAND_DETECTED;
 					}
-				} else if (slots === 1 && subcells === 0) {
+				} else if (slots === 1 && nodes === 0) {
 					// exactly one opening left
 					this.components.forEachComponentSlot(component, (cellIndex, directions) => {
-						const c = this.getCell(cellIndex);
-						const deadendsBefore = c.neighbourDeadends;
+						const t = this.getTile(cellIndex);
+						const deadendsBefore = t.neighbourDeadends;
 						// override weight because component size is exact at this point
-						c.addNeighbourDeadend(directions, 0);
-						c.neighbourDeadendWeights.set(directions, this.components.totalNodeCount(component));
-						if (c.neighbourDeadends !== deadendsBefore) {
+						t.addNeighbourDeadend(directions, 0);
+						t.neighbourDeadendWeights.set(directions, this.components.totalNodeCount(component));
+						if (t.neighbourDeadends !== deadendsBefore) {
 							this.dirty.add(cellIndex);
 						}
 					});
-					// 2+ island connections into the same cell should be handled differently.
+					// 2+ island connections into the same tile should be handled differently.
 					// It's enough for one strand to escape, so sealing one connection and
 					// continuing another one should be valid.
 					// Deadend machinery treats all deadends as independent => doesn't work for this case
 					// Valid handling is not implemented yet
-				} else if (slots === 0 && subcells === 1) {
-					this.components.forEachComponentNode(component, (subcellId, directions) => {
-						const [index] = this.grid.cellIndexPipeIndexOf(subcellId);
-						const c = this.getCell(index);
-						const deadendsBefore = c.neighbourDeadends;
-						let weight = this.components.totalNodeCount(component) - 1; // don't count this subcell itself
+				} else if (slots === 0 && nodes === 1) {
+					this.components.forEachComponentNode(component, (pipeNodeId, directions) => {
+						const [islandIndex] = this.grid.cellIndexPipeIndexOf(pipeNodeId);
+						const t = this.getTile(islandIndex);
+						const deadendsBefore = t.neighbourDeadends;
+						let weight = this.components.totalNodeCount(component) - 1; // don't count this node itself
 						for (let direction of iterate_directions(directions)) {
-							c.addNeighbourDeadend(direction, weight);
-							c.neighbourDeadendWeights.set(direction, weight);
+							t.addNeighbourDeadend(direction, weight);
+							t.neighbourDeadendWeights.set(direction, weight);
 							weight = 0; // prevent double-counting of island
 							// it doesn't matter which direction carries the weight
 						}
-						if (c.neighbourDeadends !== deadendsBefore) {
-							this.dirty.add(index);
+						if (t.neighbourDeadends !== deadendsBefore) {
+							this.dirty.add(islandIndex);
 						}
 					});
 				}
 			}
 			this.islandChecks.clear();
 		}
-		const final = cell.possible.size === 1;
-		const [rotation] = cell.possible.keys();
+		const final = tile.possible.size === 1;
+		const [rotation] = tile.possible.keys();
 		if (final) {
 			this.solution[index] = rotation;
 			this.unsolved.delete(index);
@@ -619,34 +607,34 @@ export class Solver {
 	}
 
 	/**
-	 * Process new info on cells and propagate constraints
-	 * @yields {SolverStep} - info about the processed cell
+	 * Process new info on tiles and propagate constraints
+	 * @yields {SolverStep} - info about the processed tile
 	 * @throws {NoOrientationsPossibleException}
 	 */
-	*processDirtyCells() {
+	*processDirtyTiles() {
 		while (this.dirty.size > 0) {
 			// console.log('begin dirty step', [...this.dirty]);
 			const [index] = this.dirty;
-			yield this.processDirtyCell(index);
+			yield this.processDirtyTile(index);
 		}
 	}
 
 	/**
-	 * Initialize all cells and process any constraints found
-	 * @yields {SolverStep} - info about the processed cell
+	 * Initialize all tiles and process any constraints found
+	 * @yields {SolverStep} - info about the processed tile
 	 * @throws {NoOrientationsPossibleException}
 	 */
 	*processInitialDeductions() {
 		if (this.dirty.size > 0) return;
-		this.totalSubcells = 0;
+		this.totalNodes = 0;
 		const toInit = new Set();
-		// process empty cells first, then the rest
+		// process empty tiles first, then the rest
 		for (let index = 0; index < this.grid.total; index++) {
 			if (this.grid.emptyCells.has(index)) {
 				this.dirty.add(index);
 			} else {
 				toInit.add(index);
-				this.totalSubcells += this.tiles[index].length;
+				this.totalNodes += this.initial[index].length;
 			}
 		}
 		while (toInit.size > 0) {
@@ -657,10 +645,10 @@ export class Solver {
 				continue;
 			}
 			this.dirty.add(index);
-			for (let step of this.processDirtyCells()) {
+			for (let step of this.processDirtyTiles()) {
 				toInit.delete(step.index);
-				if (this.tiles[step.index].length === 0) {
-					// don't report processing empty cell as a step
+				if (this.initial[step.index].length === 0) {
+					// don't report processing empty tile as a step
 					continue;
 				}
 				yield step;
@@ -671,23 +659,23 @@ export class Solver {
 	/**
 	 * Chooses a tile/rotation to try out.
 	 * Selects a rotation from a tile with the least number of options
-	 * Sets a single rotation as possible and dirties the cell
-	 * @param {Number[]} marked - optional marked array to skip ambiguous tiles
+	 * Sets a single rotation as possible and dirties the tile
+	 * @param {Number[]} [marked=[]] - optional marked array to skip ambiguous tiles
 	 * @returns {Number[]} - [index, rotation]
 	 */
 	makeAGuess(marked = []) {
 		let minPossibleSize = Number.POSITIVE_INFINITY;
 		let guessIndex = -1;
 		// with lazy cloning this.unsolved might not have entries for
-		// cells we haven't touched yet
-		// so check for unsolved entries using (marked or this.solution)
+		// tiles we haven't touched yet
+		// so check for unsolved entries using marked or this.solution
 		for (let [index, value] of this.solution.entries()) {
 			// skip both ambiguous and solved tiles
 			if (value !== this.UNSOLVED || marked[index] === this.AMBIGUOUS) continue;
-			const cell = this.getCell(index);
-			if (cell.possible.size < minPossibleSize) {
+			const tile = this.getTile(index);
+			if (tile.possible.size < minPossibleSize) {
 				guessIndex = index;
-				minPossibleSize = cell.possible.size;
+				minPossibleSize = tile.possible.size;
 				if (minPossibleSize === 2) {
 					break;
 				}
@@ -697,12 +685,12 @@ export class Solver {
 			// can't guess because only amb tiles are left
 			return [-1, 0];
 		}
-		const cell = this.getCell(guessIndex);
-		if (cell === undefined) {
-			throw 'Cell selected for guessing is undefined!';
+		const tile = this.getTile(guessIndex);
+		if (tile === undefined) {
+			throw 'Tile selected for guessing is undefined!';
 		}
-		const [[rotation, layers]] = cell.possible.entries();
-		cell.possible = new Map([[rotation, layers]]);
+		const [[rotation, pipes]] = tile.possible.entries();
+		tile.possible = new Map([[rotation, pipes]]);
 		this.dirty.add(guessIndex);
 		return [guessIndex, rotation];
 	}
@@ -710,16 +698,16 @@ export class Solver {
 	/**
 	 * Creates a copy of the solver.
 	 * Copies components data and solution eagerly,
-	 * getCell puts things in unsolved lazily
+	 * getTile puts things in unsolved lazily
 	 * @returns {Solver}
 	 */
 	clone() {
-		const clone = new Solver(this.tiles, this.grid, this);
+		const clone = new Solver(this.initial, this.grid, this);
 		return clone;
 	}
 
 	/**
-	 * Check orientations of unsolved cells to see if they produce contradictions quickly
+	 * Check orientations of unsolved tiles to see if they produce contradictions quickly
 	 * Returns true if solver manages to exclude some orientation, false otherwise
 	 * @param {Number[]} marked
 	 * @returns {boolean}
@@ -730,26 +718,26 @@ export class Solver {
 			const index = i % this.grid.total;
 			if (this.solution[index] !== this.UNSOLVED) continue;
 			if (marked[index] === this.AMBIGUOUS) continue;
-			const cell = this.getCell(index);
-			for (let [rotation, layers] of cell.possible) {
+			const tile = this.getTile(index);
+			for (let [rotation, pipes] of tile.possible) {
 				const key = `${index}_${rotation}`;
 				if (tested.has(key)) {
 					continue;
 				}
 				const clone = this.clone();
 				this.stats.shortTrials += 1;
-				const cloneCell = clone.getCell(index);
-				cloneCell.possible = new Map([[rotation, layers]]);
+				const cloneTile = clone.getTile(index);
+				cloneTile.possible = new Map([[rotation, pipes]]);
 				clone.dirty.add(index);
 				try {
-					for (let step of clone.processDirtyCells()) {
+					for (let step of clone.processDirtyTiles()) {
 						if (step.final) {
 							const key = `${step.index}_${step.rotation}`;
 							tested.add(key);
 						}
 					}
 				} catch (e) {
-					cell.possible.delete(rotation);
+					tile.possible.delete(rotation);
 					this.dirty.add(index);
 					this.shortTrialsIndex = index;
 					return true;
@@ -761,12 +749,12 @@ export class Solver {
 
 	/**
 	 * Solve the puzzle
-	 * @param {boolean} allSolutions = false, whether to find all solutions.
+	 * @param {boolean} [allSolutions = false] - whether to find all solutions.
 	 * If false then stops as soon as the first one is found
 	 * @yields {{stage:{SolvingStage}, step:{SolverStep}}}
 	 */
 	*solve(allSolutions = false) {
-		// Initial processing, touches every cell
+		// Initial processing, touches every tile
 		for (let step of this.processInitialDeductions()) {
 			yield { stage: /** @type {SolvingStage} */ ('initial'), step };
 		}
@@ -783,15 +771,15 @@ export class Solver {
 			try {
 				let stage = trials.length === 1 ? 'initial' : 'guess';
 				stage = this.solutions.length === 0 ? stage : 'aftercheck';
-				for (let step of solver.processDirtyCells()) {
+				for (let step of solver.processDirtyTiles()) {
 					yield { stage, step };
 				}
 			} catch (error) {
 				if (trials.length > 1) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
-					const cell = parent.unsolved.get(index);
-					cell?.possible.delete(guess);
+					const tile = parent.unsolved.get(index);
+					tile?.possible.delete(guess);
 					parent.dirty.add(index);
 					continue;
 				} else break;
@@ -805,8 +793,8 @@ export class Solver {
 				if (trials.length > 1) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
-					const cell = parent.getCell(index);
-					cell.possible.delete(guess);
+					const tile = parent.getTile(index);
+					tile.possible.delete(guess);
 					parent.dirty.add(index);
 					continue;
 				} else break;
@@ -822,23 +810,27 @@ export class Solver {
 				});
 			}
 		}
-		// we rely on `this.solution` to check for solved cells, so assign this only at the end
+		// we rely on `this.solution` to check for solved tiles,
+		// so assign this only at the end
 		if (this.solutions.length > 0) {
 			this.solution = this.solutions[0];
 		}
 	}
 
 	/**
-	 * Solve the puzzle but mark ambiguous areas with a special value
+	 * Solve the puzzle but mark ambiguous tiles with a special value
 	 * Does not yield steps
 	 * If the solution is unique then marked == solution
-	 * @param {Number} [ambiguousTilesLimit = 0] - return if we find at least this many ambiguous tiles. Not all ambiguous tiles may be marked in this case. Default 0 means no limit, find all ambiguities.
+	 * @param {Number} [ambiguousTilesLimit = 0] - return if we find at least
+	 * this many ambiguous tiles. Not all ambiguous tiles may be marked in this case.
+	 * Default 0 means no limit, find all ambiguities.
 	 * @returns {{
 	 * 	marked: Number[],
 	 *  solvable: boolean,
 	 * 	unique: boolean,
 	 *  numAmbiguous: Number
-	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique, number of ambiguous tiles
+	 * }} - marked tiles, whether a puzzle is solvable, whether the solution is unique,
+	 * number of ambiguous tiles
 	 */
 	markAmbiguousTiles(ambiguousTilesLimit = 0) {
 		let marked = [...this.solution];
@@ -847,7 +839,7 @@ export class Solver {
 		const total = this.grid.total - this.grid.emptyCells.size;
 		// process what we can for a start
 		try {
-			// Initial processing, touches every cell
+			// Initial processing, touches every tile
 			for (let step of this.processInitialDeductions()) {
 				if (step.final) {
 					marked[step.index] = step.rotation;
@@ -866,14 +858,14 @@ export class Solver {
 			const lastTrial = trials[trials.length - 1];
 			if (lastTrial === undefined) break;
 			const { index, guess, solver } = lastTrial;
-			this.progress_callback({
+			this.progressCallback({
 				total,
 				ambiguous: numAmbiguous,
 				guessed: trials.length - 1,
 				solved: total - this.totalUnsolved
 			});
 			try {
-				for (let _ of solver.processDirtyCells()) {
+				for (let _ of solver.processDirtyTiles()) {
 				}
 				if (trials.length === 1 && solver.doShortTrials()) {
 					continue;
@@ -883,8 +875,8 @@ export class Solver {
 				if (trials.length > 1) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
-					const cell = parent.getCell(index);
-					cell?.possible.delete(guess);
+					const tile = parent.getTile(index);
+					tile?.possible.delete(guess);
 					parent.dirty.add(index);
 					continue;
 				} else break;
@@ -904,7 +896,7 @@ export class Solver {
 					}
 				}
 				if (ambiguousTilesLimit > 0 && numAmbiguous >= ambiguousTilesLimit) {
-					this.progress_callback({
+					this.progressCallback({
 						total,
 						ambiguous: numAmbiguous,
 						guessed: trials.length - 1,
@@ -916,8 +908,8 @@ export class Solver {
 				if (trials.length > 1) {
 					trials.pop();
 					const parent = trials[trials.length - 1].solver;
-					const cell = parent.getCell(index);
-					cell.possible.delete(guess);
+					const tile = parent.getTile(index);
+					tile.possible.delete(guess);
 					parent.dirty.add(index);
 					continue;
 				} else break;
@@ -928,7 +920,7 @@ export class Solver {
 				const [index, rotation] = clone.makeAGuess(marked);
 				if (index === -1) {
 					// This means all potential guesses are in already ambiguous tiles.
-					// But this solver may have different rotations in its solved cells
+					// But this solver may have different rotations in its solved tiles
 					// so we pretend it's solved and send it to the solution comparison branch.
 					// This sometimes causes overcounting of further ambiguous tiles
 					// once the first set of them is found.
@@ -948,7 +940,7 @@ export class Solver {
 			}
 		}
 		const solvable = marked.every((tile) => tile !== this.UNSOLVED);
-		this.progress_callback({
+		this.progressCallback({
 			total,
 			ambiguous: numAmbiguous,
 			guessed: 0,

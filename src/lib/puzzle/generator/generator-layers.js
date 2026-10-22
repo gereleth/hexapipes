@@ -1282,7 +1282,7 @@ export class LayeredGenerator {
 				this.generator_progress_callback({ attempt, iteration });
 				const solver = new Solver(tiles, this.grid);
 				if (this.solver_progress_callback) {
-					solver.progress_callback = this.solver_progress_callback;
+					solver.progressCallback = this.solver_progress_callback;
 				}
 				const { solvable, marked, unique, numAmbiguous } = solver.markAmbiguousTiles(
 					Math.min(ambiguous, ambiguousLimit)
@@ -1365,7 +1365,7 @@ export class LayeredGenerator {
 				const tiles = pregenerate_layers(this.grid, layeringAmount, branchingAmount, avoidObvious);
 				const solver = new Solver(tiles, this.grid);
 				if (this.solver_progress_callback) {
-					solver.progress_callback = this.solver_progress_callback;
+					solver.progressCallback = this.solver_progress_callback;
 				}
 				const { unique } = solver.markAmbiguousTiles(1);
 				if (!unique) {
