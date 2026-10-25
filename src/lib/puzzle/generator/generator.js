@@ -38,9 +38,9 @@ function getRandomElement(array) {
 }
 
 /**
- * Maps grid cells to "obvious" orientations - those that would be instantly
- * solved due to outer walls or empty neighbours. For example, a straight tile
- * along a square board's edge or a bend tile in a corner.
+ * Maps grid cells to "obvious" pipe orientations - those that would be instantly
+ * solved due to outer walls or empty neighbours. For example, a straight pipe
+ * along a square board's edge or a bend pipe in a corner.
  * Only cells next to outer walls or empty neighbours get an entry.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Set<Number>} indexes - cells to consider, typically the unvisited set
@@ -149,35 +149,35 @@ export class Generator {
 	}
 
 	/**
-	 * Fills a grid with tiles using GrowingTree algorithm
+	 * Fills a grid with pipes using GrowingTree algorithm
 	 * At branchingAmount = 0 it's like recursive backtracking
 	 * At branchingAmount = 1 it's like Prim's algorithm
 	 * Intermediate values give some mix of these methods
 	 * @param {Number} branchingAmount - a number in range [0, 1], higher values lead to more branching splits
 	 * @param {Number} avoidObvious - number in range [0, 1], higher values lead to fewer obvious tiles along borders
-	 * @param {Number} avoidStraights - number in range [0, 1], higher values lead to fewer straight tiles
+	 * @param {Number} avoidStraights - number in range [0, 1], higher values lead to fewer straight pipes
 	 * @param {Number[]} startTiles - starting point tiles if we're fixing ambiguities
 	 * @returns {Number[]} - unrandomized tiles array
 	 */
 	pregenerate_growingtree(branchingAmount, avoidObvious = 0, avoidStraights = 0, startTiles = []) {
 		const total = this.grid.total;
 
-		/** @type {Set<Number>} A set of unvisited nodes*/
+		/** @type {Set<Number>} A set of unvisited grid cells */
 		const unvisited = new Set([...Array(total).keys()]);
 		for (let index of this.grid.emptyCells) {
 			unvisited.delete(index);
 		}
-		/** @type {Number[]} A list of tile shapes */
+		/** @type {Number[]} A pipe per grid cell */
 		const tiles = [];
 		for (let i = 0; i < total; i++) {
 			tiles.push(0);
 		}
-		/** @type {Number[]} A list of visited nodes */
+		/** @type {Number[]} A list of visited cells */
 		const visited = [];
-		/** @type {Number[]} - visited tiles that will become obvious if used again */
+		/** @type {Number[]} - visited cells where a tile will become obvious if used again */
 		const avoiding = [];
-		/** @type {Number[]} - visited tiles that will become fully connected if used again */
-		const lastResortNodes = [];
+		/** @type {Number[]} - visited cells where a tile will become fully connected if used again */
+		const lastResortCells = [];
 
 		const non_triangular_grid = this.grid.KIND !== 'triangular';
 
@@ -265,55 +265,55 @@ export class Generator {
 		}
 
 		while (unvisited.size > 0) {
-			let fromNode = 0;
+			let fromCell = 0;
 			const usePrims = Math.random() < branchingAmount;
-			for (let nodes of [visited, avoiding, lastResortNodes]) {
-				if (nodes.length === 0) {
+			for (let cells of [visited, avoiding, lastResortCells]) {
+				if (cells.length === 0) {
 					continue;
 				}
 				if (usePrims) {
 					// go from a random element
-					fromNode = getRandomElement(nodes);
+					fromCell = getRandomElement(cells);
 				} else {
 					// go from the last element
-					fromNode = nodes[nodes.length - 1];
+					fromCell = cells[cells.length - 1];
 				}
 				break;
 			}
-			if (fromNode === undefined) {
-				throw 'Error in pregeneration: fromNode is undefined';
+			if (fromCell === undefined) {
+				throw 'Error in pregeneration: fromCell is undefined';
 			}
 			// tiers of possible moves
 			const unvisitedNeighbours = []; // these are the best options
-			const straightNeighbours = []; // this move results in a straight tile, might want to avoid
+			const straightNeighbours = []; // this move results in a straight pipe, might want to avoid
 			const obviousNeighbours = []; // these should be avoided with avoidObvious setting
-			const fullyConnectedNeighbours = []; // making a fully connected tile is a total last resort
-			const connections = tiles[fromNode];
-			const polygon = this.grid.polygonAt(fromNode);
+			const fullyConnectedNeighbours = []; // making a fully connected pipe is a total last resort
+			const connections = tiles[fromCell];
+			const polygon = this.grid.polygonAt(fromCell);
 			for (let direction of polygon.directions) {
 				if ((direction & connections) > 0) {
 					continue;
 				}
-				const { neighbour, empty } = this.grid.findNeighbour(fromNode, direction);
+				const { neighbour, empty } = this.grid.findNeighbour(fromCell, direction);
 				if (empty || !unvisited.has(neighbour)) {
 					continue;
 				}
 				// classify this neighbour by priority
 				if (
 					non_triangular_grid &&
-					(polygon.pipeShapes.get(connections + direction)?.isFullyConnected ||
+					(polygon.pipeShapes.get(connections | direction)?.isFullyConnected ||
 						(tiles[neighbour] > 0 &&
 							this.grid
 								.polygonAt(neighbour)
-								.pipeShapes.get(tiles[neighbour] + (this.grid.OPPOSITE.get(direction) || 0))
+								.pipeShapes.get(tiles[neighbour] | (this.grid.OPPOSITE.get(direction) || 0))
 								?.isFullyConnected))
 				) {
 					fullyConnectedNeighbours.push({ neighbour, direction });
 					continue;
 				}
-				if (cellObviousTiles.has(fromNode) && Math.random() < avoidObvious) {
-					const nogo = cellObviousTiles.get(fromNode);
-					if (nogo?.has(tiles[fromNode] + direction)) {
+				if (cellObviousTiles.has(fromCell) && Math.random() < avoidObvious) {
+					const nogo = cellObviousTiles.get(fromCell);
+					if (nogo?.has(tiles[fromCell] + direction)) {
 						obviousNeighbours.push({ neighbour, direction });
 						continue;
 					}
@@ -343,9 +343,9 @@ export class Generator {
 
 			if (toVisit === null) {
 				// all neighbours are already visited
-				const array = [visited, avoiding, lastResortNodes].find((x) => x.length > 0) || [];
+				const array = [visited, avoiding, lastResortCells].find((x) => x.length > 0) || [];
 				if (usePrims) {
-					const index = array.indexOf(fromNode);
+					const index = array.indexOf(fromCell);
 					array.splice(index, 1);
 				} else {
 					array.pop();
@@ -355,22 +355,22 @@ export class Generator {
 			if (source === fullyConnectedNeighbours) {
 				// wants to become fully connected, this is a last resort action
 				if (visited.length > 0) {
-					const index = visited.indexOf(fromNode);
+					const index = visited.indexOf(fromCell);
 					visited.splice(index, 1);
-					lastResortNodes.push(fromNode);
+					lastResortCells.push(fromCell);
 					continue;
 				}
 			}
 			if (source === obviousNeighbours) {
 				// wants to become obvious, try to avoid using it
 				if (visited.length > 0) {
-					const index = visited.indexOf(fromNode);
+					const index = visited.indexOf(fromCell);
 					visited.splice(index, 1);
-					avoiding.push(fromNode);
+					avoiding.push(fromCell);
 					continue;
 				}
 			}
-			tiles[fromNode] += toVisit.direction;
+			tiles[fromCell] += toVisit.direction;
 			if (tiles[toVisit.neighbour] > 0) {
 				// connected to a reused portion, visit it all
 				const component = startComponents.get(toVisit.neighbour);
@@ -380,7 +380,7 @@ export class Generator {
 					visited.push(i);
 				}
 			}
-			// console.log({ fromNode, neighbour: toVisit.neighbour, direction: toVisit.direction });
+			// console.log({ fromCell, neighbour: toVisit.neighbour, direction: toVisit.direction });
 			tiles[toVisit.neighbour] += this.grid.OPPOSITE.get(toVisit.direction) || 0;
 			unvisited.delete(toVisit.neighbour);
 			visited.push(toVisit.neighbour);
@@ -390,12 +390,23 @@ export class Generator {
 	}
 
 	/**
+	 * Transform solver markings into tiles for reuse
+	 * @param {Number[]} marked - rotations returned by the solver, negative = unsolved/ambiguous
+	 * @param {Number[]} tiles - solver input tiles
+	 * @returns {Number[]}
+	 */
+	toStartTiles(marked, tiles) {
+		const startTiles = marked.map((m, i) => (m >= 0 ? this.grid.rotate(tiles[i], m, i) : m));
+		return startTiles;
+	}
+
+	/**
 	 * Generate a puzzle according to settings
 	 * @param {Number} branchingAmount - value in range [0, 1]
 	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
 	 * @param {Number} avoidStraights - value in range [0, 1], higher values lead to fewer straight tiles
 	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
-	 * @returns {Number[]} - generated tiles
+	 * @returns {Number[]} - generated tiles, random rotated
 	 */
 	generate(
 		branchingAmount = 0.6,
@@ -435,18 +446,14 @@ export class Generator {
 					if (unique) {
 						return randomRotate(tiles, this.grid);
 					}
-					// marked holds rotations with negative sentinels for
-					// ambiguous tiles - convert back to tiles for reuse
-					const toStartTiles = (/** @type {Number} */ m, /** @type {Number} */ index) =>
-						m >= 0 ? this.grid.rotate(tiles[index], m, index) : m;
 					if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {
-						startTiles = marked.map(toStartTiles);
+						startTiles = this.toStartTiles(marked, tiles);
 					} else if (numAmbiguous >= ambiguous) {
 						patienceLeft -= 1;
 					} else {
 						ambiguous = numAmbiguous;
 						patienceLeft = this.uniqueness_patience;
-						startTiles = marked.map(toStartTiles);
+						startTiles = this.toStartTiles(marked, tiles);
 					}
 					if (patienceLeft === 0) {
 						break;
