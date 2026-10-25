@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import {
 	applyRotations,
-	pregenerate_layers,
+	pregenerate_multi,
 	randomRotate,
-	validateLayers
+	validateMulti
 } from '#lib/puzzle/generator/generator-multi.js';
 import { Solver as CurrentSolver } from '#lib/puzzle/solver/solver.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
@@ -265,7 +265,7 @@ function compareSolutionSets(baselineSolutions, currentSolutions) {
 function invalidSolution(grid, tiles, solutions) {
 	for (const solution of solutions) {
 		try {
-			validateLayers(grid, applyRotations(grid, tiles, solution));
+			validateMulti(grid, applyRotations(grid, tiles, solution));
 		} catch (error) {
 			return /** @type {Error} */ (error).message;
 		}
@@ -337,8 +337,8 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 	const layering = 0.5 + Math.random() * 0.3;
 	const branching = Math.random();
 	const avoidObvious = Math.random() * 0.5;
-	const solvedTiles = pregenerate_layers(grid, layering, branching, avoidObvious);
-	validateLayers(grid, solvedTiles);
+	const solvedTiles = pregenerate_multi(grid, layering, branching, avoidObvious);
+	validateMulti(grid, solvedTiles);
 	const tiles = randomRotate(solvedTiles, grid);
 
 	const baselineSolver = new BaselineSolver(copyTiles(tiles), grid);

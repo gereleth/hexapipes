@@ -11,9 +11,9 @@ import { Solver } from '#lib/puzzle/solver/solver.js';
 import { SolverTile } from '#lib/puzzle/solver/solver-tile.js';
 import {
 	applyRotations,
-	pregenerate_layers,
+	pregenerate_multi,
 	randomRotate,
-	validateLayers
+	validateMulti
 } from '#lib/puzzle/generator/generator-multi.js';
 
 describe('Test SolverTile possible states initialization', () => {
@@ -331,7 +331,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		expect(solvable).toBe(true);
 		expect(unique).toBe(true);
 		const solved = applyRotations(grid, tiles, marked);
-		expect(() => validateLayers(grid, solved)).not.toThrow();
+		expect(() => validateMulti(grid, solved)).not.toThrow();
 	});
 
 	it('Detects a wrap puzzle with an empty tile and a unique solution', () => {
@@ -342,7 +342,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		expect(solvable).toBe(true);
 		expect(unique).toBe(true);
 		const solved = applyRotations(grid, tiles, marked);
-		expect(() => validateLayers(grid, solved)).not.toThrow();
+		expect(() => validateMulti(grid, solved)).not.toThrow();
 	});
 
 	it('Detects a puzzle with many empty tiles and a unique solution', () => {
@@ -357,7 +357,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 		expect(solvable).toBe(true);
 		expect(unique).toBe(true);
 		const solved = applyRotations(grid, tiles, marked);
-		expect(() => validateLayers(grid, solved)).not.toThrow();
+		expect(() => validateMulti(grid, solved)).not.toThrow();
 	});
 });
 
@@ -497,15 +497,15 @@ describe('Test multi-layer boards', () => {
 			new SquareGrid(3, 4, true)
 		];
 		for (const grid of grids) {
-			const layers = pregenerate_layers(grid, 1.0, 0.5);
-			expect(() => validateLayers(grid, layers)).not.toThrow();
+			const layers = pregenerate_multi(grid, 1.0, 0.5);
+			expect(() => validateMulti(grid, layers)).not.toThrow();
 			const scrambled = randomRotate(layers, grid);
 			const solver = new Solver(scrambled, grid);
 			const { marked, solvable, unique } = solver.markAmbiguousTiles();
 			expect(solvable).toBe(true);
 			if (unique) {
 				const solved = applyRotations(grid, scrambled, marked);
-				expect(() => validateLayers(grid, solved)).not.toThrow();
+				expect(() => validateMulti(grid, solved)).not.toThrow();
 			}
 		}
 	}, 60000);
@@ -591,7 +591,7 @@ describe('Test multi-layer boards', () => {
 		expect(finalSteps).toBe(9);
 		expect(solver.solutions.length).toBe(1);
 		const solved = applyRotations(grid, scrambled, solver.solution);
-		expect(() => validateLayers(grid, solved)).not.toThrow();
+		expect(() => validateMulti(grid, solved)).not.toThrow();
 	});
 });
 
@@ -676,8 +676,8 @@ describe('Test Solver on every grid kind', () => {
 		];
 		for (const [name, makeGrid] of cases) {
 			const grid = makeGrid();
-			const tiles = pregenerate_layers(grid, 0.6, 0.5, 0.25);
-			validateLayers(grid, tiles);
+			const tiles = pregenerate_multi(grid, 0.6, 0.5, 0.25);
+			validateMulti(grid, tiles);
 			const solver = new Solver(tiles, grid);
 			const result = solver.markAmbiguousTiles(Math.max(100, 0.1 * grid.total));
 			expect(result.solvable, `${name} board must stay solvable`).toBe(true);

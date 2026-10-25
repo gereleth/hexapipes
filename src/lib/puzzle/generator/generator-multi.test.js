@@ -1,21 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
-	LayeredGenerator,
+	MultiGenerator,
 	applyRotations,
-	buildStartLayers,
+	buildStartTiles,
 	planReuse,
-	pregenerate_layers,
+	pregenerate_multi,
 	randomRotate,
-	validateLayers
+	validateMulti
 } from '#lib/puzzle/generator/generator-multi.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
+import { popcount } from '#lib/puzzle/grids/bitmasks.js';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
 /**
- * Applies growth events to a layers board, mirroring the page's animation
+ * Applies growth events to a multipipes board, mirroring the page's animation
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number[][]} board
  * @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove[]} moves
@@ -23,40 +24,26 @@ const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 function applyGrowthMoves(grid, board, moves) {
 	for (const move of moves) {
 		if (move.type === 'seed') {
-			board[move.cell] = [...move.layers];
+			board[move.cell] = [...move.pipes];
 		} else if (move.type === 'erase') {
 			board[move.cell] = [];
 		} else if (move.type === 'move') {
 			const back = grid.OPPOSITE.get(move.direction) || 0;
-			board[move.fromNode][move.layerIndex] |= move.direction;
+			board[move.fromCell][move.pipeIndex] |= move.direction;
 			board[move.neighbour].push(back);
 		} else if (move.type === 'absorb') {
 			const back = grid.OPPOSITE.get(move.direction) || 0;
-			board[move.fromNode][move.layerIndex] |= move.direction;
+			board[move.fromCell][move.pipeIndex] |= move.direction;
 			board[move.neighbour][0] |= back;
 		} else if (move.type === 'merge') {
 			const back = grid.OPPOSITE.get(move.direction) || 0;
-			board[move.fromNode][move.layerIndex] |= move.direction;
-			board[move.neighbour][move.neighbourLayerIndex] |= back;
+			board[move.fromCell][move.pipeIndex] |= move.direction;
+			board[move.neighbour][move.neighbourPipeIndex] |= back;
 		}
 	}
 }
 
-/**
- * Renders layer bitmasks as direction letters, e.g. 13 -> "EW"
- * @param {Number} layer
- */
-function decode(layer) {
-	let result = '';
-	for (let [bit, letter] of Object.entries(LETTERS)) {
-		if ((layer & Number(bit)) > 0) {
-			result += letter;
-		}
-	}
-	return result;
-}
-
-describe('Test layered pregeneration', () => {
+describe('Test multipipes pregeneration', () => {
 	/** @type {Array<[Number, Number, Boolean]>} */
 	const boards = [
 		[3, 3, false],
@@ -69,14 +56,14 @@ describe('Test layered pregeneration', () => {
 		for (let branchingAmount of [0, 0.5, 1]) {
 			for (let avoidObvious of [0, 0.5, 1]) {
 				it(
-					`Pregenerates a valid layered puzzle ${width}x${height} wrap=${wrap} ` +
+					`Pregenerates a valid multipipes puzzle ${width}x${height} wrap=${wrap} ` +
 						`branching=${branchingAmount} avoidObvious=${avoidObvious}`,
 					() => {
 						for (let i = 0; i < 10; i++) {
 							const grid = new SquareGrid(width, height, wrap);
-							const layers = pregenerate_layers(grid, 1.0, branchingAmount, avoidObvious);
-							validateLayers(grid, layers);
-							expect(layers.length).toBe(grid.total);
+							const tiles = pregenerate_multi(grid, 1.0, branchingAmount, avoidObvious);
+							validateMulti(grid, tiles);
+							expect(tiles.length).toBe(grid.total);
 						}
 					}
 				);
@@ -87,44 +74,29 @@ describe('Test layered pregeneration', () => {
 
 describe('Test branchingAmount knob', () => {
 	/**
-	 * Counts the set bits in a mask
-	 * @param {Number} mask
-	 * @returns {Number}
-	 */
-	function countConnections(mask) {
-		let bits = mask;
-		let count = 0;
-		while (bits > 0) {
-			bits ^= bits & -bits;
-			count += 1;
-		}
-		return count;
-	}
-
-	/**
-	 * Fraction of deadend sub-cells (at most one connection) over all sub-cells
+	 * Fraction of deadend nodes (at most one connection) over all nodes
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {Number} branchingAmount
 	 * @returns {Number}
 	 */
 	function deadendRatio(grid, branchingAmount) {
 		let deadends = 0;
-		let subCells = 0;
+		let nodes = 0;
 		for (let i = 0; i < 20; i++) {
-			const layers = pregenerate_layers(grid, 0.6, branchingAmount);
-			for (const cellLayers of layers) {
-				for (const layer of cellLayers) {
-					subCells += 1;
-					if (countConnections(layer) <= 1) {
+			const tiles = pregenerate_multi(grid, 0.6, branchingAmount);
+			for (const pipes of tiles) {
+				for (const pipe of pipes) {
+					nodes += 1;
+					if (popcount(pipe) <= 1) {
 						deadends += 1;
 					}
 				}
 			}
 		}
-		return deadends / subCells;
+		return deadends / nodes;
 	}
 
-	it('Pregenerates valid boards with default layering across the branching range', () => {
+	it('Pregenerates valid boards with default sharing across the branching range', () => {
 		const grids = [
 			new SquareGrid(5, 5, false),
 			new SquareGrid(4, 4, true),
@@ -133,8 +105,8 @@ describe('Test branchingAmount knob', () => {
 		for (const grid of grids) {
 			for (const branchingAmount of [0, 0.5, 1]) {
 				for (let i = 0; i < 10; i++) {
-					const layers = pregenerate_layers(grid, 0.6, branchingAmount);
-					validateLayers(grid, layers);
+					const tiles = pregenerate_multi(grid, 0.6, branchingAmount);
+					validateMulti(grid, tiles);
 				}
 			}
 		}
@@ -152,46 +124,46 @@ describe('Test branchingAmount knob', () => {
 
 	it('Mirrors growth events at both branching extremes with reuse', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const tiles0 = pregenerate_layers(grid, 0.6, 0.5);
+		const tiles0 = pregenerate_multi(grid, 0.6, 0.5);
 		const solver = new Solver(tiles0, grid);
 		const { marked } = solver.markAmbiguousTiles();
-		const startLayers = buildStartLayers(grid, tiles0, marked);
+		const startTiles = buildStartTiles(grid, tiles0, marked);
 		for (const branchingAmount of [0, 1]) {
 			for (let i = 0; i < 5; i++) {
 				/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove[]} */
 				const moves = [];
-				const tiles = pregenerate_layers(grid, 0.6, branchingAmount, 0, startLayers, 3, (move) =>
+				const tiles = pregenerate_multi(grid, 0.6, branchingAmount, 0, startTiles, 3, (move) =>
 					moves.push(move)
 				);
 				/** @type {Number[][]} */
 				const board = Array.from({ length: grid.total }, () => []);
 				applyGrowthMoves(grid, board, moves);
 				expect(board).toStrictEqual(tiles);
-				validateLayers(grid, tiles);
+				validateMulti(grid, tiles);
 			}
 		}
 	});
 });
 
-describe('Test layered scrambling', () => {
+describe('Test multipipes scrambling', () => {
 	it('Scrambled boards keep their shape', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(5, 5, false);
-			const solved = pregenerate_layers(grid, 1.0, 0.5);
+			const solved = pregenerate_multi(grid, 1.0, 0.5);
 			const scrambled = randomRotate(solved, grid);
 			expect(scrambled.length).toBe(grid.total);
-			scrambled.forEach((cellLayers, index) => {
-				expect(cellLayers.length).toBe(solved[index].length);
+			scrambled.forEach((pipes, index) => {
+				expect(pipes.length).toBe(solved[index].length);
 				const polygon = grid.polygonAt(index);
 				let used = 0;
 				let xored = 0;
-				cellLayers.forEach((layer) => {
-					expect(layer).toBeGreaterThan(0);
-					expect((layer | polygon.fullyConnected) === polygon.fullyConnected).toBe(true);
-					used |= layer;
-					xored ^= layer;
+				pipes.forEach((pipe) => {
+					expect(pipe).toBeGreaterThan(0);
+					expect((pipe | polygon.fullyConnected) === polygon.fullyConnected).toBe(true);
+					used |= pipe;
+					xored ^= pipe;
 				});
-				// layers of a cell still don't share directions
+				// pipes of a tile still don't share directions
 				expect(used).toBe(xored);
 			});
 		}
@@ -199,92 +171,92 @@ describe('Test layered scrambling', () => {
 
 	it('Scrambling actually scrambles', () => {
 		const grid = new SquareGrid(5, 5, false);
-		const solved = pregenerate_layers(grid, 1.0, 0.5);
+		const solved = pregenerate_multi(grid, 1.0, 0.5);
 		const scrambled = randomRotate(solved, grid);
-		const changed = scrambled.filter((cellLayers, index) =>
-			cellLayers.some((layer, layerIndex) => layer !== solved[index][layerIndex])
+		const changed = scrambled.filter((pipes, index) =>
+			pipes.some((pipe, pipeIndex) => pipe !== solved[index][pipeIndex])
 		);
 		expect(changed.length).toBeGreaterThan(0);
 	});
 
-	it('Produces single-layer classic boards with layeringAmount 0', () => {
+	it('Produces single-pipe classic boards with sharingAmount 0', () => {
 		for (let i = 0; i < 20; i++) {
 			const grid = i % 2 === 0 ? new SquareGrid(5, 4, i % 4 === 0) : new HexaGrid(4, 3, false);
-			const tiles = pregenerate_layers(grid, 0, Math.random());
-			for (let cell = 0; cell < grid.total; cell++) {
-				if (grid.emptyCells.has(cell)) {
+			const tiles = pregenerate_multi(grid, 0, Math.random());
+			for (let index = 0; index < grid.total; index++) {
+				if (grid.emptyCells.has(index)) {
 					continue;
 				}
-				expect(tiles[cell].length, `cell ${cell} layer count`).toBe(1);
+				expect(tiles[index].length, `tile ${index} pipe count`).toBe(1);
 			}
-			validateLayers(grid, tiles);
+			validateMulti(grid, tiles);
 		}
 	});
 
-	it('Produces multi-layer boards with layeringAmount 1', () => {
+	it('Produces multi-pipe boards with sharingAmount 1', () => {
 		const grid = new SquareGrid(5, 5, false);
-		let multiLayerSeen = false;
-		for (let i = 0; i < 10 && !multiLayerSeen; i++) {
-			const tiles = pregenerate_layers(grid, 1, Math.random());
-			multiLayerSeen = tiles.some((cellLayers) => cellLayers.length > 1);
+		let multiPipeSeen = false;
+		for (let i = 0; i < 10 && !multiPipeSeen; i++) {
+			const tiles = pregenerate_multi(grid, 1, Math.random());
+			multiPipeSeen = tiles.some((pipes) => pipes.length > 1);
 		}
-		expect(multiLayerSeen).toBe(true);
+		expect(multiPipeSeen).toBe(true);
 	});
 });
 
-describe('Test layered startLayers reuse', () => {
+describe('Test multipipes startTiles reuse', () => {
 	/**
-	 * Checks that some layer of the cell covers all the given direction bits
-	 * @param {Number[]} cellLayers
-	 * @param {Number} bits - direction bitmask
+	 * Checks that some pipe of the tile covers all the given direction bits
+	 * @param {Number[]} pipes
+	 * @param {Number} directions - directions bitmask
 	 */
-	function hasLayerWithBits(cellLayers, bits) {
-		return cellLayers.some((layer) => (layer & bits) === bits);
+	function hasPipeWithDirections(pipes, directions) {
+		return pipes.some((pipe) => (pipe & directions) === directions);
 	}
 
 	it('Reuses non-ambiguous regions and produces valid boards', () => {
-		// fuzz startLayers with messy component topologies:
-		// randomly nulled cells create small components, conflicts,
-		// cells shared by several components and dissolved layers
+		// fuzz startTiles with messy component topologies:
+		// randomly nulled tiles create small components, conflicts,
+		// tiles shared by several components and dissolved pipes
 		for (let i = 0; i < 150; i++) {
 			const wrap = i % 3 === 0;
 			const grid = i % 5 === 0 ? new HexaGrid(3, 4, wrap) : new SquareGrid(4, 4, wrap);
-			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
+			const tiles = pregenerate_multi(grid, 1 - Math.random(), Math.random());
 			const solver = new Solver(tiles, grid);
 			const { marked } = solver.markAmbiguousTiles();
-			const startLayers = buildStartLayers(grid, tiles, marked);
-			for (let cell = 0; cell < grid.total; cell++) {
-				if (startLayers[cell] && Math.random() < 0.4) {
-					startLayers[cell] = null;
+			const startTiles = buildStartTiles(grid, tiles, marked);
+			for (let index = 0; index < grid.total; index++) {
+				if (startTiles[index] && Math.random() < 0.4) {
+					startTiles[index] = null;
 				}
 			}
-			const regenerated = pregenerate_layers(
+			const regenerated = pregenerate_multi(
 				grid,
 				1 - Math.random(),
 				Math.random(),
 				0,
-				startLayers,
+				startTiles,
 				[1, 2, 3, 5][i % 4]
 			);
-			validateLayers(grid, regenerated);
-			// fate accounting: every keepable sub-cell ends up in exactly one bucket
-			const { stats: s } = planReuse(grid, startLayers, [1, 2, 3, 5][i % 4]);
+			validateMulti(grid, regenerated);
+			// fate accounting: every keepable node ends up in exactly one bucket
+			const { stats: s } = planReuse(grid, startTiles, [1, 2, 3, 5][i % 4]);
 			expect(
-				s.liveSubCells +
-					s.islandSubCells +
-					s.conflictLostSubCells +
-					s.fragmentLostSubCells +
-					s.tooSmallLostSubCells
-			).toBe(s.keepableSubCells);
+				s.liveNodes +
+					s.islandNodes +
+					s.conflictLostNodes +
+					s.fragmentLostNodes +
+					s.tooSmallLostNodes
+			).toBe(s.keepableNodes);
 		}
 	});
 
 	it('Reproduces a fully keepable board verbatim', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(5, 5, false);
-			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
-			const regenerated = pregenerate_layers(grid, 1.0, 0.5, 0, tiles);
-			validateLayers(grid, regenerated);
+			const tiles = pregenerate_multi(grid, 1 - Math.random(), Math.random());
+			const regenerated = pregenerate_multi(grid, 1.0, 0.5, 0, tiles);
+			validateMulti(grid, regenerated);
 			expect(regenerated).toStrictEqual(tiles);
 		}
 	});
@@ -292,12 +264,12 @@ describe('Test layered startLayers reuse', () => {
 	it('Reproduces the rotated solution when no cell is ambiguous', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(4, 4, false);
-			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random());
+			const tiles = pregenerate_multi(grid, 1 - Math.random(), Math.random());
 			const solver = new Solver(tiles, grid);
 			const { marked, numAmbiguous } = solver.markAmbiguousTiles();
-			const startLayers = buildStartLayers(grid, tiles, marked);
-			const regenerated = pregenerate_layers(grid, 1.0, 0.5, 0, startLayers);
-			validateLayers(grid, regenerated);
+			const startTiles = buildStartTiles(grid, tiles, marked);
+			const regenerated = pregenerate_multi(grid, 1.0, 0.5, 0, startTiles);
+			validateMulti(grid, regenerated);
 			if (numAmbiguous === 0) {
 				expect(regenerated).toStrictEqual(applyRotations(grid, tiles, marked));
 			}
@@ -308,16 +280,10 @@ describe('Test layered startLayers reuse', () => {
 		const grid = new SquareGrid(3, 3, false);
 		// live region: top row (cell 1 is a straight);
 		// dormant island: bottom row; middle row is ambiguous
-		const startLayers = [[1], [5], [4], null, null, null, [1], [5], [4]];
+		const startTiles = [[1], [5], [4], null, null, null, [1], [5], [4]];
 		for (let i = 0; i < 20; i++) {
-			const regenerated = pregenerate_layers(
-				grid,
-				1 - Math.random(),
-				Math.random(),
-				0,
-				startLayers
-			);
-			validateLayers(grid, regenerated);
+			const regenerated = pregenerate_multi(grid, 1 - Math.random(), Math.random(), 0, startTiles);
+			validateMulti(grid, regenerated);
 			for (let [cell, bits] of [
 				[0, 1],
 				[1, 5],
@@ -326,27 +292,21 @@ describe('Test layered startLayers reuse', () => {
 				[7, 5],
 				[8, 4]
 			]) {
-				expect(hasLayerWithBits(regenerated[cell], bits)).toBe(true);
+				expect(hasPipeWithDirections(regenerated[cell], bits)).toBe(true);
 			}
 		}
 	});
 
-	it('Drops layers that only connect to ambiguous cells', () => {
+	it('Drops pipes that only connect to ambiguous tiles', () => {
 		const grid = new SquareGrid(3, 3, false);
-		// cell 0 has two layers: [1] pointing at ambiguous cell 1
-		// (dissolves) and [8] pointing at keepable cell 3 (live seed)
-		const startLayers = [[1, 8], null, null, [2], null, null, null, null, null];
+		// tile 0 has two pipes: [1] pointing at ambiguous tile 1
+		// (dissolves) and [8] pointing at keepable tile 3 (live seed)
+		const startTiles = [[1, 8], null, null, [2], null, null, null, null, null];
 		for (let i = 0; i < 20; i++) {
-			const regenerated = pregenerate_layers(
-				grid,
-				1 - Math.random(),
-				Math.random(),
-				0,
-				startLayers
-			);
-			validateLayers(grid, regenerated);
-			expect(hasLayerWithBits(regenerated[0], 8)).toBe(true);
-			expect(hasLayerWithBits(regenerated[3], 2)).toBe(true);
+			const regenerated = pregenerate_multi(grid, 1 - Math.random(), Math.random(), 0, startTiles);
+			validateMulti(grid, regenerated);
+			expect(hasPipeWithDirections(regenerated[0], 8)).toBe(true);
+			expect(hasPipeWithDirections(regenerated[3], 2)).toBe(true);
 		}
 	});
 
@@ -355,16 +315,10 @@ describe('Test layered startLayers reuse', () => {
 		// live region: 0-1-4 (cell 1 is a corner);
 		// island {4/L1, 5} shares cell 4 with live and dissolves;
 		// island {6, 7, 8} is conflict-free and gets absorbed
-		const startLayers = [[1], [12], null, null, [2, 1], [4], [1], [5], [4]];
+		const startTiles = [[1], [12], null, null, [2, 1], [4], [1], [5], [4]];
 		for (let i = 0; i < 20; i++) {
-			const regenerated = pregenerate_layers(
-				grid,
-				1 - Math.random(),
-				Math.random(),
-				0,
-				startLayers
-			);
-			validateLayers(grid, regenerated);
+			const regenerated = pregenerate_multi(grid, 1 - Math.random(), Math.random(), 0, startTiles);
+			validateMulti(grid, regenerated);
 			for (let [cell, bits] of [
 				[0, 1],
 				[1, 12],
@@ -373,44 +327,44 @@ describe('Test layered startLayers reuse', () => {
 				[7, 5],
 				[8, 4]
 			]) {
-				expect(hasLayerWithBits(regenerated[cell], bits)).toBe(true);
+				expect(hasPipeWithDirections(regenerated[cell], bits)).toBe(true);
 			}
 		}
 		// with a higher minimum size the bottom island dissolves too
-		const regenerated = pregenerate_layers(grid, 1.0, 0.5, 0, startLayers, 4);
-		validateLayers(grid, regenerated);
+		const regenerated = pregenerate_multi(grid, 1.0, 0.5, 0, startTiles, 4);
+		validateMulti(grid, regenerated);
 	});
 
-	it('Treats unusable startLayers as a fresh board', () => {
+	it('Treats unusable startTiles as a fresh board', () => {
 		const grid = new SquareGrid(4, 4, false);
 		const allNull = Array.from({ length: grid.total }, () => null);
 		for (let i = 0; i < 5; i++) {
-			validateLayers(grid, pregenerate_layers(grid, 1.0, 0.5, 0, allNull));
+			validateMulti(grid, pregenerate_multi(grid, 1.0, 0.5, 0, allNull));
 		}
 		// wrong length is ignored entirely
-		validateLayers(grid, pregenerate_layers(grid, 1.0, 0.5, 0, [null]));
+		validateMulti(grid, pregenerate_multi(grid, 1.0, 0.5, 0, [null]));
 	});
 
 	it('Plans live, island and dissolved roles', () => {
 		const grid = new SquareGrid(3, 3, false);
 		// live region 0-1-4; island {4/L1, 5} shares cell 4 with live and
 		// dissolves; island {6, 7, 8} is conflict-free
-		const startLayers = [[1], [12], null, null, [2, 1], [4], [1], [5], [4]];
-		const plan = planReuse(grid, startLayers);
-		expect(plan.cells.get(0)?.role).toBe('live');
-		expect(plan.cells.get(1)?.role).toBe('live');
-		expect(plan.cells.get(4)?.role).toBe('live');
-		expect(plan.cells.get(5)?.role).toBe('dissolved');
-		expect(plan.cells.get(6)?.role).toBe('island');
-		expect(plan.cells.get(7)?.role).toBe('island');
-		expect(plan.cells.get(8)?.role).toBe('island');
-		expect(plan.cells.get(2)).toBeUndefined();
-		// live layers are pruned to the component's edges
-		expect(plan.cells.get(0)?.layers).toStrictEqual([1]);
-		expect(plan.cells.get(1)?.layers).toStrictEqual([12]);
-		expect(plan.cells.get(4)?.layers).toStrictEqual([2]);
+		const startTiles = [[1], [12], null, null, [2, 1], [4], [1], [5], [4]];
+		const plan = planReuse(grid, startTiles);
+		expect(plan.tiles.get(0)?.role).toBe('live');
+		expect(plan.tiles.get(1)?.role).toBe('live');
+		expect(plan.tiles.get(4)?.role).toBe('live');
+		expect(plan.tiles.get(5)?.role).toBe('dissolved');
+		expect(plan.tiles.get(6)?.role).toBe('island');
+		expect(plan.tiles.get(7)?.role).toBe('island');
+		expect(plan.tiles.get(8)?.role).toBe('island');
+		expect(plan.tiles.get(2)).toBeUndefined();
+		// live pipes are pruned to the component's edges
+		expect(plan.tiles.get(0)?.pipes).toStrictEqual([1]);
+		expect(plan.tiles.get(1)?.pipes).toStrictEqual([12]);
+		expect(plan.tiles.get(4)?.pipes).toStrictEqual([2]);
 		// the surviving island keeps its internal skeleton
-		expect(plan.cells.get(7)?.layers).toStrictEqual([5]);
+		expect(plan.tiles.get(7)?.pipes).toStrictEqual([5]);
 		// all island cells map to the same island
 		const island = plan.islands.get(6);
 		expect(island).toBeDefined();
@@ -424,37 +378,37 @@ describe('Test layered startLayers reuse', () => {
 		const noConflict = [[1], [5], [4], null, null, null, [1], [5], [4]];
 		expect(planReuse(grid, noConflict).stats).toStrictEqual({
 			keepableCells: 6,
-			keepableSubCells: 6,
+			keepableNodes: 6,
 			liveCells: 3,
-			liveSubCells: 3,
+			liveNodes: 3,
 			islandCells: 3,
-			islandSubCells: 3,
+			islandNodes: 3,
 			conflictIslands: 0,
 			conflictWithLive: 0,
 			conflictWithIsland: 0,
-			conflictLostSubCells: 0,
+			conflictLostNodes: 0,
 			conflictMaxIslandSize: 0,
-			fragmentLostSubCells: 0,
-			tooSmallLostSubCells: 0
+			fragmentLostNodes: 0,
+			tooSmallLostNodes: 0
 		});
 		// island {4/L1, 5, 8} shares cell 4 with live and is carved to {5, 8};
-		// that piece is too small to keep, so only the shared sub-cell 4/L1
+		// that piece is too small to keep, so only the shared node 4/L1
 		// counts as conflict loss, the rest as fragment loss
 		const conflict = [[1], [12], null, null, [2, 1], [12], null, null, [2]];
 		expect(planReuse(grid, conflict).stats).toStrictEqual({
 			keepableCells: 5,
-			keepableSubCells: 6,
+			keepableNodes: 6,
 			liveCells: 3,
-			liveSubCells: 3,
+			liveNodes: 3,
 			islandCells: 0,
-			islandSubCells: 0,
+			islandNodes: 0,
 			conflictIslands: 1,
 			conflictWithLive: 1,
 			conflictWithIsland: 0,
-			conflictLostSubCells: 1,
+			conflictLostNodes: 1,
 			conflictMaxIslandSize: 3,
-			fragmentLostSubCells: 2,
-			tooSmallLostSubCells: 0
+			fragmentLostNodes: 2,
+			tooSmallLostNodes: 0
 		});
 	});
 
@@ -465,7 +419,7 @@ describe('Test layered startLayers reuse', () => {
 		// is carved to {7, 11, 12, 13} and survives as one piece;
 		// island B {5, 6, 7/L1, 8, 9} passes through island A's cell 7
 		// and splits into pieces {5, 6} and {8, 9}
-		const startLayers = [
+		const startTiles = [
 			[1],
 			[5],
 			[5, 8],
@@ -482,22 +436,22 @@ describe('Test layered startLayers reuse', () => {
 			[4],
 			null
 		];
-		const plan = planReuse(grid, startLayers, 2);
-		expect(plan.cells.get(0)?.role).toBe('live');
-		// cell 2 keeps only its live layer
-		expect(plan.cells.get(2)?.role).toBe('live');
-		expect(plan.cells.get(2)?.layers).toStrictEqual([5]);
+		const plan = planReuse(grid, startTiles, 2);
+		expect(plan.tiles.get(0)?.role).toBe('live');
+		// cell 2 keeps only its live pipe
+		expect(plan.tiles.get(2)?.role).toBe('live');
+		expect(plan.tiles.get(2)?.pipes).toStrictEqual([5]);
 		// island A keeps its internal skeleton, the carved edge to 2 is pruned
-		expect(plan.cells.get(7)?.role).toBe('island');
-		expect(plan.cells.get(7)?.layers).toStrictEqual([8]);
-		expect(plan.cells.get(11)?.role).toBe('island');
-		expect(plan.cells.get(12)?.layers).toStrictEqual([7]);
-		expect(plan.cells.get(13)?.role).toBe('island');
+		expect(plan.tiles.get(7)?.role).toBe('island');
+		expect(plan.tiles.get(7)?.pipes).toStrictEqual([8]);
+		expect(plan.tiles.get(11)?.role).toBe('island');
+		expect(plan.tiles.get(12)?.pipes).toStrictEqual([7]);
+		expect(plan.tiles.get(13)?.role).toBe('island');
 		// island B survives as two pieces around cell 7
-		expect(plan.cells.get(5)?.role).toBe('island');
-		expect(plan.cells.get(6)?.role).toBe('island');
-		expect(plan.cells.get(8)?.role).toBe('island');
-		expect(plan.cells.get(9)?.role).toBe('island');
+		expect(plan.tiles.get(5)?.role).toBe('island');
+		expect(plan.tiles.get(6)?.role).toBe('island');
+		expect(plan.tiles.get(8)?.role).toBe('island');
+		expect(plan.tiles.get(9)?.role).toBe('island');
 		// island membership: A's cells vs the two B pieces
 		const pieceA = plan.islands.get(11);
 		expect([...(pieceA || [])].sort((a, b) => a - b)).toStrictEqual([7, 11, 12, 13]);
@@ -510,36 +464,36 @@ describe('Test layered startLayers reuse', () => {
 		expect(plan.islands.get(7)).toBe(pieceA);
 		expect(plan.stats).toStrictEqual({
 			keepableCells: 13,
-			keepableSubCells: 15,
+			keepableNodes: 15,
 			liveCells: 5,
-			liveSubCells: 5,
+			liveNodes: 5,
 			islandCells: 8,
-			islandSubCells: 8,
+			islandNodes: 8,
 			conflictIslands: 2,
 			conflictWithLive: 1,
 			conflictWithIsland: 1,
-			conflictLostSubCells: 2,
+			conflictLostNodes: 2,
 			conflictMaxIslandSize: 5,
-			fragmentLostSubCells: 0,
-			tooSmallLostSubCells: 0
+			fragmentLostNodes: 0,
+			tooSmallLostNodes: 0
 		});
 		// carved islands still absorb and produce valid boards
 		for (let i = 0; i < 20; i++) {
-			validateLayers(
+			validateMulti(
 				grid,
-				pregenerate_layers(grid, 1 - Math.random(), Math.random(), 0, startLayers, 2)
+				pregenerate_multi(grid, 1 - Math.random(), Math.random(), 0, startTiles, 2)
 			);
 		}
 	});
 
 	it('Keeps carved pieces at cell granularity (regression)', () => {
-		// a component can hold several sub-cells of one cell (paths through
-		// the cell); carving must assign whole cells to pieces, else two
+		// a component can hold several nodes of one tile (paths through
+		// the tile); carving must assign whole cells to pieces, else two
 		// pieces share a cell and the second seed overwrites the first
 		const grid = new HexaGrid(3, 4, false);
 		// island {7/L0, 8, 10/L0, 10/L1, 11/L0, 11/L1} passes through live
-		// cell 7; cells 10 and 11 both host two of its sub-cells
-		const startLayers = [
+		// cell 7; cells 10 and 11 both host two of its nodes
+		const startTiles = [
 			[1],
 			[24],
 			[32],
@@ -553,37 +507,34 @@ describe('Test layered startLayers reuse', () => {
 			[13, 2],
 			[8, 4]
 		];
-		const plan = planReuse(grid, startLayers);
-		expect(plan.cells.get(7)?.role).toBe('live');
-		expect(plan.cells.get(8)?.role).toBe('island');
-		expect(plan.cells.get(10)?.role).toBe('island');
-		expect(plan.cells.get(11)?.role).toBe('island');
-		// the carve splits the island into two sub-cell pieces that would
+		const plan = planReuse(grid, startTiles);
+		expect(plan.tiles.get(7)?.role).toBe('live');
+		expect(plan.tiles.get(8)?.role).toBe('island');
+		expect(plan.tiles.get(10)?.role).toBe('island');
+		expect(plan.tiles.get(11)?.role).toBe('island');
+		// the carve splits the island into two node pieces that would
 		// share cells 10 and 11; only the bigger one survives, the smaller
 		// one dissolves (it cannot own the cells exclusively)
 		const piece = plan.islands.get(8);
 		expect(plan.islands.get(10)).toBe(piece);
 		expect(plan.islands.get(11)).toBe(piece);
 		expect(plan.stats.islandCells).toBe(3);
-		expect(plan.stats.islandSubCells).toBe(3);
+		expect(plan.stats.islandNodes).toBe(3);
 		expect(plan.stats.conflictIslands).toBe(1);
 		expect(plan.stats.conflictWithLive).toBe(1);
-		expect(plan.stats.conflictLostSubCells).toBe(1);
-		expect(plan.stats.fragmentLostSubCells).toBe(2);
+		expect(plan.stats.conflictLostNodes).toBe(1);
+		expect(plan.stats.fragmentLostNodes).toBe(2);
 		for (let i = 0; i < 20; i++) {
-			validateLayers(
-				grid,
-				pregenerate_layers(grid, 1 - Math.random(), Math.random(), 0, startLayers)
-			);
+			validateMulti(grid, pregenerate_multi(grid, 1 - Math.random(), Math.random(), 0, startTiles));
 		}
 	});
 });
 
-describe('Test layered generator', () => {
+describe('Test multipipes generator', () => {
 	it('Generates a unique solution puzzle', () => {
 		const grid = new SquareGrid(4, 4, false);
 		for (let i = 0; i < 10; i++) {
-			const generator = new LayeredGenerator(grid);
+			const generator = new MultiGenerator(grid);
 			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
 			const solver = new Solver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
@@ -593,7 +544,7 @@ describe('Test layered generator', () => {
 	it('Generates a unique solution wrap puzzle', () => {
 		const grid = new SquareGrid(5, 5, true);
 		for (let i = 0; i < 3; i++) {
-			const generator = new LayeredGenerator(grid);
+			const generator = new MultiGenerator(grid);
 			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
 			const solver = new Solver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
@@ -603,7 +554,7 @@ describe('Test layered generator', () => {
 	it('Generates a unique solution hexagonal puzzle', () => {
 		const grid = new HexaGrid(4, 6, false);
 		for (let i = 0; i < 5; i++) {
-			const generator = new LayeredGenerator(grid);
+			const generator = new MultiGenerator(grid);
 			const tiles = generator.generate(1.0, 0.5, 0, 'unique');
 			const solver = new Solver(tiles, grid);
 			expect(solver.markAmbiguousTiles().unique).toBe(true);
@@ -612,16 +563,16 @@ describe('Test layered generator', () => {
 
 	it('Generates a puzzle without uniqueness check', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const generator = new LayeredGenerator(grid);
+		const generator = new MultiGenerator(grid);
 		const tiles = generator.generate(1.0, 0.5, 0, 'whatever');
-		tiles.forEach((cellLayers) => {
-			expect(cellLayers.length).toBeGreaterThan(0);
+		tiles.forEach((pipes) => {
+			expect(pipes.length).toBeGreaterThan(0);
 		});
 	});
 
 	it('Generates a puzzle with multiple solutions', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const generator = new LayeredGenerator(grid, 3, 5, 100);
+		const generator = new MultiGenerator(grid, 3, 5, 100);
 		/** @type {Number[][]|null} */
 		let tiles = null;
 		for (let attempt = 0; attempt < 5 && tiles === null; attempt++) {
@@ -647,15 +598,7 @@ describe('Test layered generator', () => {
 		const onSolverProgress = (progress) => solverProgress.push(progress);
 		/** @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorProgress} progress */
 		const onGeneratorProgress = (progress) => generatorProgress.push(progress);
-		const generator = new LayeredGenerator(
-			grid,
-			3,
-			5,
-			10,
-			10,
-			onSolverProgress,
-			onGeneratorProgress
-		);
+		const generator = new MultiGenerator(grid, 3, 5, 10, 10, onSolverProgress, onGeneratorProgress);
 		generator.generate(1.0, 0.5, 0, 'unique');
 		expect(generatorProgress.length).toBeGreaterThan(0);
 		expect(solverProgress.length).toBeGreaterThan(0);
@@ -665,7 +608,7 @@ describe('Test layered generator', () => {
 	});
 });
 
-describe('Test layered generation worker', () => {
+describe('Test multipipes generation worker', () => {
 	it('Answers a generate command with generated tiles', async () => {
 		// shim the web worker globals before importing the worker module
 		/** @type {{msg: string, tiles?: Number[][]}[]} */
@@ -836,13 +779,13 @@ describe('Test layered generation worker', () => {
 	});
 });
 
-describe('Test layered growth events', () => {
+describe('Test multipipes growth events', () => {
 	it('Mirrors board mutations in growth events', () => {
 		for (let i = 0; i < 10; i++) {
 			const grid = new SquareGrid(4, 4, false);
 			/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove[]} */
 			const moves = [];
-			const tiles = pregenerate_layers(grid, 1 - Math.random(), Math.random(), 0, [], 3, (move) =>
+			const tiles = pregenerate_multi(grid, 1 - Math.random(), Math.random(), 0, [], 3, (move) =>
 				moves.push(move)
 			);
 			expect(moves.length).toBeGreaterThan(0);
@@ -853,21 +796,21 @@ describe('Test layered growth events', () => {
 		}
 	});
 
-	it('Mirrors growth events with startLayers reuse', () => {
+	it('Mirrors growth events with startTiles reuse', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const tiles0 = pregenerate_layers(grid, 1.0, 0.5);
+		const tiles0 = pregenerate_multi(grid, 1.0, 0.5);
 		const solver = new Solver(tiles0, grid);
 		const { marked } = solver.markAmbiguousTiles();
-		const startLayers = buildStartLayers(grid, tiles0, marked);
+		const startTiles = buildStartTiles(grid, tiles0, marked);
 		for (let i = 0; i < 10; i++) {
 			/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove[]} */
 			const moves = [];
-			const tiles = pregenerate_layers(
+			const tiles = pregenerate_multi(
 				grid,
 				1 - Math.random(),
 				Math.random(),
 				0,
-				startLayers,
+				startTiles,
 				3,
 				(move) => moves.push(move)
 			);
@@ -892,27 +835,27 @@ describe('Test multi-subtree growth', () => {
 			const expectedMerges = Math.min(Math.max(3, Math.floor(grid.total / 50)), playable) - 1;
 			/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove[]} */
 			const moves = [];
-			const tiles = pregenerate_layers(grid, 0.6, 0.5, 0, [], 3, (move) => moves.push(move));
+			const tiles = pregenerate_multi(grid, 0.6, 0.5, 0, [], 3, (move) => moves.push(move));
 			expect(moves.filter((move) => move.type === 'merge').length).toBe(expectedMerges);
 			/** @type {Number[][]} */
 			const board = Array.from({ length: grid.total }, () => []);
 			applyGrowthMoves(grid, board, moves);
 			expect(board).toStrictEqual(tiles);
-			validateLayers(grid, tiles);
+			validateMulti(grid, tiles);
 		}
 	});
 });
 
-describe('Test layered uniqueIterations', () => {
+describe('Test multipipes uniqueIterations', () => {
 	it('Yields valid iteration snapshots and stops after a unique one', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const generator = new LayeredGenerator(grid, 3, 2, 5, 10);
+		const generator = new MultiGenerator(grid, 3, 2, 5, 10);
 		let steps = 0;
 		for (const step of generator.uniqueIterations(1.0, 0.5, 0)) {
 			steps += 1;
 			expect(step.attempt).toBeGreaterThan(0);
 			expect(step.iteration).toBeGreaterThan(0);
-			validateLayers(grid, step.tiles);
+			validateMulti(grid, step.tiles);
 			expect(step.marked.length).toBe(grid.total);
 			expect(step.numAmbiguous).toBeGreaterThanOrEqual(0);
 			expect(step.keptCount).toBeGreaterThanOrEqual(0);
@@ -931,7 +874,7 @@ describe('Test layered uniqueIterations', () => {
 
 	it('Ends without yields when uniqueness iterations are disabled', () => {
 		const grid = new SquareGrid(3, 3, false);
-		const generator = new LayeredGenerator(grid, 3, 5, 3, 0);
+		const generator = new MultiGenerator(grid, 3, 5, 3, 0);
 		const steps = [...generator.uniqueIterations(1.0, 0.5, 0)];
 		expect(steps.length).toBe(0);
 	});
@@ -969,7 +912,7 @@ describe('Test growth termination', () => {
 				for (let seed = 1; seed <= 40; seed++) {
 					Math.random = seededRandom(seed);
 					let events = 0;
-					const layers = pregenerate_layers(
+					const tiles = pregenerate_multi(
 						grid,
 						0.6,
 						realRandom(),
@@ -983,7 +926,7 @@ describe('Test growth termination', () => {
 							}
 						}
 					);
-					validateLayers(grid, layers);
+					validateMulti(grid, tiles);
 				}
 			}
 		} finally {

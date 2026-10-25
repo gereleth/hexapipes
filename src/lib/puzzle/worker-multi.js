@@ -1,4 +1,4 @@
-import { LayeredGenerator, pregenerate_layers } from '#lib/puzzle/generator/generator-multi.js';
+import { MultiGenerator, pregenerate_multi } from '#lib/puzzle/generator/generator-multi.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
@@ -10,7 +10,7 @@ import { createGrid } from '#lib/puzzle/grids/grids.js';
 function generate(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
-	const gen = new LayeredGenerator(grid_);
+	const gen = new MultiGenerator(grid_);
 	/** @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
@@ -50,7 +50,7 @@ function debugStart(grid, options) {
 	debugStop();
 	const { kind, width, height, wrap, tiles } = grid;
 	debugGrid = createGrid(kind, width, height, wrap, tiles);
-	const gen = new LayeredGenerator(debugGrid);
+	const gen = new MultiGenerator(debugGrid);
 	/** @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
@@ -130,7 +130,7 @@ function growthStart(grid, options) {
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	/** @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove} move */
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
-	const grownTiles = pregenerate_layers(
+	const grownTiles = pregenerate_multi(
 		grid_,
 		options.sharingAmount ?? 0.6,
 		options.branchingAmount ?? 0.5,
