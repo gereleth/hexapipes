@@ -1,7 +1,7 @@
 <script>
 	import { onDestroy } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import Worker from '#lib/puzzle/worker-layers.js?worker';
+	import Worker from '#lib/puzzle/worker-multi.js?worker';
 	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
 
 	// callbacks for different generation outcomes
@@ -18,7 +18,7 @@
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator/generator-layers.js').GeneratorOptions} options
+	 * @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorOptions} options
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 */
 	export function generate(options, grid) {

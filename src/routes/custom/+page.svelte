@@ -4,13 +4,13 @@
 	import PuzzleButtons from '#lib/puzzleWrapper/PuzzleButtons.svelte';
 	import { createGrid, randomGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 	import GeneratorComponent from '#lib/puzzle/GeneratorComponent.svelte';
-	import LayeredGeneratorComponent from '#lib/puzzle/LayeredGeneratorComponent.svelte';
+	import MultiGeneratorComponent from '#lib/puzzle/MultiGeneratorComponent.svelte';
 	import Instructions from '#lib/Instructions.svelte';
 
 	let generatorState = $state('idle');
 	/** @type {import('#lib/puzzle/grids/grids.js').GridKind}*/
 	let gridKind = $state('hexagonal');
-	let layered = $state(true);
+	let multipipes = $state(true);
 
 	let width = $state(5);
 	let height = $state(5);
@@ -18,7 +18,7 @@
 	let branchingAmount = $state(0.6);
 	let avoidObvious = $state(0.0);
 	let avoidStraights = $state(0.0);
-	let layeringAmount = $state(0.6);
+	let sharingAmount = $state(0.6);
 	let autosolve = $state(false);
 	/** @type {import('#lib/puzzle/generator/generator.js').SolutionsNumber}*/
 	let solutionsNumber = $state('unique');
@@ -28,8 +28,8 @@
 	let puzzle = $state();
 	/** @type {import('#lib/puzzle/GeneratorComponent.svelte').default|undefined}*/
 	let generatorComponent = $state();
-	/** @type {import('#lib/puzzle/LayeredGeneratorComponent.svelte').default|undefined}*/
-	let layeredGeneratorComponent = $state();
+	/** @type {import('#lib/puzzle/MultiGeneratorComponent.svelte').default|undefined}*/
+	let multiGeneratorComponent = $state();
 	let solved = $state(false);
 
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined}*/
@@ -49,10 +49,10 @@
 			width += 1;
 		}
 		grid = createGrid(gridKind, width, height, wrap);
-		if (layered) {
-			layeredGeneratorComponent?.generate(
+		if (multipipes) {
+			multiGeneratorComponent?.generate(
 				{
-					layeringAmount,
+					sharingAmount,
 					branchingAmount,
 					avoidObvious,
 					solutionsNumber
@@ -125,8 +125,8 @@
 			}
 			/** @type {Number[]} */
 			const t = data.tiles;
-			const layer = Array.isArray(data.tiles[0]);
-			if (!layer) {
+			const multi = Array.isArray(data.tiles[0]);
+			if (!multi) {
 				t.forEach((tile, index) => {
 					if (isNaN(tile)) {
 						throw `NaN value found in tiles list at index ${index}`;
@@ -138,7 +138,7 @@
 			if (gr.total !== t.length) {
 				throw `Size mismatch: grid total = ${gr.total}, length of tiles = ${t.length}`;
 			}
-			if (!layer) {
+			if (!multi) {
 				t.forEach((tile, index) => {
 					if (tile < 0 || tile > gr.polygonAt(index).fullyConnected) {
 						throw `Bad tile value at index ${index}: ${tile}`;
@@ -146,7 +146,7 @@
 				});
 			}
 			// now it looks like the imported puzzle is ok
-			layered = layer;
+			multipipes = multi;
 			width = w;
 			height = h;
 			wrap = wr;
@@ -213,9 +213,9 @@
 		</label>
 	</div>
 	<div style="margin-bottom: 0.5em">
-		<label for="layered">
-			Layered
-			<input type="checkbox" name="layered" id="layered" bind:checked={layered} />
+		<label for="multipipes">
+			Multipipes
+			<input type="checkbox" name="multipipes" id="multipipes" bind:checked={multipipes} />
 		</label>
 	</div>
 	<label for="width">
@@ -245,17 +245,17 @@
 				bind:value={branchingAmount}
 			/>
 		</label>
-		{#if layered}
-			<label for="layering">
-				Layering amount (0 = classic)
+		{#if multipipes}
+			<label for="sharing">
+				Sharing amount (0 = classic)
 				<input
 					type="range"
 					min="0"
 					max="1"
 					step="0.05"
-					name="layering"
-					id="layering"
-					bind:value={layeringAmount}
+					name="sharing"
+					id="sharing"
+					bind:value={sharingAmount}
 				/>
 			</label>
 		{/if}
@@ -309,8 +309,8 @@
 		errored={onError}
 		canceled={onCancel}
 	/>
-	<LayeredGeneratorComponent
-		bind:this={layeredGeneratorComponent}
+	<MultiGeneratorComponent
+		bind:this={multiGeneratorComponent}
 		generated={onGenerated}
 		errored={onError}
 		canceled={onCancel}

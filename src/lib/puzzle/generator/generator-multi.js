@@ -2,12 +2,6 @@ import { Solver } from '#lib/puzzle/solver/solver.js';
 import { popcount } from '#lib/puzzle/grids/bitmasks.js';
 
 /**
- * @typedef {Number[][]} LayeredTiles - for every grid cell a list of layers,
- * each layer is a tile bitmask of its connections;
- * cells that are empty on the board have no layers
- */
-
-/**
  * @typedef {'unique'|'multiple'|'whatever'} SolutionsNumber
  */
 
@@ -22,7 +16,7 @@ import { popcount } from '#lib/puzzle/grids/bitmasks.js';
  * @property {Number} branchingAmount
  * @property {Number} avoidObvious
  * @property {SolutionsNumber} solutionsNumber
- * @property {Number} [layeringAmount] - probability of growing into a visited
+ * @property {Number} [sharingAmount] - probability of growing into a visited
  * cell again, values in range [0,1], 0 produces classic puzzles,
  * 0 or undefined means the default 0.6
  * @property {Number} [maxAmbiguousTiles] - cap on ambiguities searched per iteration,
@@ -496,7 +490,7 @@ export function planReuse(grid, startLayers, reuseMinCount = 3) {
  * @param {Number} reuseMinCount - minimum count of sub-cells to leave dormant when erasing ambiguities
  * @param {(move: GrowthMove) => void} [onMove] - reports growth events for animations,
  * each board mutation is mirrored by an event
- * @returns {LayeredTiles} - unrandomized layered tiles
+ * @returns {Number[][]} - unrandomized layered tiles
  */
 export function pregenerate_layers(
 	grid,
@@ -545,7 +539,7 @@ export function pregenerate_layers(
  * @param {StartLayers} startLayers
  * @param {Number} reuseMinCount
  * @param {GrowthMove[]} attemptMoves - collects the attempt's growth events
- * @returns {LayeredTiles} - unrandomized layered tiles
+ * @returns {Number[][]} - unrandomized layered tiles
  */
 function pregenerate_layers_attempt(
 	grid,
@@ -557,7 +551,7 @@ function pregenerate_layers_attempt(
 ) {
 	const total = grid.total;
 
-	/** @type {LayeredTiles} */
+	/** @type {Number[][]} */
 	const layers = [];
 	for (let i = 0; i < total; i++) {
 		layers.push([]);
@@ -1128,9 +1122,9 @@ function pregenerate_layers_attempt(
 /**
  * Randomize rotations of layered tiles,
  * all layers of a cell rotate by the same random amount
- * @param {LayeredTiles} layers
+ * @param {Number[][]} layers
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @returns {LayeredTiles}
+ * @returns {Number[][]}
  */
 export function randomRotate(layers, grid) {
 	return layers.map((cellLayers, index) => {
@@ -1148,9 +1142,9 @@ export function randomRotate(layers, grid) {
  * all layers of a cell rotate by the same amount.
  * Solver sentinel rotations (negative numbers) count as no rotation
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {LayeredTiles} layers
+ * @param {Number[][]} layers
  * @param {Number[]} rotations - rotation per cell
- * @returns {LayeredTiles}
+ * @returns {Number[][]}
  */
 export function applyRotations(grid, layers, rotations) {
 	return layers.map((cellLayers, index) => {
@@ -1169,7 +1163,7 @@ export function applyRotations(grid, layers, rotations) {
  * cells whose marked rotation is a solver sentinel (ambiguous or unresolved)
  * become null, other cells get their layers rotated to the solver's frame
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {LayeredTiles} layers - solved layered tiles
+ * @param {Number[][]} layers - solved layered tiles
  * @param {Number[]} marked - rotation per cell, possibly with sentinel values
  * @returns {StartLayers}
  */
@@ -1191,7 +1185,7 @@ const emptyCallback = (/**@type {GeneratorProgress} */ progress) => {};
  * @typedef {object} IterationSnapshot
  * @property {Number} attempt
  * @property {Number} iteration
- * @property {LayeredTiles} tiles - the freshly generated (unscrambled) board
+ * @property {Number[][]} tiles - the freshly generated (unscrambled) board
  * @property {Number[]} marked - solver-frame rotations per cell, AMBIGUOUS/UNSOLVED sentinels for bad cells
  * @property {Number} numAmbiguous
  * @property {boolean} unique - the search finished and found a unique solution
@@ -1339,7 +1333,7 @@ export class LayeredGenerator {
 	 * @param {Number} branchingAmount - value in range [0, 1]
 	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
 	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
-	 * @returns {LayeredTiles} - generated tiles
+	 * @returns {Number[][]} - generated tiles
 	 */
 	generate(
 		layeringAmount = 0.6,
@@ -1383,7 +1377,7 @@ export class LayeredGenerator {
  * Checks that layered tiles form a valid layered puzzle network
  * Throws an Error when a rule is broken
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {LayeredTiles} layers
+ * @param {Number[][]} layers
  */
 export function validateLayers(grid, layers) {
 	const total = grid.total;
