@@ -1,17 +1,17 @@
-import { LayeredGenerator, pregenerate_layers } from '#lib/puzzle/generator/generator-layers.js';
+import { LayeredGenerator, pregenerate_layers } from '#lib/puzzle/generator/generator-multi.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
 /**
  *
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
- * @param {import('#lib/puzzle/generator/generator-layers.js').GeneratorOptions} options
+ * @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorOptions} options
  */
 function generate(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	const gen = new LayeredGenerator(grid_);
-	/** @param {import('#lib/puzzle/generator/generator-layers.js').GeneratorProgress} gen_progress */
+	/** @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
@@ -36,7 +36,7 @@ function generate(grid, options) {
 // debug mode: step through the uniqueness loop one iteration at a time
 /** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 let debugGrid = undefined;
-/** @type {Generator<import('#lib/puzzle/generator/generator-layers.js').IterationSnapshot, void, void>|undefined} */
+/** @type {Generator<import('#lib/puzzle/generator/generator-multi.js').IterationSnapshot, void, void>|undefined} */
 let debugIterator = undefined;
 /** @type {Number[][]|undefined} */
 let debugTiles = undefined;
@@ -44,14 +44,14 @@ let debugTiles = undefined;
 /**
  *
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
- * @param {import('#lib/puzzle/generator/generator-layers.js').GeneratorOptions} options
+ * @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorOptions} options
  */
 function debugStart(grid, options) {
 	debugStop();
 	const { kind, width, height, wrap, tiles } = grid;
 	debugGrid = createGrid(kind, width, height, wrap, tiles);
 	const gen = new LayeredGenerator(debugGrid);
-	/** @param {import('#lib/puzzle/generator/generator-layers.js').GeneratorProgress} gen_progress */
+	/** @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
@@ -128,7 +128,7 @@ function debugStop() {
 function growthStart(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
-	/** @param {import('#lib/puzzle/generator/generator-layers.js').GrowthMove} move */
+	/** @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove} move */
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
 	const grownTiles = pregenerate_layers(
 		grid_,

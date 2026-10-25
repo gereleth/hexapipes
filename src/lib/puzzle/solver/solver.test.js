@@ -14,7 +14,7 @@ import {
 	pregenerate_layers,
 	randomRotate,
 	validateLayers
-} from '#lib/puzzle/generator/generator-layers.js';
+} from '#lib/puzzle/generator/generator-multi.js';
 
 describe('Test SolverTile possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);

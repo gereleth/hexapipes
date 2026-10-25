@@ -5,7 +5,7 @@ import {
 	pregenerate_layers,
 	randomRotate,
 	validateLayers
-} from '#lib/puzzle/generator/generator-layers.js';
+} from '#lib/puzzle/generator/generator-multi.js';
 import { Solver as CurrentSolver } from '#lib/puzzle/solver/solver.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
@@ -177,8 +177,8 @@ const SEED = env.FUZZ_SEED !== undefined && env.FUZZ_SEED !== '' ? Number(env.FU
 
 /**
  * Deep copy of layered tiles so every solver run gets its own board
- * @param {import('#lib/puzzle/generator/generator-layers.js').LayeredTiles} tiles
- * @returns {import('#lib/puzzle/generator/generator-layers.js').LayeredTiles}
+ * @param {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles} tiles
+ * @returns {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles}
  */
 function copyTiles(tiles) {
 	return tiles.map((cellLayers) => [...cellLayers]);
@@ -258,7 +258,7 @@ function compareSolutionSets(baselineSolutions, currentSolutions) {
 /**
  * Checks that every enumerated solution is a valid layered board
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {import('#lib/puzzle/generator/generator-layers.js').LayeredTiles} tiles - scrambled board as given to the solver
+ * @param {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles} tiles - scrambled board as given to the solver
  * @param {Number[][]} solutions
  * @returns {String} - '' when all solutions are valid, otherwise the validation error
  */
@@ -305,7 +305,7 @@ function uniqueResultDiffs(name, solution, result) {
  * Saves the discrepant board as a self-contained reproducer: rebuild the
  * grid from kind/width/height/wrap and run either solver on tiles
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {import('#lib/puzzle/generator/generator-layers.js').LayeredTiles} tiles - scrambled board as given to both solvers
+ * @param {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles} tiles - scrambled board as given to both solvers
  * @param {Number} runIndex
  * @returns {String} - path of the written file
  */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
-import { pregenerate_layers, randomRotate } from '#lib/puzzle/generator/generator-layers.js';
+import { pregenerate_layers, randomRotate } from '#lib/puzzle/generator/generator-multi.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 
 describe('Test multipipes game', () => {
