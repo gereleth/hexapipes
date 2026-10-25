@@ -19,10 +19,10 @@ function generate(grid, options) {
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
-	const { layeringAmount, branchingAmount, avoidObvious, solutionsNumber } = options;
+	const { sharingAmount, branchingAmount, avoidObvious, solutionsNumber } = options;
 	try {
 		const tiles = gen.generate(
-			layeringAmount ?? 0.6,
+			sharingAmount ?? 0.6,
 			branchingAmount,
 			avoidObvious,
 			solutionsNumber
@@ -60,7 +60,7 @@ function debugStart(grid, options) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
 	debugIterator = gen.uniqueIterations(
-		options.layeringAmount ?? 0.6,
+		options.sharingAmount ?? 0.6,
 		options.branchingAmount,
 		options.avoidObvious,
 		options.maxAmbiguousTiles || 0
@@ -119,7 +119,7 @@ function debugStop() {
  * Runs one pregeneration and streams its growth events for animation
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
  * @param {Object} options
- * @param {Number} [options.layeringAmount]
+ * @param {Number} [options.sharingAmount]
  * @param {Number} [options.branchingAmount]
  * @param {Number} [options.avoidObvious]
  * @param {(Number[]|null)[]} [options.startLayers]
@@ -132,7 +132,7 @@ function growthStart(grid, options) {
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
 	const grownTiles = pregenerate_layers(
 		grid_,
-		options.layeringAmount ?? 0.6,
+		options.sharingAmount ?? 0.6,
 		options.branchingAmount ?? 0.5,
 		options.avoidObvious ?? 0,
 		options.startLayers || [],
