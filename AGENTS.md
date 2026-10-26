@@ -1,55 +1,46 @@
-# AGENTS.md
+# Hexapipes
 
-Web-based logic puzzle game (pipes/Net variant), SvelteKit + Svelte 5, runes in `.svelte` components
-and `.svelte.js` modules. Imports use the `#lib` package alias with explicit `.js` extensions (the
-`imports` field in `package.json`). Prettier with tabs, JSDoc types everywhere, vitest for tests
-(see Tests). The `layers` branch hosts an experimental puzzle variant developed across several
-sessions — detailed docs live in `agent-doc/`.
+Web-based logic puzzle game, SvelteKit + Svelte 5.
 
-## Tests
+## Puzzle
 
-- Agents, one shot: `npx vitest run` — the full suite, ~25 s.
-- `npm run test` is the same suite in vitest **watch mode** — interactive, meant for humans.
-- Layered test suite:
-  `npx vitest run src/lib/puzzle/generator/generator-layers.test.js src/lib/puzzle/game/game-layers.svelte.test.js src/lib/puzzle/solver/solver.test.js`
+Classic rules: every grid cell has a rotatable tile with a pipe piece. Rotate all tiles so that
+pipes form a single spanning tree - everything connected, no loops.
 
-## The "layers" variant
+Current branch focuses on developing the multipipes variant where every tile may hold not one but
+several independent pipes:
 
-Classic rules: every cell has one pipe piece (bitmask of open edges), rotate all pieces to form a
-single spanning tree, no loops, everything connected.
+- pipes don't connect to each other within a tile
+- at most one pipe can use any of the tile's directions
+- rotating a tile rotates all its pipes simultaneously
+- win condition is still a single spanning tree made from all the pipe pieces.
 
-Layers variant: each grid cell holds up to `num_directions` **independent layers** (sub-cells):
+Multiple grid kinds are supported including grids with mixed polygon kinds. Wrap mode offers the
+game on toroidal topology for extra challenge.
 
-- Layers within a cell never connect to each other.
-- At most one layer of a cell may use any given direction ("1 exit per cell+direction").
-- Rotating a cell rotates **all its layers simultaneously** by the same amount. Layer direction-sets
-  start disjoint and uniform shifts preserve disjointness, so this holds at all times (edge marks
-  per cell-edge stay unambiguous, two layers can never point the same way).
-- A cell can be "revisited" by the generator: that adds a new layer instead of a loop.
-- Solved condition: **one tree over all sub-cells** — every layer of every playable cell mutually
-  connected, no loops, no open ends.
+## Status overall
+
+- **generator** - classic is fine, multi is a hot vibecoded mess that needs a start over.
+- **solver** - already solves both variants by treating classic mode puzzles as single-pipe
+  multipipes. Could use some search logic tightening but nothing urgent.
+- **game** - rendering and player interaction. Already supports both variants.
+
+## Current stream
+
+Working on multipipes generator rewrite.
 
 ## Encodings
 
-- `LayeredTiles` = `Number[][]`: per cell, a list of layer bitmasks; `[]` for empty cells. Direction
-  bits per grid (square: E=1 N=2 W=4 S=8), same as classic tiles.
-- Sub-cell id = `cell + layer * grid.total`. Decode: `cell = id % total`,
-  `layer = Math.floor(id / total)`. Plain-number keys so classic Map/Set algorithms port over.
-- `validateLayers` applies to **solved** boards only — scrambled boards intentionally break mutual
-  edge matching (that is the puzzle).
+- Grid directions are encoded as bits (square: E=1 N=2 W=4 S=8)
+- Pipes are bitmasks (square 5=1|4 - a straight pipe that connects E-W)
+- Grids number their cells 0..grid.total-1. A grid cell is a polygon; index determines its type,
+  position and neighbours in all directions.
+- Classic puzzle input is `grid, tiles=Number[]` - a single pipe per grid cell, 0=empty
+- Multipipes input is `grid, tiles=Number[][]` - a list of pipes per grid cell, []=empty
+- Tile is the main puzzle object - a combo of grid cell + pipe(s) in it.
+- Different pipe pieces in the same tile act as different nodes in the puzzle's connected graph. We
+  use `pipeNodeId = tileIndex + pipeIndex * grid.total` to track connections.
 
-## Detailed docs (`agent-doc/`)
+## Tests and checks
 
-- [game.md](agent-doc/game.md) — the unified `PipesGame` (`game/game.svelte.js`, classic + layered
-  in one class) + `Tile.svelte`/`LayeredTile.svelte` + `Puzzle.svelte` wiring: state model,
-  rendering, user input, solved checking.
-- [layers-solver.md](agent-doc/layers-solver.md) — the unified `Solver` (`solver/solver.js`,
-  classic + layered in one class, like `PipesGame`): rotation state classes, sub-cell tree
-  constraint via slot components, deadend facts, propagation, search, `markAmbiguousTiles`.
-- [layers-generator.md](agent-doc/layers-generator.md) — `pregenerate_layers`, startLayers reuse via
-  `planReuse`, `LayeredGenerator` uniqueness loop, worker + `/generator-debug` tooling, convergence
-  research; differences vs classic generator.
-
-## Known quirks
-
-- `npm run check` and `npm run lint` are clean, keep them that way.
+`npx vitest run`, `npm run check`, `npm run lint` - keep them all clean
