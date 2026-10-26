@@ -17,11 +17,11 @@ import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 // the current solver (solver.js) enumerate with solve(true) on fresh
 // generated boards. The full solution set is a property of the board alone,
 // so sound + complete solvers must produce identical sets - both dedupe
-// pictures identically (same buildPossible), so solutions are comparable
+// rotations identically (same buildPossible), so solutions are comparable
 // rotation arrays and only enumeration order can differ, hence set comparison.
 //
 // Extra checks per board:
-// - every enumerated solution of both solvers must pass validateLayers;
+// - every enumerated solution of both solvers must pass validateMulti;
 // - when exactly one solution exists, markAmbiguousTiles on fresh instances
 //   must report it exactly (marked == solution, unique, numAmbiguous 0,
 //   solvable). Exact by design: the ambiguity overcount cascade needs a
@@ -176,12 +176,12 @@ function mulberry32(seed) {
 const SEED = env.FUZZ_SEED !== undefined && env.FUZZ_SEED !== '' ? Number(env.FUZZ_SEED) : null;
 
 /**
- * Deep copy of layered tiles so every solver run gets its own board
- * @param {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles} tiles
- * @returns {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles}
+ * Deep copy of multipipes tiles so every solver run gets its own board
+ * @param {Number[][]} tiles
+ * @returns {Number[][]}
  */
 function copyTiles(tiles) {
-	return tiles.map((cellLayers) => [...cellLayers]);
+	return tiles.map((pipes) => [...pipes]);
 }
 
 /**
@@ -256,9 +256,9 @@ function compareSolutionSets(baselineSolutions, currentSolutions) {
 }
 
 /**
- * Checks that every enumerated solution is a valid layered board
+ * Checks that every enumerated solution is a valid multipipes board
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles} tiles - scrambled board as given to the solver
+ * @param {Number[][]} tiles - scrambled board as given to the solver
  * @param {Number[][]} solutions
  * @returns {String} - '' when all solutions are valid, otherwise the validation error
  */
@@ -305,7 +305,7 @@ function uniqueResultDiffs(name, solution, result) {
  * Saves the discrepant board as a self-contained reproducer: rebuild the
  * grid from kind/width/height/wrap and run either solver on tiles
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {import('#lib/puzzle/generator/generator-multi.js').LayeredTiles} tiles - scrambled board as given to both solvers
+ * @param {Number[][]} tiles - scrambled board as given to both solvers
  * @param {Number} runIndex
  * @returns {String} - path of the written file
  */
@@ -334,10 +334,10 @@ function saveDiscrepancy(grid, tiles, runIndex) {
  */
 function fuzzBoard(grid, runIndex, BaselineSolver) {
 	const label = `${grid.KIND} ${grid.width}x${grid.height}${grid.wrap ? ' wrap' : ''}`;
-	const layering = 0.5 + Math.random() * 0.3;
+	const sharing = 0.5 + Math.random() * 0.3;
 	const branching = Math.random();
 	const avoidObvious = Math.random() * 0.5;
-	const solvedTiles = pregenerate_multi(grid, layering, branching, avoidObvious);
+	const solvedTiles = pregenerate_multi(grid, sharing, branching, avoidObvious);
 	validateMulti(grid, solvedTiles);
 	const tiles = randomRotate(solvedTiles, grid);
 
@@ -401,7 +401,7 @@ describe('Fuzz solve(true) solution lists: solver.js vs baseline snapshot', () =
 	const originalRandom = Math.random;
 	// paired-seed protocol: with FUZZ_SEED set, Math.random is replaced by a
 	// seeded PRNG for the duration of the run so the board sequence is
-	// reproducible; pregenerate_layers and randomRotate both consume it
+	// reproducible; pregenerate_multi and randomRotate both consume it
 	beforeAll(() => {
 		if (SEED !== null) {
 			Math.random = mulberry32(SEED);

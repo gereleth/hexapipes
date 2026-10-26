@@ -363,7 +363,7 @@ describe('Test solutions check and marking ambiguous tiles', () => {
 
 describe('Test solutions check and marking ambiguous tiles (classic input)', () => {
 	// classic Number[] tiles through the unified class: pins the constructor's
-	// one-layer normalization and the per-tile rotation output format
+	// one-pipe normalization and the per-tile rotation output format
 	it('Detects unsolvable puzzle - quickly from border constraints', () => {
 		const grid = new HexaGrid(2, 2, false);
 		const tiles = [9, 5, 5, 3];
@@ -489,7 +489,7 @@ describe('Test solver emit format (classic input)', () => {
 	});
 });
 
-describe('Test multi-layer boards', () => {
+describe('Test multipipes boards', () => {
 	it('Finds pregenerated scrambled boards solvable', () => {
 		const grids = [
 			new SquareGrid(4, 4, false),
@@ -497,9 +497,9 @@ describe('Test multi-layer boards', () => {
 			new SquareGrid(3, 4, true)
 		];
 		for (const grid of grids) {
-			const layers = pregenerate_multi(grid, 1.0, 0.5);
-			expect(() => validateMulti(grid, layers)).not.toThrow();
-			const scrambled = randomRotate(layers, grid);
+			const tiles = pregenerate_multi(grid, 1.0, 0.5);
+			expect(() => validateMulti(grid, tiles)).not.toThrow();
+			const scrambled = randomRotate(tiles, grid);
 			const solver = new Solver(scrambled, grid);
 			const { marked, solvable, unique } = solver.markAmbiguousTiles();
 			expect(solvable).toBe(true);
@@ -633,7 +633,7 @@ describe('Test Solver loop avoidance', () => {
 		solver.processDirtyTile(4);
 		expect(tile.possible.size).toEqual(1);
 	});
-	it('Puts a wall between one-layered Ts over a U-join', () => {
+	it('Puts a wall between single-pipe Ts over a U-join', () => {
 		const grid = new SquareGrid(4, 3, false);
 		const tiles = [[1], [13], [13], [4], [1], [14], [11], [4], [1], [6], [3], [4]];
 		const solver = new Solver(tiles, grid);
@@ -720,9 +720,9 @@ describe('Test hexa/octa PipeShape deductions', () => {
 		const solver = new Solver(tiles, grid);
 		const tile = solver.getTile(3);
 		expect(tile.possible.size).toBe(5);
-		for (let layers of tile.possible.values()) {
+		for (let pipes of tile.possible.values()) {
 			// no surviving orientation connects the whole E/NE/SE trio
-			expect((layers[0] & 35) === 35).toBe(false);
+			expect((pipes[0] & 35) === 35).toBe(false);
 		}
 		// control: a straight neighbour does not trigger the deduction
 		const control = new Solver([9, 9, 9, 7, 9, 9, 9, 9, 9], grid);
@@ -748,17 +748,17 @@ describe('Test hexa/octa PipeShape deductions', () => {
 		const grid = new OctaGrid(2, 2, false);
 		// tile 1 is an octagon missing only W (a psi-like union), tile 4 is a
 		// square connecting NE + SW (no adjacent connections). Tile 0's union
-		// is an E-W straight [17]; tile 2 holds two layers with union 26, which
-		// keeps the board layered without changing the unions tile 0 sees.
+		// is an E-W straight [17]; tile 2 holds two pipes with union 26, which
+		// keeps the board mu;to without changing the unions tile 0 sees.
 		// The rotation connecting SE + NW would wall off the psi-like while
 		// connecting into the square, which is impossible.
 		const tiles = [[17], [239], [2, 24], [17], [34], [], [], []];
 		const solver = new Solver(tiles, grid);
 		const tile = solver.getTile(0);
 		expect(tile.possible.size).toBe(3);
-		for (let layers of tile.possible.values()) {
+		for (let pipes of tile.possible.values()) {
 			// no surviving orientation connects SE without also connecting E
-			expect((layers[0] & 128) > 0 && (layers[0] & 1) === 0).toBe(false);
+			expect((pipes[0] & 128) > 0 && (pipes[0] & 1) === 0).toBe(false);
 		}
 		// control: a non-psi-like eastern neighbour (missing W and SW, so it
 		// has adjacent walls) may be walled off

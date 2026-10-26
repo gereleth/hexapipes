@@ -248,7 +248,7 @@ export class RegularPolygonCell {
 		}
 	}
 	/**
-	 * Slightly offset pipe centers in layered case
+	 * Slightly offset pipe centers in multipipes case
 	 * @param {Number} pipe
 	 */
 	getPipeCenter(pipe) {

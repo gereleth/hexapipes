@@ -76,7 +76,7 @@ class TileState {
 	}
 
 	/**
-	 * Union of all layer bitmasks
+	 * Union of all pipe bitmasks
 	 * @returns {Number}
 	 */
 	get pipeUnion() {
@@ -391,7 +391,7 @@ export class PipesGame {
 	}
 
 	/**
-	 * Rotate tile to a certain rotation, all layers at once.
+	 * Rotate tile to a certain rotation, all pipes at once.
 	 * The rotation is relative to the tile's initial state,
 	 * not to the current accumulated rotations
 	 * @param {Number} index
@@ -478,7 +478,7 @@ export class PipesGame {
 			if (knownDisconnected.has(pipeIndex)) {
 				this.updateOpenEnds(index, pipeIndex, true);
 			} else {
-				// recompute for layers where we don't know for sure
+				// recompute for pipes where we don't know for sure
 				// may apply island highlighting if the component ends up closed off
 				this.updateOpenEnds(index, pipeIndex);
 			}

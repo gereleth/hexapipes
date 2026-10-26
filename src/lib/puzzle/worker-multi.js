@@ -122,7 +122,7 @@ function debugStop() {
  * @param {Number} [options.sharingAmount]
  * @param {Number} [options.branchingAmount]
  * @param {Number} [options.avoidObvious]
- * @param {(Number[]|null)[]} [options.startLayers]
+ * @param {(Number[]|null)[]} [options.startTiles]
  * @param {Number} [options.reuseMinCount]
  */
 function growthStart(grid, options) {
@@ -135,7 +135,7 @@ function growthStart(grid, options) {
 		options.sharingAmount ?? 0.6,
 		options.branchingAmount ?? 0.5,
 		options.avoidObvious ?? 0,
-		options.startLayers || [],
+		options.startTiles || [],
 		options.reuseMinCount ?? 3,
 		onMove
 	);

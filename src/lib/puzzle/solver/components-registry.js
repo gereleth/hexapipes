@@ -110,15 +110,15 @@ export class ComponentsRegistry {
 	/**
 	 *
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
-	 * @param {Number} maxLayers
+	 * @param {Number} maxPipes
 	 * @param {ComponentsRegistry|undefined} parent - clone source (internal)
 	 */
-	constructor(grid, maxLayers, parent = undefined) {
+	constructor(grid, maxPipes, parent = undefined) {
 		this.grid = grid;
 		this.total = grid.total;
 		// Sizing: ND is the bit-width of the grid's DIRECTIONS (the union of
 		// every direction bit any cell can use; per-cell masks are subsets of
-		// it, so per-cell slot rows of width ND are enough). maxLayers comes
+		// it, so per-cell slot rows of width ND are enough). maxPipes comes
 		// from the actual tiles, not from num_directions. Growable arrays are
 		// sliced at used length + headroom in clones so their first append
 		// does not immediately grow-copy.
@@ -157,7 +157,7 @@ export class ComponentsRegistry {
 				Math.clz32(
 					grid.DIRECTIONS.reduce((/** @type {Number} */ a, /** @type {Number} */ b) => a | b, 0)
 				);
-			this.nodeCapacity = grid.total * maxLayers;
+			this.nodeCapacity = grid.total * maxPipes;
 			this.slotCapacity = grid.total * this.ND;
 			// components are born in addConnection (at most one per directed
 			// edge) and are never freed
