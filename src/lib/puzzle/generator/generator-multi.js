@@ -440,7 +440,7 @@ export function planReuse(grid, startTiles, reuseMinCount = 3) {
  * {type: 'merge', fromCell: Number, pipeIndex: Number, direction: Number, neighbour: Number, neighbourPipeIndex: Number}|
  * {type: 'absorb', fromCell: Number, pipeIndex: Number, direction: Number, neighbour: Number, islandCells: Number[]}|
  * {type: 'demote', fromCell: Number, tier: String}|
- * {type: 'pop', fromNode: Number}} GrowthMove
+ * {type: 'pop', fromCell: Number}} GrowthMove
  */
 
 /**
@@ -744,7 +744,7 @@ function pregenerate_multi_attempt(
 			const bestMoves = moves.length > 0 ? moves : fullyConnectedMoves;
 			if (bestMoves.length === 0) {
 				// no usable moves left, remove the node from the frontier
-				emit({ type: 'pop', fromNode });
+				emit({ type: 'pop', fromCell: fromNode });
 				removeFromTreeFrontier(tree, fromNode);
 				continue;
 			}

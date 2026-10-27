@@ -1,15 +1,15 @@
 <script>
 	import { onDestroy } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import Worker from '#lib/puzzle/worker-layers.js?worker';
+	import Worker from '#lib/puzzle/worker-multi.js?worker';
 	import SolverProgress from '#lib/puzzle/SolverProgress.svelte';
 	import MultiTile from '#lib/puzzle/MultiTile.svelte';
 	import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
 	import {
 		applyRotations,
-		buildStartLayers,
+		buildStartTiles,
 		planReuse
-	} from '#lib/puzzle/generator/generator-layers.js';
+	} from '#lib/puzzle/generator/generator-multi.js';
 	import { createGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 
 	/**
@@ -26,7 +26,7 @@
 	let wrap = $state(false);
 	let branchingAmount = $state(0.5);
 	let avoidObvious = $state(0.0);
-	let layeringAmount = $state(0.6);
+	let sharingAmount = $state(0.6);
 	/** 0 means the default max(100, 0.1 * total) */
 	let maxAmbiguousTiles = $state(0);
 
@@ -40,14 +40,14 @@
 	// growth animation state
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let growthGrid = $state();
-	/** @type {import('#lib/puzzle/generator/generator-layers.js').GrowthMove[]} */
+	/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove[]} */
 	let growthMoves = $state([]);
 	let growthApplied = $state(0);
 	/** @type {Number[][]} */
 	let growthLayers = $state([]);
 	/** @type {import('svelte/reactivity').SvelteSet<Number>} */
 	let growthVisited = new SvelteSet();
-	/** @type {import('#lib/puzzle/generator/generator-layers.js').GrowthMove|null} */
+	/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove|null} */
 	let growthLastMove = $state(null);
 	/** @type {Number[]} */
 	let growthHighlightCells = $state([]);
@@ -63,7 +63,7 @@
 	let hasWorker = $state(false);
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let runGrid = $state();
-	/** @type {import('#lib/puzzle/generator/generator-layers.js').IterationSnapshot[]} */
+	/** @type {import('#lib/puzzle/generator/generator-multi.js').IterationSnapshot[]} */
 	let snapshots = $state([]);
 	let viewIndex = $state(-1);
 
@@ -137,11 +137,7 @@
 		if (!viewSnapshot || !runGrid) {
 			return null;
 		}
-		return planReuse(
-			runGrid,
-			buildStartLayers(runGrid, viewSnapshot.tiles, viewSnapshot.marked),
-			3
-		);
+		return planReuse(runGrid, buildStartTiles(runGrid, viewSnapshot.tiles, viewSnapshot.marked), 3);
 	});
 
 	/**
@@ -149,11 +145,11 @@
 	 * @returns {'live'|'island'|'dissolved'|'erased'}
 	 */
 	function reuseRole(index) {
-		const cellPlan = reusePlan?.cells.get(index);
+		const cellPlan = reusePlan?.tiles.get(index);
 		if (!cellPlan) {
 			return 'erased';
 		}
-		return cellPlan.layers.length > 0 ? cellPlan.role : 'dissolved';
+		return cellPlan.pipes.length > 0 ? cellPlan.role : 'dissolved';
 	}
 
 	/**
@@ -193,7 +189,7 @@
 			command: 'debug-start',
 			grid: runGrid.export(),
 			options: {
-				layeringAmount,
+				layeringAmount: sharingAmount,
 				branchingAmount,
 				avoidObvious,
 				maxAmbiguousTiles: Number(maxAmbiguousTiles) || 0,
@@ -233,7 +229,7 @@
 			stopLiveTimer();
 			liveProgress = null;
 			const snapshot =
-				/** @type {import('#lib/puzzle/generator/generator-layers.js').IterationSnapshot} */ (
+				/** @type {import('#lib/puzzle/generator/generator-multi.js').IterationSnapshot} */ (
 					event.data
 				);
 			snapshots.push(snapshot);
@@ -328,46 +324,52 @@
 		/** @type {(Number[]|null)[]} */
 		let startLayers = [];
 		if (growthSeedFromSnapshot && viewSnapshot) {
-			startLayers = buildStartLayers(growthGrid, viewSnapshot.tiles, viewSnapshot.marked);
+			startLayers = buildStartTiles(growthGrid, viewSnapshot.tiles, viewSnapshot.marked);
 		}
 		w.postMessage({
 			command: 'growth-start',
 			grid: growthGrid.export(),
-			options: { layeringAmount, branchingAmount, avoidObvious, startLayers, reuseMinCount: 3 }
+			options: {
+				layeringAmount: sharingAmount,
+				branchingAmount,
+				avoidObvious,
+				startLayers,
+				reuseMinCount: 3
+			}
 		});
 		boardMode = 'growth';
 	}
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator/generator-layers.js').GrowthMove} move
+	 * @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove} move
 	 */
 	function applyGrowthMove(move) {
 		if (move.type === 'seed') {
-			growthLayers[move.cell] = [...move.layers];
+			growthLayers[move.cell] = [...move.pipes];
 			growthVisited.add(move.cell);
 		} else if (move.type === 'erase') {
 			growthLayers[move.cell] = [];
 			growthVisited.delete(move.cell);
 		} else if (move.type === 'move') {
 			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
-			growthLayers[move.fromNode][move.layerIndex] |= move.direction;
+			growthLayers[move.fromCell][move.pipeIndex] |= move.direction;
 			growthLayers[move.neighbour].push(backDirection);
 			growthVisited.add(move.neighbour);
-			growthHighlightCells = [move.fromNode, move.neighbour];
+			growthHighlightCells = [move.fromCell, move.neighbour];
 		} else if (move.type === 'absorb') {
 			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
-			growthLayers[move.fromNode][move.layerIndex] |= move.direction;
+			growthLayers[move.fromCell][move.pipeIndex] |= move.direction;
 			growthLayers[move.neighbour][0] |= backDirection;
 			for (let cell of move.islandCells) {
 				growthVisited.add(cell);
 			}
-			growthHighlightCells = [move.fromNode, move.neighbour];
+			growthHighlightCells = [move.fromCell, move.neighbour];
 		} else if (move.type === 'merge') {
 			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
-			growthLayers[move.fromNode][move.layerIndex] |= move.direction;
-			growthLayers[move.neighbour][move.neighbourLayerIndex] |= backDirection;
-			growthHighlightCells = [move.fromNode, move.neighbour];
+			growthLayers[move.fromCell][move.pipeIndex] |= move.direction;
+			growthLayers[move.neighbour][move.neighbourPipeIndex] |= backDirection;
+			growthHighlightCells = [move.fromCell, move.neighbour];
 		} else {
 			growthHighlightCells = [];
 		}
@@ -424,7 +426,7 @@
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator/generator-layers.js').GrowthMove} move
+	 * @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove} move
 	 */
 	function describeGrowthMove(move) {
 		if (move.type === 'seed') {
@@ -434,15 +436,15 @@
 			return `erase ${move.cell}`;
 		}
 		if (move.type === 'move') {
-			return `grow ${move.fromNode} → ${move.neighbour}`;
+			return `grow ${move.fromCell} → ${move.neighbour}`;
 		}
 		if (move.type === 'absorb') {
 			return `absorb island at ${move.neighbour} (${move.islandCells.length} cells)`;
 		}
 		if (move.type === 'demote') {
-			return `demote ${move.fromNode} → ${move.tier}`;
+			return `demote ${move.fromCell} → ${move.tier}`;
 		}
-		return `pop ${move.fromNode}`;
+		return `pop ${move.fromCell}`;
 	}
 
 	onDestroy(() => {
@@ -497,8 +499,8 @@
 				<input type="range" min="0" max="1" step="0.05" bind:value={branchingAmount} />
 			</label>
 			<label>
-				Layering
-				<input type="range" min="0" max="1" step="0.05" bind:value={layeringAmount} />
+				Sharing
+				<input type="range" min="0" max="1" step="0.05" bind:value={sharingAmount} />
 			</label>
 			<label>
 				Avoid obvious
@@ -655,7 +657,7 @@
 		>
 			{#each visibleCells as cell (cell.key)}
 				{@const role = reuseRole(cell.index)}
-				{@const cellLayers = reusePlan.cells.get(cell.index)?.layers || []}
+				{@const cellLayers = reusePlan.tiles.get(cell.index)?.pipes || []}
 				<g transform="translate({cell.x},{cell.y})">
 					<path
 						d={runGrid.getCellPath(cell.index)}
@@ -760,11 +762,11 @@
 	{#if boardMode === 'reused' && viewSnapshot && reusePlan}
 		{@const s = reusePlan.stats}
 		<p class="reuse-stats">
-			keepable {s.keepableCells} cells / {s.keepableSubCells} sub-cells · live {s.liveCells}/
-			{s.liveSubCells} · islands {s.islandCells}/{s.islandSubCells} · carved {s.conflictIslands}
+			keepable {s.keepableCells} cells / {s.keepableNodes} sub-cells · live {s.liveCells}/
+			{s.liveNodes} · islands {s.islandCells}/{s.islandNodes} · carved {s.conflictIslands}
 			islands ({s.conflictWithLive} with live, {s.conflictWithIsland} with island, max
-			{s.conflictMaxIslandSize}): {s.conflictLostSubCells} sub-cells at claimed cells +
-			{s.fragmentLostSubCells} in fragments · too small {s.tooSmallLostSubCells}
+			{s.conflictMaxIslandSize}): {s.conflictLostNodes} sub-cells at claimed cells +
+			{s.fragmentLostNodes} in fragments · too small {s.tooSmallLostNodes}
 		</p>
 	{/if}
 
