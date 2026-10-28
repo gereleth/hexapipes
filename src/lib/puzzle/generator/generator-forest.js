@@ -232,7 +232,7 @@ export function directionState(grid, tiles, cell, direction) {
 }
 
 /**
- * A growth event of the forest engine, see pregenerate_forest. Every event
+ * A growth event of the forest engine, see pregenerateForest. Every event
  * is one atomic edge move: both of its pipe ends come into existence at the
  * same instant, so replaying the stream never shows an unlocked pipe end.
  * seed and extend (and share, later) push a newborn pipe at the neighbour,
@@ -304,7 +304,7 @@ function getRandomElement(array) {
 }
 
 /**
- * One growth attempt, see pregenerate_forest. Grows treeCount independent
+ * One growth attempt, see pregenerateForest. Grows treeCount independent
  * trees from farthest-point seeds until no tree can move anymore; throws
  * when cells remain uncovered (degenerate boards).
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
@@ -567,7 +567,7 @@ function validateBoard(grid) {
  * @param {(move: ForestMove) => void} [onMove] - receives growth events
  * @returns {Number[][]} - unrandomized multipipes tiles
  */
-export function pregenerate_forest(grid, knobs = {}, onMove = undefined) {
+export function pregenerateForest(grid, knobs = {}, onMove = undefined) {
 	validateBoard(grid);
 	/** @param {Number|undefined} value */
 	const clamp = (value) => Math.min(1, Math.max(0, value || 0));

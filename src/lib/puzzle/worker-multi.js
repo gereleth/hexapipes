@@ -1,5 +1,5 @@
 import { MultiGenerator } from '#lib/puzzle/generator/generator-multi.js';
-import { pregenerate_forest } from '#lib/puzzle/generator/generator-forest.js';
+import { pregenerateForest } from '#lib/puzzle/generator/generator-forest.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
@@ -130,7 +130,7 @@ function growthStart(grid, options) {
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
 	try {
 		// knob defaults live in the engine, pass the options through as-is
-		const grownTiles = pregenerate_forest(grid_, options, onMove);
+		const grownTiles = pregenerateForest(grid_, options, onMove);
 		postMessage({ msg: 'growth-done', tiles: grownTiles });
 	} catch (error) {
 		postMessage({ msg: 'error', error });

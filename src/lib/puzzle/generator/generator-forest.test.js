@@ -10,7 +10,7 @@ import {
 	directionState,
 	farthestPointSeeds,
 	moveTier,
-	pregenerate_forest
+	pregenerateForest
 } from '#lib/puzzle/generator/generator-forest.js';
 import { computeCellObviousTiles } from '#lib/puzzle/generator/generator.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
@@ -220,7 +220,7 @@ describe('Forest growth pregeneration', () => {
 					const grid = board.make();
 					/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
 					const moves = [];
-					const tiles = pregenerate_forest(grid, { branchingAmount }, (move) => moves.push(move));
+					const tiles = pregenerateForest(grid, { branchingAmount }, (move) => moves.push(move));
 					const { components } = boardInvariants(grid, tiles);
 					expect(components).toBeGreaterThanOrEqual(1);
 					replayEvents(grid, tiles, moves);
@@ -234,7 +234,7 @@ describe('Forest growth knobs', () => {
 	it('treeCount=1 grows a single tree covering the board', () => {
 		for (let run = 0; run < 10; run++) {
 			const grid = new SquareGrid(7, 7, false);
-			const tiles = pregenerate_forest(grid, { treeCount: 1 });
+			const tiles = pregenerateForest(grid, { treeCount: 1 });
 			expect(boardInvariants(grid, tiles).components).toBe(1);
 		}
 	});
@@ -242,7 +242,7 @@ describe('Forest growth knobs', () => {
 	it('treeCount=7 grows seven trees', () => {
 		for (let run = 0; run < 10; run++) {
 			const grid = new SquareGrid(10, 10, false);
-			const tiles = pregenerate_forest(grid, { treeCount: 7 });
+			const tiles = pregenerateForest(grid, { treeCount: 7 });
 			expect(boardInvariants(grid, tiles).components).toBe(7);
 		}
 	});
@@ -250,7 +250,7 @@ describe('Forest growth knobs', () => {
 	it('The default tree count is one plus the rounded square root of the cell count', () => {
 		for (let run = 0; run < 10; run++) {
 			const grid = new SquareGrid(10, 10, false);
-			const tiles = pregenerate_forest(grid);
+			const tiles = pregenerateForest(grid);
 			expect(boardInvariants(grid, tiles).components).toBe(defaultTreeCount(100));
 		}
 	});
@@ -264,7 +264,7 @@ describe('Forest growth knobs', () => {
 		let deadends = 0;
 		let pipes = 0;
 		for (let run = 0; run < 20; run++) {
-			for (const cellPipes of pregenerate_forest(grid, knobs)) {
+			for (const cellPipes of pregenerateForest(grid, knobs)) {
 				for (const pipe of cellPipes) {
 					pipes += 1;
 					deadends += popcount(pipe) <= 1 ? 1 : 0;
@@ -283,7 +283,7 @@ describe('Forest growth knobs', () => {
 			const grid = new SquareGrid(7, 7, false);
 			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
 			const moves = [];
-			pregenerate_forest(grid, { treeCount: 1, branchingAmount: 0 }, (move) => moves.push(move));
+			pregenerateForest(grid, { treeCount: 1, branchingAmount: 0 }, (move) => moves.push(move));
 			const seen = new Set();
 			for (const move of moves) {
 				const key = `${move.fromCell}_${move.fromPipeIndex}`;
@@ -314,7 +314,7 @@ describe('Forest growth knobs', () => {
 		let straights = 0;
 		let pipes = 0;
 		for (let run = 0; run < 20; run++) {
-			const tiles = pregenerate_forest(grid, knobs);
+			const tiles = pregenerateForest(grid, knobs);
 			for (let index = 0; index < grid.total; index++) {
 				for (const pipe of tiles[index]) {
 					pipes += 1;
@@ -346,7 +346,7 @@ describe('Forest growth knobs', () => {
 		let obvious = 0;
 		let covered = 0;
 		for (let run = 0; run < 20; run++) {
-			const tiles = pregenerate_forest(grid, knobs);
+			const tiles = pregenerateForest(grid, knobs);
 			for (const [index, forbidden] of obviousTiles) {
 				covered += 1;
 				obvious += forbidden.has(tiles[index][0]) ? 1 : 0;
@@ -385,7 +385,7 @@ describe('Hard ban under randomized stress', () => {
 			};
 			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
 			const moves = [];
-			const tiles = pregenerate_forest(grid, knobs, (move) => moves.push(move));
+			const tiles = pregenerateForest(grid, knobs, (move) => moves.push(move));
 			expect(() => boardInvariants(grid, tiles)).not.toThrow();
 			expect(() => replayEvents(grid, tiles, moves)).not.toThrow();
 		}
