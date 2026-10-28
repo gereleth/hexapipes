@@ -79,3 +79,59 @@ investment).
 - [ ] Triangular boards unchanged (no parking there)
 - [ ] Growth still terminates, coverage still holds, the event stream still replays exactly
 - [ ] `npx vitest run`, `npm run check`, `npm run lint` all clean
+
+## Comments
+
+Design settled with the user before implementation (2026-10-28):
+
+1. **Both park tiers port.** Pick order [active, parked-obvious, parked-last-resort] mirroring
+   classic's [visited, avoiding, lastResortCells]. Straight demotions stay per-move tiers — they
+   never park, as in classic.
+2. **Triangular:** last-resort parking off (no clean-full tier there, classic caveat); obvious
+   parking on for classic parity — inert at the default avoidObvious=0, so "triangular unchanged"
+   holds at defaults. The acceptance bullet's "no parking there" reads as "no last-resort parking".
+3. **Pool mechanics: per-tree storage, global phase gate.** Each tree keeps three arrays of tip
+   pipe-node ids (active frontier, avoiding, lastResort); each pick round the engine picks the first
+   phase any tree can act in (active > avoiding > lastResort), then the usual two-level pick runs
+   within that phase's array: uniform tree among trees holding tips of that phase, branching blend
+   for the tip inside. "Global parking scope" is this cross-tree phase gate, not global tip lists —
+   a fully-parked tree is frozen but never wedged; it resumes when the global phase reaches its
+   pool.
+4. **Act-on-pick semantics (classic parity).** Active tip: fire if its best bucket tier is below
+   OBVIOUS; park to avoiding (best tier OBVIOUS) or lastResort (best tier CLEAN_FULL); die if no
+   buckets. Tip picked from a parked pool: re-derive (fresh dice for obvious/straight/share gate),
+   fire the best move whatever its tier, or die if none — **no park-deeper**: classic's avoiding
+   phase fires clean-full-best moves immediately (the `visited.length > 0` guard is false whenever
+   avoiding is reachable), and unconditional firing is what guarantees termination at avoidObvious=1
+   (no re-roll loop). The acting tip stays parked after firing; the newborn tip is active (classic
+   pushes the neighbour back onto visited). The opening round never parks: newborn single-end pipes
+   cannot complete a full union, and classic's park-then-immediate-drain for obvious openings nets
+   out to "fire anyway". Parking emits no event; the event stream format is untouched. Growth ends
+   when all three arrays are empty across trees.
+5. **New hard ban (user request, scope addition):** a share move (target tile already holds pipes)
+   that would complete the **source** tile's union is refused outright — never bucketed, not a
+   demotion — on all grid kinds including triangular (share moves carry no coverage, so refusing
+   them cannot stall growth; triangular's carve-out stays demotion-only). Share moves completing the
+   **target** (newborn-side) union stay clean-full-demoted and park. The monotone-parking argument
+   absorbs this unchanged: the banned move occupies the source's last free direction, and any
+   co-resident change must claim exactly that direction. Merge-phase links (ticket 03) are a
+   different move kind — whether links get the same source-completion refusal is a ticket-03
+   question, to be raised when that ticket lands.
+6. **Acceptance #3 re-baselined:** the new ban intentionally removes source-completed full unions,
+   so "not regressively reduced" now means: record before/after full-multi counts here, and assert
+   newborn-side crossings (square X tiles of two straights) still appear at sharing > 0.
+7. **Acceptance #1 threshold:** implement, measure, then pin the strictest robust threshold (likely
+   0 or ≤1 total single-pipe full tiles across sampled runs). The plus problem is square-specific at
+   sharing 0 — hex needs a 6-ended single pipe (measured ~0 already); triangular's ~20 full singles
+   per 128 cells are untouchable (no demotion there).
+
+Fresh baselines measured 2026-10-28 (30 runs each, full tiles per run, /400 or noted cells):
+
+- square 20×20 sharing 0: full-single 0.2 (winding) / 19.2 (bushy), full-multi 0
+- square 20×20 sharing 0.6: winding 17.1 single / 59.4 multi / 180.3 shared tiles; bushy 28.9 single
+  / 27.4 multi / 156.8 shared
+- square 20×20 sharing 1 winding: 14.2 single / 170.5 multi / 286.2 shared tiles
+- hex 12×10 (120 cells) sharing 0: 0.0 (winding) / 0.1 (bushy) full-single
+- triangular 10×10 (128 cells) sharing 0 bushy: 19.9 full-single — sharing-0 reference for "parking
+  doesn't engage on triangular"; sharing > 0 triangular boards change via decision 5's ban, by
+  intent
