@@ -44,3 +44,15 @@ Working on multipipes generator rewrite.
 ## Tests and checks
 
 `npx vitest run`, `npm run check`, `npm run lint` - keep them all clean
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as local markdown files under `.scratch/<feature>/`. See
+`docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` + `docs/adr/`, created lazily by /domain-modeling. See
+`docs/agents/domain.md`.
