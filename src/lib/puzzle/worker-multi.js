@@ -118,8 +118,10 @@ function debugStop() {
 
 /**
  * Runs one forest-engine growth pass and streams its growth events for
- * animation: several trees grow from spatially balanced seeds until they
- * cover every non-empty cell (sharing and merging arrive in later tickets)
+ * animation: several trees grow from spatially balanced seeds until none
+ * of them can move; per the sharing knob, tips reaching foreign cells
+ * birth new pipes there, braiding trees through each other's territory
+ * (the merge into one tree arrives in a later ticket)
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
  * @param {import('#lib/puzzle/generator/generator-forest.js').ForestKnobs} options
  */

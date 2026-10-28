@@ -215,17 +215,21 @@ describe('Forest growth pregeneration', () => {
 
 	for (const board of boards) {
 		for (const branchingAmount of [0, 0.5, 1]) {
-			it(`Grows a covering forest on ${board.name}, branching=${branchingAmount}`, () => {
-				for (let run = 0; run < 10; run++) {
-					const grid = board.make();
-					/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
-					const moves = [];
-					const tiles = pregenerateForest(grid, { branchingAmount }, (move) => moves.push(move));
-					const { components } = boardInvariants(grid, tiles);
-					expect(components).toBeGreaterThanOrEqual(1);
-					replayEvents(grid, tiles, moves);
-				}
-			});
+			for (const sharingAmount of [0, 1]) {
+				it(`Grows a covering forest on ${board.name}, branching=${branchingAmount}, sharing=${sharingAmount}`, () => {
+					for (let run = 0; run < 10; run++) {
+						const grid = board.make();
+						/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
+						const moves = [];
+						const tiles = pregenerateForest(grid, { branchingAmount, sharingAmount }, (move) =>
+							moves.push(move)
+						);
+						const { components } = boardInvariants(grid, tiles);
+						expect(components).toBeGreaterThanOrEqual(1);
+						replayEvents(grid, tiles, moves);
+					}
+				});
+			}
 		}
 	}
 });
@@ -381,7 +385,81 @@ describe('Forest growth knobs', () => {
 		const grid = new SquareGrid(8, 8, false);
 		const plain = obviousRatio(grid, { branchingAmount: 0.5 });
 		const avoiding = obviousRatio(grid, { branchingAmount: 0.5, avoidObvious: 1 });
-		expect(avoiding).toBeLessThan(plain);
+		// the effect is mild (measured gap ~0.05 over 100 runs), so the
+		// margin only filters sampling noise - a broken knob lands at 0
+		expect(avoiding).toBeLessThan(plain - 0.02);
+	});
+});
+
+describe('Sharing knob', () => {
+	/**
+	 * Number of tiles holding two or more pipes
+	 * @param {Number[][]} tiles
+	 */
+	function sharedTileCount(tiles) {
+		return tiles.reduce((sum, pipes) => sum + (pipes.length > 1 ? 1 : 0), 0);
+	}
+
+	it('At zero, no tile ever holds two pipes, whatever the other knobs do', () => {
+		/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid[]} */
+		const grids = [
+			new SquareGrid(6, 6, false),
+			new SquareGrid(5, 5, true),
+			new HexaGrid(5, 4, false),
+			new TrihexaGrid(3, 3, false),
+			new SnubSquareGrid(4, 4, false),
+			new TriangularGrid(4, 4, false)
+		];
+		for (let run = 0; run < 120; run++) {
+			const grid = grids[run % grids.length];
+			const tiles = pregenerateForest(grid, {
+				sharingAmount: 0,
+				branchingAmount: Math.random(),
+				avoidObvious: Math.random(),
+				avoidStraights: Math.random(),
+				treeCount: 1 + Math.floor(Math.random() * 8)
+			});
+			expect(sharedTileCount(tiles)).toBe(0);
+			expect(() => boardInvariants(grid, tiles)).not.toThrow();
+		}
+	});
+
+	it('At one, nearly every run braids: shared tiles appear on demand', () => {
+		const grid = new SquareGrid(8, 8, false);
+		let runsWithSharedTiles = 0;
+		for (let run = 0; run < 40; run++) {
+			const tiles = pregenerateForest(grid, { sharingAmount: 1, branchingAmount: 0.5 });
+			runsWithSharedTiles += sharedTileCount(tiles) > 0 ? 1 : 0;
+		}
+		expect(runsWithSharedTiles).toBeGreaterThanOrEqual(36);
+	});
+
+	it('Rises with the knob: more shared tiles at 1 than at 0.25', () => {
+		const grid = new SquareGrid(8, 8, false);
+		/**
+		 * @param {Number} sharingAmount
+		 */
+		const meanShared = (sharingAmount) => {
+			let total = 0;
+			for (let run = 0; run < 40; run++) {
+				total += sharedTileCount(pregenerateForest(grid, { sharingAmount, branchingAmount: 0.5 }));
+			}
+			return total / 40;
+		};
+		expect(meanShared(1)).toBeGreaterThan(meanShared(0.25) + 1);
+	});
+
+	it('Produces crossings on demand: square X tiles of two straights', () => {
+		const grid = new SquareGrid(8, 8, false);
+		let crossings = 0;
+		for (let run = 0; run < 40; run++) {
+			const tiles = pregenerateForest(grid, { sharingAmount: 1, branchingAmount: 0 });
+			for (const pipes of tiles) {
+				// glossary crossing on square: E|W (5) plus N|S (10) straights
+				crossings += pipes.includes(5) && pipes.includes(10) ? 1 : 0;
+			}
+		}
+		expect(crossings).toBeGreaterThan(0);
 	});
 });
 
@@ -399,7 +477,10 @@ describe('Hard ban under randomized stress', () => {
 		for (let run = 0; run < 100; run++) {
 			const grid = grids[run % grids.length];
 			const knobs = {
-				sharingAmount: Math.random(),
+				// every other run maxes sharing out so share births and their
+				// newborn hard-ban case are exercised hard, the rest rolls
+				// every knob including sharing
+				sharingAmount: run % 2 === 0 ? 1 : Math.random(),
 				branchingAmount: Math.random(),
 				avoidObvious: Math.random(),
 				avoidStraights: Math.random(),
@@ -428,10 +509,11 @@ function withHoles(total, holes) {
 }
 
 /**
- * Checks the ticket-01 board invariants and returns pipe graph stats.
- * Throws an Error naming the first broken rule: coverage, one pipe per
- * tile, mutual edge matching, one pipe end per direction, forest shape
- * (no cycles), no fully connected tile whose union contains a deadend.
+ * Checks the board invariants and returns pipe graph stats. Throws an
+ * Error naming the first broken rule: coverage of non-empty cells, valid
+ * pipes, one pipe end per direction per tile, mutual edge matching,
+ * forest shape (no cycles), no fully connected tile whose union contains
+ * a deadend.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number[][]} tiles
  * @returns {{nodes: Number, halfEdges: Number, components: Number}}
@@ -449,38 +531,50 @@ function boardInvariants(grid, tiles) {
 			}
 			continue;
 		}
-		if (tiles[index].length !== 1) {
-			throw new Error(`playable cell ${index} holds ${tiles[index].length} pipes`);
+		if (tiles[index].length === 0) {
+			throw new Error(`tile ${index} holds no pipes`);
 		}
 		const polygon = grid.polygonAt(index);
-		const pipe = tiles[index][0];
-		if (pipe === 0 || (pipe | polygon.fullyConnected) !== polygon.fullyConnected) {
-			throw new Error(`cell ${index} holds an invalid pipe ${pipe}`);
+		let union = 0;
+		let claimed = 0;
+		let deadend = false;
+		for (let p = 0; p < tiles[index].length; p++) {
+			const pipe = tiles[index][p];
+			if (pipe === 0 || (pipe | polygon.fullyConnected) !== polygon.fullyConnected) {
+				throw new Error(`cell ${index} holds an invalid pipe ${pipe}`);
+			}
+			if ((pipe & claimed) > 0) {
+				throw new Error(`tile ${index} has two pipes on direction ${pipe & claimed}`);
+			}
+			claimed |= pipe;
+			union |= pipe;
+			deadend ||= popcount(pipe) === 1;
+			adjacency.set(`${index}_${p}`, []);
+			first ||= `${index}_${p}`;
+			nodes += 1;
+			for (const direction of polygon.directions) {
+				if ((pipe & direction) === 0) {
+					continue;
+				}
+				halfEdges += 1;
+				const { neighbour, empty } = grid.findNeighbour(index, direction);
+				if (empty) {
+					throw new Error(`pipe at ${index} points at a wall in direction ${direction}`);
+				}
+				const back = grid.OPPOSITE.get(direction) || 0;
+				const matches = tiles[neighbour].filter((other) => (other & back) > 0);
+				if (matches.length !== 1) {
+					throw new Error(
+						`pipe at ${index} direction ${direction} has ${matches.length} matches at ${neighbour}`
+					);
+				}
+				adjacency
+					.get(`${index}_${p}`)
+					?.push(`${neighbour}_${tiles[neighbour].indexOf(matches[0])}`);
+			}
 		}
-		if (pipe === polygon.fullyConnected && popcount(pipe) === 1) {
-			throw new Error(`cell ${index} is a fully connected deadend`);
-		}
-		const key = `${index}_0`;
-		adjacency.set(key, []);
-		first ||= key;
-		nodes += 1;
-		for (const direction of polygon.directions) {
-			if ((pipe & direction) === 0) {
-				continue;
-			}
-			halfEdges += 1;
-			const { neighbour, empty } = grid.findNeighbour(index, direction);
-			if (empty) {
-				throw new Error(`pipe at ${index} points at a wall in direction ${direction}`);
-			}
-			const back = grid.OPPOSITE.get(direction) || 0;
-			const matches = tiles[neighbour].filter((p) => (p & back) > 0);
-			if (matches.length !== 1) {
-				throw new Error(
-					`pipe at ${index} direction ${direction} has ${matches.length} matches at ${neighbour}`
-				);
-			}
-			adjacency.get(key)?.push(`${neighbour}_0`);
+		if (union === polygon.fullyConnected && deadend) {
+			throw new Error(`tile ${index} is fully connected and contains a deadend`);
 		}
 	}
 	halfEdges /= 2;
@@ -513,7 +607,10 @@ function boardInvariants(grid, tiles) {
  * Replays growth events onto an empty board, asserting after every event
  * that all pipe ends created so far lock onto matching ends (atomicity),
  * that neither touched tile became a fully connected deadend union (hard
- * ban), and that the final board equals the returned one.
+ * ban, including the newborn pipe of extend/share/seed moves), that the
+ * union-find mirrors the moves (a share move never merges components:
+ * its component count is unchanged; pipes of one tile never share a
+ * component), and that the final board equals the returned one.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number[][]} tiles
  * @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} moves
@@ -521,6 +618,7 @@ function boardInvariants(grid, tiles) {
 function replayEvents(grid, tiles, moves) {
 	/** @type {Number[][]} */
 	const board = Array.from({ length: grid.total }, () => []);
+	const uf = new UnionFind();
 	/**
 	 * Whether the tile now holds a fully connected union containing a deadend
 	 * @param {Number} cell
@@ -536,7 +634,40 @@ function replayEvents(grid, tiles, moves) {
 		return union === polygon.fullyConnected && deadend;
 	};
 	for (const move of moves) {
+		if (move.kind === MOVE_KIND.LINK) {
+			throw new Error('growth streams contain no link moves');
+		}
+		const before = uf.count;
 		applyForestMove(grid, board, move);
+		// register what the move birthed, then lock its edge in the
+		// union-find exactly like the engine does
+		if (move.kind === MOVE_KIND.SEED) {
+			uf.add(grid.pipeNodeId(move.fromCell, move.fromPipeIndex));
+		}
+		uf.add(grid.pipeNodeId(move.neighbour, move.neighbourPipeIndex));
+		if (
+			!uf.union(
+				grid.pipeNodeId(move.fromCell, move.fromPipeIndex),
+				grid.pipeNodeId(move.neighbour, move.neighbourPipeIndex)
+			)
+		) {
+			throw new Error(`a ${move.kind} move closed a cycle`);
+		}
+		// extend and share birth one pipe and lock it onto an existing one:
+		// the component count is unchanged; a seed births two pipes joined
+		// into one new component
+		const delta = uf.count - before;
+		if (delta !== (move.kind === MOVE_KIND.SEED ? 1 : 0)) {
+			throw new Error(`a ${move.kind} move changed the component count by ${delta}`);
+		}
+		// pipes sharing a tile never connect: all roots within each touched
+		// tile are distinct
+		for (const cell of [move.fromCell, move.neighbour]) {
+			const roots = board[cell].map((_, pipeIndex) => uf.find(grid.pipeNodeId(cell, pipeIndex)));
+			if (new Set(roots).size !== roots.length) {
+				throw new Error(`two pipes of tile ${cell} share a component`);
+			}
+		}
 		if (fullyConnectedDeadend(move.fromCell)) {
 			throw new Error(`move created a fully connected deadend at ${move.fromCell}`);
 		}

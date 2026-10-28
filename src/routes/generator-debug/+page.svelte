@@ -458,9 +458,11 @@
 		sinks. The stats line under the board accounts cells and sub-cells per fate (live / islands / carved
 		around claimed cells / too small).<br />
 		Growth view (press Grow): the forest rewrite's growth phase, move by move — several trees growing
-		from spread-out seeds (branching 0 winds, branching 1 bushes) until every non-empty cell is covered.
-		Sharing events and the final merge into one tree arrive in later tickets; green cells hold pipes,
-		faint cells are not yet reached, blue outlines mark the latest move.
+		from spread-out seeds (branching 0 winds, branching 1 bushes) until no tree can move. The sharing
+		knob braids trees through each other's territory: a tip reaching a foreign cell may birth a new pipe
+		there (a share move), so tiles can hold several pipes and crossings appear; the final merge into one
+		tree arrives in a later ticket. Green cells hold pipes, faint cells are not yet reached, blue outlines
+		mark the latest move.
 	</p>
 
 	<div class="params">

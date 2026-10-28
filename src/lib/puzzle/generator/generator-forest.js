@@ -235,8 +235,9 @@ export function directionState(grid, tiles, cell, direction) {
  * A growth event of the forest engine, see pregenerateForest. Every event
  * is one atomic edge move: both of its pipe ends come into existence at the
  * same instant, so replaying the stream never shows an unlocked pipe end.
- * seed and extend (and share, later) push a newborn pipe at the neighbour,
- * link locks onto an existing pipe there.
+ * Seed births a new pipe at the source cell, every other kind extends the
+ * acting pipe there; every kind except link births the neighbour-side
+ * newborn pipe, link locks onto an existing pipe there.
  * @typedef {{type: 'move', kind: 'link'|'extend'|'share'|'seed', fromCell: Number,
  * fromPipeIndex: Number, direction: Number, neighbour: Number,
  * neighbourPipeIndex: Number}} ForestMove
@@ -268,10 +269,10 @@ export function applyForestMove(grid, board, move) {
  * Knobs of the forest generator, all complete from the start even where
  * later tickets fill the behavior in
  * @typedef {object} ForestKnobs
- * @property {Number} [sharingAmount=0] - probability of entering an occupied
- * cell by birthing a new pipe there, values in range [0,1]. Not yet
- * implemented: a tip that would enter an occupied cell extends elsewhere
- * or dies, so every tile holds at most one pipe.
+ * @property {Number} [sharingAmount=0] - probability that a pick considers
+ * the share tier at all: entering an occupied foreign cell (no pipe of the
+ * tip's tree there) by birthing a new pipe in it, values in range [0,1].
+ * Zero hard-guarantees boards where every tile holds exactly one pipe.
  * @property {Number} [branchingAmount=0.5] - frontier selection only: 0 picks
  * the most recent growth point (winding), 1 a uniform random one (bushy)
  * @property {Number} [avoidObvious=0] - demotes moves that would make a tile
@@ -312,8 +313,11 @@ function getRandomElement(array) {
 
 /**
  * One growth attempt, see pregenerateForest. Grows treeCount independent
- * trees from farthest-point seeds until no tree can move anymore; throws
- * when cells remain uncovered (degenerate boards).
+ * trees from farthest-point seeds until no tree can move anymore; a tip
+ * reaching a cell held by another tree may birth a new pipe there (a
+ * sharing event) per the sharing knob, so trees braid through each other's
+ * territory without their pipes ever connecting. Throws when cells remain
+ * uncovered (degenerate boards).
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Required<ForestKnobs>} knobs
  * @param {ForestMove[]} events - collects this attempt's growth events
@@ -352,8 +356,6 @@ function growAttempt(grid, knobs, events) {
 	);
 	const firstSeed = getRandomElement(playable);
 	const seeds = farthestPointSeeds(grid, treeCount, firstSeed);
-	/** @type {{frontier: Number[]}[]} trees as lists of growth point pipe node ids */
-	const trees = seeds.map(() => ({ frontier: [] }));
 
 	/**
 	 * State of one tile after a hypothetical move adds addedMask to one of
@@ -391,14 +393,18 @@ function growAttempt(grid, knobs, events) {
 		/** @type {{direction: Number, neighbour: Number, kind: 'link'|'extend'|'share'|'seed'}[][]} */
 		const buckets = Array.from({ length: TIER.CLEAN_FULL + 1 }, () => []);
 		if (pipeIndex < 0 && tiles[cell].length > 0) {
-			// birthing a pipe into an occupied cell is a sharing event, and
-			// sharing is not implemented: a seed walled in by an earlier
-			// opening stays dormant
+			// a seed whose cell an earlier opening occupied never grows:
+			// its tree is dropped (rare, farthest-point seeds spread out)
 			return buckets;
 		}
 		const polygon = grid.polygonAt(cell);
 		const pipe = pipeIndex >= 0 ? tiles[cell][pipeIndex] : 0;
 		const nogo = obviousTiles.get(cell);
+		// one roll per pick: with probability sharingAmount the share tier
+		// joins this pick's candidates at all
+		const shareConsidered = Math.random() < knobs.sharingAmount;
+		const tipRoot =
+			pipeIndex >= 0 && shareConsidered ? uf.find(grid.pipeNodeId(cell, pipeIndex)) : -1;
 		for (let direction of polygon.directions) {
 			if (directionState(grid, tiles, cell, direction) !== CLAIM_STATE.FREE) {
 				continue;
@@ -411,16 +417,31 @@ function growAttempt(grid, knobs, events) {
 			) {
 				continue;
 			}
-			const targetHasPipe = tiles[neighbour].length > 0;
-			if (targetHasPipe) {
-				// entering an occupied cell: a share birth is gated by the
-				// sharing knob (a later ticket), a link would merge trees
-				// mid-growth - so the tip must extend elsewhere or die
-				continue;
+			/** @type {'link'|'extend'|'share'|'seed'} */
+			let kind;
+			if (tiles[neighbour].length > 0) {
+				if (pipeIndex < 0 || !shareConsidered) {
+					// a link would merge trees mid-growth and seeds never
+					// share in - the tip must extend elsewhere or die
+					continue;
+				}
+				// sharing is foreign territory only: no pipe of the target
+				// tile may belong to the tip's own tree
+				if (
+					tiles[neighbour].some(
+						(_, otherPipeIndex) => uf.find(grid.pipeNodeId(neighbour, otherPipeIndex)) === tipRoot
+					)
+				) {
+					continue;
+				}
+				kind = MOVE_KIND.SHARE;
+			} else {
+				kind = pipeIndex >= 0 ? MOVE_KIND.EXTEND : MOVE_KIND.SEED;
 			}
-			const kind = pipeIndex >= 0 ? MOVE_KIND.EXTEND : MOVE_KIND.SEED;
 			const backDirection = /** @type {Number} */ (opposite.get(direction));
-			// hard ban: never create a fully connected tile holding a deadend
+			// hard ban: never create a fully connected tile holding a
+			// deadend - including the newborn pipe, which does not exist
+			// yet at check time (tileAfter adds its end)
 			const sourceAfter = tileAfter(cell, pipeIndex, direction);
 			const targetAfter = tileAfter(neighbour, -1, backDirection);
 			if ((sourceAfter.full && sourceAfter.deadend) || (targetAfter.full && targetAfter.deadend)) {
@@ -477,7 +498,7 @@ function growAttempt(grid, knobs, events) {
 		uf.add(neighbourNode);
 		tree.frontier.push(neighbourNode);
 		if (!uf.union(grid.pipeNodeId(cell, fromPipeIndex), neighbourNode)) {
-			throw new Error('Pregeneration: an extend or seed move closed a cycle');
+			throw new Error('Pregeneration: an extend, share or seed move closed a cycle');
 		}
 		events.push({
 			type: 'move',
@@ -491,20 +512,27 @@ function growAttempt(grid, knobs, events) {
 	};
 
 	// opening round: every tree births its seed pipe with one locked edge
-	// into a fresh neighbour cell, in shuffled order for the animation
+	// into a fresh neighbour cell, in shuffled order for the animation.
+	// A seed that cannot open (its cell taken by an earlier opening, walled
+	// in, every move banned) never gets a tree - no later phase has an
+	// empty tree to wonder about
 	/** @type {Number[]} */
 	const seedOrder = [...seeds];
 	for (let i = seedOrder.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
 		[seedOrder[i], seedOrder[j]] = [seedOrder[j], seedOrder[i]];
 	}
-	for (let t = 0; t < trees.length; t++) {
+	/** @type {{frontier: Number[]}[]} */
+	const trees = [];
+	for (let t = 0; t < seeds.length; t++) {
 		const buckets = candidateBuckets(seedOrder[t], -1);
 		const best = buckets.find((bucket) => bucket.length > 0);
-		if (best !== undefined) {
-			applyMove(trees[t], seedOrder[t], -1, getRandomElement(best));
+		if (best === undefined) {
+			continue;
 		}
-		// a seed walled in by earlier openings stays dormant and grows nothing
+		const tree = { frontier: [] };
+		trees.push(tree);
+		applyMove(tree, seedOrder[t], -1, getRandomElement(best));
 	}
 
 	// growth: a random alive tree moves at a time; tips stay candidates
@@ -555,12 +583,15 @@ function growAttempt(grid, knobs, events) {
 
 /**
  * Grows treeCount independent trees from spatially balanced seeds until
- * they cover every non-empty cell, using atomic edge moves only. This is
- * the growth core of the multipipes generator rewrite: sharing events and
- * the merge phase arrive in later tickets, so for now a tip that would
- * enter an occupied cell extends elsewhere or dies and every finished tile
- * holds at most one pipe. Only the successful attempt's events reach
- * onMove, so a replay of the stream mirrors the returned tiles exactly.
+ * none of them can move anymore, using atomic edge moves only. This is
+ * the growth core of the multipipes generator rewrite: when a tip reaches
+ * a cell held by another tree it may birth a new pipe there instead of
+ * connecting to the foreign pipe - a sharing event, gated per pick by the
+ * sharing knob - so trees braid through each other's territory while
+ * every tile's pipes stay mutually unconnected (boards are still
+ * multi-component; the merge phase arrives in a later ticket). Only the
+ * successful attempt's events reach onMove, so a replay of the stream
+ * mirrors the returned tiles exactly.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {ForestKnobs} [knobs]
  * @param {(move: ForestMove) => void} [onMove] - receives growth events
