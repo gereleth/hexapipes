@@ -312,12 +312,24 @@ function getRandomElement(array) {
 }
 
 /**
+ * A growing tree: its tips (pipe node ids) split across classic's three
+ * lists - the active frontier (classic's visited), avoiding (tips whose
+ * best move is obvious-demoted, classic parks them there) and lastResort
+ * (tips whose best move completes a clean full union). Tips move one way
+ * only: frontier -> avoiding/lastResort at park, out of a pool at death.
+ * @typedef {{frontier: Number[], avoiding: Number[], lastResort: Number[]}} Tree
+ */
+
+/**
  * One growth attempt, see pregenerateForest. Grows treeCount independent
  * trees from farthest-point seeds until no tree can move anymore; a tip
  * reaching a cell held by another tree may birth a new pipe there (a
  * sharing event) per the sharing knob, so trees braid through each other's
- * territory without their pipes ever connecting. Throws when cells remain
- * uncovered (degenerate boards).
+ * territory without their pipes ever connecting. A tip whose best move
+ * sits in the obvious or clean-full tier is not acted on - it parks in
+ * classic's avoiding/lastResort lists, and parked moves fire only when no
+ * active tip anywhere can move. Throws when cells remain uncovered
+ * (degenerate boards).
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Required<ForestKnobs>} knobs
  * @param {ForestMove[]} events - collects this attempt's growth events
@@ -447,6 +459,13 @@ function growAttempt(grid, knobs, events) {
 			if ((sourceAfter.full && sourceAfter.deadend) || (targetAfter.full && targetAfter.deadend)) {
 				continue;
 			}
+			// hard ban: a share move completing a single-pipe source union is
+			// refused on every grid kind - the fully connected single pipe is
+			// the rotation-invariant freebie, and sharing gains no coverage
+			// anyway. Multi-pipe source completions (crossings) stay demoted
+			if (kind === MOVE_KIND.SHARE && sourceAfter.full && tiles[cell].length === 1) {
+				continue;
+			}
 			const demotions = {
 				straight:
 					polygon.pipeShapes.get(pipe | direction)?.isStraight &&
@@ -470,7 +489,7 @@ function growAttempt(grid, knobs, events) {
 	 * the top are a tripwire: candidateBuckets only offers FREE
 	 * directions, so a non-FREE state here means a bug trying to
 	 * double-claim a direction.
-	 * @param {{frontier: Number[]}} tree
+	 * @param {Tree} tree
 	 * @param {Number} cell
 	 * @param {Number} pipeIndex - the tip's pipe, -1 for a seed birth
 	 * @param {{direction: Number, neighbour: Number, kind: 'link'|'extend'|'share'|'seed'}} move
@@ -522,7 +541,7 @@ function growAttempt(grid, knobs, events) {
 		const j = Math.floor(Math.random() * (i + 1));
 		[seedOrder[i], seedOrder[j]] = [seedOrder[j], seedOrder[i]];
 	}
-	/** @type {{frontier: Number[]}[]} */
+	/** @type {Tree[]} */
 	const trees = [];
 	for (let t = 0; t < seeds.length; t++) {
 		const buckets = candidateBuckets(seedOrder[t], -1);
@@ -530,32 +549,71 @@ function growAttempt(grid, knobs, events) {
 		if (best === undefined) {
 			continue;
 		}
-		const tree = { frontier: [] };
+		const tree = { frontier: [], avoiding: [], lastResort: [] };
 		trees.push(tree);
 		applyMove(tree, seedOrder[t], -1, getRandomElement(best));
 	}
 
-	// growth: a random alive tree moves at a time; tips stay candidates
-	// until they have no legal moves at all, they are never popped after
-	// a single use
+	/**
+	 * Picks the acting pool: classic's [visited, avoiding, lastResort]
+	 * priority as a global phase gate across trees. No tree drains its
+	 * parked tips while any tree still has an active one - a degenerate
+	 * plus anywhere on the board is equally bad, so it waits until it is
+	 * everyone's last resort. Within the phase the pick stays two-level:
+	 * a uniform tree among the phase's trees, then the branching blend
+	 * inside that tree's pool.
+	 * @returns {{tree: Tree, tips: Number[], parked: boolean} | null}
+	 */
+	const pickActor = () => {
+		for (const [pool, parked] of /** @type {[keyof Tree, boolean][]} */ ([
+			['frontier', false],
+			['avoiding', true],
+			['lastResort', true]
+		])) {
+			const actors = trees.filter((tree) => tree[pool].length > 0);
+			if (actors.length > 0) {
+				const tree = getRandomElement(actors);
+				return { tree, tips: tree[pool], parked };
+			}
+		}
+		return null;
+	};
+
+	// growth: tips stay candidates until they have no legal moves at all,
+	// they are never popped after a single use. A tip whose best bucket is
+	// the obvious or clean-full tier parks instead of moving; a tip picked
+	// from a parked pool fires its best re-derived move whatever its tier
+	// (fresh dice) - exactly classic draining avoiding/lastResortCells
+	// only after visited empties, and unconditional fire is what rules out
+	// an endless demotion re-roll at avoidObvious = 1
 	for (;;) {
-		const growing = trees.filter((tree) => tree.frontier.length > 0);
-		if (growing.length === 0) {
+		const actor = pickActor();
+		if (actor === null) {
 			break;
 		}
-		const tree = getRandomElement(growing);
+		const { tree, tips, parked } = actor;
 		const tipIndex =
 			Math.random() < knobs.branchingAmount
-				? Math.floor(Math.random() * tree.frontier.length)
-				: tree.frontier.length - 1;
-		const [cell, pipeIndex] = grid.cellIndexPipeIndexOf(tree.frontier[tipIndex]);
+				? Math.floor(Math.random() * tips.length)
+				: tips.length - 1;
+		const tip = tips[tipIndex];
+		const [cell, pipeIndex] = grid.cellIndexPipeIndexOf(tip);
 		const buckets = candidateBuckets(cell, pipeIndex);
-		const best = buckets.find((bucket) => bucket.length > 0);
-		if (best === undefined) {
-			tree.frontier.splice(tipIndex, 1);
+		const bestTier = buckets.findIndex((bucket) => bucket.length > 0);
+		if (bestTier === -1) {
+			// no legal move at all - the tip dies, whatever pool it is in
+			tips.splice(tipIndex, 1);
 			continue;
 		}
-		applyMove(tree, cell, pipeIndex, getRandomElement(best));
+		if (!parked && bestTier >= TIER.OBVIOUS) {
+			// park the tip: classic moves the cell from visited into
+			// avoiding (obvious demotion) or lastResortCells (clean-full
+			// demotion) instead of taking the move
+			tips.splice(tipIndex, 1);
+			(bestTier === TIER.CLEAN_FULL ? tree.lastResort : tree.avoiding).push(tip);
+			continue;
+		}
+		applyMove(tree, cell, pipeIndex, getRandomElement(buckets[bestTier]));
 	}
 
 	const uncovered = playable.filter((index) => tiles[index].length === 0);

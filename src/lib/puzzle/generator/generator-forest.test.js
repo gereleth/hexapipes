@@ -495,6 +495,192 @@ describe('Hard ban under randomized stress', () => {
 	});
 });
 
+describe('Last-resort parking', () => {
+	/**
+	 * A legal fresh-cell extend on the replayed board that would not
+	 * itself complete a full union: a free direction of a covered tile
+	 * whose neighbour is uncovered with a free answering direction. Hard
+	 * bans need no separate exclusion - a hard-banned hypothetical
+	 * completes a full union, which the last check already filters.
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {Number[][]} board
+	 * @returns {{cell: Number, direction: Number} | null}
+	 */
+	function findFreshExtend(grid, board) {
+		for (let cell = 0; cell < grid.total; cell++) {
+			if (board[cell].length === 0) {
+				continue;
+			}
+			const polygon = grid.polygonAt(cell);
+			let union = 0;
+			for (const pipe of board[cell]) {
+				union |= pipe;
+			}
+			for (const direction of polygon.directions) {
+				if ((union & direction) > 0) {
+					continue;
+				}
+				const { neighbour, empty } = grid.findNeighbour(cell, direction);
+				if (empty || board[neighbour].length > 0) {
+					continue;
+				}
+				let neighbourUnion = 0;
+				for (const pipe of board[neighbour]) {
+					neighbourUnion |= pipe;
+				}
+				const back = grid.OPPOSITE.get(direction) || 0;
+				if ((neighbourUnion & back) > 0 || (union | direction) === polygon.fullyConnected) {
+					continue;
+				}
+				return { cell, direction };
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Replays a growth stream asserting global parking: whenever a fired
+	 * move completes a pipe union, no pipe anywhere on the board had a
+	 * legal fresh-cell extend left that would not complete a full union -
+	 * the union-completing move fired only as a true last resort. Every
+	 * tile is checked, a sound superset of alive tips: dead tips have no
+	 * legal moves at death and moves only ever die.
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} moves
+	 * @returns {Number} how many union-completing moves fired
+	 */
+	function replayParkingOracle(grid, moves) {
+		/** @type {Number[][]} */
+		const board = Array.from({ length: grid.total }, () => []);
+		/**
+		 * Pipe union of a tile after a hypothetical end lands in direction
+		 * @param {Number} cell
+		 * @param {Number} direction
+		 */
+		const unionAfter = (cell, direction) => {
+			let union = 0;
+			for (const pipe of board[cell]) {
+				union |= pipe;
+			}
+			return union | direction;
+		};
+		let drains = 0;
+		for (const move of moves) {
+			const back = grid.OPPOSITE.get(move.direction) || 0;
+			const completes =
+				unionAfter(move.fromCell, move.direction) ===
+					grid.polygonAt(move.fromCell).fullyConnected ||
+				unionAfter(move.neighbour, back) === grid.polygonAt(move.neighbour).fullyConnected;
+			if (completes) {
+				drains += 1;
+				const escape = findFreshExtend(grid, board);
+				if (escape !== null) {
+					throw new Error(
+						`union-completing ${move.kind} move at ${move.fromCell} fired while a fresh ` +
+							`extend remained at ${escape.cell} direction ${escape.direction}`
+					);
+				}
+			}
+			applyForestMove(grid, board, move);
+		}
+		return drains;
+	}
+
+	it('Fires union-completing moves only when no fresh-cell extend exists anywhere', () => {
+		/** @type {{grid: import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid, knobs: import('#lib/puzzle/generator/generator-forest.js').ForestKnobs, runs: Number}[]} */
+		const configs = [
+			{
+				grid: new SquareGrid(8, 8, false),
+				knobs: { sharingAmount: 0, branchingAmount: 1 },
+				runs: 10
+			},
+			{
+				grid: new SquareGrid(8, 8, false),
+				knobs: { sharingAmount: 0, branchingAmount: 0 },
+				runs: 5
+			},
+			{ grid: new HexaGrid(6, 5, false), knobs: { sharingAmount: 0, branchingAmount: 1 }, runs: 5 },
+			// the post-coverage sharing tail keeps draining - the oracle
+			// must hold there too, and these runs keep it non-vacuous
+			{
+				grid: new SquareGrid(8, 8, false),
+				knobs: { sharingAmount: 1, branchingAmount: 0 },
+				runs: 5
+			},
+			{
+				grid: new SquareGrid(8, 8, false),
+				knobs: { sharingAmount: 1, branchingAmount: 1 },
+				runs: 5
+			}
+		];
+		let drains = 0;
+		for (const config of configs) {
+			for (let run = 0; run < config.runs; run++) {
+				/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
+				const moves = [];
+				pregenerateForest(config.grid, config.knobs, (move) => moves.push(move));
+				drains += replayParkingOracle(config.grid, moves);
+			}
+		}
+		expect(drains).toBeGreaterThan(0);
+	});
+});
+
+describe('Share-source hard ban', () => {
+	/**
+	 * Replays a growth stream asserting the share-source hard ban: no
+	 * share move may complete a single-pipe source union, on any grid
+	 * kind - that fully connected single pipe is the rotation-invariant
+	 * freebie, and sharing gains no coverage anyway. Multi-pipe source
+	 * completions (crossings such as the square X) stay legal and merely
+	 * demoted, so the variant's signature tiles remain formable
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} moves
+	 */
+	function replayShareSourceBan(grid, moves) {
+		/** @type {Number[][]} */
+		const board = Array.from({ length: grid.total }, () => []);
+		for (const move of moves) {
+			if (move.kind === MOVE_KIND.SHARE && board[move.fromCell].length === 1) {
+				const polygon = grid.polygonAt(move.fromCell);
+				let union = 0;
+				for (let i = 0; i < board[move.fromCell].length; i++) {
+					union |=
+						i === move.fromPipeIndex
+							? board[move.fromCell][i] | move.direction
+							: board[move.fromCell][i];
+				}
+				if (union === polygon.fullyConnected) {
+					throw new Error(`share move at ${move.fromCell} completes its tile's union`);
+				}
+			}
+			applyForestMove(grid, board, move);
+		}
+	}
+
+	it('Never fires a share move that completes a single-pipe source union, on any grid kind', () => {
+		/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid[]} */
+		const grids = [
+			new SquareGrid(8, 8, false),
+			new SquareGrid(6, 6, true),
+			new HexaGrid(6, 5, false),
+			new TrihexaGrid(4, 3, false),
+			new SnubSquareGrid(4, 4, false),
+			// the full-union demotion is off there, but the hard ban is not
+			new TriangularGrid(6, 6, false)
+		];
+		for (let run = 0; run < 60; run++) {
+			const grid = grids[run % grids.length];
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
+			const moves = [];
+			pregenerateForest(grid, { sharingAmount: 1, branchingAmount: Math.random() }, (move) =>
+				moves.push(move)
+			);
+			expect(() => replayShareSourceBan(grid, moves)).not.toThrow();
+		}
+	});
+});
+
 /**
  * Board tiles with some cells punched empty (0 = empty)
  * @param {Number} total
