@@ -48,6 +48,10 @@ investment).
   one-way semantics are safe, no re-derivation needed for the last-resort tier. The exception is the
   obvious parking tier: its demotion probability re-rolls per pick (classic's `avoiding` list has
   the same property), so that tier recomputes buckets at pick time, exactly like classic.
+- **No monotonicity test — deliberately.** The argument above makes one-way parking observationally
+  equivalent to re-derivation, so no seam can distinguish them; any test that tried would have to
+  re-derive the engine's bucket logic (dice included) and be tautological. It is design
+  documentation licensing the simpler implementation, nothing more.
 - **Does the obvious demotion park too?** Classic parks obvious-wanting cells in a middle list
   (`avoiding`), drained before last-resort but after normal. Parity says yes; the visible effect
   only exists at avoidObvious > 0 (default 0). Recommend porting both park tiers (obvious →
@@ -64,11 +68,12 @@ investment).
 - [ ] Sharing-0 boards are statistically at classic levels: single-pipe fully-connected tiles ~0
       across grid kinds and branching extremes (baseline to beat: 0.5-18.4 per 400 cells on square;
       classic: 0.0)
-- [ ] White-box: a last-resort move never fires while any unparked tip has a better-than-last
-      -resort move (pinned however fits — event-stream ordering or an exported picker seam)
-- [ ] The monotonicity argument (a banned/demoted move's tile has exactly one free direction, the
-      move's own; any co-resident change consumes it) is pinned by a test that would fail if parking
-      relied on re-derivation for the last-resort tier
+- [ ] White-box at sharing 0 with demotion knobs at 0 (deterministic tiers): replaying the event
+      stream, whenever a move fires that completes a full union, assert that at that moment no pipe
+      anywhere on the board had a legal fresh-cell extend that wouldn't complete a full union —
+      computable from the replayed board alone (free direction of the tile, free answering
+      direction, uncovered neighbour), checking every pipe as a sound superset of alive tips. Global
+      parking passes; per-tree parking or no parking fails
 - [ ] Multi-pipe full unions (crossings) are not regressively reduced at sharing > 0 (measure
       before/after; crossings are the variant's feature)
 - [ ] Triangular boards unchanged (no parking there)
