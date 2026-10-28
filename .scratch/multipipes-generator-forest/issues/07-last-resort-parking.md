@@ -31,18 +31,23 @@ investment).
   trees, so classic's cell-lists don't map; a tree whose every tip is parked stalls naturally
   because the picker finds no actor — no explicit tree parking should be needed, but verify that a
   tree with all tips parked and later a drained last-resort move elsewhere on the board doesn't
-  wedge (a parked tip's tile can gain a foreign newborn by sharing, which changes its buckets — see
-  the non-monotonicity note).
+  wedge.
 - **Parking scope: global across trees vs per tree.** Classic parity says global: a degenerate plus
   anywhere on the board is equally bad, so nobody takes a last-resort move while any other tip still
   has a better one. Per-tree parking would let a cornered tree melt into pluses while fresh
   territory exists elsewhere — recommend global.
-- **Parking is a pick priority, not cached state.** Classic's one-way lists are safe because a
-  classic cell's options shrink monotonically. Forest boards are NOT monotone under sharing: a
-  co-resident deadend can fatten (un-banning a previously hard-banned move, possibly at a normal
-  tier), and co-resident births can change clean-full classification. So: parked = a flag/set the
-  picker consults; buckets are always recomputed at pick time; a parked tip picked during the drain
-  whose best bucket improved below the last-resort tier moves normally again.
+- **Parking is monotone — classic's one-way lists carry over.** The worry was that sharing makes a
+  tip's options non-monotone (co-residents fatten or get born mid-growth), so parking might need
+  re-evaluation. It does not: whenever a move is hard-banned or clean-full-demoted on a side, that
+  tile's union is exactly `fullyConnected` minus the move's direction — the tile's only free
+  direction. Any co-resident change (a deadend fattening, a share birth) must claim a free direction
+  of its tile, so it consumes exactly that direction: the move dies, it is never un-banned or
+  un-demoted. New moves cannot appear either: free directions only shrink, an extend's target can
+  only become occupied (extend becomes share, a worse tier), and once a post-move union is full it
+  stays full (unions never thin). A last-resort-parked tip therefore stays parked until drained —
+  one-way semantics are safe, no re-derivation needed for the last-resort tier. The exception is the
+  obvious parking tier: its demotion probability re-rolls per pick (classic's `avoiding` list has
+  the same property), so that tier recomputes buckets at pick time, exactly like classic.
 - **Does the obvious demotion park too?** Classic parks obvious-wanting cells in a middle list
   (`avoiding`), drained before last-resort but after normal. Parity says yes; the visible effect
   only exists at avoidObvious > 0 (default 0). Recommend porting both park tiers (obvious →
@@ -61,8 +66,9 @@ investment).
       classic: 0.0)
 - [ ] White-box: a last-resort move never fires while any unparked tip has a better-than-last
       -resort move (pinned however fits — event-stream ordering or an exported picker seam)
-- [ ] Parked tips re-derive buckets at pick time; the un-ban case (co-resident deadend fattens) is
-      handled or shown unreachable
+- [ ] The monotonicity argument (a banned/demoted move's tile has exactly one free direction, the
+      move's own; any co-resident change consumes it) is pinned by a test that would fail if parking
+      relied on re-derivation for the last-resort tier
 - [ ] Multi-pipe full unions (crossings) are not regressively reduced at sharing > 0 (measure
       before/after; crossings are the variant's feature)
 - [ ] Triangular boards unchanged (no parking there)
