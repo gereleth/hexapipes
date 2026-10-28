@@ -230,6 +230,28 @@ describe('Forest growth pregeneration', () => {
 	}
 });
 
+describe('Uncoverable boards', () => {
+	it('Names the isolated playable cell instead of blaming treeCount', () => {
+		// playable center cell, every neighbour empty: no pipe can ever
+		// reach it (an atomic edge move needs two endpoints)
+		const tiles = [0, 0, 0, 0, 1, 0, 0, 0, 0];
+		const grid = new SquareGrid(3, 3, false, tiles);
+		expect(() => pregenerateForest(grid)).toThrow(
+			'cell 4 has no non-empty neighbours - no treeCount can cover it'
+		);
+	});
+
+	it('Blames treeCount when uncovered cells form a second region', () => {
+		// a strip cut in half by an empty cell, one tree: the right region
+		// stays uncovered no matter how growth rolls
+		const tiles = [1, 1, 1, 0, 1, 1];
+		const grid = new SquareGrid(6, 1, false, tiles);
+		expect(() => pregenerateForest(grid, { treeCount: 1 })).toThrow(
+			'more separated regions than trees - raise treeCount'
+		);
+	});
+});
+
 describe('Forest growth knobs', () => {
 	it('treeCount=1 grows a single tree covering the board', () => {
 		for (let run = 0; run < 10; run++) {

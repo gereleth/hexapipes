@@ -74,3 +74,8 @@ session finished:
   `applyMove`, and later mutation paths (merge links, reused-tile loading) can't fall out of sync
   with a cache that no longer exists. The spec gained a decision-provenance convention: bracketed
   `[agreed]` tags versus untagged draft statements
+- revision 2026-10-28 (agreed with the user): `validateBoard`'s upfront full-grid scan ran on every
+  generated puzzle to diagnose a defect only hand-built boards can have. The diagnostic moved into
+  the end-of-attempt uncovered check: an uncovered cell with no non-empty neighbours now names that
+  cell and throws `IsolatedCellError` (which skips the retry loop - deterministic doom), while every
+  other uncovered cell keeps the raise-treeCount stall message. Happy-path cost is now zero

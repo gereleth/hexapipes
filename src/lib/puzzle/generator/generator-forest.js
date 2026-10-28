@@ -286,6 +286,13 @@ export function applyForestMove(grid, board, move) {
 const MAX_ATTEMPTS = 20;
 
 /**
+ * A deterministic board defect no retry can fix: a playable cell walled
+ * in from all sides can never hold a pipe, because an atomic edge move
+ * needs two endpoints. Rethrown without retrying.
+ */
+class IsolatedCellError extends Error {}
+
+/**
  * Default number of trees, scaling with the board size
  * @param {Number} playableCount
  * @returns {Number}
@@ -523,35 +530,27 @@ function growAttempt(grid, knobs, events) {
 		applyMove(tree, cell, pipeIndex, getRandomElement(best));
 	}
 
-	const uncovered = playable.filter((index) => tiles[index].length === 0).length;
-	if (uncovered > 0) {
+	const uncovered = playable.filter((index) => tiles[index].length === 0);
+	if (uncovered.length > 0) {
+		// diagnose the stall: an uncovered cell with no non-empty
+		// neighbours can never be covered (no treeCount fixes it), any
+		// other uncovered cell means more regions than trees
+		const isolated = uncovered.find((index) =>
+			grid
+				.polygonAt(index)
+				.directions.every((direction) => grid.findNeighbour(index, direction).empty)
+		);
+		if (isolated !== undefined) {
+			throw new IsolatedCellError(
+				`Pregeneration: cell ${isolated} has no non-empty neighbours - no treeCount can cover it`
+			);
+		}
 		throw new Error(
-			`Pregeneration: growth stalled with ${uncovered} uncovered cells ` +
+			`Pregeneration: growth stalled with ${uncovered.length} uncovered cells ` +
 				'(the board has more separated regions than trees - raise treeCount)'
 		);
 	}
 	return tiles;
-}
-
-/**
- * Rejects boards the growth can never cover: a playable cell walled in
- * from all sides cannot hold any pipe. Deterministic, so it runs once
- * instead of inside the attempt retry loop.
- * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- */
-function validateBoard(grid) {
-	for (let index = 0; index < grid.total; index++) {
-		if (grid.emptyCells.has(index)) {
-			continue;
-		}
-		if (
-			grid
-				.polygonAt(index)
-				.directions.every((direction) => grid.findNeighbour(index, direction).empty)
-		) {
-			throw new Error(`Pregeneration: cell ${index} has no non-empty neighbours`);
-		}
-	}
 }
 
 /**
@@ -568,7 +567,6 @@ function validateBoard(grid) {
  * @returns {Number[][]} - unrandomized multipipes tiles
  */
 export function pregenerateForest(grid, knobs = {}, onMove = undefined) {
-	validateBoard(grid);
 	/** @param {Number|undefined} value */
 	const clamp = (value) => Math.min(1, Math.max(0, value || 0));
 	/** @type {Required<ForestKnobs>} */
@@ -590,7 +588,9 @@ export function pregenerateForest(grid, knobs = {}, onMove = undefined) {
 			}
 			return tiles;
 		} catch (error) {
-			if (attempt >= MAX_ATTEMPTS) {
+			// a board defect no roll of the dice can fix: fail now, the
+			// message already names the cell
+			if (error instanceof IsolatedCellError || attempt >= MAX_ATTEMPTS) {
 				throw error;
 			}
 		}
