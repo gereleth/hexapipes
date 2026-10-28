@@ -33,7 +33,8 @@ components) fail cleanly so the caller can retry — never a malformed board.
 - Heads-up from ticket 02: the test helper `replayEvents` (generator-forest.test.js) currently
   asserts after every move that all pipes within a touched tile have distinct union-find roots. That
   is a growth-phase-only invariant — once links merge components, a shared tile can legitimately
-  hold same-component pipes (connected via paths around the board). Relax it to what actually
-  survives the merge: no locked edge between two pipes of the same tile (already implied by the
-  adjacency construction) plus overall acyclicity. The per-move component-delta assertion also needs
-  a link case (delta −1, both ends existing nodes).
+  hold same-component pipes (connected via paths around the board). Drop that check after merge.
+  What survives the merge is already asserted elsewhere: one pipe end per direction per tile
+  (claimed mask + single match across each edge) and overall acyclicity (components = nodes −
+  edges). The per-move component-delta assertion also needs a link case (delta −1, both ends
+  existing nodes).
