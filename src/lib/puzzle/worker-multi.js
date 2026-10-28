@@ -1,4 +1,5 @@
-import { MultiGenerator, pregenerate_multi } from '#lib/puzzle/generator/generator-multi.js';
+import { MultiGenerator } from '#lib/puzzle/generator/generator-multi.js';
+import { pregenerate_forest } from '#lib/puzzle/generator/generator-forest.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
@@ -116,30 +117,24 @@ function debugStop() {
 }
 
 /**
- * Runs one pregeneration and streams its growth events for animation
+ * Runs one forest-engine growth pass and streams its growth events for
+ * animation: several trees grow from spatially balanced seeds until they
+ * cover every non-empty cell (sharing and merging arrive in later tickets)
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
- * @param {Object} options
- * @param {Number} [options.sharingAmount]
- * @param {Number} [options.branchingAmount]
- * @param {Number} [options.avoidObvious]
- * @param {(Number[]|null)[]} [options.startTiles]
- * @param {Number} [options.reuseMinCount]
+ * @param {import('#lib/puzzle/generator/generator-forest.js').ForestKnobs} options
  */
 function growthStart(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
-	/** @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove} move */
+	/** @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove} move */
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
-	const grownTiles = pregenerate_multi(
-		grid_,
-		options.sharingAmount ?? 0.6,
-		options.branchingAmount ?? 0.5,
-		options.avoidObvious ?? 0,
-		options.startTiles || [],
-		options.reuseMinCount ?? 3,
-		onMove
-	);
-	postMessage({ msg: 'growth-done', tiles: grownTiles });
+	try {
+		// knob defaults live in the engine, pass the options through as-is
+		const grownTiles = pregenerate_forest(grid_, options, onMove);
+		postMessage({ msg: 'growth-done', tiles: grownTiles });
+	} catch (error) {
+		postMessage({ msg: 'error', error });
+	}
 }
 
 onmessage = (e) => {

@@ -12,6 +12,7 @@ import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 import { popcount } from '#lib/puzzle/grids/bitmasks.js';
+import { applyForestMove } from '#lib/puzzle/generator/generator-forest.js';
 
 const LETTERS = { 1: 'E', 2: 'N', 4: 'W', 8: 'S' };
 
@@ -767,14 +768,13 @@ describe('Test multipipes generation worker', () => {
 			messages.find((message) => message.msg === 'growth-done')
 		);
 		expect(done?.tiles?.length).toBe(grid.total);
-		// applying the streamed events reproduces the grown board exactly
+		// the growth command runs the forest engine: every event is one
+		// atomic edge move, replaying them reproduces the grown board exactly
 		/** @type {Number[][]} */
 		const board = Array.from({ length: grid.total }, () => []);
-		applyGrowthMoves(
-			grid,
-			board,
-			moveMessages.map((message) => message.move)
-		);
+		for (const message of moveMessages) {
+			applyForestMove(grid, board, message.move);
+		}
 		expect(board).toStrictEqual(done?.tiles);
 	});
 });

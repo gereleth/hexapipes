@@ -10,13 +10,14 @@
 		buildStartTiles,
 		planReuse
 	} from '#lib/puzzle/generator/generator-multi.js';
+	import { applyForestMove, defaultTreeCount } from '#lib/puzzle/generator/generator-forest.js';
 	import { createGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 
 	/**
-	 * Debug page for the layered uniqueness generation loop:
-	 * steps the generator one solver iteration at a time and shows
-	 * the board with per-cell status (kept / ambiguous / unresolved)
-	 * so the convergence behavior can be inspected visually.
+	 * Debug page for the multipipes generator:
+	 * steps the current uniqueness loop one solver iteration at a time and
+	 * shows the board with per-cell status (kept / ambiguous / unresolved),
+	 * and plays the forest rewrite's growth phase move by move.
 	 */
 
 	/** @type {import('#lib/puzzle/grids/grids.js').GridKind}*/
@@ -26,7 +27,10 @@
 	let wrap = $state(false);
 	let branchingAmount = $state(0.5);
 	let avoidObvious = $state(0.0);
+	let avoidStraights = $state(0.0);
 	let sharingAmount = $state(0.6);
+	/** 0 means the default 1 + round(sqrt(playable cells)) */
+	let treeCount = $state(0);
 	/** 0 means the default max(100, 0.1 * total) */
 	let maxAmbiguousTiles = $state(0);
 
@@ -40,14 +44,14 @@
 	// growth animation state
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let growthGrid = $state();
-	/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove[]} */
+	/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
 	let growthMoves = $state([]);
 	let growthApplied = $state(0);
 	/** @type {Number[][]} */
-	let growthLayers = $state([]);
+	let growthTiles = $state([]);
 	/** @type {import('svelte/reactivity').SvelteSet<Number>} */
 	let growthVisited = new SvelteSet();
-	/** @type {import('#lib/puzzle/generator/generator-multi.js').GrowthMove|null} */
+	/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove|null} */
 	let growthLastMove = $state(null);
 	/** @type {Number[]} */
 	let growthHighlightCells = $state([]);
@@ -79,6 +83,27 @@
 	let trueCountRunning = $state(false);
 
 	const viewSnapshot = $derived(viewIndex >= 0 ? snapshots[viewIndex] : undefined);
+
+	/**
+	 * Board size clamped to what the current settings support: wrap needs
+	 * at least 3x3 so every cell keeps six distinct neighbours
+	 * @returns {[Number, Number]} clamped [width, height]
+	 */
+	function clampedSize() {
+		return [Math.max(width, wrap ? 3 : 1), Math.max(height, wrap ? 3 : 1)];
+	}
+
+	// tree count hint for the current settings; mixed grids hold more cells
+	// than width * height, so ask a throwaway grid for the real playable count
+	const autoTreeCount = $derived.by(() => {
+		try {
+			const [clampedWidth, clampedHeight] = clampedSize();
+			const grid = createGrid(gridKind, clampedWidth, clampedHeight, wrap);
+			return defaultTreeCount(grid.total - grid.emptyCells.size);
+		} catch {
+			return defaultTreeCount(width * height);
+		}
+	});
 	const visibleCells = $derived(
 		runGrid
 			? runGrid.getVisibleCells({
@@ -130,7 +155,7 @@
 	 * receives. Roles: live = the largest component (seeds the tree),
 	 * island = dormant islands, dissolved = dropped (too small, conflicting,
 	 * or only connected to erased cells). Cells absent from the plan were
-	 * ambiguous in this iteration. Layer masks are pruned to
+	 * ambiguous in this iteration. Pipe masks are pruned to
 	 * intra-component edges.
 	 */
 	const reusePlan = $derived.by(() => {
@@ -175,8 +200,7 @@
 	function start() {
 		stop();
 		// ensure valid sizes
-		width = Math.max(width, wrap ? 3 : 1);
-		height = Math.max(height, wrap ? 3 : 1);
+		[width, height] = clampedSize();
 		errorMessage = '';
 		snapshots = [];
 		trueCount = null;
@@ -189,11 +213,10 @@
 			command: 'debug-start',
 			grid: runGrid.export(),
 			options: {
-				layeringAmount: sharingAmount,
+				sharingAmount,
 				branchingAmount,
 				avoidObvious,
-				maxAmbiguousTiles: Number(maxAmbiguousTiles) || 0,
-				solutionsNumber: 'unique'
+				maxAmbiguousTiles: Number(maxAmbiguousTiles) || 0
 			}
 		});
 		generatorState = 'starting';
@@ -310,69 +333,42 @@
 	function grow() {
 		const w = ensureWorker();
 		// ensure valid sizes
-		width = Math.max(width, wrap ? 3 : 1);
-		height = Math.max(height, wrap ? 3 : 1);
+		[width, height] = clampedSize();
 		errorMessage = '';
 		pauseGrowth();
 		growthGrid = createGrid(gridKind, width, height, wrap);
 		growthMoves = [];
 		growthApplied = 0;
-		growthLayers = Array.from({ length: growthGrid.total }, () => []);
+		growthTiles = Array.from({ length: growthGrid.total }, () => []);
 		growthVisited.clear();
 		growthLastMove = null;
 		growthHighlightCells = [];
-		/** @type {(Number[]|null)[]} */
-		let startLayers = [];
-		if (growthSeedFromSnapshot && viewSnapshot) {
-			startLayers = buildStartTiles(growthGrid, viewSnapshot.tiles, viewSnapshot.marked);
-		}
 		w.postMessage({
 			command: 'growth-start',
 			grid: growthGrid.export(),
 			options: {
-				layeringAmount: sharingAmount,
+				sharingAmount,
 				branchingAmount,
 				avoidObvious,
-				startLayers,
-				reuseMinCount: 3
+				avoidStraights,
+				treeCount: Number(treeCount) || 0
 			}
 		});
 		boardMode = 'growth';
 	}
 
 	/**
-	 *
-	 * @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove} move
+	 * Applies one forest growth event to the animation board on top of the
+	 * shared replay helper, tracking visited cells and the latest highlight
+	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove} move
 	 */
 	function applyGrowthMove(move) {
-		if (move.type === 'seed') {
-			growthLayers[move.cell] = [...move.pipes];
-			growthVisited.add(move.cell);
-		} else if (move.type === 'erase') {
-			growthLayers[move.cell] = [];
-			growthVisited.delete(move.cell);
-		} else if (move.type === 'move') {
-			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
-			growthLayers[move.fromCell][move.pipeIndex] |= move.direction;
-			growthLayers[move.neighbour].push(backDirection);
-			growthVisited.add(move.neighbour);
-			growthHighlightCells = [move.fromCell, move.neighbour];
-		} else if (move.type === 'absorb') {
-			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
-			growthLayers[move.fromCell][move.pipeIndex] |= move.direction;
-			growthLayers[move.neighbour][0] |= backDirection;
-			for (let cell of move.islandCells) {
-				growthVisited.add(cell);
-			}
-			growthHighlightCells = [move.fromCell, move.neighbour];
-		} else if (move.type === 'merge') {
-			const backDirection = growthGrid?.OPPOSITE.get(move.direction) || 0;
-			growthLayers[move.fromCell][move.pipeIndex] |= move.direction;
-			growthLayers[move.neighbour][move.neighbourPipeIndex] |= backDirection;
-			growthHighlightCells = [move.fromCell, move.neighbour];
-		} else {
-			growthHighlightCells = [];
+		if (growthGrid) {
+			applyForestMove(growthGrid, growthTiles, move);
 		}
+		growthVisited.add(move.fromCell);
+		growthVisited.add(move.neighbour);
+		growthHighlightCells = [move.fromCell, move.neighbour];
 		growthLastMove = move;
 		growthApplied += 1;
 	}
@@ -426,25 +422,17 @@
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator/generator-multi.js').GrowthMove} move
+	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove} move
 	 */
 	function describeGrowthMove(move) {
-		if (move.type === 'seed') {
-			return `seed ${move.cell} (${move.role})`;
-		}
-		if (move.type === 'erase') {
-			return `erase ${move.cell}`;
-		}
-		if (move.type === 'move') {
-			return `grow ${move.fromCell} → ${move.neighbour}`;
-		}
-		if (move.type === 'absorb') {
-			return `absorb island at ${move.neighbour} (${move.islandCells.length} cells)`;
-		}
-		if (move.type === 'demote') {
-			return `demote ${move.fromCell} → ${move.tier}`;
-		}
-		return `pop ${move.fromCell}`;
+		/** @type {Record<String, String>} */
+		const descriptions = {
+			seed: 'seed',
+			extend: 'grow',
+			share: 'share',
+			link: 'link'
+		};
+		return `${descriptions[move.kind] || move.kind} ${move.fromCell} → ${move.neighbour}`;
 	}
 
 	onDestroy(() => {
@@ -454,11 +442,11 @@
 </script>
 
 <svelte:head>
-	<title>Layered Generator Debug</title>
+	<title>Multipipes Generator Debug</title>
 </svelte:head>
 
 <div class="container">
-	<h1>Layered Generator Debug</h1>
+	<h1>Multipipes Generator Debug</h1>
 	<p>
 		Steps the uniqueness loop one solver iteration at a time.<br />
 		Solved view: green cells were reused from the previous iteration, red cells are ambiguous, gray cells
@@ -469,8 +457,10 @@
 		into them), red tiles are erased (ambiguous cells and dissolved components); circles mark deadend
 		sinks. The stats line under the board accounts cells and sub-cells per fate (live / islands / carved
 		around claimed cells / too small).<br />
-		Growth view: the tree being grown move by move (press Grow); green cells are visited, faint cells
-		are not yet reached, blue outlines mark the latest move's cells.
+		Growth view (press Grow): the forest rewrite's growth phase, move by move — several trees growing
+		from spread-out seeds (branching 0 winds, branching 1 bushes) until every non-empty cell is covered.
+		Sharing events and the final merge into one tree arrive in later tickets; green cells hold pipes,
+		faint cells are not yet reached, blue outlines mark the latest move.
 	</p>
 
 	<div class="params">
@@ -505,6 +495,10 @@
 			<label>
 				Avoid obvious
 				<input type="range" min="0" max="1" step="0.05" bind:value={avoidObvious} />
+			</label>
+			<label>
+				Avoid straights
+				<input type="range" min="0" max="1" step="0.05" bind:value={avoidStraights} />
 			</label>
 		</div>
 		<div class="row">
@@ -543,7 +537,13 @@
 		<div class="row">
 			<button onclick={grow} disabled={generatorState === 'stepping'}>Grow</button>
 			<label>
-				<input type="checkbox" bind:checked={growthSeedFromSnapshot} /> grow from viewed iteration's survivors
+				Trees
+				<input type="number" bind:value={treeCount} min="0" step="1" />
+				(0 = auto {autoTreeCount})
+			</label>
+			<label title="Reused tiles feed the forest engine again once the regrowth ticket lands">
+				<input type="checkbox" bind:checked={growthSeedFromSnapshot} disabled />
+				grow from viewed iteration's survivors
 			</label>
 		</div>
 	</div>
@@ -657,7 +657,7 @@
 		>
 			{#each visibleCells as cell (cell.key)}
 				{@const role = reuseRole(cell.index)}
-				{@const cellLayers = reusePlan.tiles.get(cell.index)?.pipes || []}
+				{@const cellPipes = reusePlan.tiles.get(cell.index)?.pipes || []}
 				<g transform="translate({cell.x},{cell.y})">
 					<path
 						d={runGrid.getCellPath(cell.index)}
@@ -666,12 +666,12 @@
 						stroke-width="0.02"
 						style="transform: {runGrid.getCellTransformCSS(cell.index) || ''}"
 					/>
-					{#if cellLayers.length > 0}
+					{#if cellPipes.length > 0}
 						<g style="transform: {runGrid.getCellTransformCSS(cell.index) || ''}">
-							{#each cellLayers as layer, layerIndex (layerIndex)}
-								{@const path = runGrid.getPipePath(-layer, cell.index)}
+							{#each cellPipes as pipe, pipeIndex (pipeIndex)}
+								{@const path = runGrid.getPipePath(-pipe, cell.index)}
 								{@const pipeWidth = runGrid.PIPE_WIDTH * 0.7}
-								{@const isDeadend = (layer & (layer - 1)) === 0 && layer > 0}
+								{@const isDeadend = (pipe & (pipe - 1)) === 0 && pipe > 0}
 								<path
 									d={path}
 									stroke="#888"
@@ -680,7 +680,7 @@
 									stroke-linecap="round"
 								/>
 								{#if isDeadend}
-									{@const center = runGrid.polygonAt(cell.index).getPipeCenter(layer)}
+									{@const center = runGrid.polygonAt(cell.index).getPipeCenter(pipe)}
 									<circle
 										cx={center.cx}
 										cy={-center.cy}
@@ -710,7 +710,7 @@
 				growthGrid.XMIN} {growthGrid.YMAX - growthGrid.YMIN}"
 		>
 			{#each growthVisibleCells as cell (cell.key)}
-				{@const cellLayers = growthLayers[cell.index] || []}
+				{@const cellPipes = growthTiles[cell.index] || []}
 				{@const highlight = growthHighlightCells.includes(cell.index)}
 				<g transform="translate({cell.x},{cell.y})">
 					<path
@@ -720,12 +720,12 @@
 						stroke-width={highlight ? '0.08' : '0.02'}
 						style="transform: {growthGrid.getCellTransformCSS(cell.index) || ''}"
 					/>
-					{#if cellLayers.length > 0}
+					{#if cellPipes.length > 0}
 						<g style="transform: {growthGrid.getCellTransformCSS(cell.index) || ''}">
-							{#each cellLayers as layer, layerIndex (layerIndex)}
-								{@const path = growthGrid.getPipePath(-layer, cell.index)}
+							{#each cellPipes as pipe, pipeIndex (pipeIndex)}
+								{@const path = growthGrid.getPipePath(-pipe, cell.index)}
 								{@const pipeWidth = growthGrid.PIPE_WIDTH * 0.7}
-								{@const isDeadend = (layer & (layer - 1)) === 0 && layer > 0}
+								{@const isDeadend = (pipe & (pipe - 1)) === 0 && pipe > 0}
 								<path
 									d={path}
 									stroke="#888"
@@ -734,7 +734,7 @@
 									stroke-linecap="round"
 								/>
 								{#if isDeadend}
-									{@const center = growthGrid.polygonAt(cell.index).getPipeCenter(layer)}
+									{@const center = growthGrid.polygonAt(cell.index).getPipeCenter(pipe)}
 									<circle
 										cx={center.cx}
 										cy={-center.cy}

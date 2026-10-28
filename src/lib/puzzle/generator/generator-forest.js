@@ -1,0 +1,633 @@
+import { computeCellObviousTiles } from './generator.js';
+import { popcount } from '#lib/puzzle/grids/bitmasks.js';
+
+/**
+ * The four kinds of an atomic edge move, classified by what exists on each
+ * side of the edge before the move (the design doc's table):
+ *
+ *                     | B has an existing pipe | B is fresh (pipe born there) |
+ * A's pipe exists     | link (merge/revisit)   | extend (classic grow)         |
+ * new pipe born in A  | share at A             | seed (new strand start)       |
+ */
+export const MOVE_KIND = Object.freeze({
+	LINK: 'link',
+	EXTEND: 'extend',
+	SHARE: 'share',
+	SEED: 'seed'
+});
+
+/**
+ * Move tiers from best to worst. A growth point's candidates are bucketed
+ * by tier and the best non-empty tier wins; demotions push a move down.
+ */
+export const TIER = Object.freeze({
+	NORMAL: 0,
+	SHARE: 1,
+	STRAIGHT: 2,
+	OBVIOUS: 3,
+	CLEAN_FULL: 4
+});
+
+/**
+ * @param {boolean} sourceHasPipe
+ * @param {boolean} targetHasPipe
+ * @returns {String} one of MOVE_KIND values
+ */
+export function classifyMoveKind(sourceHasPipe, targetHasPipe) {
+	if (sourceHasPipe) {
+		return targetHasPipe ? MOVE_KIND.LINK : MOVE_KIND.EXTEND;
+	}
+	return targetHasPipe ? MOVE_KIND.SHARE : MOVE_KIND.SEED;
+}
+
+/**
+ * Tier of a candidate move: its kind sets the floor (sharing is only
+ * considered after plain moves), demotion flags raise it, the worst wins.
+ * @param {String} kind - one of MOVE_KIND values
+ * @param {{straight?: boolean, obvious?: boolean, cleanFull?: boolean}} [demotions]
+ * @returns {Number} one of TIER values
+ */
+export function moveTier(kind, demotions = {}) {
+	/** @type {Number} */
+	let tier = kind === MOVE_KIND.SHARE ? TIER.SHARE : TIER.NORMAL;
+	if (demotions.straight) {
+		tier = Math.max(tier, TIER.STRAIGHT);
+	}
+	if (demotions.obvious) {
+		tier = Math.max(tier, TIER.OBVIOUS);
+	}
+	if (demotions.cleanFull) {
+		tier = Math.max(tier, TIER.CLEAN_FULL);
+	}
+	return tier;
+}
+
+/**
+ * BFS hop distances from a cell over playable cells, kept as the minimum
+ * over all seeds processed so far; unreachable cells stay at Infinity
+ * (they belong to other regions behind walls).
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number} start
+ * @param {Number[]} distances - result buffer, distances[start] must be set
+ */
+function bfsDistances(grid, start, distances) {
+	const queue = [start];
+	for (let head = 0; head < queue.length; head++) {
+		const cell = queue[head];
+		for (let direction of grid.polygonAt(cell).directions) {
+			const { neighbour, empty } = grid.findNeighbour(cell, direction);
+			if (empty) {
+				continue;
+			}
+			const candidate = distances[cell] + 1;
+			if (distances[neighbour] === -1 || candidate >= distances[neighbour]) {
+				continue;
+			}
+			distances[neighbour] = candidate;
+			queue.push(neighbour);
+		}
+	}
+}
+
+/**
+ * Farthest-point sampling of seed cells over the playable cells of the
+ * grid: every next seed is the playable cell with the greatest BFS hop
+ * distance to the seeds chosen so far, which keeps the K trees spatially
+ * balanced. Unreachable cells (other regions) win the next pick, so every
+ * region gets seeded as long as the count allows.
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number} count - wanted seed count, capped at playable cells
+ * @param {Number} firstSeed - playable cell to start from
+ * @returns {Number[]} chosen seed cells, firstSeed included
+ */
+export function farthestPointSeeds(grid, count, firstSeed) {
+	if (grid.emptyCells.has(firstSeed)) {
+		throw new Error(`farthestPointSeeds: first seed ${firstSeed} is an empty cell`);
+	}
+	/** @type {Number[]} */
+	const seeds = [firstSeed];
+	const distances = Array.from({ length: grid.total }, (_, index) =>
+		grid.emptyCells.has(index) ? -1 : Infinity
+	);
+	distances[firstSeed] = 0;
+	bfsDistances(grid, firstSeed, distances);
+	const playableCount = distances.filter((d) => d !== -1).length;
+	while (seeds.length < Math.min(count, playableCount)) {
+		let farthest = -1;
+		let farthestDistance = -Infinity;
+		for (let index = 0; index < grid.total; index++) {
+			if (distances[index] > farthestDistance) {
+				farthest = index;
+				farthestDistance = distances[index];
+			}
+		}
+		seeds.push(farthest);
+		distances[farthest] = 0;
+		bfsDistances(grid, farthest, distances);
+	}
+	return seeds;
+}
+
+/**
+ * State of one direction of one tile: FREE directions host no pipe end and
+ * may be claimed by a move, CLAIMED directions are locked by a pipe end,
+ * WALL directions face an empty cell or the outside and never change.
+ */
+export const CLAIM_STATE = Object.freeze({
+	FREE: 'free',
+	CLAIMED: 'claimed',
+	WALL: 'wall'
+});
+
+/**
+ * Per-direction claims of every playable tile, see GLOSSARY: tile. Replaces
+ * the classic visited/unvisited vocabulary: a growth point is a pipe plus a
+ * FREE direction of its tile, and claiming a direction is what keeps the
+ * "at most one pipe end per direction per tile" rule true by construction.
+ */
+export class DirectionClaims {
+	/** @type {Map<Number, Map<Number, String>>} cell index => direction => state */
+	#states = new Map();
+
+	/**
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 */
+	constructor(grid) {
+		for (let index = 0; index < grid.total; index++) {
+			if (grid.emptyCells.has(index)) {
+				continue;
+			}
+			/** @type {Map<Number, String>} */
+			const directions = new Map();
+			for (let direction of grid.polygonAt(index).directions) {
+				const { empty } = grid.findNeighbour(index, direction);
+				directions.set(direction, empty ? CLAIM_STATE.WALL : CLAIM_STATE.FREE);
+			}
+			this.#states.set(index, directions);
+		}
+	}
+
+	/**
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @returns {String} one of CLAIM_STATE values
+	 */
+	state(cell, direction) {
+		const directions = this.#states.get(cell);
+		if (directions === undefined) {
+			throw new Error(`DirectionClaims: cell ${cell} is empty or out of range`);
+		}
+		const state = directions.get(direction);
+		if (state === undefined) {
+			throw new Error(`DirectionClaims: direction ${direction} is not a direction of cell ${cell}`);
+		}
+		return state;
+	}
+
+	/**
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 * @returns {boolean}
+	 */
+	isFree(cell, direction) {
+		return this.state(cell, direction) === CLAIM_STATE.FREE;
+	}
+
+	/**
+	 * Locks a direction for a pipe end. Only FREE directions can be claimed.
+	 * @param {Number} cell
+	 * @param {Number} direction
+	 */
+	claim(cell, direction) {
+		if (!this.isFree(cell, direction)) {
+			throw new Error(`DirectionClaims: ${direction} of cell ${cell} is not free`);
+		}
+		/** @type {Map<Number, String>} */ (this.#states.get(cell)).set(direction, CLAIM_STATE.CLAIMED);
+	}
+}
+
+/**
+ * Union-find over pipe node ids (see GLOSSARY: pipe node). Each locked edge
+ * unions the two pipes it connects; refusing a union inside one component
+ * is the cycle guard that keeps every tree loop-free.
+ */ export class UnionFind {
+	/** @type {Map<Number, Number>} node id => parent node id */
+	#parent = new Map();
+	/** @type {Map<Number, Number>} root id => subtree size */
+	#size = new Map();
+	/** @type {Number} number of distinct components */
+	#count = 0;
+
+	/** @param {Number} node */
+	add(node) {
+		if (this.#parent.has(node)) {
+			return false;
+		}
+		this.#parent.set(node, node);
+		this.#size.set(node, 1);
+		this.#count += 1;
+		return true;
+	}
+
+	/**
+	 * @param {Number} node
+	 * @returns {Number} root of the node's component
+	 */
+	find(node) {
+		let root = this.#parent.get(node);
+		if (root === undefined) {
+			throw new Error(`UnionFind.find: unknown node ${node}`);
+		}
+		while (root !== node) {
+			node = root;
+			root = /** @type {Number} */ (this.#parent.get(node));
+		}
+		return root;
+	}
+
+	/**
+	 * @param {Number} a
+	 * @param {Number} b
+	 * @returns {boolean} true if two components became one, false if the edge
+	 * was refused - a and b are already the same component (a cycle)
+	 */
+	union(a, b) {
+		let ra = this.find(a);
+		let rb = this.find(b);
+		if (ra === rb) {
+			return false;
+		}
+		if (/** @type {Number} */ (this.#size.get(ra)) < /** @type {Number} */ (this.#size.get(rb))) {
+			[ra, rb] = [rb, ra];
+		}
+		this.#parent.set(rb, ra);
+		this.#size.set(
+			ra,
+			/** @type {Number} */ (this.#size.get(ra)) + /** @type {Number} */ (this.#size.get(rb))
+		);
+		this.#size.delete(rb);
+		this.#count -= 1;
+		return true;
+	}
+
+	/** @returns {Number} number of components among registered nodes */
+	get count() {
+		return this.#count;
+	}
+}
+
+/**
+ * A growth event of the forest engine, see pregenerate_forest. Every event
+ * is one atomic edge move: both of its pipe ends come into existence at the
+ * same instant, so replaying the stream never shows an unlocked pipe end.
+ * seed and extend (and share, later) push a newborn pipe at the neighbour,
+ * link locks onto an existing pipe there.
+ * @typedef {{type: 'move', kind: 'link'|'extend'|'share'|'seed', fromCell: Number,
+ * fromPipeIndex: Number, direction: Number, neighbour: Number,
+ * neighbourPipeIndex: Number}} ForestMove
+ */
+
+/**
+ * Applies one growth event to a board: the replay counterpart of the
+ * engine's moves, shared by the debug animation and tests so the event
+ * stream mirrors the grown tiles exactly once everywhere.
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number[][]} board
+ * @param {ForestMove} move
+ */
+export function applyForestMove(grid, board, move) {
+	const back = grid.OPPOSITE.get(move.direction) || 0;
+	if (move.kind === MOVE_KIND.SEED) {
+		board[move.fromCell].push(move.direction);
+	} else {
+		board[move.fromCell][move.fromPipeIndex] |= move.direction;
+	}
+	if (move.kind === MOVE_KIND.LINK) {
+		board[move.neighbour][move.neighbourPipeIndex] |= back;
+	} else {
+		board[move.neighbour].push(back);
+	}
+}
+
+/**
+ * Knobs of the forest generator, all complete from the start even where
+ * later tickets fill the behavior in
+ * @typedef {object} ForestKnobs
+ * @property {Number} [sharingAmount=0] - probability of entering an occupied
+ * cell by birthing a new pipe there, values in range [0,1]. Not yet
+ * implemented: a tip that would enter an occupied cell extends elsewhere
+ * or dies, so every tile holds at most one pipe.
+ * @property {Number} [branchingAmount=0.5] - frontier selection only: 0 picks
+ * the most recent growth point (winding), 1 a uniform random one (bushy)
+ * @property {Number} [avoidObvious=0] - demotes moves that would make a tile
+ * instantly solvable from walls, values in range [0,1]
+ * @property {Number} [avoidStraights=0] - demotes moves that make a straight
+ * pipe, values in range [0,1]
+ * @property {Number} [treeCount=0] - number of trees to grow from seeds;
+ * 0 means the default 1 + round(sqrt(playable cells))
+ */
+
+/** Growth attempts before giving up on a board */
+const MAX_ATTEMPTS = 20;
+
+/**
+ * Default number of trees, scaling with the board size
+ * @param {Number} playableCount
+ * @returns {Number}
+ */
+export function defaultTreeCount(playableCount) {
+	return 1 + Math.round(Math.sqrt(playableCount));
+}
+
+/**
+ * Returns a random element from an array
+ * @param {any[]} array
+ * @returns {any}
+ */
+function getRandomElement(array) {
+	return array[Math.floor(Math.random() * array.length)];
+}
+
+/**
+ * One growth attempt, see pregenerate_forest. Grows treeCount independent
+ * trees from farthest-point seeds until no tree can move anymore; throws
+ * when cells remain uncovered (degenerate boards).
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Required<ForestKnobs>} knobs
+ * @param {ForestMove[]} events - collects this attempt's growth events
+ * @returns {Number[][]} - unrandomized multipipes tiles
+ */
+function growAttempt(grid, knobs, events) {
+	const total = grid.total;
+	/** @type {Number[][]} */
+	const tiles = Array.from({ length: total }, () => []);
+	/** @type {Number[]} playable cell indices */
+	const playable = [];
+	for (let index = 0; index < total; index++) {
+		if (!grid.emptyCells.has(index)) {
+			playable.push(index);
+		}
+	}
+	if (playable.length === 0) {
+		return tiles;
+	}
+
+	const claims = new DirectionClaims(grid);
+	const uf = new UnionFind();
+	const opposite = grid.OPPOSITE;
+	// triangular-grid caveat ported from classic: full-union demotions are
+	// skipped there, triangles need their full connections too often
+	const demoteFullUnion = grid.KIND !== 'triangular';
+
+	// classic avoid-obvious port: precomputed once at growth start over all
+	// non-empty cells; consulting already-visited cells against it is intended
+	/** @type {Map<Number, Set<Number>>} */
+	const obviousTiles =
+		knobs.avoidObvious > 0 ? computeCellObviousTiles(grid, new Set(playable)) : new Map();
+
+	const treeCount = Math.min(
+		knobs.treeCount > 0 ? knobs.treeCount : defaultTreeCount(playable.length),
+		playable.length
+	);
+	const firstSeed = getRandomElement(playable);
+	const seeds = farthestPointSeeds(grid, treeCount, firstSeed);
+	/** @type {{frontier: Number[]}[]} trees as lists of growth point pipe node ids */
+	const trees = seeds.map(() => ({ frontier: [] }));
+
+	/**
+	 * State of one tile after a hypothetical move adds addedMask to one of
+	 * its pipes (or to a newborn pipe when pipeIndex is negative)
+	 * @param {Number} cell
+	 * @param {Number} pipeIndex
+	 * @param {Number} addedMask
+	 * @returns {{full: boolean, deadend: boolean}}
+	 */
+	const tileAfter = (cell, pipeIndex, addedMask) => {
+		const polygon = grid.polygonAt(cell);
+		const pipes = tiles[cell];
+		let union = 0;
+		let deadend = false;
+		for (let i = 0; i < pipes.length; i++) {
+			const mask = i === pipeIndex ? pipes[i] | addedMask : pipes[i];
+			union |= mask;
+			deadend ||= popcount(mask) === 1;
+		}
+		if (pipeIndex < 0) {
+			union |= addedMask;
+			deadend ||= popcount(addedMask) === 1;
+		}
+		return { full: union === polygon.fullyConnected, deadend };
+	};
+
+	/**
+	 * Buckets the tip's candidate moves by tier. A pipeIndex of -1 means
+	 * the tip is a tree seed: the move births the seed pipe itself.
+	 * @param {Number} cell
+	 * @param {Number} pipeIndex
+	 * @returns {{direction: Number, neighbour: Number, kind: 'link'|'extend'|'share'|'seed'}[][]}
+	 */
+	const candidateBuckets = (cell, pipeIndex) => {
+		/** @type {{direction: Number, neighbour: Number, kind: 'link'|'extend'|'share'|'seed'}[][]} */
+		const buckets = Array.from({ length: TIER.CLEAN_FULL + 1 }, () => []);
+		if (pipeIndex < 0 && tiles[cell].length > 0) {
+			// birthing a pipe into an occupied cell is a sharing event, and
+			// sharing is not implemented: a seed walled in by an earlier
+			// opening stays dormant
+			return buckets;
+		}
+		const polygon = grid.polygonAt(cell);
+		const pipe = pipeIndex >= 0 ? tiles[cell][pipeIndex] : 0;
+		const nogo = obviousTiles.get(cell);
+		for (let direction of polygon.directions) {
+			if (!claims.isFree(cell, direction)) {
+				continue;
+			}
+			const { neighbour, empty } = grid.findNeighbour(cell, direction);
+			if (empty || !claims.isFree(neighbour, /** @type {Number} */ (opposite.get(direction)))) {
+				continue;
+			}
+			const targetHasPipe = tiles[neighbour].length > 0;
+			if (targetHasPipe) {
+				// entering an occupied cell: a share birth is gated by the
+				// sharing knob (a later ticket), a link would merge trees
+				// mid-growth - so the tip must extend elsewhere or die
+				continue;
+			}
+			const kind = pipeIndex >= 0 ? MOVE_KIND.EXTEND : MOVE_KIND.SEED;
+			const backDirection = /** @type {Number} */ (opposite.get(direction));
+			// hard ban: never create a fully connected tile holding a deadend
+			const sourceAfter = tileAfter(cell, pipeIndex, direction);
+			const targetAfter = tileAfter(neighbour, -1, backDirection);
+			if ((sourceAfter.full && sourceAfter.deadend) || (targetAfter.full && targetAfter.deadend)) {
+				continue;
+			}
+			const demotions = {
+				straight:
+					polygon.pipeShapes.get(pipe | direction)?.isStraight &&
+					Math.random() < knobs.avoidStraights,
+				obvious:
+					nogo !== undefined && Math.random() < knobs.avoidObvious && nogo.has(pipe | direction),
+				cleanFull:
+					demoteFullUnion &&
+					((sourceAfter.full && !sourceAfter.deadend) || (targetAfter.full && !targetAfter.deadend))
+			};
+			buckets[moveTier(kind, demotions)].push({ direction, neighbour, kind });
+		}
+		return buckets;
+	};
+
+	/**
+	 * Applies one atomic edge move: locks the direction on both sides,
+	 * births the newborn pipe(s) together with their first locked edge and
+	 * unions the connected pipes in the union-find
+	 * @param {{frontier: Number[]}} tree
+	 * @param {Number} cell
+	 * @param {Number} pipeIndex - the tip's pipe, -1 for a seed birth
+	 * @param {{direction: Number, neighbour: Number, kind: 'link'|'extend'|'share'|'seed'}} move
+	 */
+	const applyMove = (tree, cell, pipeIndex, move) => {
+		const backDirection = /** @type {Number} */ (opposite.get(move.direction));
+		let fromPipeIndex = pipeIndex;
+		if (pipeIndex < 0) {
+			tiles[cell].push(move.direction);
+			fromPipeIndex = tiles[cell].length - 1;
+			claims.claim(cell, move.direction);
+			const sourceNode = grid.pipeNodeId(cell, fromPipeIndex);
+			uf.add(sourceNode);
+			tree.frontier.push(sourceNode);
+		} else {
+			tiles[cell][pipeIndex] |= move.direction;
+			claims.claim(cell, move.direction);
+		}
+		tiles[move.neighbour].push(backDirection);
+		claims.claim(move.neighbour, backDirection);
+		const neighbourNode = grid.pipeNodeId(move.neighbour, tiles[move.neighbour].length - 1);
+		uf.add(neighbourNode);
+		tree.frontier.push(neighbourNode);
+		if (!uf.union(grid.pipeNodeId(cell, fromPipeIndex), neighbourNode)) {
+			throw new Error('Pregeneration: an extend or seed move closed a cycle');
+		}
+		events.push({
+			type: 'move',
+			kind: move.kind,
+			fromCell: cell,
+			fromPipeIndex,
+			direction: move.direction,
+			neighbour: move.neighbour,
+			neighbourPipeIndex: tiles[move.neighbour].length - 1
+		});
+	};
+
+	// opening round: every tree births its seed pipe with one locked edge
+	// into a fresh neighbour cell, in shuffled order for the animation
+	/** @type {Number[]} */
+	const seedOrder = [...seeds];
+	for (let i = seedOrder.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[seedOrder[i], seedOrder[j]] = [seedOrder[j], seedOrder[i]];
+	}
+	for (let t = 0; t < trees.length; t++) {
+		const buckets = candidateBuckets(seedOrder[t], -1);
+		const best = buckets.find((bucket) => bucket.length > 0);
+		if (best !== undefined) {
+			applyMove(trees[t], seedOrder[t], -1, getRandomElement(best));
+		}
+		// a seed walled in by earlier openings stays dormant and grows nothing
+	}
+
+	// growth: a random alive tree moves at a time; tips stay candidates
+	// until they have no legal moves at all, they are never popped after
+	// a single use
+	for (;;) {
+		const growing = trees.filter((tree) => tree.frontier.length > 0);
+		if (growing.length === 0) {
+			break;
+		}
+		const tree = getRandomElement(growing);
+		const tipIndex =
+			Math.random() < knobs.branchingAmount
+				? Math.floor(Math.random() * tree.frontier.length)
+				: tree.frontier.length - 1;
+		const [cell, pipeIndex] = grid.cellIndexPipeIndexOf(tree.frontier[tipIndex]);
+		const buckets = candidateBuckets(cell, pipeIndex);
+		const best = buckets.find((bucket) => bucket.length > 0);
+		if (best === undefined) {
+			tree.frontier.splice(tipIndex, 1);
+			continue;
+		}
+		applyMove(tree, cell, pipeIndex, getRandomElement(best));
+	}
+
+	const uncovered = playable.filter((index) => tiles[index].length === 0).length;
+	if (uncovered > 0) {
+		throw new Error(
+			`Pregeneration: growth stalled with ${uncovered} uncovered cells ` +
+				'(the board has more separated regions than trees - raise treeCount)'
+		);
+	}
+	return tiles;
+}
+
+/**
+ * Rejects boards the growth can never cover: a playable cell walled in
+ * from all sides cannot hold any pipe. Deterministic, so it runs once
+ * instead of inside the attempt retry loop.
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ */
+function validateBoard(grid) {
+	for (let index = 0; index < grid.total; index++) {
+		if (grid.emptyCells.has(index)) {
+			continue;
+		}
+		if (
+			grid
+				.polygonAt(index)
+				.directions.every((direction) => grid.findNeighbour(index, direction).empty)
+		) {
+			throw new Error(`Pregeneration: cell ${index} has no non-empty neighbours`);
+		}
+	}
+}
+
+/**
+ * Grows treeCount independent trees from spatially balanced seeds until
+ * they cover every non-empty cell, using atomic edge moves only. This is
+ * the growth core of the multipipes generator rewrite: sharing events and
+ * the merge phase arrive in later tickets, so for now a tip that would
+ * enter an occupied cell extends elsewhere or dies and every finished tile
+ * holds at most one pipe. Only the successful attempt's events reach
+ * onMove, so a replay of the stream mirrors the returned tiles exactly.
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {ForestKnobs} [knobs]
+ * @param {(move: ForestMove) => void} [onMove] - receives growth events
+ * @returns {Number[][]} - unrandomized multipipes tiles
+ */
+export function pregenerate_forest(grid, knobs = {}, onMove = undefined) {
+	validateBoard(grid);
+	/** @param {Number|undefined} value */
+	const clamp = (value) => Math.min(1, Math.max(0, value || 0));
+	/** @type {Required<ForestKnobs>} */
+	const full = {
+		sharingAmount: clamp(knobs.sharingAmount),
+		branchingAmount: clamp(knobs.branchingAmount === undefined ? 0.5 : knobs.branchingAmount),
+		avoidObvious: clamp(knobs.avoidObvious),
+		avoidStraights: clamp(knobs.avoidStraights),
+		treeCount: knobs.treeCount && knobs.treeCount > 0 ? Math.round(knobs.treeCount) : 0
+	};
+	/** @type {ForestMove[]} */
+	const events = [];
+	for (let attempt = 0; ; attempt++) {
+		events.length = 0;
+		try {
+			const tiles = growAttempt(grid, full, events);
+			for (let move of events) {
+				onMove?.(move);
+			}
+			return tiles;
+		} catch (error) {
+			if (attempt >= MAX_ATTEMPTS) {
+				throw error;
+			}
+		}
+	}
+}
