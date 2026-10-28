@@ -100,7 +100,11 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
 - **Per-direction claims replace the visited/unvisited vocabulary.** Each direction of each tile is
   FREE, CLAIMED by a pipe end, or a WALL (empty cell or outside). A growth point is a pipe plus a
   FREE direction of its tile. At most one pipe per direction per tile holds structurally, by
-  construction.
+  construction. The state is derived on demand — CLAIMED is exactly "some pipe of the tile holds the
+  direction bit", WALL is exactly "the neighbour is an empty cell or the outside" — there is no
+  claim map cached beside the tiles. [revised 2026-10-28, agreed: the first implementation cached
+  claims in a mutable class synced by hand with every move; the user called the cache redundant and
+  later tickets add more mutation paths, so it was replaced by the pure derivation]
 - **Union-find over pipe nodes with a cycle guard.** Each pipe is a node (identity stays the
   established encoding: tile index plus pipe index times grid total). Each locked edge unions its
   two pipes. A move joining two ends of the same component is refused. Component count is the
@@ -154,10 +158,12 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   growth start over all non-empty cells, and consulting already-visited cells against it is intended
   behavior. Frontier cells stay move candidates until they have no legal moves — never popped after
   a single use.
-- **Internals for white-box tests.** The union-find over pipe nodes and the per-direction claim/tier
-  machinery are exported as importable units so cycle refusal, tier classification, and claim
-  transitions can be unit-tested directly (seam decision made with the user: public API + solver
-  oracle, plus these exported internals).
+- **Internals for white-box tests.** The union-find over pipe nodes and the claim/tier functions
+  (the direction-state derivation and the tier classification) are exported as importable units so
+  cycle refusal, tier classification, and claim-state derivation can be unit-tested directly. Seam
+  decision provenance: the seam itself — public API + solver oracle — was explicitly agreed with the
+  user; the exported-internals detail was spec drafting that slid by in review and is open to
+  challenge (the claim cache part was challenged and dropped, see the claims bullet).
 
 ## Testing Decisions
 
@@ -192,6 +198,9 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
 
 ## Further Notes
 
+- Decision provenance in Implementation Decisions: bracketed `[agreed YYYY-MM-DD]` tags mark
+  decisions explicitly confirmed with the user; everything untagged is spec drafting that has not
+  been individually reviewed — challenge freely, none of it is sacred.
 - Ticket ordering should front-load the aesthetic gate: once growth + merge produce viewable boards
   on the debug page, evaluate forest sharing before investing in the uniqueness loop — that is the
   decision point for switching to the scheduled fallback.

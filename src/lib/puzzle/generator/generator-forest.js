@@ -129,9 +129,10 @@ export function farthestPointSeeds(grid, count, firstSeed) {
 }
 
 /**
- * State of one direction of one tile: FREE directions host no pipe end and
- * may be claimed by a move, CLAIMED directions are locked by a pipe end,
- * WALL directions face an empty cell or the outside and never change.
+ * State of one direction of one tile, see GLOSSARY: tile. Replaces
+ * the classic visited/unvisited vocabulary: a growth point is a pipe plus
+ * a FREE direction of its tile, and at most one pipe end per direction
+ * per tile holds by construction.
  */
 export const CLAIM_STATE = Object.freeze({
 	FREE: 'free',
@@ -140,70 +141,24 @@ export const CLAIM_STATE = Object.freeze({
 });
 
 /**
- * Per-direction claims of every playable tile, see GLOSSARY: tile. Replaces
- * the classic visited/unvisited vocabulary: a growth point is a pipe plus a
- * FREE direction of its tile, and claiming a direction is what keeps the
- * "at most one pipe end per direction per tile" rule true by construction.
+ * Derives the claim state of one direction of one tile from the board on
+ * demand: CLAIMED is exactly "some pipe of the tile holds the direction
+ * bit" and WALL is exactly "the neighbour is an empty cell or the
+ * outside". Keeping no second claim map means there is nothing to fall
+ * out of sync with the tiles when later tickets add mutation paths.
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number[][]} tiles
+ * @param {Number} cell
+ * @param {Number} direction
+ * @returns {String} one of CLAIM_STATE values
  */
-export class DirectionClaims {
-	/** @type {Map<Number, Map<Number, String>>} cell index => direction => state */
-	#states = new Map();
-
-	/**
-	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
-	 */
-	constructor(grid) {
-		for (let index = 0; index < grid.total; index++) {
-			if (grid.emptyCells.has(index)) {
-				continue;
-			}
-			/** @type {Map<Number, String>} */
-			const directions = new Map();
-			for (let direction of grid.polygonAt(index).directions) {
-				const { empty } = grid.findNeighbour(index, direction);
-				directions.set(direction, empty ? CLAIM_STATE.WALL : CLAIM_STATE.FREE);
-			}
-			this.#states.set(index, directions);
-		}
+export function directionState(grid, tiles, cell, direction) {
+	if (grid.findNeighbour(cell, direction).empty) {
+		return CLAIM_STATE.WALL;
 	}
-
-	/**
-	 * @param {Number} cell
-	 * @param {Number} direction
-	 * @returns {String} one of CLAIM_STATE values
-	 */
-	state(cell, direction) {
-		const directions = this.#states.get(cell);
-		if (directions === undefined) {
-			throw new Error(`DirectionClaims: cell ${cell} is empty or out of range`);
-		}
-		const state = directions.get(direction);
-		if (state === undefined) {
-			throw new Error(`DirectionClaims: direction ${direction} is not a direction of cell ${cell}`);
-		}
-		return state;
-	}
-
-	/**
-	 * @param {Number} cell
-	 * @param {Number} direction
-	 * @returns {boolean}
-	 */
-	isFree(cell, direction) {
-		return this.state(cell, direction) === CLAIM_STATE.FREE;
-	}
-
-	/**
-	 * Locks a direction for a pipe end. Only FREE directions can be claimed.
-	 * @param {Number} cell
-	 * @param {Number} direction
-	 */
-	claim(cell, direction) {
-		if (!this.isFree(cell, direction)) {
-			throw new Error(`DirectionClaims: ${direction} of cell ${cell} is not free`);
-		}
-		/** @type {Map<Number, String>} */ (this.#states.get(cell)).set(direction, CLAIM_STATE.CLAIMED);
-	}
+	return tiles[cell].some((pipe) => (pipe & direction) > 0)
+		? CLAIM_STATE.CLAIMED
+		: CLAIM_STATE.FREE;
 }
 
 /**
@@ -372,7 +327,6 @@ function growAttempt(grid, knobs, events) {
 		return tiles;
 	}
 
-	const claims = new DirectionClaims(grid);
 	const uf = new UnionFind();
 	const opposite = grid.OPPOSITE;
 	// triangular-grid caveat ported from classic: full-union demotions are
@@ -439,11 +393,15 @@ function growAttempt(grid, knobs, events) {
 		const pipe = pipeIndex >= 0 ? tiles[cell][pipeIndex] : 0;
 		const nogo = obviousTiles.get(cell);
 		for (let direction of polygon.directions) {
-			if (!claims.isFree(cell, direction)) {
+			if (directionState(grid, tiles, cell, direction) !== CLAIM_STATE.FREE) {
 				continue;
 			}
 			const { neighbour, empty } = grid.findNeighbour(cell, direction);
-			if (empty || !claims.isFree(neighbour, /** @type {Number} */ (opposite.get(direction)))) {
+			if (
+				empty ||
+				directionState(grid, tiles, neighbour, /** @type {Number} */ (opposite.get(direction))) !==
+					CLAIM_STATE.FREE
+			) {
 				continue;
 			}
 			const targetHasPipe = tiles[neighbour].length > 0;
@@ -477,9 +435,13 @@ function growAttempt(grid, knobs, events) {
 	};
 
 	/**
-	 * Applies one atomic edge move: locks the direction on both sides,
-	 * births the newborn pipe(s) together with their first locked edge and
-	 * unions the connected pipes in the union-find
+	 * Applies one atomic edge move: births the newborn pipe(s) together
+	 * with their first locked edge and unions the connected pipes in the
+	 * union-find. Claim states follow from the pipe bits (see
+	 * directionState), so nothing is synced by hand - the FREE checks at
+	 * the top are a tripwire: candidateBuckets only offers FREE
+	 * directions, so a non-FREE state here means a bug trying to
+	 * double-claim a direction.
 	 * @param {{frontier: Number[]}} tree
 	 * @param {Number} cell
 	 * @param {Number} pipeIndex - the tip's pipe, -1 for a seed birth
@@ -487,20 +449,23 @@ function growAttempt(grid, knobs, events) {
 	 */
 	const applyMove = (tree, cell, pipeIndex, move) => {
 		const backDirection = /** @type {Number} */ (opposite.get(move.direction));
+		if (directionState(grid, tiles, cell, move.direction) !== CLAIM_STATE.FREE) {
+			throw new Error(`applyMove: ${move.direction} of cell ${cell} is not free`);
+		}
+		if (directionState(grid, tiles, move.neighbour, backDirection) !== CLAIM_STATE.FREE) {
+			throw new Error(`applyMove: ${backDirection} of cell ${move.neighbour} is not free`);
+		}
 		let fromPipeIndex = pipeIndex;
 		if (pipeIndex < 0) {
 			tiles[cell].push(move.direction);
 			fromPipeIndex = tiles[cell].length - 1;
-			claims.claim(cell, move.direction);
 			const sourceNode = grid.pipeNodeId(cell, fromPipeIndex);
 			uf.add(sourceNode);
 			tree.frontier.push(sourceNode);
 		} else {
 			tiles[cell][pipeIndex] |= move.direction;
-			claims.claim(cell, move.direction);
 		}
 		tiles[move.neighbour].push(backDirection);
-		claims.claim(move.neighbour, backDirection);
 		const neighbourNode = grid.pipeNodeId(move.neighbour, tiles[move.neighbour].length - 1);
 		uf.add(neighbourNode);
 		tree.frontier.push(neighbourNode);

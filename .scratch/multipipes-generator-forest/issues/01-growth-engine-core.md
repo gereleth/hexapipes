@@ -67,3 +67,10 @@ session finished:
 - one full-suite run showed a single unreproduced test failure; 24 consecutive green suite runs
   since, plus a 2000-growth-per-board wrap stress with zero stall failures. If it resurfaces,
   suspect a timing-sensitive worker test first
+- revision 2026-10-28 (agreed with the user): `DirectionClaims` — a mutable per-direction cache
+  synced by hand with every move — was replaced by `directionState(grid, tiles, cell, direction)`, a
+  pure derivation (CLAIMED = some pipe of the tile holds the bit, WALL = the neighbour is empty or
+  outside). The white-box claims tests now pin the derivation, the double-claim tripwire lives in
+  `applyMove`, and later mutation paths (merge links, reused-tile loading) can't fall out of sync
+  with a cache that no longer exists. The spec gained a decision-provenance convention: bracketed
+  `[agreed]` tags versus untagged draft statements

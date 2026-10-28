@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
 	CLAIM_STATE,
-	DirectionClaims,
 	MOVE_KIND,
 	TIER,
 	UnionFind,
 	applyForestMove,
 	classifyMoveKind,
 	defaultTreeCount,
+	directionState,
 	farthestPointSeeds,
 	moveTier,
 	pregenerate_forest
@@ -72,52 +72,57 @@ describe('UnionFind over pipe nodes', () => {
 });
 
 describe('Per-direction claims', () => {
+	/**
+	 * An empty multipipes board for a grid
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @returns {Number[][]}
+	 */
+	function emptyBoard(grid) {
+		return Array.from({ length: grid.total }, () => []);
+	}
+
 	it('Marks empty cells and the outside as walls, everything else free', () => {
 		// 4x4 board with one empty cell in the middle, cell 5
 		const tiles = Array(16).fill(1);
 		tiles[5] = 0;
 		const grid = new SquareGrid(4, 4, false, tiles);
-		const claims = new DirectionClaims(grid);
+		const board = emptyBoard(grid);
 		// corner cell 0: E free, S free, N and W outside
-		expect(claims.state(0, 1)).toBe(CLAIM_STATE.FREE);
-		expect(claims.state(0, 8)).toBe(CLAIM_STATE.FREE);
-		expect(claims.state(0, 2)).toBe(CLAIM_STATE.WALL);
-		expect(claims.state(0, 4)).toBe(CLAIM_STATE.WALL);
+		expect(directionState(grid, board, 0, 1)).toBe(CLAIM_STATE.FREE);
+		expect(directionState(grid, board, 0, 8)).toBe(CLAIM_STATE.FREE);
+		expect(directionState(grid, board, 0, 2)).toBe(CLAIM_STATE.WALL);
+		expect(directionState(grid, board, 0, 4)).toBe(CLAIM_STATE.WALL);
 		// neighbours of the empty cell see a wall towards it
-		expect(claims.state(4, 1)).toBe(CLAIM_STATE.WALL);
-		expect(claims.state(1, 8)).toBe(CLAIM_STATE.WALL);
-		expect(claims.state(6, 4)).toBe(CLAIM_STATE.WALL);
-		expect(claims.state(9, 2)).toBe(CLAIM_STATE.WALL);
+		expect(directionState(grid, board, 4, 1)).toBe(CLAIM_STATE.WALL);
+		expect(directionState(grid, board, 1, 8)).toBe(CLAIM_STATE.WALL);
+		expect(directionState(grid, board, 6, 4)).toBe(CLAIM_STATE.WALL);
+		expect(directionState(grid, board, 9, 2)).toBe(CLAIM_STATE.WALL);
 		// inner cell 10 away from the hole is fully free
 		for (const direction of grid.polygonAt(10).directions) {
-			expect(claims.state(10, direction)).toBe(CLAIM_STATE.FREE);
+			expect(directionState(grid, board, 10, direction)).toBe(CLAIM_STATE.FREE);
 		}
 	});
 
-	it('Claims free directions exactly once', () => {
+	it('Derives CLAIMED from the pipe bits, for any pipe of the tile', () => {
 		const grid = new SquareGrid(3, 3, false);
-		const claims = new DirectionClaims(grid);
-		expect(claims.state(4, 1)).toBe(CLAIM_STATE.FREE);
-		claims.claim(4, 1);
-		expect(claims.state(4, 1)).toBe(CLAIM_STATE.CLAIMED);
-		expect(() => claims.claim(4, 1)).toThrow();
-		expect(() => claims.claim(0, 2)).toThrow();
+		const board = emptyBoard(grid);
+		expect(directionState(grid, board, 4, 1)).toBe(CLAIM_STATE.FREE);
+		// a newborn pipe claiming E, then a second pipe claiming N: some
+		// pipe holds the bit either way, never two ends on one direction
+		board[4] = [1, 2];
+		expect(directionState(grid, board, 4, 1)).toBe(CLAIM_STATE.CLAIMED);
+		expect(directionState(grid, board, 4, 2)).toBe(CLAIM_STATE.CLAIMED);
+		expect(directionState(grid, board, 4, 4)).toBe(CLAIM_STATE.FREE);
+		// walls never flip, whatever the pipes hold
+		expect(directionState(grid, board, 0, 2)).toBe(CLAIM_STATE.WALL);
 	});
 
 	it('Wrap boards have no outside walls', () => {
 		const grid = new SquareGrid(4, 4, true);
-		const claims = new DirectionClaims(grid);
+		const board = emptyBoard(grid);
 		for (const direction of grid.polygonAt(0).directions) {
-			expect(claims.state(0, direction)).toBe(CLAIM_STATE.FREE);
+			expect(directionState(grid, board, 0, direction)).toBe(CLAIM_STATE.FREE);
 		}
-	});
-
-	it('Rejects queries about empty cells', () => {
-		const tiles = Array(9).fill(1);
-		tiles[4] = 0;
-		const grid = new SquareGrid(3, 3, false, tiles);
-		const claims = new DirectionClaims(grid);
-		expect(() => claims.state(4, 1)).toThrow();
 	});
 });
 

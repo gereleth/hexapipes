@@ -34,7 +34,8 @@ together with its first locked edge.
 **Per-direction claims.** The visited/unvisited vocabulary is replaced by per-tile direction state:
 each direction is FREE, CLAIMED by some pipe's end, or a WALL (faces an empty cell or the outside).
 A growth point = a pipe in tile A plus a FREE direction of A. At most one pipe per direction per
-tile is automatic.
+tile is automatic. The state is derived from the pipes on demand; no claim map is stored beside the
+board.
 
 **Union-find over pipe nodes + cycle guard.** Each pipe is a node; each locked edge unions its two
 pipes. A move joining two ends of the _same_ component is a cycle and is refused. Component count is
