@@ -126,13 +126,15 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   extends elsewhere or dies as in classic. Entering a cell never merges components. A tip that
   entered foreign territory keeps growing there, sharing each cell it passes, producing trails of
   shared tiles — long crossings arise naturally in winding mode.
-- **Merge phase.** After growth ends: collect cross-component link candidates (adjacent pipes, both
-  facing directions free, ban-checked), shuffle, apply until the union-find reports one component. A
-  link into a shared tile picks the receiving resident pipe uniformly at random; the cycle guard
-  still refuses same-component picks. Union-completing links are a last-resort tier (mirroring the
-  growth clean-full demotion), and fusions — any two pipes of one tile in different components
-  combined into one, no free direction needed, chosen when no link candidate remains — are the final
-  escape [agreed 2026-10-29]. If no candidate exists while components remain, the pregeneration
+- **Merge phase.** After growth ends, link and fuse the forest into one spanning tree in a tier
+  order, each tier's candidates shuffled and re-validated as they apply: plain links, clean
+  union-completing links (mirroring the growth clean-full demotion), clean fusions — any two pipes
+  of one tile in different components combined into one, no free direction needed [agreed
+  2026-10-29] — then plus links and plus fusions: moves that would mint a fully connected single
+  pipe (the rotation-invariant freebie) demoted below clean fusions, never banned; triangular grids
+  skip the plus demotion exactly as growth skips the full-union demotion [agreed 2026-10-30]. A link
+  into a shared tile picks the receiving resident pipe uniformly at random; the cycle guard still
+  refuses same-component picks. If no candidate exists while components remain, the pregeneration
   attempt fails and is retried (a wall-sealed seam is exactly this failure; hard-ban sealed square
   seams merge through fusions, which clean a seam tile's deadends and un-ban its edges).
 - **Termination.** One spanning tree over all non-empty cells: growth brings coverage, the merge

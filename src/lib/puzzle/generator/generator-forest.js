@@ -751,15 +751,29 @@ function unionFindFromBoard(grid, tiles) {
 /**
  * The merge phase, see docs/multipipes-generator-forest.md. After growth
  * ends the forest holds one component per tree; this phase links and
- * fuses them into a single spanning tree over all pipe nodes:
+ * fuses them into a single spanning tree over all pipe nodes, in tiers:
  *
  * 1. plain links - cross-component pipe pairs across free-free edges
  *    that complete no tile's pipe union, shuffled, applied until one
  *    component remains;
- * 2. union-completing links - same, but the link would finish a tile's
- *    union (the clean-full last resort, mirroring the growth tiers);
- * 3. fusions - two pipes of one shared tile in different components
- *    combined into one pipe, no free direction needed.
+ * 2. clean union-completing links - same, but the link would finish a
+ *    tile's union (the clean-full last resort, mirroring the growth
+ *    tiers);
+ * 3. clean fusions - two pipes of one shared tile in different
+ *    components combined into one pipe, no free direction needed;
+ * 4. plus links - a link giving some pipe its tile's every direction,
+ *    the rotation-invariant freebie (a plus), demoted below clean
+ *    fusions so an available fusion merges components without minting
+ *    one [agreed 2026-10-30];
+ * 5. plus fusions - a fusion whose result is that fully connected
+ *    single pipe, same demotion.
+ *
+ * On triangular grids the plus tiers do not exist: triangles need their
+ * full connections too often, so completing links stay one tier there -
+ * mirroring growth's demoteFullUnion caveat. Sweep candidates are
+ * re-validated at apply time (directions, roots, hard ban, plus state):
+ * two clean links collected in one sweep can stack onto the same pipe
+ * and would mint a plus that no tier ever chose.
  *
  * Hard-banned links (a fully connected union containing a deadend) are
  * never candidates, in any tier. If components remain and no candidate
@@ -767,6 +781,8 @@ function unionFindFromBoard(grid, tiles) {
  * wall-sealed seam) and UnmergeableBoardError is thrown; the tiles keep
  * whatever partial merges already fired - always a valid forest, never
  * a malformed board - and the caller retries with a fresh growth pass.
+ * Plus moves are demoted, never banned, for the same reason: a board
+ * whose only merge mints a plus must still merge.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number[][]} tiles - mutated in place
  * @param {ForestEvent[]} [events] - collects this merge's events after
@@ -779,6 +795,11 @@ export function mergeForest(grid, tiles, events = []) {
 	const opposite = grid.OPPOSITE;
 	/** @param {Number} cell */
 	const fullyConnected = (cell) => grid.polygonAt(cell).fullyConnected;
+	// triangular-grid caveat mirroring growth's full-union demotion
+	// (demoteFullUnion there): triangles need their full connections too
+	// often, so plus demotions are skipped there - completing links stay
+	// one tier on triangular grids
+	const demotePlus = grid.KIND !== 'triangular';
 
 	/**
 	 * A link's hard-ban state: whether either touched tile would be a
@@ -803,15 +824,36 @@ export function mergeForest(grid, tiles, events = []) {
 	};
 
 	/**
-	 * Collects the current link candidates bucketed into the plain tier
-	 * and the union-completing tier
-	 * @returns {{plain: LinkCandidate[], completing: LinkCandidate[]}}
+	 * Whether a link would create a fully connected single pipe (a plus)
+	 * on either side - the rotation-invariant freebie growth refuses to
+	 * hand out for free. Such links are demoted to the merge's last
+	 * resort, not banned: a board whose only merge makes a plus must
+	 * still merge (retrying would just reshuffle the same geometry)
+	 * @param {LinkCandidate} candidate
+	 */
+	const plusLink = (candidate) => {
+		const back = /** @type {Number} */ (opposite.get(candidate.direction));
+		return (
+			(tiles[candidate.cell][candidate.pipeIndex] | candidate.direction) ===
+				fullyConnected(candidate.cell) ||
+			(tiles[candidate.neighbour][candidate.neighbourPipeIndex] | back) ===
+				fullyConnected(candidate.neighbour)
+		);
+	};
+
+	/**
+	 * Collects the current link candidates bucketed into the plain tier,
+	 * the clean union-completing tier and the plus tier (a link giving
+	 * some pipe its tile's every direction)
+	 * @returns {{plain: LinkCandidate[], completing: LinkCandidate[], completingPlus: LinkCandidate[]}}
 	 */
 	const collectLinks = () => {
 		/** @type {LinkCandidate[]} */
 		const plain = [];
 		/** @type {LinkCandidate[]} */
 		const completing = [];
+		/** @type {LinkCandidate[]} */
+		const completingPlus = [];
 		for (let cell = 0; cell < grid.total; cell++) {
 			for (const direction of grid.polygonAt(cell).directions) {
 				const back = /** @type {Number} */ (opposite.get(direction));
@@ -852,29 +894,59 @@ export function mergeForest(grid, tiles, events = []) {
 							neighbourPipeIndex: otherIndex,
 							completing: source.full || target.full
 						};
-						(candidate.completing ? completing : plain).push(candidate);
+						// a plus implies completing (a full-mask pipe fills the
+						// union), so the plus check subsumes the tier split
+						if (demotePlus && plusLink(candidate)) {
+							completingPlus.push(candidate);
+						} else if (candidate.completing) {
+							completing.push(candidate);
+						} else {
+							plain.push(candidate);
+						}
 					}
 				}
 			}
 		}
-		return { plain, completing };
+		return { plain, completing, completingPlus };
 	};
 
 	/**
 	 * Re-derives a candidate's validity at apply time: earlier links of
 	 * the same sweep may have consumed its directions, merged its
-	 * components or shifted its ban state
+	 * components, shifted its ban state - or made it a plus (two clean
+	 * links can stack onto one pipe, completing its every direction).
+	 * Plus links stay valid in the plus tier's own sweep (allowPlus) and
+	 * wherever the demotion is off (triangular grids)
 	 * @param {LinkCandidate} candidate
+	 * @param {boolean} [allowPlus]
 	 */
-	const linkStillValid = (candidate) => {
+	const linkStillValid = (candidate, allowPlus = false) => {
 		const back = /** @type {Number} */ (opposite.get(candidate.direction));
 		return (
 			directionState(grid, tiles, candidate.cell, candidate.direction) === CLAIM_STATE.FREE &&
 			directionState(grid, tiles, candidate.neighbour, back) === CLAIM_STATE.FREE &&
 			uf.find(grid.pipeNodeId(candidate.cell, candidate.pipeIndex)) !==
 				uf.find(grid.pipeNodeId(candidate.neighbour, candidate.neighbourPipeIndex)) &&
-			!bannedLink(candidate)
+			!bannedLink(candidate) &&
+			(allowPlus || !demotePlus || !plusLink(candidate))
 		);
+	};
+
+	/**
+	 * Shuffles a tier and applies its still-valid links, one board sweep
+	 * @param {LinkCandidate[]} tier
+	 * @param {boolean} allowPlus - the plus tier accepts plus links
+	 */
+	const applyLinkSweep = (tier, allowPlus) => {
+		shuffleInPlace(tier);
+		for (const candidate of tier) {
+			if (uf.count === 1) {
+				break;
+			}
+			if (linkStillValid(candidate, allowPlus)) {
+				applyLink(candidate);
+			}
+		}
 	};
 
 	/**
@@ -912,12 +984,15 @@ export function mergeForest(grid, tiles, events = []) {
 	 * merge what no link can reach. Fusion never creates a banned shape
 	 * (the tile's union is unchanged and the fused pipe has at least two
 	 * ends, so deadends only disappear), but the cheap check stays as
-	 * defense.
-	 * @returns {FuseCandidate[]}
+	 * defense. A fusion whose result is a fully connected single pipe (a
+	 * plus) is demoted to its own tier, mirroring the plus link demotion.
+	 * @returns {{fusions: FuseCandidate[], plusFusions: FuseCandidate[]}}
 	 */
 	const collectFusions = () => {
 		/** @type {FuseCandidate[]} */
 		const fusions = [];
+		/** @type {FuseCandidate[]} */
+		const plusFusions = [];
 		for (let cell = 0; cell < grid.total; cell++) {
 			const pipes = tiles[cell];
 			if (pipes.length < 2) {
@@ -935,11 +1010,15 @@ export function mergeForest(grid, tiles, events = []) {
 					if (after.full && after.deadend) {
 						continue;
 					}
-					fusions.push({ cell, firstPipeIndex: first, secondPipeIndex: second });
+					if (demotePlus && (pipes[first] | pipes[second]) === fullyConnected(cell)) {
+						plusFusions.push({ cell, firstPipeIndex: first, secondPipeIndex: second });
+					} else {
+						fusions.push({ cell, firstPipeIndex: first, secondPipeIndex: second });
+					}
 				}
 			}
 		}
-		return fusions;
+		return { fusions, plusFusions };
 	};
 
 	/**
@@ -958,32 +1037,43 @@ export function mergeForest(grid, tiles, events = []) {
 		events.push(event);
 	};
 
+	// tier order, each round taking the first non-empty bucket: plain
+	// links, clean completing links, clean fusions, plus links, plus
+	// fusions. Plus moves are demoted, not banned, so a board whose only
+	// merge makes a plus still merges - and the staleness guard can
+	// never wedge the loop: a plus link skipped in a clean sweep is
+	// re-collected into the plus tier next round, and that tier's own
+	// sweep accepts them
 	while (uf.count > 1) {
-		const { plain, completing } = collectLinks();
-		const tier = plain.length > 0 ? plain : completing;
-		if (tier.length > 0) {
-			shuffleInPlace(tier);
-			for (const candidate of tier) {
-				if (uf.count === 1) {
-					break;
-				}
-				if (linkStillValid(candidate)) {
-					applyLink(candidate);
-				}
-			}
+		const { plain, completing, completingPlus } = collectLinks();
+		if (plain.length > 0) {
+			applyLinkSweep(plain, false);
 			continue;
 		}
-		const fusions = collectFusions();
-		if (fusions.length === 0) {
-			throw new UnmergeableBoardError(
-				`Pregeneration: cannot merge the board - ${uf.count} components remain ` +
-					'with no link or fusion candidate (a sealed seam)'
-			);
+		if (completing.length > 0) {
+			applyLinkSweep(completing, false);
+			continue;
 		}
-		// one fusion per round: a splice shifts pipe indices of its tile,
-		// so the other collected candidates' indices would go stale. The
-		// next round recollects against the rebased board
-		applyFusion(fusions[Math.floor(Math.random() * fusions.length)]);
+		const { fusions, plusFusions } = collectFusions();
+		if (fusions.length > 0) {
+			// one fusion per round: a splice shifts pipe indices of its
+			// tile, so the other collected candidates' indices would go
+			// stale. The next round recollects against the rebased board
+			applyFusion(fusions[Math.floor(Math.random() * fusions.length)]);
+			continue;
+		}
+		if (completingPlus.length > 0) {
+			applyLinkSweep(completingPlus, true);
+			continue;
+		}
+		if (plusFusions.length > 0) {
+			applyFusion(plusFusions[Math.floor(Math.random() * plusFusions.length)]);
+			continue;
+		}
+		throw new UnmergeableBoardError(
+			`Pregeneration: cannot merge the board - ${uf.count} components remain ` +
+				'with no link or fusion candidate (a sealed seam)'
+		);
 	}
 	return tiles;
 }

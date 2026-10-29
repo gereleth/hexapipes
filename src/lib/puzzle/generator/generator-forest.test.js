@@ -720,6 +720,173 @@ describe('Merge phase', () => {
 		expect(first).toBeGreaterThanOrEqual(60);
 		expect(first).toBeLessThanOrEqual(140);
 	});
+
+	/**
+	 * Counts fully connected single pipes (pluses) - the
+	 * rotation-invariant freebies the merge demotes below clean fusions
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {Number[][]} tiles
+	 */
+	const countPluses = (grid, tiles) => {
+		let pluses = 0;
+		for (let cell = 0; cell < grid.total; cell++) {
+			if (grid.emptyCells.has(cell)) {
+				continue;
+			}
+			const full = grid.polygonAt(cell).fullyConnected;
+			for (const pipe of tiles[cell]) {
+				if (pipe === full) {
+					pluses++;
+				}
+			}
+		}
+		return pluses;
+	};
+
+	it('Never mints a plus while clean merges remain', () => {
+		// seam variant: 9=[13] gives the board a plus-only edge (9,5) -
+		// tile 9's tee would gain its every direction. 0/8/12 overrides
+		// sever the backbone's 0-12-8 bridge so the tee's three matches
+		// do not close a cycle, splitting A into two halves that tiles 1,
+		// 4 and 7 all bridge with clean fusions; 6=[4,2] parks a B pipe
+		// next to an A pipe as one more clean fusion. The plus link must
+		// never fire: every merge happens through a fusion or an un-sealed
+		// clean link, and the board's two hand-built pluses stay exactly
+		// two. Loop for shuffle coverage - the claim holds for every order
+		const grid = new SquareGrid(4, 4, true);
+		for (let run = 0; run < 20; run++) {
+			const tiles = seamBoard({
+				9: [13],
+				6: [4, 2],
+				2: [10, 5],
+				0: [13],
+				8: [7],
+				12: [1]
+			});
+			const plusesBefore = countPluses(grid, tiles);
+			expect(plusesBefore).toBe(2);
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			mergeForest(grid, tiles, events);
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+			expect(tiles[9]).toEqual([13]);
+			expect(countPluses(grid, tiles)).toBe(plusesBefore);
+			// and the plus edge itself never fired
+			for (const event of events) {
+				if (event.type !== 'move') {
+					continue;
+				}
+				const edge = [event.fromCell, event.neighbour].sort().join(',');
+				expect(edge === '5,9').toBe(false);
+			}
+		}
+	});
+
+	it('Never lets two clean links of one sweep stack into a plus', () => {
+		// tile 5's straight [5] has both N and S free; the (5,1) and (5,9)
+		// pairs are individually clean, so a round-1 sweep collects both.
+		// Whatever the shuffle, the second one is re-validated as a plus
+		// at apply time (the straight already gained its first end) and
+		// skipped - the only way tile 5 could ever reach 15. Every other
+		// pipe with completable directions is either same-root-guarded or
+		// has the clean fusions of tiles 6 and 7 as escapes
+		const grid = new SquareGrid(4, 4, true);
+		const board = [
+			[2, 4],
+			[2],
+			[2],
+			[11],
+			[1],
+			[5],
+			[4, 8],
+			[2, 8],
+			[4],
+			[8],
+			[2],
+			[3],
+			[12],
+			[10],
+			[8],
+			[9]
+		];
+		for (let run = 0; run < 200; run++) {
+			const tiles = copyBoard(board);
+			mergeForest(grid, tiles, []);
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+			expect(countPluses(grid, tiles)).toBe(0);
+		}
+	});
+
+	it('Keeps plus completing links ahead of fusions on triangular grids', () => {
+		// the triangular caveat mirrors growth's demoteFullUnion: plus
+		// links sit in the completing tier, not below the fusions. The
+		// same board as the no-minting test above, on a grid whose KIND
+		// is triangular (the caveat keys on KIND alone, so the verified
+		// square geometry stands in for a hand-built triangular seam).
+		// The plus edge (9,5) is the island B's only merge, so it must
+		// fire - and before every fusion, which is what separates the
+		// completing tier from the demoted tiers (the assertion pins the
+		// order; the caveat keys on KIND alone, so a polygon-based gate
+		// would need this test reworked onto a real TriangularGrid)
+		const grid = new SquareGrid(4, 4, true);
+		grid.KIND = 'triangular';
+		const tiles = seamBoard({
+			9: [13],
+			6: [4, 2],
+			2: [10, 5],
+			0: [13],
+			8: [7],
+			12: [1]
+		});
+		const plusesBefore = countPluses(grid, tiles);
+		/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+		const events = [];
+		mergeForest(grid, tiles, events);
+		expect(boardInvariants(grid, tiles).components).toBe(1);
+		// the plus link fired, and before every fusion
+		const plusLinkIndex = events.findIndex(
+			(event) => event.type === 'move' && event.fromCell === 9 && event.neighbour === 5
+		);
+		expect(plusLinkIndex).toBeGreaterThanOrEqual(0);
+		const firstFuse = events.findIndex((event) => event.type === 'fuse');
+		if (firstFuse >= 0) {
+			expect(plusLinkIndex).toBeLessThan(firstFuse);
+		}
+		expect(tiles[9]).toEqual([15]);
+		expect(countPluses(grid, tiles)).toBeGreaterThan(plusesBefore);
+	});
+
+	it('Mints no plus under randomized stress on non-triangular grids', () => {
+		// share maxed out: boards full of shared tiles, the config where
+		// the old tier order minted ~5 pluses per square board. The plus
+		// demotion leaves clean fusions to do those merges instead. The
+		// assertion is on the merge's contribution: growth's own pluses
+		// (a rare clean-full last resort there) are counted from the
+		// event stream's growth prefix and allowed to stand
+		/** @type {Array<{make: () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid, runs: Number}>} */
+		const boards = [
+			{ make: () => new SquareGrid(8, 8, false), runs: 15 },
+			{ make: () => new SquareGrid(6, 6, true), runs: 10 },
+			{ make: () => new HexaGrid(6, 5, false), runs: 10 }
+		];
+		for (const board of boards) {
+			for (let run = 0; run < board.runs; run++) {
+				const grid = board.make();
+				/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+				const events = [];
+				const tiles = pregenerateForest(grid, { sharingAmount: 1 }, (event) => events.push(event));
+				expect(() => boardInvariants(grid, tiles)).not.toThrow();
+				const growthTiles = Array.from({ length: grid.total }, () => []);
+				for (const event of events) {
+					if (event.type === 'fuse' || (event.type === 'move' && event.kind === MOVE_KIND.LINK)) {
+						break;
+					}
+					applyForestEvent(grid, growthTiles, event);
+				}
+				expect(countPluses(grid, tiles)).toBe(countPluses(grid, growthTiles));
+			}
+		}
+	});
 });
 
 describe('Hard ban under randomized stress', () => {

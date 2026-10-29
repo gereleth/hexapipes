@@ -101,3 +101,40 @@ Findings worth keeping:
   marks just the fused tile.
 - Suite stability: 5 consecutive full-file green runs; full repo `vitest run` 392 passed,
   `npm run check` 0 errors, `npm run lint` clean.
+
+### Addendum 2026-10-30: plus demotion (user follow-up)
+
+The user noticed plus tiles (fully connected single pipes — the rotation-invariant freebies growth
+never mints) appearing after link moves and asked whether fusions should precede completing links to
+avoid them. Measured over ~1200 boards per variant (square/hex/trihex/snub/triangular, sharing 0–1,
+both branching extremes):
+
+- **Base order** minted up to ~5 pluses per square board at sharing 1 (498/100 boards), all from
+  completing links giving a tee its last direction — plus a **staleness hole**: sweep candidates are
+  re-validated at apply time for directions, roots and the deadend ban, but not plus-ness, so two
+  clean links of one sweep could stack onto one pipe (this survived even a hard ban at collection
+  time: 17–19/100 pluses remained).
+- **Literal fusion-first** (fusion before all completing links) was worse on both axes: at sharing 1
+  fusions did all 8 merges (0 links), and plus fusions still minted 1.3 pluses/board.
+- **Adopted**: split completing links into clean and plus-making, fusions into clean and plus-making
+  — tier order plain → completing-clean → fusion-clean → completing-plus → fusion-plus — with the
+  apply-time plus guard on the clean sweeps (the plus tier's own sweep must accept plus links or it
+  rejects its own candidates and loops forever). Plus moves are demoted, never banned: a board whose
+  only merge mints a plus must still merge. Result: zero merge pluses on square, hex, trihex and
+  wrap at every sharing level; snub-square 257→16 per 60 boards (last-resort pluses on triangle
+  cells only); texture cost at sharing 1 is fusions 0.8→4.4 and links 7.2→3.6 per board.
+- **Triangular grids skip the plus demotion** (user's call, mirroring growth's `demoteFullUnion`
+  caveat): triangles need their full connections too often, so completing links stay one tier there
+  — measured unchanged (~12 pluses/board, dominated by growth's ~3.5). Mixed grids (snub-square,
+  trihexa) keep the demotion — growth keeps full-union demotion there too.
+- A hard ban was ruled out by measurement: on triangular grids it burns all 20 retries on 8/60
+  boards (2-bit pipes are normal there, so most completing links are plus links).
+- Tests: no-minting seam variant (plus edge never fires while clean merges exist), 200-run staleness
+  tripwire (only one pipe on the board can stack to full, and the guard prevents it), triangular
+  caveat via KIND override on the same board (the plus link fires in the completing sweep, before
+  any fusion), and a share=1 stress suite asserting zero pluses on square/wrap/hex. Known gap,
+  deliberately unfixed: no test pins the completing-plus sweep firing as a genuine last resort on a
+  demoted grid — every hand-built square board with a plus-only merge either has a clean escape
+  (fusion-unsealed link, shared-tile fusion) or needs cycles to construct, which is exactly why the
+  measurements show zero; the branch is exercised indirectly by snub-square's last-resort pluses in
+  the stress data.
