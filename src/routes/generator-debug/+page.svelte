@@ -56,7 +56,7 @@
 	/** @type {Number[]} */
 	let growthHighlightCells = $state([]);
 	let growthPlaying = $state(false);
-	let growthSpeed = $state(4);
+	let growthSpeed = $state(200);
 	let growthSeedFromSnapshot = $state(false);
 	/** @type {ReturnType<typeof setInterval>|undefined} */
 	let growthTimer;
