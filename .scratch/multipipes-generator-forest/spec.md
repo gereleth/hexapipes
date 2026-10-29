@@ -129,8 +129,12 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
 - **Merge phase.** After growth ends: collect cross-component link candidates (adjacent pipes, both
   facing directions free, ban-checked), shuffle, apply until the union-find reports one component. A
   link into a shared tile picks the receiving resident pipe uniformly at random; the cycle guard
-  still refuses same-component picks. If no candidate exists while components remain, the
-  pregeneration attempt fails and is retried (an X-tile-sealed seam is exactly this failure).
+  still refuses same-component picks. Union-completing links are a last-resort tier (mirroring the
+  growth clean-full demotion), and fusions — any two pipes of one tile in different components
+  combined into one, no free direction needed, chosen when no link candidate remains — are the final
+  escape [agreed 2026-10-29]. If no candidate exists while components remain, the pregeneration
+  attempt fails and is retried (a wall-sealed seam is exactly this failure; hard-ban sealed square
+  seams merge through fusions, which clean a seam tile's deadends and un-ban its edges).
 - **Termination.** One spanning tree over all non-empty cells: growth brings coverage, the merge
   phase brings the single component. Coverage alone does not end growth — sharing moves stay legal
   once every cell is occupied; the growth-stop criterion is a tunable (coverage vs frontier

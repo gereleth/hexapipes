@@ -85,12 +85,21 @@ no bit-parity obligation with `generator.js`.
   passes (its own new pipes). This produces trails of shared tiles — pipes running through fields of
   other pipes. Long crossings arise naturally, especially in winding mode (two trees threading
   through each other).
-- **Merge phase.** After growth ends: collect all cross-component link candidates (adjacent pipes,
-  both facing directions free, ban-checked), shuffle, apply until the union-find reports one
-  component. A link into a shared tile picks the receiving resident pipe uniformly at random —
-  directions are a per-tile resource, so any pipe can take any free direction (the cycle guard still
-  refuses same-component picks). If no candidate exists while components remain, the pregeneration
-  attempt fails and is retried.
+- **Merge phase.** After growth ends, the engine merges the forest into one spanning tree in a tier
+  order, each tier's candidates shuffled and re-validated as they apply: (1) plain links —
+  cross-component pipe pairs across free-free edges that complete no tile's pipe union; (2)
+  union-completing links — the clean-full last resort, mirroring the growth tiers (hard-banned
+  links, completing a union that would contain a deadend, are never candidates in any tier); (3)
+  fusions — any two pipes of one shared tile in two different components combined into one pipe (the
+  bitwise or: two deadends `[1]` and `[2]` become the bend `[3]`, but any pair may fuse), no free
+  direction needed [agreed 2026-10-29]. A link into a shared tile picks the receiving resident pipe
+  uniformly at random — directions are a per-tile resource, so any pipe can take any free direction
+  (the cycle guard still refuses same-component picks). A fusion removes one pipe and shifts pipe
+  indices above it, so the union-find is rebuilt from the board (the ground truth of locked edges)
+  after each one. Fusions double as un-sealers: fusing a seam tile's deadends removes them, which
+  un-bans the tile's edges — every hard-ban-sealed square seam constructed so far merges through
+  them. If no candidate exists while components remain (in practice only a wall-sealed seam), the
+  pregeneration attempt fails and is retried.
 
 Expected sharing distribution: balanced seeds → balanced sharing fronts, with calmer territory cores
 and busier seams. Whether that reads as texture or as clumping is an aesthetic call to make from
@@ -142,7 +151,10 @@ ends", not verbatim equality.
 2. **Square X tiles seal seams.** An X uses all four directions — it is impassable and unlinkable. A
    seam consisting only of X tiles between two components makes the merge phase impossible; treat
    that as attempt failure and retry (it also argues for keeping the soft ban on clean full unions
-   meaningful on square grids).
+   meaningful on square grids). Revision 2026-10-29: with generalized fusion such seams are rarely
+   final — fusing two pipes of a seam tile removes its deadends, which un-bans the tile's edges — so
+   only wall-sealed seams (empty cells splitting the playable region) deterministically fail; those
+   burn the retry budget and surface as a clean `UnmergeableBoardError`.
 3. **`computeCellObviousTiles` must be built once over all non-empty cells at growth start**
    (classic builds it pre-growth over everything; consulting already-visited cells against it is
    intended behavior, not a bug).

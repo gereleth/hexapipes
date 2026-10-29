@@ -117,18 +117,19 @@ function debugStop() {
 }
 
 /**
- * Runs one forest-engine growth pass and streams its growth events for
- * animation: several trees grow from spatially balanced seeds until none
- * of them can move; per the sharing knob, tips reaching foreign cells
- * birth new pipes there, braiding trees through each other's territory
- * (the merge into one tree arrives in a later ticket)
+ * Runs one forest-engine pass - growth plus merge - and streams its
+ * events for animation: several trees grow from spatially balanced seeds
+ * until none of them can move; per the sharing knob, tips reaching
+ * foreign cells birth new pipes there, braiding trees through each
+ * other's territory; the merge phase then links and fuses the trees
+ * into one spanning tree
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
  * @param {import('#lib/puzzle/generator/generator-forest.js').ForestKnobs} options
  */
 function growthStart(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
-	/** @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove} move */
+	/** @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent} move */
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
 	try {
 		// knob defaults live in the engine, pass the options through as-is

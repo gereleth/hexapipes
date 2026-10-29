@@ -10,7 +10,7 @@
 		buildStartTiles,
 		planReuse
 	} from '#lib/puzzle/generator/generator-multi.js';
-	import { applyForestMove, defaultTreeCount } from '#lib/puzzle/generator/generator-forest.js';
+	import { applyForestEvent, defaultTreeCount } from '#lib/puzzle/generator/generator-forest.js';
 	import { createGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 
 	/**
@@ -44,15 +44,15 @@
 	// growth animation state
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let growthGrid = $state();
-	/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove[]} */
-	let growthMoves = $state([]);
+	/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+	let growthEvents = $state([]);
 	let growthApplied = $state(0);
 	/** @type {Number[][]} */
 	let growthTiles = $state([]);
 	/** @type {import('svelte/reactivity').SvelteSet<Number>} */
 	let growthVisited = new SvelteSet();
-	/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove|null} */
-	let growthLastMove = $state(null);
+	/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent|null} */
+	let growthLastEvent = $state(null);
 	/** @type {Number[]} */
 	let growthHighlightCells = $state([]);
 	let growthPlaying = $state(false);
@@ -278,10 +278,10 @@
 			};
 			trueCountRunning = false;
 		} else if (event.data.msg === 'growth-move') {
-			growthMoves.push(event.data.move);
+			growthEvents.push(event.data.move);
 		} else if (event.data.msg === 'growth-done') {
 			growthApplied = 0;
-			growthLastMove = null;
+			growthLastEvent = null;
 			growthPlaying = true;
 			startGrowthTimer();
 		} else if (event.data.msg === 'error') {
@@ -337,11 +337,11 @@
 		errorMessage = '';
 		pauseGrowth();
 		growthGrid = createGrid(gridKind, width, height, wrap);
-		growthMoves = [];
+		growthEvents = [];
 		growthApplied = 0;
 		growthTiles = Array.from({ length: growthGrid.total }, () => []);
 		growthVisited.clear();
-		growthLastMove = null;
+		growthLastEvent = null;
 		growthHighlightCells = [];
 		w.postMessage({
 			command: 'growth-start',
@@ -358,18 +358,25 @@
 	}
 
 	/**
-	 * Applies one forest growth event to the animation board on top of the
-	 * shared replay helper, tracking visited cells and the latest highlight
-	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove} move
+	 * Applies one forest event - growth move or merge link/fusion - to the
+	 * animation board on top of the shared replay helper, tracking visited
+	 * cells and the latest highlight
+	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent} event
 	 */
-	function applyGrowthMove(move) {
+	function applyGrowthEvent(event) {
 		if (growthGrid) {
-			applyForestMove(growthGrid, growthTiles, move);
+			applyForestEvent(growthGrid, growthTiles, event);
 		}
-		growthVisited.add(move.fromCell);
-		growthVisited.add(move.neighbour);
-		growthHighlightCells = [move.fromCell, move.neighbour];
-		growthLastMove = move;
+		if (event.type === 'move') {
+			growthVisited.add(event.fromCell);
+			growthVisited.add(event.neighbour);
+			growthHighlightCells = [event.fromCell, event.neighbour];
+		} else {
+			// a fusion touches one tile only
+			growthVisited.add(event.cell);
+			growthHighlightCells = [event.cell];
+		}
+		growthLastEvent = event;
 		growthApplied += 1;
 	}
 
@@ -381,10 +388,10 @@
 			return;
 		}
 		growthCarry -= count;
-		for (let i = 0; i < count && growthApplied < growthMoves.length; i++) {
-			applyGrowthMove(growthMoves[growthApplied]);
+		for (let i = 0; i < count && growthApplied < growthEvents.length; i++) {
+			applyGrowthEvent(growthEvents[growthApplied]);
 		}
-		if (growthApplied >= growthMoves.length) {
+		if (growthApplied >= growthEvents.length) {
 			pauseGrowth();
 		}
 	}
@@ -407,7 +414,7 @@
 	function toggleGrowthPlayback() {
 		if (growthPlaying) {
 			pauseGrowth();
-		} else if (growthApplied < growthMoves.length) {
+		} else if (growthApplied < growthEvents.length) {
 			growthPlaying = true;
 			startGrowthTimer();
 		}
@@ -415,16 +422,19 @@
 
 	function growthStepOnce() {
 		pauseGrowth();
-		if (growthApplied < growthMoves.length) {
-			applyGrowthMove(growthMoves[growthApplied]);
+		if (growthApplied < growthEvents.length) {
+			applyGrowthEvent(growthEvents[growthApplied]);
 		}
 	}
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestMove} move
+	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent} move
 	 */
-	function describeGrowthMove(move) {
+	function describeGrowthEvent(move) {
+		if (move.type === 'fuse') {
+			return `fuse ${move.cell}`;
+		}
 		/** @type {Record<String, String>} */
 		const descriptions = {
 			seed: 'seed',
@@ -457,12 +467,13 @@
 		into them), red tiles are erased (ambiguous cells and dissolved components); circles mark deadend
 		sinks. The stats line under the board accounts cells and sub-cells per fate (live / islands / carved
 		around claimed cells / too small).<br />
-		Growth view (press Grow): the forest rewrite's growth phase, move by move — several trees growing
-		from spread-out seeds (branching 0 winds, branching 1 bushes) until no tree can move. The sharing
-		knob braids trees through each other's territory: a tip reaching a foreign cell may birth a new pipe
-		there (a share move), so tiles can hold several pipes and crossings appear; the final merge into one
-		tree arrives in a later ticket. Green cells hold pipes, faint cells are not yet reached, blue outlines
-		mark the latest move.
+		Growth view (press Grow): the forest engine's full run, move by move — several trees growing from
+		spread-out seeds (branching 0 winds, branching 1 bushes) until no tree can move. The sharing knob
+		braids trees through each other's territory: a tip reaching a foreign cell may birth a new pipe there
+		(a share move), so tiles can hold several pipes and crossings appear. After growth the merge phase
+		links the trees into one spanning tree (link moves join pipes across free edges; fuse moves combine
+		two pipes of one shared tile into one). Green cells hold pipes, faint cells are not yet reached, blue
+		outlines mark the latest move.
 	</p>
 
 	<div class="params">
@@ -561,7 +572,7 @@
 			<SolverProgress progress={liveProgress} />
 		</div>
 	{/if}
-	{#if snapshots.length > 0 || growthMoves.length > 0}
+	{#if snapshots.length > 0 || growthEvents.length > 0}
 		<div class="view">
 			{#if snapshots.length > 0}
 				<button onclick={() => (viewIndex = Math.max(0, viewIndex - 1))} disabled={viewIndex <= 0}>
@@ -590,7 +601,7 @@
 				</button>
 				<button
 					class:active={boardMode === 'growth'}
-					onclick={() => (boardMode = growthMoves.length > 0 ? 'growth' : boardMode)}
+					onclick={() => (boardMode = growthEvents.length > 0 ? 'growth' : boardMode)}
 				>
 					Growth
 				</button>
@@ -598,22 +609,22 @@
 		</div>
 	{/if}
 
-	{#if snapshots.length > 0 || growthMoves.length > 0}
+	{#if snapshots.length > 0 || growthEvents.length > 0}
 		<!-- the growth bar always occupies its row so the board
 			does not jump when switching between views -->
 		<div class="view growth-bar">
 			{#if boardMode === 'growth' && growthGrid}
 				<span class="growth-status">
-					move {growthApplied} / {growthMoves.length}
-					{growthLastMove ? '· ' + describeGrowthMove(growthLastMove) : ''}
+					move {growthApplied} / {growthEvents.length}
+					{growthLastEvent ? '· ' + describeGrowthEvent(growthLastEvent) : ''}
 				</span>
 				<span class="growth-controls">
-					<button onclick={toggleGrowthPlayback} disabled={growthMoves.length === 0}>
+					<button onclick={toggleGrowthPlayback} disabled={growthEvents.length === 0}>
 						{growthPlaying ? 'Pause' : 'Play'}
 					</button>
 					<button
 						onclick={growthStepOnce}
-						disabled={growthPlaying || growthApplied >= growthMoves.length}
+						disabled={growthPlaying || growthApplied >= growthEvents.length}
 					>
 						Step
 					</button>
