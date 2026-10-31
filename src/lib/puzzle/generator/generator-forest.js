@@ -541,6 +541,9 @@ function growAttempt(grid, knobs, events) {
 			// side can complete a clean union here: a fresh target holds
 			// nothing but the newborn end, and a share target completing
 			// its union would contain that deadend newborn - banned above
+			// (which is also why the demoteFullUnion gate never leaks on
+			// triangular: a multi-pipe share completion there would hold
+			// a deadend newborn and is refused before any tier applies)
 			const cleanFull =
 				demoteFullUnion &&
 				sourceAfter.full &&

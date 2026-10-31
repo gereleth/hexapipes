@@ -54,10 +54,9 @@ classic caveat, grid-level). On square cells (four directions, so including mixe
 multi-pipe union completed by a fresh-cell extend is normal: the union is exactly the X / L+L
 crossing pair, and the move pays for itself in coverage. A multi-pipe union completed by a share is
 last-resort everywhere. The classic last-resort/avoid tiers port as per-move tier demotions
-(`avoidObvious`, `avoidStraights`); the tier order is normal > straight-demotion > obvious-demotion
-
-> clean-full last resort, with no share tier — the sharing knob gates share candidates per pick, and
-> considered shares rank with fresh-cell moves.
+(`avoidObvious`, `avoidStraights`); the tier order is normal > straight-demotion >
+obvious-demotion > clean-full last resort, with no share tier — the sharing knob gates share
+candidates per pick, and considered shares rank with fresh-cell moves.
 
 **Termination.** `pregenerate_multi` returns one spanning tree over all non-empty cells: growth
 brings coverage, the merge phase brings the single component. Coverage alone does not end growth —
