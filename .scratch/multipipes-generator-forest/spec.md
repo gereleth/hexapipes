@@ -112,22 +112,25 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
 - **Hard ban.** A move is refused — never, not as a last resort — in two cases: if after it, either
   tile it touches would be a fully connected tile whose union contains a deadend (this outlaws the
   square T+deadend shape on creation; the newborn-pipe case is part of the ban and explicitly
-  checked); and if it is a share move (occupied target) whose source pipe would become fully
-  connected — the fully connected single pipe is the rotation-invariant freebie and sharing gains no
-  coverage [agreed 2026-10-31].
+  checked); and if it is a share move (occupied target) whose source tile's union would become fully
+  connected — whatever completes, the fully connected pipe (the rotation-invariant freebie) or a
+  clean multi-pipe union: sharing gains no coverage, so neither growth nor its drain phase has a
+  reason to mint fully connected tiles [agreed 2026-10-31; the share-union case added the same day,
+  once crossings gained their coverage-paying formation path].
 - **Soft ban.** What a clean (deadend-free) union completion costs depends on what completes and
   where the move lands [agreed 2026-10-31]. A fully connected **pipe** via a fresh-cell extend is
   demoted to the last-resort tier, except on triangular grids where it is normal — a triangle's only
   branching, the classic caveat (a grid-level rule). A clean multi-pipe **union** via a fresh-cell
   extend is demoted to the last-resort tier, except on square cells (four directions), where the
   union is exactly the X/L+L crossing pair and the move pays for itself in coverage — normal tier (a
-  cell-level rule, so mixed grids' square cells qualify). A clean multi-pipe union via a share is
-  demoted to the last-resort tier everywhere (no coverage gain). Classic avoid-obvious and
-  avoid-straights demotions port as per-move tier demotions. Tier order: normal >
-  straight-demotion > obvious-demotion > clean-full last resort. Sharing has no tier of its own
-  [revised 2026-10-31, agreed]: the sharing knob gates whether share candidates are considered at
-  all per pick, and considered shares rank with fresh-cell moves, so trees braid during growth
-  instead of sharing as an afterthought once boxed.
+  cell-level rule, so mixed grids' square cells qualify). Share completions of any union are hard
+  banned above, so the last-resort tier exists for one purpose: an extend that completes the
+  source's union while covering its target cell. Classic avoid-obvious and avoid-straights demotions
+  port as per-move tier demotions. Tier order: normal > straight-demotion > obvious-demotion >
+  clean-full last resort. Sharing has no tier of its own [revised 2026-10-31, agreed]: the sharing
+  knob gates whether share candidates are considered at all per pick, and considered shares rank
+  with fresh-cell moves, so trees braid during growth instead of sharing as an afterthought once
+  boxed.
 - **Forest mechanism.** K seeds are chosen by farthest-point sampling over non-empty cells (BFS hop
   distance). K is a generator setting passed alongside the sharing and branching knobs, defaulting
   to one plus the rounded square root of the cell count; it is deliberately independent of the

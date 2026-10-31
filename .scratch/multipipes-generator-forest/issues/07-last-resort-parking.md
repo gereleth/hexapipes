@@ -166,3 +166,14 @@ merge phase (ticket 03) landing:
     zeros. Crossings now form mid-growth (the square exemption) rather than only at drains;
     saturation stays far below the pre-parking 170/400 baseline that ticket 08 exists to cap. Knob
     calibration shifts (same sharingAmount braids more) — debug-page re-look advised.
+11. **Share completions of unions are banned outright, not demoted (user decision, 2026-10-31 later
+    the same day).** "Last resort for coverage I understand, but why create fully connected tiles in
+    the drain phase" — no reason remained: the demotion was the Oct-28 compromise that kept X tiles
+    formable before the square extend exemption existed, and shares never carried coverage, so the
+    drain owed them nothing. The two share rules collapse into one: a share completing its source
+    tile's union is refused everywhere, whatever completes (pipe or union, deadend or clean). The
+    last-resort tier now exists solely for extends that finish the source's union while covering
+    their target. Measured after (same configs as item 10): X 6.8 / 8.2, full-multi 15.8 / 18.8,
+    shared tiles 45.5 / 45.5, full-single 0.0 — crossings come exclusively from the coverage-paying
+    extend path now; the share-source ban test reverted to its literal (any-union) form and the
+    parking oracle still finds non-vacuous extend drains. Merge phase still untouched.

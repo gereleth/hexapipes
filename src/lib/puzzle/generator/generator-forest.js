@@ -522,15 +522,17 @@ function growAttempt(grid, knobs, events) {
 			// a fully connected pipe - the acting pipe alone taking its
 			// tile's every direction - is the rotation-invariant freebie
 			const pipeFull = (pipe | direction) === polygon.fullyConnected;
-			// hard ban: a share move completing a fully connected pipe at
-			// the source is refused on every grid kind - sharing gains no
-			// coverage, so minting the freebie is never worth it. A share
-			// completing a multi-pipe union (a crossing) stays legal,
-			// merely demoted to the last-resort tier below
-			if (kind === MOVE_KIND.SHARE && pipeFull) {
+			// hard ban: a share move completing the source tile's union is
+			// refused on every grid kind, whatever completes - the fully
+			// connected pipe or a multi-pipe union, deadend or clean.
+			// Sharing gains no coverage, so neither the growth phase nor
+			// the drain phase has a reason to mint fully connected tiles;
+			// crossings form through the coverage-paying extend exemption
+			// below instead
+			if (kind === MOVE_KIND.SHARE && sourceAfter.full) {
 				continue;
 			}
-			// soft ban: a move completing a clean fully connected union
+			// soft ban: an extend completing a clean fully connected union
 			// demotes to the last-resort tier, except where the completed
 			// shape is the payoff. Triangular grids allow a fully
 			// connected pipe outright - a triangle's only branching
@@ -539,16 +541,15 @@ function growAttempt(grid, knobs, events) {
 			// completed by an extend into a fresh cell, so the move pays
 			// for itself in coverage and ranks normal. Only the source
 			// side can complete a clean union here: a fresh target holds
-			// nothing but the newborn end, and a share target completing
-			// its union would contain that deadend newborn - banned above
-			// (which is also why the demoteFullUnion gate never leaks on
-			// triangular: a multi-pipe share completion there would hold
-			// a deadend newborn and is refused before any tier applies)
+			// nothing but the newborn end, and every share completion at
+			// the source is banned above. The last-resort tier therefore
+			// exists for one purpose only: an extend that finishes the
+			// source's union while covering its target cell
 			const cleanFull =
 				demoteFullUnion &&
 				sourceAfter.full &&
 				!sourceAfter.deadend &&
-				!(kind === MOVE_KIND.EXTEND && !pipeFull && polygon.numDirections === 4);
+				!(polygon.numDirections === 4 && !pipeFull);
 			const demotions = {
 				straight:
 					polygon.pipeShapes.get(pipe | direction)?.isStraight &&

@@ -1233,11 +1233,11 @@ describe('Last-resort parking', () => {
 describe('Share-source hard ban', () => {
 	/**
 	 * Replays a growth stream asserting the share-source hard ban: no
-	 * share move may complete a single-pipe source union, on any grid
-	 * kind - that fully connected single pipe is the rotation-invariant
-	 * freebie, and sharing gains no coverage anyway. Multi-pipe source
-	 * completions (crossings such as the square X) stay legal and merely
-	 * demoted, so the variant's signature tiles remain formable
+	 * share move may complete the source tile's pipe union, on any grid
+	 * kind - pipe or multi-pipe, deadend or clean. Sharing gains no
+	 * coverage, so the drain phase has no reason to mint fully connected
+	 * tiles either; crossings form through the coverage-paying extend
+	 * exemption instead
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} moves
 	 */
@@ -1248,7 +1248,7 @@ describe('Share-source hard ban', () => {
 			if (move.type !== 'move') {
 				continue;
 			}
-			if (move.kind === MOVE_KIND.SHARE && board[move.fromCell].length === 1) {
+			if (move.kind === MOVE_KIND.SHARE) {
 				const polygon = grid.polygonAt(move.fromCell);
 				let union = 0;
 				for (let i = 0; i < board[move.fromCell].length; i++) {
@@ -1265,7 +1265,7 @@ describe('Share-source hard ban', () => {
 		}
 	}
 
-	it('Never fires a share move that completes a single-pipe source union, on any grid kind', () => {
+	it('Never fires a share move that completes its source union, on any grid kind', () => {
 		/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid[]} */
 		const grids = [
 			new SquareGrid(8, 8, false),
