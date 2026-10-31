@@ -138,26 +138,23 @@ describe('Move classification', () => {
 		expect(classifyMoveKind(false, false)).toBe(MOVE_KIND.SEED);
 	});
 
-	it('Pins the tier order: normal > share > straight > obvious > clean-full', () => {
-		expect(TIER.NORMAL).toBeLessThan(TIER.SHARE);
-		expect(TIER.SHARE).toBeLessThan(TIER.STRAIGHT);
+	it('Pins the tier order: normal > straight > obvious > clean-full', () => {
+		expect(TIER.NORMAL).toBeLessThan(TIER.STRAIGHT);
 		expect(TIER.STRAIGHT).toBeLessThan(TIER.OBVIOUS);
 		expect(TIER.OBVIOUS).toBeLessThan(TIER.CLEAN_FULL);
-		expect(moveTier(MOVE_KIND.EXTEND)).toBe(TIER.NORMAL);
-		expect(moveTier(MOVE_KIND.LINK)).toBe(TIER.NORMAL);
-		expect(moveTier(MOVE_KIND.SEED)).toBe(TIER.NORMAL);
-		// sharing is considered only after plain moves
-		expect(moveTier(MOVE_KIND.SHARE)).toBe(TIER.SHARE);
+		// demotions are the only tier pressure: every move kind starts
+		// normal, sharing included - the sharing knob gates availability,
+		// not preference, so no share tier exists
+		expect('SHARE' in TIER).toBe(false);
+		expect(moveTier()).toBe(TIER.NORMAL);
 	});
 
 	it('Keeps the worst demotion of a move', () => {
-		expect(moveTier(MOVE_KIND.SHARE, { straight: true })).toBe(TIER.STRAIGHT);
-		expect(moveTier(MOVE_KIND.EXTEND, { obvious: true })).toBe(TIER.OBVIOUS);
-		expect(moveTier(MOVE_KIND.EXTEND, { straight: true, obvious: true })).toBe(TIER.OBVIOUS);
-		expect(moveTier(MOVE_KIND.EXTEND, { cleanFull: true })).toBe(TIER.CLEAN_FULL);
-		expect(moveTier(MOVE_KIND.SHARE, { straight: true, obvious: true, cleanFull: true })).toBe(
-			TIER.CLEAN_FULL
-		);
+		expect(moveTier({ straight: true })).toBe(TIER.STRAIGHT);
+		expect(moveTier({ obvious: true })).toBe(TIER.OBVIOUS);
+		expect(moveTier({ straight: true, obvious: true })).toBe(TIER.OBVIOUS);
+		expect(moveTier({ cleanFull: true })).toBe(TIER.CLEAN_FULL);
+		expect(moveTier({ straight: true, obvious: true, cleanFull: true })).toBe(TIER.CLEAN_FULL);
 	});
 });
 
@@ -494,6 +491,63 @@ describe('Sharing knob', () => {
 			return total / 40;
 		};
 		expect(meanShared(1)).toBeGreaterThan(meanShared(0.25) + 1);
+	});
+
+	it('Braids during growth: shares fire even when the tip has a fresh extend available', () => {
+		// co-tiered shares (the sharing knob gates availability, not
+		// preference): with shares demoted below extends, a share could
+		// only fire from a tip with no fresh-cell extend left - sharing
+		// was an afterthought on a classic-shaped tree. Ranked equally, a
+		// gated tip sometimes picks the share while a competing extend
+		// sits right there. A competing extend: a free direction of the
+		// acting tile whose neighbour is uncovered with a free answering
+		// direction and whose move would not itself complete the union
+		// (clean-full demotions do not compete for the pick)
+		const grid = new SquareGrid(10, 10, false);
+		let competingShares = 0;
+		for (let run = 0; run < 10; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			pregenerateForest(grid, { sharingAmount: 1, branchingAmount: 0.5 }, (event) =>
+				events.push(event)
+			);
+			/** @type {Number[][]} */
+			const board = Array.from({ length: grid.total }, () => []);
+			for (const event of events) {
+				if (event.type !== 'move') {
+					continue;
+				}
+				if (event.kind === MOVE_KIND.SHARE) {
+					const polygon = grid.polygonAt(event.fromCell);
+					let union = 0;
+					for (const pipe of board[event.fromCell]) {
+						union |= pipe;
+					}
+					for (const direction of polygon.directions) {
+						if (direction === event.direction || (union & direction) > 0) {
+							continue;
+						}
+						const { neighbour, empty } = grid.findNeighbour(event.fromCell, direction);
+						if (empty || board[neighbour].length > 0) {
+							continue;
+						}
+						const back = grid.OPPOSITE.get(direction) || 0;
+						let neighbourUnion = 0;
+						for (const pipe of board[neighbour]) {
+							neighbourUnion |= pipe;
+						}
+						if ((neighbourUnion & back) === 0 && (union | direction) !== polygon.fullyConnected) {
+							competingShares += 1;
+							break;
+						}
+					}
+				}
+				applyForestEvent(grid, board, event);
+			}
+		}
+		// with shares demoted below extends this is provably 0; measured
+		// well above it once co-tiered
+		expect(competingShares).toBeGreaterThan(10);
 	});
 
 	it('Produces crossings on demand: square X tiles of two straights', () => {
@@ -1015,18 +1069,22 @@ describe('Last-resort parking', () => {
 	}
 
 	/**
-	 * Replays a growth stream asserting global parking: whenever a fired
-	 * move completes a pipe union, no pipe anywhere on the board had a
-	 * legal fresh-cell extend left that would not complete a full union -
-	 * the union-completing move fired only as a true last resort. Every
-	 * tile is checked, a sound superset of alive tips: dead tips have no
-	 * legal moves at death and moves only ever die. Merge events (links,
-	 * fusions) are applied but not judged: after growth every cell is
-	 * covered, so no fresh-cell extend exists anyway and the merge's own
-	 * tier order governs them.
+	 * Replays a growth stream asserting last-resort parking: whenever a
+	 * fired move completes a pipe union outside the exemption classes, no
+	 * pipe anywhere on the board had a legal fresh-cell extend left that
+	 * would not complete a full union - the union-completing move fired
+	 * only as a true last resort. Exemptions, matching the engine's soft
+	 * ban: a fully connected pipe completed by an extend on triangular
+	 * grids (a triangle's only branching) and a multi-pipe union completed
+	 * by an extend on a square cell (the X / L+L crossing, paying for
+	 * itself in coverage). Every tile is checked, a sound superset of
+	 * alive tips: dead tips have no legal moves at death and moves only
+	 * ever die. Merge events (links, fusions) are applied but not judged:
+	 * after growth every cell is covered, so no fresh-cell extend exists
+	 * anyway and the merge's own tier order governs them.
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} moves
-	 * @returns {Number} how many union-completing moves fired
+	 * @returns {Number} how many non-exempt union-completing moves fired
 	 */
 	function replayParkingOracle(grid, moves) {
 		/** @type {Number[][]} */
@@ -1046,19 +1104,27 @@ describe('Last-resort parking', () => {
 		let drains = 0;
 		for (const move of moves) {
 			if (move.type === 'move') {
+				const polygon = grid.polygonAt(move.fromCell);
 				const back = grid.OPPOSITE.get(move.direction) || 0;
 				const completes =
-					unionAfter(move.fromCell, move.direction) ===
-						grid.polygonAt(move.fromCell).fullyConnected ||
+					unionAfter(move.fromCell, move.direction) === polygon.fullyConnected ||
 					unionAfter(move.neighbour, back) === grid.polygonAt(move.neighbour).fullyConnected;
 				if (completes) {
-					drains += 1;
-					const escape = findFreshExtend(grid, board);
-					if (escape !== null) {
-						throw new Error(
-							`union-completing ${move.kind} move at ${move.fromCell} fired while a fresh ` +
-								`extend remained at ${escape.cell} direction ${escape.direction}`
-						);
+					const pipeFull =
+						(board[move.fromCell][move.fromPipeIndex] | move.direction) === polygon.fullyConnected;
+					const exempt =
+						move.kind === MOVE_KIND.EXTEND &&
+						((grid.KIND === 'triangular' && pipeFull) ||
+							(polygon.numDirections === 4 && !pipeFull));
+					if (!exempt) {
+						drains += 1;
+						const escape = findFreshExtend(grid, board);
+						if (escape !== null) {
+							throw new Error(
+								`union-completing ${move.kind} move at ${move.fromCell} fired while a fresh ` +
+									`extend remained at ${escape.cell} direction ${escape.direction}`
+							);
+						}
 					}
 				}
 			}
@@ -1067,7 +1133,7 @@ describe('Last-resort parking', () => {
 		return drains;
 	}
 
-	it('Fires union-completing moves only when no fresh-cell extend exists anywhere', () => {
+	it('Fires non-exempt union-completing moves only when no fresh-cell extend exists anywhere', () => {
 		/** @type {{grid: import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid, knobs: import('#lib/puzzle/generator/generator-forest.js').ForestKnobs, runs: Number}[]} */
 		const configs = [
 			{
@@ -1092,6 +1158,22 @@ describe('Last-resort parking', () => {
 				grid: new SquareGrid(8, 8, false),
 				knobs: { sharingAmount: 1, branchingAmount: 1 },
 				runs: 5
+			},
+			// triangular pipe completions are exempt (a triangle's only
+			// branching) and fire mid-growth: the exemption is exercised,
+			// the assertion never trips there
+			{
+				grid: new TriangularGrid(6, 6, false),
+				knobs: { sharingAmount: 0, branchingAmount: 1 },
+				runs: 5
+			},
+			// mixed grid: square cells get the crossing exemption, the
+			// triangle cells do not (the pipe exemption is triangular-grid
+			// only)
+			{
+				grid: new SnubSquareGrid(5, 5, false),
+				knobs: { sharingAmount: 1, branchingAmount: 0.5 },
+				runs: 5
 			}
 		];
 		let drains = 0;
@@ -1104,6 +1186,47 @@ describe('Last-resort parking', () => {
 			}
 		}
 		expect(drains).toBeGreaterThan(0);
+	});
+
+	it('Completes square crossings mid-growth: a multi-pipe union-completing extend on a square cell fires with fresh extends remaining', () => {
+		// the square exemption of the last-resort tier: on 4-direction
+		// cells the clean multi-pipe union is exactly the X / L+L crossing
+		// pair, and the completing extend visits a fresh cell, so it pays
+		// for itself in coverage and ranks normal instead of parking
+		const grid = new SquareGrid(10, 10, false);
+		let midGrowthCompletions = 0;
+		for (let run = 0; run < 10; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			pregenerateForest(grid, { sharingAmount: 1, branchingAmount: 0.5 }, (event) =>
+				events.push(event)
+			);
+			/** @type {Number[][]} */
+			const board = Array.from({ length: grid.total }, () => []);
+			for (const event of events) {
+				if (event.type === 'move' && event.kind === MOVE_KIND.EXTEND) {
+					let union = 0;
+					for (const pipe of board[event.fromCell]) {
+						union |= pipe;
+					}
+					const pipeFull =
+						(board[event.fromCell][event.fromPipeIndex] | event.direction) ===
+						grid.polygonAt(event.fromCell).fullyConnected;
+					if (
+						board[event.fromCell].length > 1 &&
+						!pipeFull &&
+						(union | event.direction) === grid.polygonAt(event.fromCell).fullyConnected &&
+						findFreshExtend(grid, board) !== null
+					) {
+						midGrowthCompletions += 1;
+					}
+				}
+				applyForestEvent(grid, board, event);
+			}
+		}
+		// with every union completion demoted this is provably 0 (they
+		// all park); measured well above it with the exemption
+		expect(midGrowthCompletions).toBeGreaterThan(10);
 	});
 });
 

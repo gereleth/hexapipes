@@ -109,23 +109,36 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   established encoding: tile index plus pipe index times grid total). Each locked edge unions its
   two pipes. A move joining two ends of the same component is refused. Component count is the
   union-find count.
-- **Hard ban.** A move is refused — never, not as a last resort — if after it, either tile it
-  touches would be a fully connected tile whose union contains a deadend. This outlaws the square
-  T+deadend shape on creation. The newborn-pipe case (a pipe born into a fresh cell that completes
-  that cell's full union with its single end) is part of the ban and explicitly checked.
-- **Soft ban.** A move completing a clean fully connected tile (no deadends) is demoted to the
-  last-resort tier. Classic avoid-obvious and avoid-straights demotions port as per-move tier
-  demotions. Tier order: normal > share > straight-demotion > obvious-demotion > clean-full last
-  resort. Triangular-grid caveats from classic port as-is.
+- **Hard ban.** A move is refused — never, not as a last resort — in two cases: if after it, either
+  tile it touches would be a fully connected tile whose union contains a deadend (this outlaws the
+  square T+deadend shape on creation; the newborn-pipe case is part of the ban and explicitly
+  checked); and if it is a share move (occupied target) whose source pipe would become fully
+  connected — the fully connected single pipe is the rotation-invariant freebie and sharing gains no
+  coverage [agreed 2026-10-31].
+- **Soft ban.** What a clean (deadend-free) union completion costs depends on what completes and
+  where the move lands [agreed 2026-10-31]. A fully connected **pipe** via a fresh-cell extend is
+  demoted to the last-resort tier, except on triangular grids where it is normal — a triangle's only
+  branching, the classic caveat (a grid-level rule). A clean multi-pipe **union** via a fresh-cell
+  extend is demoted to the last-resort tier, except on square cells (four directions), where the
+  union is exactly the X/L+L crossing pair and the move pays for itself in coverage — normal tier (a
+  cell-level rule, so mixed grids' square cells qualify). A clean multi-pipe union via a share is
+  demoted to the last-resort tier everywhere (no coverage gain). Classic avoid-obvious and
+  avoid-straights demotions port as per-move tier demotions. Tier order: normal >
+  straight-demotion > obvious-demotion > clean-full last resort. Sharing has no tier of its own
+  [revised 2026-10-31, agreed]: the sharing knob gates whether share candidates are considered at
+  all per pick, and considered shares rank with fresh-cell moves, so trees braid during growth
+  instead of sharing as an afterthought once boxed.
 - **Forest mechanism.** K seeds are chosen by farthest-point sampling over non-empty cells (BFS hop
   distance). K is a generator setting passed alongside the sharing and branching knobs, defaulting
   to one plus the rounded square root of the cell count; it is deliberately independent of the
   sharing knob. Trees grow independently classic-style: extend into fresh cells, add ends to their
   own pipes, never link during growth. When a tip's candidate move lands on an occupied cell, the
   share option is considered per pick with probability equal to the sharing knob; otherwise the tip
-  extends elsewhere or dies as in classic. Entering a cell never merges components. A tip that
-  entered foreign territory keeps growing there, sharing each cell it passes, producing trails of
-  shared tiles — long crossings arise naturally in winding mode.
+  extends elsewhere or dies as in classic. Considered shares rank with moves into fresh cells —
+  sharing is woven into growth, not an afterthought once boxed [revised 2026-10-31, agreed].
+  Entering a cell never merges components. A tip that entered foreign territory keeps growing there,
+  sharing each cell it passes, producing trails of shared tiles — long crossings arise naturally in
+  winding mode.
 - **Merge phase.** After growth ends, link and fuse the forest into one spanning tree in a tier
   order, each tier's candidates shuffled and re-validated as they apply: plain links, clean
   union-completing links (mirroring the growth clean-full demotion), clean fusions — any two pipes

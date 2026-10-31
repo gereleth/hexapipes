@@ -43,11 +43,21 @@ the union-find count.
 
 **Hard ban (never, not even last resort):** a move is refused if, after it, _either tile it touches_
 would be a fully connected union containing a deadend (single-ended pipe). This outlaws square
-T+deadend on creation.
+T+deadend on creation. Also refused everywhere: a share move (occupied target) whose source pipe
+would become fully connected — the fully connected single pipe is the rotation-invariant freebie,
+and sharing gains no coverage [agreed 2026-10-31].
 
-**Soft ban (tunable tier):** a move that completes a _clean_ fully connected union (no deadends) is
-demoted to the last-resort tier. This keeps square X and L+L tiles possible but rare-ish. The
-classic last-resort/avoid tiers port as per-move tier demotions (`avoidObvious`, `avoidStraights`).
+**Soft ban (tunable tier):** a clean (deadend-free) completion is demoted to the last-resort tier —
+except where the completed shape is the payoff [agreed 2026-10-31]. On triangular grids a fully
+connected pipe completed by an extend into a fresh cell is normal: a triangle's only branching (the
+classic caveat, grid-level). On square cells (four directions, so including mixed grids' squares) a
+multi-pipe union completed by a fresh-cell extend is normal: the union is exactly the X / L+L
+crossing pair, and the move pays for itself in coverage. A multi-pipe union completed by a share is
+last-resort everywhere. The classic last-resort/avoid tiers port as per-move tier demotions
+(`avoidObvious`, `avoidStraights`); the tier order is normal > straight-demotion > obvious-demotion
+
+> clean-full last resort, with no share tier — the sharing knob gates share candidates per pick, and
+> considered shares rank with fresh-cell moves.
 
 **Termination.** `pregenerate_multi` returns one spanning tree over all non-empty cells: growth
 brings coverage, the merge phase brings the single component. Coverage alone does not end growth —
@@ -57,7 +67,8 @@ decision.
 **Knobs.**
 
 - `sharingAmount ∈ [0,1]`: 0 disables sharing events entirely (hard guarantee); higher values mean
-  more events. Exact calibration is experimental.
+  more events. Considered shares rank with fresh-cell moves (no share tier). Exact calibration is
+  experimental.
 - `branchingAmount ∈ [0,1]`: _frontier selection only_ — pick the most recent growth point (0,
   winding) vs a uniform random one (1, bushy). Classic backtracker↔Prim blend, per tree. Pipe
   end-counts stay emergent.
@@ -79,8 +90,9 @@ no bit-parity obligation with `generator.js`.
   absorption targets.
 - **Foreign entry.** When a tip's candidate move lands on an occupied cell, the "new pipe born
   there" option (bottom row of the table) is gated by `sharingAmount`: each pick, with probability
-  `sharingAmount` the share tier is considered, otherwise the tip must extend elsewhere (or die,
-  like classic). Entering a cell never merges components — pipes in a tile never connect.
+  `sharingAmount` share candidates join, ranked with moves into fresh cells, otherwise the tip must
+  extend elsewhere (or die, like classic). Entering a cell never merges components — pipes in a tile
+  never connect.
 - **Braiding.** A tip that entered foreign territory keeps growing there, sharing each cell it
   passes (its own new pipes). This produces trails of shared tiles — pipes running through fields of
   other pipes. Long crossings arise naturally, especially in winding mode (two trees threading
@@ -174,9 +186,9 @@ ends", not verbatim equality.
 
 ## Open tunables (experiments, via the debug page)
 
-- K (tree count) formula (`1 + round(√N)` starting point); share-tier gating probability and where
-  it sits in the tier order (currently: normal > share > straight-demotion > obvious-demotion >
-  clean-full last resort).
+- K (tree count) formula (`1 + round(√N)` starting point); share-gate probability (share candidates
+  join the pick ranked with fresh-cell moves; the tier order is normal > straight-demotion >
+  obvious-demotion > clean-full last resort).
 - Growth-end criterion: stop at coverage vs run to frontier exhaustion vs a post-coverage share
   quota — sharing moves remain legal after coverage.
 - Evenness statistic and threshold: e.g. shared-tile counts per board region within tolerance of

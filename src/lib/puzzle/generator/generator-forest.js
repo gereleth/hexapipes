@@ -19,13 +19,16 @@ export const MOVE_KIND = Object.freeze({
 /**
  * Move tiers from best to worst. A growth point's candidates are bucketed
  * by tier and the best non-empty tier wins; demotions push a move down.
+ * Sharing has no tier of its own: the sharing knob gates whether share
+ * candidates are considered at all, and considered shares rank with moves
+ * into fresh cells, so trees braid during growth instead of as an
+ * afterthought once boxed.
  */
 export const TIER = Object.freeze({
 	NORMAL: 0,
-	SHARE: 1,
-	STRAIGHT: 2,
-	OBVIOUS: 3,
-	CLEAN_FULL: 4
+	STRAIGHT: 1,
+	OBVIOUS: 2,
+	CLEAN_FULL: 3
 });
 
 /**
@@ -41,15 +44,14 @@ export function classifyMoveKind(sourceHasPipe, targetHasPipe) {
 }
 
 /**
- * Tier of a candidate move: its kind sets the floor (sharing is only
- * considered after plain moves), demotion flags raise it, the worst wins.
- * @param {String} kind - one of MOVE_KIND values
+ * Tier of a candidate move: demotion flags raise it, the worst wins. Every
+ * move kind starts normal - preference between kinds is not a tier matter.
  * @param {{straight?: boolean, obvious?: boolean, cleanFull?: boolean}} [demotions]
  * @returns {Number} one of TIER values
  */
-export function moveTier(kind, demotions = {}) {
+export function moveTier(demotions = {}) {
 	/** @type {Number} */
-	let tier = kind === MOVE_KIND.SHARE ? TIER.SHARE : TIER.NORMAL;
+	let tier = TIER.NORMAL;
 	if (demotions.straight) {
 		tier = Math.max(tier, TIER.STRAIGHT);
 	}
@@ -329,9 +331,11 @@ export function applyForestEvent(grid, board, event) {
  * later tickets fill the behavior in
  * @typedef {object} ForestKnobs
  * @property {Number} [sharingAmount=0] - probability that a pick considers
- * the share tier at all: entering an occupied foreign cell (no pipe of the
+ * share candidates at all: entering an occupied foreign cell (no pipe of the
  * tip's tree there) by birthing a new pipe in it, values in range [0,1].
- * Zero hard-guarantees boards where every tile holds exactly one pipe.
+ * Considered shares rank with moves into fresh cells, so trees braid during
+ * growth. Zero hard-guarantees boards where every tile holds exactly one
+ * pipe.
  * @property {Number} [branchingAmount=0.5] - frontier selection only: 0 picks
  * the most recent growth point (winding), 1 a uniform random one (bushy)
  * @property {Number} [avoidObvious=0] - demotes moves that would make a tile
@@ -467,8 +471,9 @@ function growAttempt(grid, knobs, events) {
 		const polygon = grid.polygonAt(cell);
 		const pipe = pipeIndex >= 0 ? tiles[cell][pipeIndex] : 0;
 		const nogo = obviousTiles.get(cell);
-		// one roll per pick: with probability sharingAmount the share tier
-		// joins this pick's candidates at all
+		// one roll per pick: with probability sharingAmount share candidates
+		// join this pick at all - and when they join they rank with moves
+		// into fresh cells (see TIER)
 		const shareConsidered = Math.random() < knobs.sharingAmount;
 		const tipRoot =
 			pipeIndex >= 0 && shareConsidered ? uf.find(grid.pipeNodeId(cell, pipeIndex)) : -1;
@@ -514,24 +519,42 @@ function growAttempt(grid, knobs, events) {
 			if ((sourceAfter.full && sourceAfter.deadend) || (targetAfter.full && targetAfter.deadend)) {
 				continue;
 			}
-			// hard ban: a share move completing a single-pipe source union is
-			// refused on every grid kind - the fully connected single pipe is
-			// the rotation-invariant freebie, and sharing gains no coverage
-			// anyway. Multi-pipe source completions (crossings) stay demoted
-			if (kind === MOVE_KIND.SHARE && sourceAfter.full && tiles[cell].length === 1) {
+			// a fully connected pipe - the acting pipe alone taking its
+			// tile's every direction - is the rotation-invariant freebie
+			const pipeFull = (pipe | direction) === polygon.fullyConnected;
+			// hard ban: a share move completing a fully connected pipe at
+			// the source is refused on every grid kind - sharing gains no
+			// coverage, so minting the freebie is never worth it. A share
+			// completing a multi-pipe union (a crossing) stays legal,
+			// merely demoted to the last-resort tier below
+			if (kind === MOVE_KIND.SHARE && pipeFull) {
 				continue;
 			}
+			// soft ban: a move completing a clean fully connected union
+			// demotes to the last-resort tier, except where the completed
+			// shape is the payoff. Triangular grids allow a fully
+			// connected pipe outright - a triangle's only branching
+			// (demoteFullUnion, the classic caveat). And on square cells
+			// a multi-pipe union - exactly the X / L+L crossing pair - is
+			// completed by an extend into a fresh cell, so the move pays
+			// for itself in coverage and ranks normal. Only the source
+			// side can complete a clean union here: a fresh target holds
+			// nothing but the newborn end, and a share target completing
+			// its union would contain that deadend newborn - banned above
+			const cleanFull =
+				demoteFullUnion &&
+				sourceAfter.full &&
+				!sourceAfter.deadend &&
+				!(kind === MOVE_KIND.EXTEND && !pipeFull && polygon.numDirections === 4);
 			const demotions = {
 				straight:
 					polygon.pipeShapes.get(pipe | direction)?.isStraight &&
 					Math.random() < knobs.avoidStraights,
 				obvious:
 					nogo !== undefined && Math.random() < knobs.avoidObvious && nogo.has(pipe | direction),
-				cleanFull:
-					demoteFullUnion &&
-					((sourceAfter.full && !sourceAfter.deadend) || (targetAfter.full && !targetAfter.deadend))
+				cleanFull
 			};
-			buckets[moveTier(kind, demotions)].push({ direction, neighbour, kind });
+			buckets[moveTier(demotions)].push({ direction, neighbour, kind });
 		}
 		return buckets;
 	};

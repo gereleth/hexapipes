@@ -23,7 +23,7 @@ what parking incidentally does.
 debug page → then 03 (the spec front-loads the aesthetic gate before the merge/uniqueness
 investment).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Open design questions (decide before or while implementing):**
 
@@ -65,20 +65,26 @@ investment).
   during-coverage pluses; ticket 08 bounds the tail. Acceptance thresholds below assume 07 alone
   (against the measured baselines); re-measure after 08.
 
-- [ ] Sharing-0 boards are statistically at classic levels: single-pipe fully-connected tiles ~0
+- [x] Sharing-0 boards are statistically at classic levels: single-pipe fully-connected tiles ~0
       across grid kinds and branching extremes (baseline to beat: 0.5-18.4 per 400 cells on square;
-      classic: 0.0)
-- [ ] White-box at sharing 0 with demotion knobs at 0 (deterministic tiers): replaying the event
-      stream, whenever a move fires that completes a full union, assert that at that moment no pipe
-      anywhere on the board had a legal fresh-cell extend that wouldn't complete a full union —
-      computable from the replayed board alone (free direction of the tile, free answering
-      direction, uncovered neighbour), checking every pipe as a sound superset of alive tips. Global
-      parking passes; per-tree parking or no parking fails
-- [ ] Multi-pipe full unions (crossings) are not regressively reduced at sharing > 0 (measure
-      before/after; crossings are the variant's feature)
-- [ ] Triangular boards unchanged (no parking there)
-- [ ] Growth still terminates, coverage still holds, the event stream still replays exactly
-- [ ] `npx vitest run`, `npm run check`, `npm run lint` all clean
+      classic: 0.0) — measured 0.00 on square 20×20 across branching 0/0.5/1 (30 runs each), 0.0
+      hex, triangular untouched at its no-demotion ~20/128
+- [x] White-box replay oracle at sharing 0 with demotion knobs at 0 (deterministic tiers) —
+      rewritten class-aware after the 2026-10-31 rule split: whenever a non-exempt move fires that
+      completes a full union (exemptions: triangular pipe-full extends, square-cell multi-pipe
+      extends), no pipe anywhere on the board had a legal fresh-cell extend that wouldn't complete a
+      full union, computable from the replayed board alone, checking every pipe as a sound superset
+      of alive tips. Global parking passes; per-tree parking or no parking fails; the oracle test
+      also carries sharing-1 runs that keep it non-vacuous
+- [x] Multi-pipe full unions (crossings) are not regressively reduced at sharing > 0 — re-baselined
+      2026-10-28 (the share-pipe ban removes plus-minting shares by intent) and re-measured
+      2026-10-31 after the co-tiering + square-exemption work: X tiles and full-multi rise (X
+      9.1→10.4 at sharing 1 bushy, 10.1→12.9 winding; full-multi 20.5→26.1 / 23.7→31.3 per 100
+      cells), X crossings form mid-growth again (pinned by the mid-growth completion test)
+- [x] Triangular boards unchanged (no last-resort parking there; the triangular pipe exemption is
+      the pre-existing demoteFullUnion caveat, now explicit in the spec)
+- [x] Growth still terminates, coverage still holds, the event stream still replays exactly
+- [x] `npx vitest run`, `npm run check`, `npm run lint` all clean
 
 ## Comments
 
@@ -135,3 +141,28 @@ Fresh baselines measured 2026-10-28 (30 runs each, full tiles per run, /400 or n
 - triangular 10×10 (128 cells) sharing 0 bushy: 19.9 full-single — sharing-0 reference for "parking
   doesn't engage on triangular"; sharing > 0 triangular boards change via decision 5's ban, by
   intent
+
+Rule-split follow-up agreed with the user (2026-10-31), after their debug-page experiments and the
+merge phase (ticket 03) landing:
+
+8. **Shares are co-tiered with fresh-cell moves.** The sharing knob now gates only availability per
+   pick; considered share candidates rank in the normal tier with fresh-cell extends. The old share
+   tier made sharing an afterthought on a classic-shaped tree (a share could only fire from a tip
+   with no fresh extend left — provable from the old tier logic, and pinned by the new braiding
+   test). `TIER.SHARE` and the kind floor in `moveTier` are gone; the tier order is exactly
+   classic's: normal > straight > obvious > clean-full.
+9. **The ban/demotion matrix is keyed on pipe vs union and fresh vs occupied target** (spec Soft ban
+   / Hard ban bullets, agreed 2026-10-31): deadend-in-full banned everywhere; share completing a
+   fully connected pipe banned everywhere; pipe-full extend last-resort except triangular
+   (grid-level); clean multi-pipe union extend last-resort except on square cells — cell-level
+   (`polygon.numDirections === 4`), chosen over grid-level so mixed grids' square cells (snub
+   square, etrat, rhombitrihexa) keep their crossings, while the triangular pipe exemption stays
+   grid-level because fully connected triangles would flatten etrat/snub-square difficulty (user's
+   classic experience); clean multi-pipe union via share last-resort everywhere. Merge phase
+   untouched (links gain no coverage, so its tiering stands as ticket 03 built it).
+10. **Measured, square 10×10, 20 runs each** (before → after the 2026-10-31 work): coverage-phase
+    share-move ratio 0.276→0.331 (b0.5), 0.294→0.343 (b0); X tiles 9.1→10.4 / 10.1→12.9; full-multi
+    20.5→26.1 / 23.7→31.3; shared tiles ~50→53.5 / 51.5→58; full-single 0.0→0.0; sharing 0 all
+    zeros. Crossings now form mid-growth (the square exemption) rather than only at drains;
+    saturation stays far below the pre-parking 170/400 baseline that ticket 08 exists to cap. Knob
+    calibration shifts (same sharingAmount braids more) — debug-page re-look advised.
