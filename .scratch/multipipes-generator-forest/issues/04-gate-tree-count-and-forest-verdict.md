@@ -17,11 +17,36 @@ deliberately out of scope — this is a looked-at-the-boards call.
 
 **Status:** ready-for-agent
 
-- [ ] Tree count reaches the engine via worker options on the growth path, defaulting to the formula
+- [x] Tree count reaches the engine via worker options on the growth path, defaulting to the formula
       when unset
-- [ ] The generator debug page exposes a tree-count control alongside the other knobs
+- [x] The generator debug page exposes a tree-count control alongside the other knobs
 - [ ] Boards reviewed across the knob grid on hex, square, and one mixed-polygon grid, wrap and
       non-wrap
 - [ ] Verdict recorded under a `## Verdict` heading in this file: proceed on forest, or pivot to the
       scheduled fallback, with a one-line why
 - [ ] `npx vitest run`, `npm run check`, `npm run lint` all clean
+
+## Comments
+
+Defaults decided with the user (2026-11-01), informed by the ticket-08 sweep
+(`generator_stats/forest-sharing-sweep-20x20-wrap.csv`) and the √N-scaling discussion it prompted:
+
+1. **Default K = `max(3, floor(N/20))`** — constant tree size (~20 cells, linear scaling),
+   superseding the `1 + round(√N)` starting point (which had no recorded derivation anywhere and, as
+   it turns out, diverged from the old generator's constant-subtree scaling
+   `max(3, floor(total/50))` by accident). Why linear: sharing material is seam length per cell ∝
+   √(K/N), so constant tree size keeps the sharing knob's meaning size-invariant across board sizes;
+   √N made bigger boards mildly calmer at the same setting. Numbers: identical at 20×20 (20 trees vs
+   today's 21 — the user's visual calibration happened there), diverging elsewhere — 40×40 gets 80
+   small trees instead of 41, a 10×10 gets 5 bigger ones instead of 11.
+2. **Default sharing = 0.35** — visually calibrated by the user on square/hex, inside the linear
+   part of the knob response (0.1–0.5 on every grid kind, per the sweep). Applies to the forest path
+   when it becomes the game default (ticket 06 cutover); today's 0.6 default belongs to the old
+   generator.
+3. **Plumbing already done:** treeCount reaches the engine via worker options on the growth path
+   (`worker-multi.js growthStart` passes knobs as-is; defaults live in the engine) and the debug
+   page exposes the control — acceptance bullets 1–2 checked. The engine still computes
+   `1 + round(√N)` in `defaultTreeCount`; the new formula lands with this ticket's pickup or the
+   cutover.
+
+Still open here: the board review and the forest-vs-scheduled verdict (bullets 3–4).

@@ -69,7 +69,8 @@ decision.
 
 - `sharingAmount ∈ [0,1]`: 0 disables sharing events entirely (hard guarantee); higher values mean
   more events. Considered shares rank with fresh-cell moves (no share tier). Exact calibration is
-  experimental.
+  experimental [default settled 2026-11-01: 0.35 — the linear part of the response curve on every
+  grid kind, user-calibrated on square/hex; applies from the cutover (ticket 06) on].
 - `branchingAmount ∈ [0,1]`: _frontier selection only_ — pick the most recent growth point (0,
   winding) vs a uniform random one (1, bushy). Classic backtracker↔Prim blend, per tree. Pipe
   end-counts stay emergent.
@@ -83,9 +84,10 @@ no bit-parity obligation with `generator.js`.
 
 - **Seeds.** K cells chosen by farthest-point sampling over non-empty cells (BFS hop distance). K is
   its own knob, scaling with board size and deliberately not with `sharingAmount` — starting point
-  `1 + round(√N)`, tunable. During the uniqueness loop, reused components count toward K and fresh
-  seeds top the count up; reuse yielding more than K qualifying components keeps them all (K caps
-  fresh seeds, not reuse).
+  `1 + round(√N)`, tunable [default settled 2026-11-01: `max(3, floor(N/20))`, constant ~20-cell
+  trees — linear scaling keeps the sharing knob size-invariant; see ticket 04 comments]. During the
+  uniqueness loop, reused components count toward K and fresh seeds top the count up; reuse yielding
+  more than K qualifying components keeps them all (K caps fresh seeds, not reuse).
 - **Trees grow independently**, classic-style: extend into fresh cells, add ends to own pipes
   (fattening), never link during growth — not even into reused tiles, which are trees here, not
   absorption targets.

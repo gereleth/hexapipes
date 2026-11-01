@@ -133,15 +133,17 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   boxed.
 - **Forest mechanism.** K seeds are chosen by farthest-point sampling over non-empty cells (BFS hop
   distance). K is a generator setting passed alongside the sharing and branching knobs, defaulting
-  to one plus the rounded square root of the cell count; it is deliberately independent of the
-  sharing knob. Trees grow independently classic-style: extend into fresh cells, add ends to their
-  own pipes, never link during growth. When a tip's candidate move lands on an occupied cell, the
-  share option is considered per pick with probability equal to the sharing knob; otherwise the tip
-  extends elsewhere or dies as in classic. Considered shares rank with moves into fresh cells —
-  sharing is woven into growth, not an afterthought once boxed [revised 2026-10-31, agreed].
-  Entering a cell never merges components. A tip that entered foreign territory keeps growing there,
-  sharing each cell it passes, producing trails of shared tiles — long crossings arise naturally in
-  winding mode.
+  to one plus the rounded square root of the cell count [superseded 2026-11-01, agreed: the default
+  is `max(3, floor(N/20))` — constant ~20-cell trees, linear scaling, so the sharing knob means the
+  same thing at every board size (seam length per cell ∝ √(K/N)); recorded in ticket 04]; it is
+  deliberately independent of the sharing knob. Trees grow independently classic-style: extend into
+  fresh cells, add ends to their own pipes, never link during growth. When a tip's candidate move
+  lands on an occupied cell, the share option is considered per pick with probability equal to the
+  sharing knob; otherwise the tip extends elsewhere or dies as in classic. Considered shares rank
+  with moves into fresh cells — sharing is woven into growth, not an afterthought once boxed
+  [revised 2026-10-31, agreed]. Entering a cell never merges components. A tip that entered foreign
+  territory keeps growing there, sharing each cell it passes, producing trails of shared tiles —
+  long crossings arise naturally in winding mode.
 - **Merge phase.** After growth ends, link and fuse the forest into one spanning tree in a tier
   order, each tier's candidates shuffled and re-validated as they apply: plain links, clean
   union-completing links (mirroring the growth clean-full demotion), clean fusions — any two pipes
