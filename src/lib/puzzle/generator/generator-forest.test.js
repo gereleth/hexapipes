@@ -285,7 +285,12 @@ describe('Forest growth knobs', () => {
 		}
 	});
 
-	it('The default tree count is one plus the rounded square root of the cell count', () => {
+	it('The default tree count keeps trees at about twenty cells, floored at three', () => {
+		expect(defaultTreeCount(100)).toBe(5);
+		expect(defaultTreeCount(400)).toBe(20);
+		expect(defaultTreeCount(1600)).toBe(80);
+		expect(defaultTreeCount(20)).toBe(3);
+		expect(defaultTreeCount(1)).toBe(3);
 		for (let run = 0; run < 10; run++) {
 			const grid = new SquareGrid(10, 10, false);
 			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */

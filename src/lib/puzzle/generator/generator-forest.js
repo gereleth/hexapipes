@@ -330,12 +330,13 @@ export function applyForestEvent(grid, board, event) {
  * Knobs of the forest generator, all complete from the start even where
  * later tickets fill the behavior in
  * @typedef {object} ForestKnobs
- * @property {Number} [sharingAmount=0] - probability that a pick considers
+ * @property {Number} [sharingAmount=0.35] - probability that a pick considers
  * share candidates at all: entering an occupied foreign cell (no pipe of the
  * tip's tree there) by birthing a new pipe in it, values in range [0,1].
  * Considered shares rank with moves into fresh cells, so trees braid during
  * growth. Zero hard-guarantees boards where every tile holds exactly one
- * pipe.
+ * pipe [default 0.35 agreed 2026-11-01, ticket 04: the linear part of the
+ * knob's response curve, calibrated visually on square/hex].
  * @property {Number} [branchingAmount=0.5] - frontier selection only: 0 picks
  * the most recent growth point (winding), 1 a uniform random one (bushy)
  * @property {Number} [avoidObvious=0] - demotes moves that would make a tile
@@ -367,12 +368,18 @@ class IsolatedCellError extends Error {}
 export class UnmergeableBoardError extends Error {}
 
 /**
- * Default number of trees, scaling with the board size
+ * Default number of trees: constant tree size - about twenty playable
+ * cells per tree, with a floor of three trees so sharing has foreign
+ * territory to braid into even on small boards. Linear scaling keeps the
+ * sharing knob's meaning size-invariant: seam length per cell goes as
+ * sqrt(K/N), which stays constant when K grows with N [agreed 2026-11-01,
+ * ticket 04 - the earlier 1 + round(sqrt(N)) starting point made bigger
+ * boards mildly calmer at the same sharing setting]
  * @param {Number} playableCount
  * @returns {Number}
  */
 export function defaultTreeCount(playableCount) {
-	return 1 + Math.round(Math.sqrt(playableCount));
+	return Math.max(3, Math.floor(playableCount / 20));
 }
 
 /**
@@ -1126,7 +1133,7 @@ export function pregenerateForest(grid, knobs = {}, onEvent = undefined) {
 	const clamp = (value) => Math.min(1, Math.max(0, value || 0));
 	/** @type {Required<ForestKnobs>} */
 	const full = {
-		sharingAmount: clamp(knobs.sharingAmount),
+		sharingAmount: clamp(knobs.sharingAmount === undefined ? 0.35 : knobs.sharingAmount),
 		branchingAmount: clamp(knobs.branchingAmount === undefined ? 0.5 : knobs.branchingAmount),
 		avoidObvious: clamp(knobs.avoidObvious),
 		avoidStraights: clamp(knobs.avoidStraights),

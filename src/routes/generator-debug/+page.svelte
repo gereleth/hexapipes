@@ -28,8 +28,8 @@
 	let branchingAmount = $state(0.5);
 	let avoidObvious = $state(0.0);
 	let avoidStraights = $state(0.0);
-	let sharingAmount = $state(0.6);
-	/** 0 means the default 1 + round(sqrt(playable cells)) */
+	let sharingAmount = $state(0.35);
+	/** 0 means the default max(3, floor(playable cells / 20)) */
 	let treeCount = $state(0);
 	/** 0 means the default max(100, 0.1 * total) */
 	let maxAmbiguousTiles = $state(0);

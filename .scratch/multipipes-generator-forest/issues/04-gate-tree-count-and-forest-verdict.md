@@ -15,16 +15,16 @@ deliberately out of scope — this is a looked-at-the-boards call.
 
 **Blocked by:** 03 (merge phase).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Tree count reaches the engine via worker options on the growth path, defaulting to the formula
       when unset
 - [x] The generator debug page exposes a tree-count control alongside the other knobs
-- [ ] Boards reviewed across the knob grid on hex, square, and one mixed-polygon grid, wrap and
+- [x] Boards reviewed across the knob grid on hex, square, and one mixed-polygon grid, wrap and
       non-wrap
-- [ ] Verdict recorded under a `## Verdict` heading in this file: proceed on forest, or pivot to the
+- [x] Verdict recorded under a `## Verdict` heading in this file: proceed on forest, or pivot to the
       scheduled fallback, with a one-line why
-- [ ] `npx vitest run`, `npm run check`, `npm run lint` all clean
+- [x] `npx vitest run`, `npm run check`, `npm run lint` all clean
 
 ## Comments
 
@@ -45,8 +45,16 @@ Defaults decided with the user (2026-11-01), informed by the ticket-08 sweep
    generator.
 3. **Plumbing already done:** treeCount reaches the engine via worker options on the growth path
    (`worker-multi.js growthStart` passes knobs as-is; defaults live in the engine) and the debug
-   page exposes the control — acceptance bullets 1–2 checked. The engine still computes
-   `1 + round(√N)` in `defaultTreeCount`; the new formula lands with this ticket's pickup or the
-   cutover.
+   page exposes the control — acceptance bullets 1–2 checked.
+4. **Implemented the same day**, forest engine only (`generator-multi` untouched):
+   `defaultTreeCount` returns `max(3, floor(N/20))`, the engine's unset `sharingAmount` now defaults
+   to 0.35 (an explicit 0 keeps its hard zero-sharing guarantee), the seed-count test pins the new
+   formula, and the debug page's sharing slider starts at 0.35. `npx vitest run`, `npm run check`,
+   `npm run lint` all clean after the change.
 
-Still open here: the board review and the forest-vs-scheduled verdict (bullets 3–4).
+## Verdict
+
+Proceed on forest — at the settled defaults (K = `max(3, floor(N/20))`, sharing 0.35) boards read as
+braided texture rather than clumping (user's debug-page review on square/hex), and the knob response
+is linear and monotone across all nine grid kinds (ticket-08 sweep), so nothing needs the scheduled
+fallback. Tickets 05–06 unblocked.
