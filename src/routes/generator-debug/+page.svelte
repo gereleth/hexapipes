@@ -481,7 +481,7 @@
 			<label>
 				Grid type
 				<select bind:value={gridKind}>
-					{#each gridKinds.filter((kind) => kind === 'square' || kind === 'hexagonal') as kind (kind)}
+					{#each gridKinds as kind (kind)}
 						<option value={kind}>{gridInfo[kind].title}</option>
 					{/each}
 				</select>
