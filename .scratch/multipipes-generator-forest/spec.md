@@ -156,7 +156,9 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
 - **Termination.** One spanning tree over all non-empty cells: growth brings coverage, the merge
   phase brings the single component. Coverage alone does not end growth — sharing moves stay legal
   once every cell is occupied; the growth-stop criterion is a tunable (coverage vs frontier
-  exhaustion vs post-coverage share quota).
+  exhaustion vs post-coverage share quota) [settled 2026-11-01: frontier exhaustion stays. The
+  post-coverage tail collapsed under the 2026-10-31 rule split and the sharing default moves into
+  the linear response regime instead — ticket 08 dropped with measurements, see its comments].
 - **Uniqueness loop.** Classic structure: solve with the solver's ambiguity marking; unique →
   scramble (random rotation per tile applied to all its pipes) and return; otherwise compute reused
   tiles — connected components of determined tiles linked by mutual pipe edges in solved

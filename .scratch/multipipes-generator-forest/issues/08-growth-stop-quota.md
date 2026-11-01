@@ -22,7 +22,7 @@ boards, high-value braided boards, ceiling included.
 that would otherwise drain the parked tips — together they drive degenerate pluses to classic's zero
 AND cap saturation; re-measure the full grid of knob values after both).
 
-**Status:** ready-for-agent
+**Status:** dropped (2026-11-01, see Comments)
 
 **Open design questions (decide before or while implementing):**
 
@@ -58,3 +58,38 @@ AND cap saturation; re-measure the full grid of knob values after both).
 - [ ] The debug page growth animation shows the tail shorten as sharing drops; no plumbing beyond
       what exists
 - [ ] `npx vitest run`, `npm run check`, `npm run lint` all clean
+
+## Comments
+
+Dropped 2026-11-01, agreed with the user: the problem the ticket exists for dissolved under the
+2026-10-31 rule split (ticket 07), and the measured knob response made the machinery unnecessary at
+the chosen default.
+
+1. **Premise invalidated.** The "unbounded post-coverage sharing tail" is gone. Co-tiering shares
+   with extends moved sharing into growth, and the share-completion hard ban (a share can never
+   spend its source tile's last free direction) ends growth within a few moves of coverage on
+   4-direction kinds. The saturation this ticket was to cap dropped ~3x: square 20x20 sharing 1
+   winding 186 -> ~66 full tiles /400; sharing 0.6 default ~60 -> 32 (30 runs each, 2026-11-01).
+   What remains is a mid-growth phenomenon (braiding + the square X extend exemption), which a
+   post-coverage stop rule cannot touch anyway.
+2. **Sweep evidence** (`scratch/pregenerate-forest-stats.mjs` ->
+   `generator_stats/forest-sharing-sweep-20x20-wrap.csv`, 27,000 boards: all 9 grid kinds, 20x20
+   wrap, branching {0, 0.5, 1} x sharing 0.1-1, 100 boards each, 0 failures): shared tiles and pipe
+   nodes respond roughly linearly to sharing across 0.1-0.5 on every kind; saturation only above
+   ~0.5, and only on hex/octa (77% / 92-97% of tiles shared at 0.5 / 1). Post-coverage share events
+   are material only on hex/octa (mean 151 / 185 at sharing 0.5); single digits on every 4-direction
+   kind. Mean shared tiles are monotone across the whole knob range at every branching level
+   measured.
+3. **Decision:** recalibrate the default sharing into the 0.3-0.4 range (visually calibrated by the
+   user on square/hex; inside the linear regime on all kinds) as a plain default-value change
+   instead of building stop machinery. The saturation this ticket would cap appears only when the
+   knob is deliberately maxed - a legitimate meaning of the top of the range, not a defect to
+   engineer away. Coverage is a hard floor (no stop rule may fire before it), and every legal move
+   after coverage is already a share, so the entire design space was "how many post-coverage shares
+   to allow" - not worth machinery that would be a no-op on most kinds.
+4. **Design questions:** all six were motivated by the dead tail (budget shape, post-coverage gate
+   behavior, demoted-share accounting - the latter moot outright, since share completions of unions
+   are hard-banned since fb0c5417 and no tier-3+ share moves exist). None needs settling.
+5. **For whoever revisits:** the CSV records shareEvents, sharesPostCoverage and growthMoves per
+   board, so any future stop rule or ceiling can be evaluated from the data without regenerating
+   boards.

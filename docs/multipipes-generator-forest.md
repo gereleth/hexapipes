@@ -191,7 +191,9 @@ ends", not verbatim equality.
   join the pick ranked with fresh-cell moves; the tier order is normal > straight-demotion >
   obvious-demotion > clean-full last resort).
 - Growth-end criterion: stop at coverage vs run to frontier exhaustion vs a post-coverage share
-  quota — sharing moves remain legal after coverage.
+  quota — sharing moves remain legal after coverage. [Settled 2026-11-01: frontier exhaustion. The
+  post-coverage tail collapsed under the 2026-10-31 rule split; the sharing default is recalibrated
+  into the linear regime instead (ticket 08 dropped, measurements in its comments).]
 - Evenness statistic and threshold: e.g. shared-tile counts per board region within tolerance of
   each other.
 - Whether deadend-containing unions should be discouraged even when _not_ fully connected (start
