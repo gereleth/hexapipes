@@ -336,7 +336,7 @@ export function applyForestEvent(grid, board, event) {
  * Considered shares rank with moves into fresh cells, so trees braid during
  * growth. Zero hard-guarantees boards where every tile holds exactly one
  * pipe [default 0.35 agreed 2026-11-01, ticket 04: the linear part of the
- * knob's response curve, calibrated visually on square/hex].
+ * knob's response curve, calibrated visually across grid kinds].
  * @property {Number} [branchingAmount=0.5] - frontier selection only: 0 picks
  * the most recent growth point (winding), 1 a uniform random one (bushy)
  * @property {Number} [avoidObvious=0] - demotes moves that would make a tile

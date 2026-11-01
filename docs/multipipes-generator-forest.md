@@ -70,7 +70,7 @@ decision.
 - `sharingAmount ∈ [0,1]`: 0 disables sharing events entirely (hard guarantee); higher values mean
   more events. Considered shares rank with fresh-cell moves (no share tier). Exact calibration is
   experimental [default settled 2026-11-01: 0.35 — the linear part of the response curve on every
-  grid kind, user-calibrated on square/hex; the forest engine defaults to it (unset
+  grid kind, user-calibrated across grid kinds; the forest engine defaults to it (unset
   `sharingAmount`), the game default follows at the cutover (ticket 06)].
 - `branchingAmount ∈ [0,1]`: _frontier selection only_ — pick the most recent growth point (0,
   winding) vs a uniform random one (1, bushy). Classic backtracker↔Prim blend, per tree. Pipe

@@ -39,10 +39,10 @@ Defaults decided with the user (2026-11-01), informed by the ticket-08 sweep
    √N made bigger boards mildly calmer at the same setting. Numbers: identical at 20×20 (20 trees vs
    today's 21 — the user's visual calibration happened there), diverging elsewhere — 40×40 gets 80
    small trees instead of 41, a 10×10 gets 5 bigger ones instead of 11.
-2. **Default sharing = 0.35** — visually calibrated by the user on square/hex, inside the linear
-   part of the knob response (0.1–0.5 on every grid kind, per the sweep). Applies to the forest path
-   when it becomes the game default (ticket 06 cutover); today's 0.6 default belongs to the old
-   generator.
+2. **Default sharing = 0.35** — visually calibrated by the user across the grid kinds, inside the
+   linear part of the knob response (0.1–0.5 on every grid kind, per the sweep). Applies to the
+   forest path when it becomes the game default (ticket 06 cutover); today's 0.6 default belongs to
+   the old generator.
 3. **Plumbing already done:** treeCount reaches the engine via worker options on the growth path
    (`worker-multi.js growthStart` passes knobs as-is; defaults live in the engine) and the debug
    page exposes the control — acceptance bullets 1–2 checked.
@@ -55,6 +55,6 @@ Defaults decided with the user (2026-11-01), informed by the ticket-08 sweep
 ## Verdict
 
 Proceed on forest — at the settled defaults (K = `max(3, floor(N/20))`, sharing 0.35) boards read as
-braided texture rather than clumping (user's debug-page review on square/hex), and the knob response
-is linear and monotone across all nine grid kinds (ticket-08 sweep), so nothing needs the scheduled
-fallback. Tickets 05–06 unblocked.
+braided texture rather than clumping (user's debug-page review across the grid kinds), and the knob
+response is linear and monotone across all nine grid kinds (ticket-08 sweep), so nothing needs the
+scheduled fallback. Tickets 05–06 unblocked.
