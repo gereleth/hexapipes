@@ -6,12 +6,14 @@ import {
 	UnionFind,
 	UnmergeableBoardError,
 	applyForestEvent,
+	buildStartTiles,
 	classifyMoveKind,
 	defaultTreeCount,
 	directionState,
 	farthestPointSeeds,
 	mergeForest,
 	moveTier,
+	planReusedComponents,
 	pregenerateForest
 } from '#lib/puzzle/generator/generator-forest.js';
 import { computeCellObviousTiles } from '#lib/puzzle/generator/generator.js';
@@ -257,16 +259,6 @@ describe('Uncoverable boards', () => {
 });
 
 describe('Forest growth knobs', () => {
-	/**
-	 * Number of trees a growth run actually opened, from its seed events
-	 * (post-merge component counts are always 1, so the growth-phase tree
-	 * count is observable only through the event stream)
-	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} events
-	 */
-	function seedCount(events) {
-		return events.filter((event) => event.type === 'move' && event.kind === MOVE_KIND.SEED).length;
-	}
-
 	it('treeCount=1 grows a single tree covering the board', () => {
 		for (let run = 0; run < 10; run++) {
 			const grid = new SquareGrid(7, 7, false);
@@ -316,7 +308,7 @@ describe('Forest growth knobs', () => {
 		pregenerateForest(grid, knobs, (event) => events.push(event));
 		const board = Array.from({ length: grid.total }, () => []);
 		for (const event of events) {
-			if (event.type === 'fuse' || event.kind === MOVE_KIND.LINK) {
+			if (isMergeEvent(event)) {
 				break;
 			}
 			applyForestEvent(grid, board, event);
@@ -937,7 +929,7 @@ describe('Merge phase', () => {
 				expect(() => boardInvariants(grid, tiles)).not.toThrow();
 				const growthTiles = Array.from({ length: grid.total }, () => []);
 				for (const event of events) {
-					if (event.type === 'fuse' || (event.type === 'move' && event.kind === MOVE_KIND.LINK)) {
+					if (isMergeEvent(event)) {
 						break;
 					}
 					applyForestEvent(grid, growthTiles, event);
@@ -1293,6 +1285,519 @@ describe('Share-source hard ban', () => {
 	});
 });
 
+describe('Regrow from reused tiles', () => {
+	it('Loads reused components as trees and tops fresh seeds up to K', () => {
+		for (let run = 0; run < 5; run++) {
+			const grid = new SquareGrid(8, 3, false);
+			// a four-cell kept path in the middle row, everything else
+			// erased: one reused tree loads, three fresh seeds top K up
+			const startTiles = startTilesFrom(24, { 9: [1], 10: [5], 11: [5], 12: [4] });
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			const tiles = pregenerateForest(
+				grid,
+				{ treeCount: 4, sharingAmount: 0.5 },
+				(event) => events.push(event),
+				startTiles
+			);
+			expect(reusedCells(events)).toEqual(new Set([9, 10, 11, 12]));
+			expect(seedCount(events)).toBe(3);
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+			expect(new Solver(tiles, grid).markAmbiguousTiles().solvable).toBe(true);
+			replayEvents(grid, tiles, events);
+		}
+	});
+
+	it('Keeps every qualifying component when reuse exceeds K, adding no fresh seeds', () => {
+		// five three-cell components on a strip, K = 3: K caps fresh
+		// seeds, not reuse - all five load as trees and grow
+		const grid = new SquareGrid(19, 1, false);
+		/** @type {Record<Number, Number[]>} */
+		const solved = {};
+		for (const start of [0, 4, 8, 12, 16]) {
+			solved[start] = [1];
+			solved[start + 1] = [5];
+			solved[start + 2] = [4];
+		}
+		const startTiles = startTilesFrom(19, solved);
+		for (let run = 0; run < 5; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			const tiles = pregenerateForest(
+				grid,
+				{ treeCount: 3, sharingAmount: 0.5 },
+				(event) => events.push(event),
+				startTiles
+			);
+			expect(seedCount(events)).toBe(0);
+			expect(reusedCells(events).size).toBe(15);
+			// no linking during growth: the five reused trees reach the
+			// merge phase as five components
+			expect(pipeComponents(grid, replayGrowthPrefix(grid, events))).toBe(5);
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+			expect(new Solver(tiles, grid).markAmbiguousTiles().solvable).toBe(true);
+			replayEvents(grid, tiles, events);
+		}
+	});
+
+	it("Keeps seed pipes' ends: interior pipes unchanged, boundary pipes only gain ends", () => {
+		// a 3x3 kept block in the middle of a 5x5: the block's center
+		// straight is fully interior (every neighbour kept), so growth
+		// cannot touch it - no fresh cell to extend into, no foreign
+		// tree to share into with sharing off; the rim pipes face erased
+		// cells and may extend into them, never losing an end
+		const grid = new SquareGrid(5, 5, false);
+		const solved = {
+			6: [1],
+			7: [5],
+			8: [12],
+			13: [6],
+			12: [5],
+			11: [9],
+			16: [3],
+			17: [5],
+			18: [4]
+		};
+		const startTiles = startTilesFrom(25, solved);
+		let gainedEnds = 0;
+		for (let run = 0; run < 5; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			const tiles = pregenerateForest(
+				grid,
+				{ treeCount: 4, sharingAmount: 0, branchingAmount: 0.5 },
+				(event) => events.push(event),
+				startTiles
+			);
+			const grown = replayGrowthPrefix(grid, events);
+			for (const [cell, pipes] of Object.entries(solved)) {
+				for (let pipeIndex = 0; pipeIndex < pipes.length; pipeIndex++) {
+					const seed = pipes[pipeIndex];
+					const after = grown[Number(cell)][pipeIndex];
+					// seed pipes keep their ends - only new ends may join
+					expect(after & seed).toBe(seed);
+					gainedEnds += popcount(after) > popcount(seed) ? 1 : 0;
+				}
+			}
+			// the interior pipe cannot move at all
+			expect(grown[12][0]).toBe(5);
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+			replayEvents(grid, tiles, events);
+		}
+		// the block's rim pipes do extend into the erased region around
+		// them (a kept component that never grows back would be a bug)
+		expect(gainedEnds).toBeGreaterThan(0);
+	});
+
+	it('Grows the erased region around reused trees: a pocket enclosed by reused cells is covered by the reused tree itself', () => {
+		// a ring of eight kept cells around the erased center 12; with
+		// sharing off, no fresh tree can pass through the ring, so only
+		// the reused tree can cover the center - by extending one of its
+		// rim pipes into it, regaining the end the ring's solution had
+		const grid = new SquareGrid(5, 5, false);
+		/** @type {Record<Number, Number[]>} */
+		const ring = {
+			7: [4],
+			6: [9],
+			11: [10],
+			16: [3],
+			17: [5],
+			18: [6],
+			13: [9],
+			8: [4]
+		};
+		const startTiles = startTilesFrom(25, ring);
+		for (let run = 0; run < 5; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			const tiles = pregenerateForest(
+				grid,
+				{ treeCount: 4, sharingAmount: 0 },
+				(event) => events.push(event),
+				startTiles
+			);
+			expect(tiles[12].length).toBe(1);
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove|null} */
+			let entry = null;
+			for (const event of events) {
+				if (event.type === 'move' && event.neighbour === 12) {
+					entry = event;
+					break;
+				}
+			}
+			// covered by an extend from a ring cell, not a foreign birth
+			expect(entry).not.toBeNull();
+			const move = /** @type {import('#lib/puzzle/generator/generator-forest.js').ForestMove} */ (
+				entry
+			);
+			expect(move.kind).toBe(MOVE_KIND.EXTEND);
+			expect(ring[move.fromCell]).toBeDefined();
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+			replayEvents(grid, tiles, events);
+		}
+	});
+
+	it('Foreign tips share into reused tiles: no linking during growth, only share births', () => {
+		// reused tiles are trees, not absorption targets - a foreign tip
+		// entering them births a new pipe there (a share), it never links
+		const grid = new SquareGrid(7, 7, false);
+		const solved = {
+			22: [1],
+			23: [5],
+			24: [5],
+			25: [12],
+			32: [6],
+			31: [5],
+			30: [5],
+			29: [9],
+			36: [3],
+			37: [5],
+			38: [5],
+			39: [4]
+		};
+		const kept = new Set(Object.keys(solved).map(Number));
+		const startTiles = startTilesFrom(49, solved);
+		let sharesIntoReused = 0;
+		for (let run = 0; run < 20; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			const tiles = pregenerateForest(
+				grid,
+				{ treeCount: 4, sharingAmount: 1 },
+				(event) => events.push(event),
+				startTiles
+			);
+			// growth prefix only: after it, merge links join everything
+			for (const event of events) {
+				if (isMergeEvent(event)) {
+					break;
+				}
+				if (event.type === 'move' && event.kind === MOVE_KIND.SHARE && kept.has(event.neighbour)) {
+					sharesIntoReused += 1;
+				}
+			}
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+		}
+		expect(sharesIntoReused).toBeGreaterThan(0);
+	});
+});
+
+describe('Regrow validity (ticket 03 parity)', () => {
+	/**
+	 * Start tiles with a contiguous BFS patch of the board erased - the
+	 * region a uniqueness iteration discards around its ambiguities
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {Number[][]} tiles - a full solved board
+	 * @param {Number} fraction - share of the playable cells to erase
+	 * @returns {(Number[]|null)[]}
+	 */
+	function erasePatch(grid, tiles, fraction) {
+		const playable = [...Array(grid.total).keys()].filter((index) => !grid.emptyCells.has(index));
+		const target = Math.max(1, Math.floor(playable.length * fraction));
+		const erased = new Set([playable[Math.floor(Math.random() * playable.length)]]);
+		const queue = [...erased];
+		for (let head = 0; erased.size < target && head < queue.length; head++) {
+			for (const direction of grid.polygonAt(queue[head]).directions) {
+				const { neighbour, empty } = grid.findNeighbour(queue[head], direction);
+				if (empty || erased.has(neighbour)) {
+					continue;
+				}
+				erased.add(neighbour);
+				queue.push(neighbour);
+				if (erased.size >= target) {
+					break;
+				}
+			}
+		}
+		return tiles.map((pipes, index) => (erased.has(index) ? null : pipes));
+	}
+
+	/** @type {Array<{name: String, make: () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid}>} */
+	const boards = [
+		{ name: 'square 6x6', make: () => new SquareGrid(6, 6, false) },
+		{ name: 'square 5x5 wrap', make: () => new SquareGrid(5, 5, true) },
+		{
+			name: 'square 6x6 with holes',
+			make: () => new SquareGrid(6, 6, false, withHoles(36, [8, 14, 21, 27]))
+		},
+		{ name: 'hex 5x4', make: () => new HexaGrid(5, 4, false) },
+		{ name: 'trihexagonal 3x3 (mixed)', make: () => new TrihexaGrid(3, 3, false) },
+		{ name: 'snub square 4x4 (mixed)', make: () => new SnubSquareGrid(4, 4, false) },
+		{ name: 'triangular 5x5', make: () => new TriangularGrid(5, 5, false) }
+	];
+
+	for (const board of boards) {
+		for (const sharingAmount of [0, 0.5, 1]) {
+			it(`Regrows a solver-solvable spanning tree on ${board.name}, sharing=${sharingAmount}`, () => {
+				for (let run = 0; run < 3; run++) {
+					const grid = board.make();
+					const full = pregenerateForest(grid, { sharingAmount, branchingAmount: 0.5 });
+					const startTiles = erasePatch(grid, full, 0.45);
+					/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+					const events = [];
+					const tiles = pregenerateForest(
+						grid,
+						{ sharingAmount, branchingAmount: 0.5 },
+						(event) => events.push(event),
+						startTiles
+					);
+					expect(boardInvariants(grid, tiles).components).toBe(1);
+					expect(new Solver(tiles, grid).markAmbiguousTiles().solvable).toBe(true);
+					replayEvents(grid, tiles, events);
+				}
+			});
+		}
+	}
+
+	it('Regrows from real solver markings: scramble, solve, reuse, regrow', () => {
+		for (let run = 0; run < 3; run++) {
+			const grid = new SquareGrid(6, 6, false);
+			const solved = pregenerateForest(grid, { sharingAmount: 0.5 });
+			// scramble: one random rotation per tile, applied to all its
+			// pipes together - the puzzle the solver actually sees
+			const scrambled = solved.map((pipes, index) => {
+				const polygon = grid.polygonAt(index);
+				const rotations = Math.floor(Math.random() * polygon.numDirections);
+				return pipes.map((pipe) => polygon.rotate(pipe, rotations));
+			});
+			const { solvable, marked } = new Solver(scrambled, grid).markAmbiguousTiles();
+			expect(solvable).toBe(true);
+			const startTiles = buildStartTiles(grid, scrambled, marked);
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			const tiles = pregenerateForest(
+				grid,
+				{ sharingAmount: 0.5 },
+				(event) => events.push(event),
+				startTiles
+			);
+			expect(boardInvariants(grid, tiles).components).toBe(1);
+			expect(new Solver(tiles, grid).markAmbiguousTiles().solvable).toBe(true);
+			replayEvents(grid, tiles, events);
+		}
+	});
+});
+
+describe('Start tiles from solver markings', () => {
+	it('Rotates every pipe of a determined tile together and nulls the rest', () => {
+		const grid = new SquareGrid(3, 1, false);
+		// a crossing and a straight, one rotation each: E|W -> N|S and
+		// N|S -> W|E, all pipes of a tile move together. The solver's
+		// sentinels are negative rotations: -2 ambiguous, -1 unresolved
+		const tiles = [[5, 10], [], [1]];
+		const marked = [1, -2, 0];
+		const startTiles = buildStartTiles(grid, tiles, marked);
+		expect(startTiles[0]).toEqual([10, 5]);
+		// ambiguous and empty cells hold null, determined untouched ones
+		// keep their pipes
+		expect(startTiles[1]).toBe(null);
+		expect(startTiles[2]).toEqual([1]);
+	});
+
+	it('Treats every negative marking as a sentinel', () => {
+		const grid = new SquareGrid(2, 1, false);
+		const startTiles = buildStartTiles(grid, [[1], [2]], [-1, -7]);
+		expect(startTiles).toEqual([null, null]);
+	});
+});
+
+describe('Reuse planning (white-box)', () => {
+	it('Builds one component per region of determined tiles linked by mutual edges', () => {
+		const grid = new SquareGrid(4, 1, false);
+		const startTiles = startTilesFrom(4, { 0: [1], 1: [5], 2: [5], 3: [4] });
+		const plan = planReusedComponents(grid, startTiles, 3);
+		expect(plan.components.length).toBe(1);
+		// every end is mutual inside the region: nothing gets stripped
+		expect(plan.components[0]).toEqual(
+			new Map([
+				[0, [1]],
+				[1, [5]],
+				[2, [5]],
+				[3, [4]]
+			])
+		);
+		expect(plan.keptCount).toBe(4);
+	});
+
+	it('Keeps the largest component even below the minimum count, stripped to its interior', () => {
+		const grid = new SquareGrid(6, 1, false);
+		const startTiles = startTilesFrom(6, { 0: [1], 1: [5] });
+		const plan = planReusedComponents(grid, startTiles, 3);
+		// two cells would be too small - kept anyway as the largest (and
+		// only) component; cell 1's E end points at the erased cell 2, so
+		// it is stripped down to the W end
+		expect(plan.components.length).toBe(1);
+		expect(plan.components[0]).toEqual(
+			new Map([
+				[0, [1]],
+				[1, [4]]
+			])
+		);
+		expect(plan.keptCount).toBe(2);
+	});
+
+	it('Keeps smaller components at the minimum count and drops the ones below it', () => {
+		const grid = new SquareGrid(7, 1, false);
+		const atMinimum = startTilesFrom(7, {
+			0: [1],
+			1: [5],
+			2: [4],
+			4: [1],
+			5: [5],
+			6: [4]
+		});
+		const kept = planReusedComponents(grid, atMinimum, 3);
+		expect(kept.components.length).toBe(2);
+		expect(kept.keptCount).toBe(6);
+		// the second region shrinks to two cells: too small, erased
+		const belowMinimum = startTilesFrom(7, {
+			0: [1],
+			1: [5],
+			2: [4],
+			4: [1],
+			5: [5]
+		});
+		const dropped = planReusedComponents(grid, belowMinimum, 3);
+		expect(dropped.components.length).toBe(1);
+		expect(dropped.keptCount).toBe(3);
+	});
+
+	it('A pipe stripped to no ends disappears; a cell left with no pipes is not reused', () => {
+		const grid = new SquareGrid(3, 3, false);
+		// a lone crossing, every neighbour erased: the largest-component
+		// rule keeps it, stripping empties it - nothing survives
+		const startTiles = startTilesFrom(9, { 4: [5, 10] });
+		const plan = planReusedComponents(grid, startTiles, 3);
+		expect(plan.components.length).toBe(0);
+		expect(plan.keptCount).toBe(0);
+	});
+
+	it('Reuses one pipe of a shared cell and drops its disappearing sibling', () => {
+		const grid = new SquareGrid(3, 3, false);
+		// the E-W straight of the crossing joins a three-cell component;
+		// its N-S sibling matches only erased cells and vanishes
+		const startTiles = startTilesFrom(9, { 3: [1], 4: [5, 10], 5: [4] });
+		const plan = planReusedComponents(grid, startTiles, 3);
+		expect(plan.components.length).toBe(1);
+		expect(plan.components[0]).toEqual(
+			new Map([
+				[3, [1]],
+				[4, [5]],
+				[5, [4]]
+			])
+		);
+		expect(plan.keptCount).toBe(3);
+	});
+
+	it('Lets two kept components share one cell, counting the cell once', () => {
+		const grid = new SquareGrid(3, 3, false);
+		// a crossing whose straights each anchor their own three-cell
+		// component: both reach the minimum, both stay
+		const startTiles = startTilesFrom(9, {
+			1: [8],
+			3: [1],
+			4: [5, 10],
+			5: [4],
+			7: [2]
+		});
+		const plan = planReusedComponents(grid, startTiles, 3);
+		expect(plan.components.length).toBe(2);
+		expect(plan.keptCount).toBe(5);
+		const crossingPipes = plan.components.map((component) => component.get(4)?.[0]);
+		crossingPipes.sort((a, b) => /** @type {Number} */ (a) - /** @type {Number} */ (b));
+		expect(crossingPipes).toEqual([5, 10]);
+	});
+
+	it('Ignores start tiles at empty cells', () => {
+		const playable = [0, 1, 1, 1];
+		const grid = new SquareGrid(4, 1, false, playable);
+		// cell 0 is empty, its stray start tile is disregarded; cell 1's
+		// W end points at that wall and gets stripped too
+		const startTiles = startTilesFrom(4, { 0: [1], 1: [5], 2: [5] });
+		const plan = planReusedComponents(grid, startTiles, 3);
+		expect(plan.components.length).toBe(1);
+		expect(plan.components[0]).toEqual(
+			new Map([
+				[1, [1]],
+				[2, [4]]
+			])
+		);
+		expect(plan.keptCount).toBe(2);
+	});
+});
+
+/**
+ * Whether an event belongs to the merge phase: links and fusions. The
+ * growth prefix of an event stream ends at the first merge event - the
+ * merge phase changes tile shapes by design, so growth invariants are
+ * measured on the prefix.
+ * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent} event
+ * @returns {boolean}
+ */
+function isMergeEvent(event) {
+	return event.type === 'fuse' || (event.type === 'move' && event.kind === MOVE_KIND.LINK);
+}
+
+/**
+ * Start tiles from solved pipes: every unlisted (or empty) cell holds
+ * null, the listed cells hold their solved pipes as given
+ * @param {Number} total
+ * @param {Record<Number, Number[]>} solved
+ * @returns {(Number[]|null)[]}
+ */
+function startTilesFrom(total, solved) {
+	return Array.from({ length: total }, (_, index) => solved[index] ?? null);
+}
+
+/**
+ * Number of trees a growth run actually opened, from its seed events
+ * (post-merge component counts are always 1, so the growth-phase tree
+ * count is observable only through the event stream)
+ * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} events
+ */
+function seedCount(events) {
+	return events.filter((event) => event.type === 'move' && event.kind === MOVE_KIND.SEED).length;
+}
+
+/**
+ * Cells covered by reuse events, the material regrowth started from
+ * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} events
+ * @returns {Set<Number>}
+ */
+function reusedCells(events) {
+	/** @type {Set<Number>} */
+	const cells = new Set();
+	for (const event of events) {
+		if (event.type === 'reuse') {
+			for (const entry of event.cells) {
+				cells.add(entry.cell);
+			}
+		}
+	}
+	return cells;
+}
+
+/**
+ * Replays only the growth part of an event stream onto an empty board:
+ * reuse loads, then every move up to the first merge event (link or
+ * fusion). The merge phase changes tile shapes by design, so regrowth
+ * invariants are measured on the growth prefix
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} events
+ * @returns {Number[][]} board as growth left it
+ */
+function replayGrowthPrefix(grid, events) {
+	/** @type {Number[][]} */
+	const board = Array.from({ length: grid.total }, () => []);
+	for (const event of events) {
+		if (isMergeEvent(event)) {
+			break;
+		}
+		applyForestEvent(grid, board, event);
+	}
+	return board;
+}
+
 /**
  * Board tiles with some cells punched empty (0 = empty)
  * @param {Number} total
@@ -1471,6 +1976,29 @@ function replayEvents(grid, tiles, events) {
 		}
 		return fresh;
 	};
+	/**
+	 * Every end created so far must have its locked match across the edge
+	 */
+	const assertAllEndsLocked = () => {
+		for (let index = 0; index < grid.total; index++) {
+			const polygon = grid.polygonAt(index);
+			for (const pipe of board[index]) {
+				for (const direction of polygon.directions) {
+					if ((pipe & direction) === 0) {
+						continue;
+					}
+					const { neighbour, empty } = grid.findNeighbour(index, direction);
+					if (empty) {
+						throw new Error(`unlocked end at ${index} pointing at a wall`);
+					}
+					const opposite = grid.OPPOSITE.get(direction) || 0;
+					if (!board[neighbour].some((p) => (p & opposite) > 0)) {
+						throw new Error(`unlocked end at ${index} direction ${direction}`);
+					}
+				}
+			}
+		}
+	};
 	for (const event of events) {
 		const before = uf.count;
 		if (event.type === 'fuse') {
@@ -1499,6 +2027,35 @@ function replayEvents(grid, tiles, events) {
 			}
 			continue;
 		}
+		if (event.type === 'reuse') {
+			// loaded material arrives as whole components: every kept end
+			// mutual-matches inside the component, which joins no foreign
+			// component - the board is the ground truth, so the union-find
+			// is rebuilt from it
+			const loadedComponents = pipeComponents(grid, board);
+			applyForestEvent(grid, board, event);
+			uf = rebuildUf();
+			if (uf.count !== loadedComponents + 1) {
+				throw new Error(
+					`a reuse event changed the component count by ${uf.count - loadedComponents}`
+				);
+			}
+			for (const entry of event.cells) {
+				if (fullyConnectedDeadend(entry.cell)) {
+					throw new Error(`reused tile ${entry.cell} is fully connected and contains a deadend`);
+				}
+			}
+			assertAllEndsLocked();
+			continue;
+		}
+		// same-root pairs of the touched tiles before the move: growth
+		// never links, so no new pair may appear (reused tiles can load
+		// with same-component pipes - those pairs predate the move)
+		/** @type {Map<Number, Set<String>>} */
+		const pairsBefore = new Map();
+		for (const cell of [event.fromCell, event.neighbour]) {
+			pairsBefore.set(cell, sameRootPairs(grid, uf, board, cell));
+		}
 		applyForestEvent(grid, board, event);
 		// register what the move birthed, then lock its edge in the
 		// union-find exactly like the engine does
@@ -1521,14 +2078,16 @@ function replayEvents(grid, tiles, events) {
 		if (delta !== (event.kind === MOVE_KIND.SEED ? 1 : event.kind === MOVE_KIND.LINK ? -1 : 0)) {
 			throw new Error(`a ${event.kind} move changed the component count by ${delta}`);
 		}
-		// growth-phase only: pipes sharing a tile never connect, so all
-		// roots within each touched tile are distinct. Links and fusions
-		// legitimately break this once components meet
+		// growth-phase only: pipes sharing a tile never connect, so no
+		// two pipes of a touched tile may share a component that did not
+		// share one before the move. Links and fusions legitimately break
+		// this once components meet
 		if (event.kind !== MOVE_KIND.LINK) {
 			for (const cell of [event.fromCell, event.neighbour]) {
-				const roots = board[cell].map((_, pipeIndex) => uf.find(grid.pipeNodeId(cell, pipeIndex)));
-				if (new Set(roots).size !== roots.length) {
-					throw new Error(`two pipes of tile ${cell} share a component`);
+				for (const pair of sameRootPairs(grid, uf, board, cell)) {
+					if (!(/** @type {Set<String>} */ (pairsBefore.get(cell)).has(pair))) {
+						throw new Error(`a ${event.kind} move paired two pipes of tile ${cell}`);
+					}
 				}
 			}
 		}
@@ -1538,25 +2097,63 @@ function replayEvents(grid, tiles, events) {
 		if (fullyConnectedDeadend(event.neighbour)) {
 			throw new Error(`move created a fully connected deadend at ${event.neighbour}`);
 		}
-		// every end created so far must have its locked match across the edge
-		for (let index = 0; index < grid.total; index++) {
-			const polygon = grid.polygonAt(index);
-			for (const pipe of board[index]) {
-				for (const direction of polygon.directions) {
-					if ((pipe & direction) === 0) {
-						continue;
-					}
-					const { neighbour, empty } = grid.findNeighbour(index, direction);
-					if (empty) {
-						throw new Error(`unlocked end at ${index} pointing at a wall`);
-					}
-					const opposite = grid.OPPOSITE.get(direction) || 0;
-					if (!board[neighbour].some((p) => (p & opposite) > 0)) {
-						throw new Error(`unlocked end at ${index} direction ${direction}`);
-					}
+		assertAllEndsLocked();
+	}
+	expect(board).toEqual(tiles);
+}
+
+/**
+ * Same-root pipe pairs of one tile, as 'i_j' keys, for the growth
+ * replay's no-new-pair check
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {UnionFind} uf
+ * @param {Number[][]} board
+ * @param {Number} cell
+ * @returns {Set<String>}
+ */
+function sameRootPairs(grid, uf, board, cell) {
+	/** @type {Set<String>} */
+	const pairs = new Set();
+	for (let i = 0; i < board[cell].length; i++) {
+		for (let j = i + 1; j < board[cell].length; j++) {
+			if (uf.find(grid.pipeNodeId(cell, i)) === uf.find(grid.pipeNodeId(cell, j))) {
+				pairs.add(`${i}_${j}`);
+			}
+		}
+	}
+	return pairs;
+}
+
+/**
+ * Number of pipe node components on a board, over mutual locked edges
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number[][]} board
+ * @returns {Number}
+ */
+function pipeComponents(grid, board) {
+	const uf = new UnionFind();
+	for (let cell = 0; cell < grid.total; cell++) {
+		for (let pipeIndex = 0; pipeIndex < board[cell].length; pipeIndex++) {
+			uf.add(grid.pipeNodeId(cell, pipeIndex));
+		}
+	}
+	for (let cell = 0; cell < grid.total; cell++) {
+		for (let pipeIndex = 0; pipeIndex < board[cell].length; pipeIndex++) {
+			for (const direction of grid.polygonAt(cell).directions) {
+				if ((board[cell][pipeIndex] & direction) === 0) {
+					continue;
+				}
+				const { neighbour, empty } = grid.findNeighbour(cell, direction);
+				if (empty) {
+					continue;
+				}
+				const back = grid.OPPOSITE.get(direction) || 0;
+				const other = board[neighbour].findIndex((pipe) => (pipe & back) > 0);
+				if (other >= 0) {
+					uf.union(grid.pipeNodeId(cell, pipeIndex), grid.pipeNodeId(neighbour, other));
 				}
 			}
 		}
 	}
-	expect(board).toEqual(tiles);
+	return uf.count;
 }

@@ -17,16 +17,71 @@ caps fresh seeds, not reuse).
 
 **Blocked by:** 04 (gate — forest verdict must say proceed).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Reuse computation honors all rules above, pinned by white-box tests on hand-built solver
-      markings (largest always kept, minimum count threshold, rotation-invariant exclusion, end
-      stripping, disappearing pipes and cells)
-- [ ] Regrow respects the seed-pipes-keep-their-ends invariant: pipes fully inside a kept region are
+- [x] Reuse computation honors all rules above, pinned by white-box tests on hand-built solver
+      markings (largest always kept, minimum count threshold, ~~rotation-invariant exclusion~~
+      skipped per the session decision below, end stripping, disappearing pipes and cells)
+- [x] Regrow respects the seed-pipes-keep-their-ends invariant: pipes fully inside a kept region are
       unchanged; only stripped boundary ends may regrow
-- [ ] More-than-K reuse keeps every qualifying component; fresh seeds only top the count up to K
-- [ ] A regrown board passes the same validity tests as ticket 03: solver-solvable, full coverage,
+- [x] More-than-K reuse keeps every qualifying component; fresh seeds only top the count up to K
+- [x] A regrown board passes the same validity tests as ticket 03: solver-solvable, full coverage,
       hard ban holds
-- [ ] Foreign tips may share into reused tiles (reused tiles are trees, not absorption targets — no
+- [x] Foreign tips may share into reused tiles (reused tiles are trees, not absorption targets — no
       linking during growth)
-- [ ] `npx vitest run`, `npm run check`, `npm run lint` all clean
+- [x] `npx vitest run`, `npm run check`, `npm run lint` all clean
+
+## Comments
+
+Implemented 2026-11-01, forest engine only (`generator-multi` untouched — ticket 06 does the
+cutover):
+
+1. **Rotation-invariant exclusion skipped** at the user's direction (session start): no special
+   handling for fully connected single pipes. They carry no orientation information, but keeping
+   them is harmless — a plus lands as an inert pass-through node (all directions claimed, no legal
+   moves), and an isolated one strips to nothing like any other singleton. The spec's exclusion
+   bullet stays unimplemented; revisit only if reuse quality measurably suffers.
+2. **Reuse computation** — `buildStartTiles(grid, tiles, marked)` (markings → solved-orientation
+   start tiles, negative rotations null out) +
+   `planReusedComponents(grid, startTiles, reuseMinCount)` →
+   `{components: Map<cell, pipes[]>[], keptCount}`. Components are pipe-node flood fills over mutual
+   locked edges (a cell can host pipes of several components; one component can revisit a cell with
+   several pipes). Threshold counts **cells**, classic-style; the largest is kept unconditionally,
+   smaller ones at ≥ reuseMinCount. Stripping keeps an end only when its mutual match is in the same
+   component — which never disconnects a component (its defining edges are mutual), so only
+   singleton components can lose pipes entirely.
+3. **Regrow** — `pregenerateForest(grid, knobs, onEvent, startTiles, reuseMinCount)`. Kept
+   components load as trees (pipes placed, union-find pre-unioned over intra-component edges, every
+   pipe a frontier tip); fresh seeds top up to K by farthest-point sampling over the erased region
+   with reused cells as distance-zero sources. More than K components all load, K caps fresh seeds
+   only.
+4. **Reuse events** — one `{type: 'reuse', cells: [...]}` event per kept component (not per cell: a
+   component is self-contained — every end mutual-matches inside it, it joins no foreign component —
+   so the replay oracle can lock it in as a unit; per-cell events would dangle until the last cell
+   of a component lands). `applyForestEvent` handles it; the debug page's growth animation
+   marks/highlights/describes the new type. The disabled "grow from viewed iteration's survivors"
+   checkbox still waits for ticket 06's worker cutover.
+5. **Invariant reading** — "only stripped boundary ends may regrow" is pinned as: every seed pipe
+   keeps its ends (final mask ⊇ seed mask, asserted through the merge), pipes fully inside a kept
+   region are unchanged during growth (asserted on the growth prefix for the interior pipe of a kept
+   3×3 block; merge links may legitimately add ends afterwards). Boundary pipes may also take
+   brand-new ends into the erased region — reused trees grow like any tree, no direction gate; that
+   matches the old generator's behavior and the spec's "grow like any tree".
+6. **Tests** — white-box reuse planning (7 tests on hand-built markings), buildStartTiles (2),
+   regrow behaviors (5: load+top-up, more-than-K, seed-pipes-keep-ends, enclosed-pocket coverage,
+   shares into reused tiles), validity parity (7 grid kinds × sharing 0/0.5/1 × BFS-patch erasure
+   - a full scramble→solve→buildStartTiles→regrow chain). The replay oracle gained the reuse branch
+     (component lands as exactly one new component, all ends locked) and its
+     same-tile-distinct-roots check became a before/after-pairs check (reused tiles may legitimately
+     load with same-component pipes; growth must merely never create a _new_ pair).
+     Mutation-checked: killing the K cap and killing the pre-union both fail the suite loudly. 8×
+     repeated runs clean.
+7. **Code review round** (two-axis, standards + spec) folded in: the forked farthest-point samplers
+   merged into one multi-source core (`farthestPointPicks`; `farthestPointSeeds` delegates to it,
+   `freshSeedsAround` deleted, `bfsDistances` folded into `relaxDistances`), the largest-always-kept
+   guard now keys on the sorted index instead of first-survivor (a latent trap the spec reviewer
+   flagged), and the tests' repeated merge-prefix break became one `isMergeEvent` helper. Reviewer
+   notes accepted as-is: `(startTiles, reuseMinCount)` stay positional params (the design doc's
+   interface contract names them), `keptCount` waits for ticket 06's snapshots, `StartTiles` keeps
+   the old generator's term to ease the cutover (it names the pre-plan input including nulls; the
+   glossary's "reused tiles" names the post-plan survivors).

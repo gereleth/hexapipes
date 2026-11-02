@@ -106,15 +106,16 @@ function tileStateAfter(pipes, fullyConnected, pipeIndex, addedMask) {
 }
 
 /**
- * BFS hop distances from a cell over playable cells, kept as the minimum
- * over all seeds processed so far; unreachable cells stay at Infinity
- * (they belong to other regions behind walls).
+ * BFS hop-distance relaxation from the queued cells over playable
+ * cells, kept as the minimum over all sources processed so far;
+ * unreachable cells stay at Infinity (they belong to other regions
+ * behind walls). The queue is consumed and extended in place: a caller
+ * may seed it with any cells whose distances are already set.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
- * @param {Number} start
- * @param {Number[]} distances - result buffer, distances[start] must be set
+ * @param {Number[]} queue - cells to relax from, grown during the run
+ * @param {Number[]} distances - result buffer, -1 marks empty cells
  */
-function bfsDistances(grid, start, distances) {
-	const queue = [start];
+function relaxDistances(grid, queue, distances) {
 	for (let head = 0; head < queue.length; head++) {
 		const cell = queue[head];
 		for (let direction of grid.polygonAt(cell).directions) {
@@ -133,11 +134,59 @@ function bfsDistances(grid, start, distances) {
 }
 
 /**
+ * Farthest-point sampling over the playable cells of the grid, measured
+ * by BFS hop distance from the sources: every next pick is the playable
+ * cell with the greatest distance to everything chosen so far (sources
+ * included), which keeps the picks spatially balanced. Unreachable
+ * cells (other regions) win the next pick, so every region gets seeded
+ * as long as the count allows. Picks never repeat a source or each
+ * other: any not-yet-chosen playable cell sits at distance >= 1 while
+ * the sources rest at 0.
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number} count - wanted pick count
+ * @param {Number[]} sources - cells at distance 0, never picked
+ * @returns {Number[]} picked cells, at most count
+ */
+function farthestPointPicks(grid, count, sources) {
+	/** @type {Number[]} */
+	const picks = [];
+	const distances = Array.from({ length: grid.total }, (_, index) =>
+		grid.emptyCells.has(index) ? -1 : Infinity
+	);
+	/** @type {Number[]} */
+	const queue = [];
+	for (const cell of sources) {
+		distances[cell] = 0;
+		queue.push(cell);
+	}
+	relaxDistances(grid, queue, distances);
+	while (picks.length < count) {
+		let farthest = -1;
+		let farthestDistance = -Infinity;
+		for (let index = 0; index < grid.total; index++) {
+			if (distances[index] > farthestDistance) {
+				farthest = index;
+				farthestDistance = distances[index];
+			}
+		}
+		if (farthest < 0 || distances[farthest] <= 0) {
+			// nothing pickable remains - every playable cell is chosen
+			break;
+		}
+		picks.push(farthest);
+		distances[farthest] = 0;
+		relaxDistances(grid, [farthest], distances);
+	}
+	return picks;
+}
+
+/**
  * Farthest-point sampling of seed cells over the playable cells of the
- * grid: every next seed is the playable cell with the greatest BFS hop
- * distance to the seeds chosen so far, which keeps the K trees spatially
- * balanced. Unreachable cells (other regions) win the next pick, so every
- * region gets seeded as long as the count allows.
+ * grid, which keeps the K trees spatially balanced: the first seed is
+ * given, every next one is the playable cell with the greatest BFS hop
+ * distance to the seeds chosen so far. Unreachable cells (other
+ * regions) win the next pick, so every region gets seeded as long as
+ * the count allows.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Number} count - wanted seed count, capped at playable cells
  * @param {Number} firstSeed - playable cell to start from
@@ -147,28 +196,206 @@ export function farthestPointSeeds(grid, count, firstSeed) {
 	if (grid.emptyCells.has(firstSeed)) {
 		throw new Error(`farthestPointSeeds: first seed ${firstSeed} is an empty cell`);
 	}
-	/** @type {Number[]} */
-	const seeds = [firstSeed];
-	const distances = Array.from({ length: grid.total }, (_, index) =>
-		grid.emptyCells.has(index) ? -1 : Infinity
-	);
-	distances[firstSeed] = 0;
-	bfsDistances(grid, firstSeed, distances);
-	const playableCount = distances.filter((d) => d !== -1).length;
-	while (seeds.length < Math.min(count, playableCount)) {
-		let farthest = -1;
-		let farthestDistance = -Infinity;
-		for (let index = 0; index < grid.total; index++) {
-			if (distances[index] > farthestDistance) {
-				farthest = index;
-				farthestDistance = distances[index];
+	return [firstSeed, ...farthestPointPicks(grid, count - 1, [firstSeed])];
+}
+
+/**
+ * Multitiles for reuse, see planReusedComponents: a keepable cell holds
+ * its pipes in solved orientation, a cell that should be regenerated
+ * holds null
+ * @typedef {(Number[]|null)[]} StartTiles
+ */
+
+/**
+ * Prepares a solved board for reuse: tiles whose marked rotation is a
+ * solver sentinel (ambiguous or unresolved) become null, the others get
+ * their pipes rotated to the solver's frame - all pipes of a tile
+ * together, the rotation the solver certified
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number[][]} tiles - solved multipipes tiles in any frame
+ * @param {Number[]} marked - rotation per tile, possibly with sentinel values
+ * @returns {StartTiles}
+ */
+export function buildStartTiles(grid, tiles, marked) {
+	return tiles.map((pipes, index) => {
+		const rotation = marked[index];
+		if (pipes.length === 0 || typeof rotation !== 'number' || rotation < 0) {
+			return null;
+		}
+		const polygon = grid.polygonAt(index);
+		return pipes.map((pipe) => polygon.rotate(pipe, rotation));
+	});
+}
+
+/**
+ * Reuse material of one kept component: cell index => the pipes it
+ * contributes, ends already stripped to the component's interior (a
+ * cell can host pipes of several components, so several entries can
+ * share a cell)
+ * @typedef {Map<Number, Number[]>} ReusedComponent
+ */
+
+/**
+ * The reuse plan computed from start tiles, see planReusedComponents
+ * @typedef {object} ReusePlan
+ * @property {ReusedComponent[]} components - kept components, largest first
+ * @property {Number} keptCount - cells hosting at least one kept pipe
+ */
+
+/**
+ * Computes what survives of the previous iteration's board: connected
+ * components of determined tiles, linked by mutual pipe edges in their
+ * solved orientation. The largest component is always kept, smaller
+ * ones only when they span at least reuseMinCount cells. Every kept
+ * pipe is stripped of the ends pointing outside its own component - a
+ * pipe left with no ends disappears, a cell left with no pipes is not
+ * reused. Rotation-invariant tiles (fully connected single pipes) need
+ * no special handling: they carry no orientation information, but
+ * keeping them is harmless [skipped per ticket 05, agreed with the
+ * user].
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {StartTiles} startTiles
+ * @param {Number} [reuseMinCount=3] - minimum cell count for the
+ * smaller components
+ * @returns {ReusePlan}
+ */
+export function planReusedComponents(grid, startTiles, reuseMinCount = 3) {
+	const total = grid.total;
+	const opposite = grid.OPPOSITE;
+
+	/**
+	 * Pipe node id (in start-tile indexing) answering backDirection at
+	 * cell, or -1 when the cell is erased or no pipe answers
+	 * @param {Number} cell
+	 * @param {Number} backDirection
+	 * @returns {Number}
+	 */
+	const matchingNode = (cell, backDirection) => {
+		const pipes = startTiles[cell];
+		if (!pipes) {
+			return -1;
+		}
+		for (let pipeIndex = 0; pipeIndex < pipes.length; pipeIndex++) {
+			if ((pipes[pipeIndex] & backDirection) > 0) {
+				return grid.pipeNodeId(cell, pipeIndex);
 			}
 		}
-		seeds.push(farthest);
-		distances[farthest] = 0;
-		bfsDistances(grid, farthest, distances);
+		return -1;
+	};
+
+	/**
+	 * One component mid-collection: the flood fill's node set plus the
+	 * pipe indices each visited cell contributed
+	 * @typedef {{nodes: Set<Number>, cells: Map<Number, Number[]>}} RawComponent
+	 */
+	/** @type {RawComponent[]} */
+	const components = [];
+	/** @type {Set<Number>} pipe node ids already assigned to a component */
+	const seen = new Set();
+	for (let cell = 0; cell < total; cell++) {
+		const pipes = startTiles[cell];
+		if (!pipes || pipes.length === 0 || grid.emptyCells.has(cell)) {
+			continue;
+		}
+		for (let pipeIndex = 0; pipeIndex < pipes.length; pipeIndex++) {
+			const start = grid.pipeNodeId(cell, pipeIndex);
+			if (seen.has(start)) {
+				continue;
+			}
+			/** @type {RawComponent} */
+			const component = { nodes: new Set(), cells: new Map() };
+			/** @type {Number[]} */
+			const queue = [start];
+			seen.add(start);
+			while (queue.length > 0) {
+				const node = /** @type {Number} */ (queue.pop());
+				component.nodes.add(node);
+				const [nodeCell, nodePipe] = grid.cellIndexPipeIndexOf(node);
+				const members = component.cells.get(nodeCell);
+				if (members) {
+					members.push(nodePipe);
+				} else {
+					component.cells.set(nodeCell, [nodePipe]);
+				}
+				// follow the pipe's locked ends to the pipes they mutual-
+				// match: pipes of one cell never connect, but one cell
+				// can host pipes of several components and one component
+				// can revisit a cell with several pipes (through-paths)
+				const mask = /** @type {Number[]} */ (startTiles[nodeCell])[nodePipe];
+				for (const direction of grid.polygonAt(nodeCell).directions) {
+					if ((mask & direction) === 0) {
+						continue;
+					}
+					const { neighbour, empty } = grid.findNeighbour(nodeCell, direction);
+					if (empty) {
+						continue;
+					}
+					const next = matchingNode(neighbour, /** @type {Number} */ (opposite.get(direction)));
+					if (next < 0 || seen.has(next)) {
+						continue;
+					}
+					seen.add(next);
+					queue.push(next);
+				}
+			}
+			components.push(component);
+		}
 	}
-	return seeds;
+	// the largest component is keepable whatever its size, smaller ones
+	// need the minimum cell count; sorted descending, the first
+	// undersized component ends the run
+	components.sort((a, b) => -(a.cells.size - b.cells.size));
+
+	/** @type {ReusedComponent[]} */
+	const kept = [];
+	/** @type {Set<Number>} */
+	const keptCells = new Set();
+	for (let index = 0; index < components.length; index++) {
+		const component = components[index];
+		// sizes are measured before stripping, in keep-then-strip order;
+		// stripping can only empty singleton components, never shrink a
+		// multi-node one (its defining edges are mutual and stay)
+		if (index > 0 && component.cells.size < reuseMinCount) {
+			break;
+		}
+		/** @type {ReusedComponent} */
+		const stripped = new Map();
+		for (const [cell, pipeIndices] of component.cells) {
+			const pipes = /** @type {Number[]} */ (startTiles[cell]);
+			/** @type {Number[]} */
+			const masks = [];
+			for (const pipeIndex of pipeIndices) {
+				let mask = pipes[pipeIndex];
+				for (const direction of grid.polygonAt(cell).directions) {
+					if ((mask & direction) === 0) {
+						continue;
+					}
+					const { neighbour, empty } = grid.findNeighbour(cell, direction);
+					const match = empty
+						? -1
+						: matchingNode(neighbour, /** @type {Number} */ (opposite.get(direction)));
+					// keep an end only when its mutual match stays inside
+					// this component - stripping never disconnects a
+					// component (its defining edges are mutual), so only
+					// pipes with no interior edges at all can vanish
+					if (match < 0 || !component.nodes.has(match)) {
+						mask ^= direction;
+					}
+				}
+				if (mask > 0) {
+					masks.push(mask);
+				}
+			}
+			if (masks.length > 0) {
+				stripped.set(cell, masks);
+				keptCells.add(cell);
+			}
+		}
+		if (stripped.size > 0) {
+			kept.push(stripped);
+		}
+	}
+	return { components: kept, keptCount: keptCells.size };
 }
 
 /**
@@ -297,7 +524,17 @@ export function directionState(grid, tiles, cell, direction) {
  * secondPipeIndex: Number}} ForestFuse
  */
 
-/** @typedef {ForestMove | ForestFuse} ForestEvent */
+/**
+ * A reuse event of regrowth: one kept component's cells arriving with
+ * their pipes, ends already stripped to the component's interior (see
+ * planReusedComponents). The component lands as one pre-unioned tree:
+ * every kept end mutual-matches inside it and no foreign component is
+ * joined, so a replay can lock it in as a unit. Reuse events open the
+ * event stream whenever pregenerateForest regrows from start tiles.
+ * @typedef {{type: 'reuse', cells: {cell: Number, pipes: Number[]}[]}} ForestReuse
+ */
+
+/** @typedef {ForestMove | ForestFuse | ForestReuse} ForestEvent */
 
 /**
  * Applies one growth or merge event to a board: the replay counterpart of
@@ -311,6 +548,12 @@ export function applyForestEvent(grid, board, event) {
 	if (event.type === 'fuse') {
 		board[event.cell][event.firstPipeIndex] |= board[event.cell][event.secondPipeIndex];
 		board[event.cell].splice(event.secondPipeIndex, 1);
+		return;
+	}
+	if (event.type === 'reuse') {
+		for (const entry of event.cells) {
+			board[entry.cell].push(...entry.pipes);
+		}
 		return;
 	}
 	const back = grid.OPPOSITE.get(event.direction) || 0;
@@ -344,7 +587,9 @@ export function applyForestEvent(grid, board, event) {
  * @property {Number} [avoidStraights=0] - demotes moves that make a straight
  * pipe, values in range [0,1]
  * @property {Number} [treeCount=0] - number of trees to grow from seeds;
- * 0 means the default 1 + round(sqrt(playable cells))
+ * 0 means the default max(3, floor(playable cells / 20)), see
+ * defaultTreeCount. During regrowth K caps fresh seeds only - more than
+ * K qualifying reuse components all load
  */
 
 /** Growth attempts before giving up on a board */
@@ -401,21 +646,28 @@ function getRandomElement(array) {
  */
 
 /**
- * One growth attempt, see pregenerateForest. Grows treeCount independent
- * trees from farthest-point seeds until no tree can move anymore; a tip
+ * One growth attempt, see pregenerateForest. Fresh boards grow treeCount
+ * independent trees from farthest-point seeds; boards with startTiles
+ * first load their kept reuse components as trees - pipes pre-unioned
+ * over their intra-component edges, every pipe a frontier tip - and
+ * fresh seeds top the count up to treeCount, chosen by farthest-point
+ * sampling over the erased region around the reused cells (K caps fresh
+ * seeds, not reuse: more than K qualifying components all load). A tip
  * reaching a cell held by another tree may birth a new pipe there (a
- * sharing event) per the sharing knob, so trees braid through each other's
- * territory without their pipes ever connecting. A tip whose best move
- * sits in the obvious or clean-full tier is not acted on - it parks in
- * classic's avoiding/lastResort lists, and parked moves fire only when no
- * active tip anywhere can move. Throws when cells remain uncovered
- * (degenerate boards).
+ * sharing event) per the sharing knob, so trees braid through each
+ * other's territory - reused tiles included - without their pipes ever
+ * connecting. A tip whose best move sits in the obvious or clean-full
+ * tier is not acted on - it parks in classic's avoiding/lastResort
+ * lists, and parked moves fire only when no active tip anywhere can
+ * move. Throws when cells remain uncovered (degenerate boards).
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {Required<ForestKnobs>} knobs
  * @param {ForestEvent[]} events - collects this attempt's growth events
+ * @param {StartTiles} [startTiles] - reused material, empty on fresh boards
+ * @param {Number} [reuseMinCount] - minimum component size to reuse
  * @returns {Number[][]} - unrandomized multipipes tiles
  */
-function growAttempt(grid, knobs, events) {
+function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 	const total = grid.total;
 	/** @type {Number[][]} */
 	const tiles = Array.from({ length: total }, () => []);
@@ -442,12 +694,80 @@ function growAttempt(grid, knobs, events) {
 	const obviousTiles =
 		knobs.avoidObvious > 0 ? computeCellObviousTiles(grid, new Set(playable)) : new Map();
 
-	const treeCount = Math.min(
-		knobs.treeCount > 0 ? knobs.treeCount : defaultTreeCount(playable.length),
-		playable.length
-	);
-	const firstSeed = getRandomElement(playable);
-	const seeds = farthestPointSeeds(grid, treeCount, firstSeed);
+	/** @type {Tree[]} */
+	const trees = [];
+	/** @type {Number[]} cells holding reused pipes */
+	const reusedCells = [];
+
+	// reused components load as some of the K trees: pipes land on the
+	// board together with their locked edges, pre-unioned, and every
+	// pipe joins its tree's frontier - reused trees grow like any tree,
+	// their boundary pipes extending into the erased region around them
+	if (startTiles.length === total) {
+		const { components } = planReusedComponents(grid, startTiles, reuseMinCount);
+		for (const component of components) {
+			/** @type {Tree} */
+			const tree = { frontier: [], avoiding: [], lastResort: [] };
+			trees.push(tree);
+			/** @type {{cell: Number, pipes: Number[]}[]} */
+			const cells = [];
+			/** @type {Number[]} placed pipe node ids of this component */
+			const placed = [];
+			for (const [cell, masks] of component) {
+				/** @type {Number[]} */
+				const pipes = [];
+				for (const mask of masks) {
+					tiles[cell].push(mask);
+					const node = grid.pipeNodeId(cell, tiles[cell].length - 1);
+					uf.add(node);
+					tree.frontier.push(node);
+					placed.push(node);
+					pipes.push(mask);
+				}
+				reusedCells.push(cell);
+				cells.push({ cell, pipes });
+			}
+			events.push({ type: 'reuse', cells });
+			// pre-union over the intra-component locked edges: every kept
+			// end's match sits in this component (stripping), so each
+			// edge unions exactly once and its second visit is the cycle
+			// guard's no-op
+			for (const node of placed) {
+				const [cell, pipeIndex] = grid.cellIndexPipeIndexOf(node);
+				for (const direction of grid.polygonAt(cell).directions) {
+					if ((tiles[cell][pipeIndex] & direction) === 0) {
+						continue;
+					}
+					const { neighbour, empty } = grid.findNeighbour(cell, direction);
+					if (empty) {
+						continue;
+					}
+					const back = /** @type {Number} */ (opposite.get(direction));
+					const other = tiles[neighbour].findIndex((pipe) => (pipe & back) > 0);
+					if (other >= 0) {
+						uf.union(node, grid.pipeNodeId(neighbour, other));
+					}
+				}
+			}
+		}
+	}
+
+	const treeCount = knobs.treeCount > 0 ? knobs.treeCount : defaultTreeCount(playable.length);
+	/** @type {Number[]} fresh seed cells for this attempt's new trees */
+	let seeds;
+	if (trees.length === 0) {
+		// fresh board: the first seed is uniformly random, the rest join
+		// by farthest point from it
+		const firstSeed = getRandomElement(playable);
+		seeds = farthestPointSeeds(grid, Math.min(treeCount, playable.length), firstSeed);
+	} else {
+		// regrow: fresh trees only top the count up to K, seeded by
+		// farthest point over the erased region around the reused cells
+		// (reused cells at distance 0) - K caps fresh seeds, not reuse
+		const erased = playable.filter((index) => tiles[index].length === 0);
+		const freshCount = Math.min(Math.max(0, treeCount - trees.length), erased.length);
+		seeds = farthestPointPicks(grid, freshCount, reusedCells);
+	}
 
 	/**
 	 * State of one tile after a hypothetical move adds addedMask to one of
@@ -619,15 +939,13 @@ function growAttempt(grid, knobs, events) {
 		});
 	};
 
-	// opening round: every tree births its seed pipe with one locked edge
-	// into a fresh neighbour cell, in shuffled order for the animation.
-	// A seed that cannot open (its cell taken by an earlier opening, walled
-	// in, every move banned) never gets a tree - no later phase has an
-	// empty tree to wonder about
+	// opening round: every fresh tree births its seed pipe with one
+	// locked edge into a fresh neighbour cell, in shuffled order for the
+	// animation. A seed that cannot open (its cell taken by an earlier
+	// opening, walled in, every move banned) never gets a tree - no
+	// later phase has an empty tree to wonder about
 	/** @type {Number[]} */
 	const seedOrder = shuffleInPlace([...seeds]);
-	/** @type {Tree[]} */
-	const trees = [];
 	for (let t = 0; t < seeds.length; t++) {
 		const buckets = candidateBuckets(seedOrder[t], -1);
 		const best = buckets.find((bucket) => bucket.length > 0);
@@ -1120,15 +1438,27 @@ export function mergeForest(grid, tiles, events = []) {
  * there instead of connecting to the foreign pipe - a sharing event,
  * gated per pick by the sharing knob - so trees braid through each
  * other's territory while every tile's pipes stay mutually unconnected
- * until the merge phase links and fuses the trees into one. Only the
- * successful attempt's events reach onMove, so a replay of the stream
- * mirrors the returned tiles exactly.
+ * until the merge phase links and fuses the trees into one. With
+ * startTiles the pass regrows instead: the kept reuse components load
+ * as some of the trees (pipes pre-unioned) and the erased region grows
+ * around them, see growAttempt. Only the successful attempt's events
+ * reach onEvent, so a replay of the stream mirrors the returned tiles
+ * exactly.
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @param {ForestKnobs} [knobs]
  * @param {(event: ForestEvent) => void} [onEvent] - receives growth and merge events
+ * @param {StartTiles} [startTiles] - reused material from a previous
+ * uniqueness iteration, empty or short arrays grow a fresh board
+ * @param {Number} [reuseMinCount] - minimum component size to reuse
  * @returns {Number[][]} - unrandomized multipipes tiles
  */
-export function pregenerateForest(grid, knobs = {}, onEvent = undefined) {
+export function pregenerateForest(
+	grid,
+	knobs = {},
+	onEvent = undefined,
+	startTiles = [],
+	reuseMinCount = 3
+) {
 	/** @param {Number|undefined} value */
 	const clamp = (value) => Math.min(1, Math.max(0, value || 0));
 	/** @type {Required<ForestKnobs>} */
@@ -1144,7 +1474,7 @@ export function pregenerateForest(grid, knobs = {}, onEvent = undefined) {
 	for (let attempt = 0; ; attempt++) {
 		events.length = 0;
 		try {
-			const tiles = growAttempt(grid, full, events);
+			const tiles = growAttempt(grid, full, events, startTiles, reuseMinCount);
 			mergeForest(grid, tiles, events);
 			for (let event of events) {
 				onEvent?.(event);

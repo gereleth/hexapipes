@@ -371,6 +371,12 @@
 			growthVisited.add(event.fromCell);
 			growthVisited.add(event.neighbour);
 			growthHighlightCells = [event.fromCell, event.neighbour];
+		} else if (event.type === 'reuse') {
+			// a reused component lands as one pre-unioned tree
+			for (const entry of event.cells) {
+				growthVisited.add(entry.cell);
+			}
+			growthHighlightCells = event.cells.map((entry) => entry.cell);
 		} else {
 			// a fusion touches one tile only
 			growthVisited.add(event.cell);
@@ -434,6 +440,9 @@
 	function describeGrowthEvent(move) {
 		if (move.type === 'fuse') {
 			return `fuse ${move.cell}`;
+		}
+		if (move.type === 'reuse') {
+			return `reuse ${move.cells.map((entry) => entry.cell).join(',')}`;
 		}
 		/** @type {Record<String, String>} */
 		const descriptions = {
