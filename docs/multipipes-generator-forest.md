@@ -2,8 +2,10 @@
 
 One of two competing generator designs (see `multipipes-generator-scheduled.md` for the other). Both
 share the same foundation and the same interface; they differ only in where sharing events come
-from. This one is built first; the scheduled design is the fallback, to be tried only if forest
-boards disappoint on the generator debug page.
+from. This one is built and shipped — it is the live multipipes generator
+(`src/lib/puzzle/generator/generator-forest.js`) since 2026-11-04, with sharing (0.35) and tree
+count (`max(3, floor(N/20))`) calibrated on the debug page. The scheduled design stays the fallback,
+to be tried only if forest boards disappoint in playtesting.
 
 Vocabulary comes from `GLOSSARY.md` (tile, pipe, sharing, crossing, deadend, fully connected tile,
 reused tiles).
@@ -200,7 +202,11 @@ ends", not verbatim equality.
 5. A pipe born into a fresh cell must not complete that cell's full union with its single end — that
    case of the hard ban is easy to forget because the newborn pipe does not exist yet at check time.
 
-## Open tunables (experiments, via the debug page)
+## Parked tunables (revisit only on playtest evidence)
+
+Sharing (0.35) and tree count (`max(3, floor(N/20))`) are calibrated and user-approved (2026-11-04);
+the generator is considered done. Below is the parking lot of knobs that were delivered but never
+tuned, with ideas recorded for whenever playtesting asks for them.
 
 - K (tree count) formula (`1 + round(√N)` starting point); share-gate probability (share candidates
   join the pick ranked with fresh-cell moves; the tier order is normal > straight-demotion >

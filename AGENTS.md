@@ -20,14 +20,12 @@ game on toroidal topology for extra challenge.
 
 ## Status overall
 
-- **generator** - classic is fine, multi is a hot vibecoded mess that needs a start over.
+- **generator** - classic is fine; multi rewritten clean around the forest-sharing design
+  (`generator-forest.js`, 2026-11). Sharing (0.35) and tree count (`max(3, floor(N/20))`) are
+  calibrated, user-approved defaults; further tuning only from playtest evidence.
 - **solver** - already solves both variants by treating classic mode puzzles as single-pipe
   multipipes. Could use some search logic tightening but nothing urgent.
 - **game** - rendering and player interaction. Already supports both variants.
-
-## Current stream
-
-Working on multipipes generator rewrite.
 
 ## Encodings
 

@@ -1,6 +1,6 @@
 # Spec: Multipipes generator rewrite — forest sharing
 
-Status: ready-for-agent
+Status: done (2026-11-04)
 
 Source design: `docs/multipipes-generator-forest.md` (vocabulary per root `GLOSSARY.md`). The
 scheduled-sharing design (`docs/multipipes-generator-scheduled.md`) is the parked fallback and is
@@ -238,7 +238,9 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   disappoint on the debug page.
 - Tunable calibration: the K formula, share-tier gating probability, growth-stop criterion, evenness
   statistic and threshold, and merge edge-choice strategy. The machinery and knobs are delivered;
-  their tuned values are experiments on the debug page after the build.
+  their tuned values are experiments on the debug page after the build. [closed 2026-11-04: sharing
+  0.35 and tree count `max(3, floor(N/20))` calibrated and user-approved on the debug page; further
+  tuning is playtest-driven only]
 - Any change to the classic generator, the solver, or the game rendering/interaction (the game
   already supports both variants).
 
