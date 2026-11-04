@@ -31,3 +31,24 @@ is deleted. End state: one multipipes generator honoring the spec's interface co
 - [ ] Old generator module and its tests deleted; worker, game and debug pages import the one new
       engine
 - [ ] `npx vitest run`, `npm run check`, `npm run lint` all clean
+
+## Comments
+
+1. **Watch items raised before implementation (user, 2026-11-04): regrow sharing between distinct
+   reused components.** Sharing can fire between two reused cells A and B iff they host pipes of
+   _different_ kept components. Two things to look for in the loop's iteration snapshots at the
+   default sharing (0.35), over several multi-iteration runs:
+
+   - **Oversharing.** Every pipe of every kept component is revived as an active frontier tip, so
+     the share-exposed surface from pick one is much larger than on a fresh board: component
+     perimeters facing other occupied territory. Symptom: shared-tile counts (derivable from
+     `tiles`) ratcheting up iteration over iteration — the sharing knob's meaning would drift during
+     the loop.
+   - **Destabilization of "stable" regions.** A share into a kept cell mutates it, so a
+     previously-determined cell can flip back to ambiguous, making the `numAmbiguous` trend
+     non-monotone.
+
+   If either bites, ban share moves whose source and target cells both host reused pipes. That is a
+   spec change — it revisits ticket 05's "foreign tips may share into reused tiles" acceptance
+   criterion and the design doc's "reused trees grow like any tree" — so land it as a decision, not
+   silently.
