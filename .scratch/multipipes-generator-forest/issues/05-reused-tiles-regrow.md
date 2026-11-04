@@ -97,3 +97,15 @@ cutover):
    regression still fails loudly, 9 ≠ 12 cells) and the merge now stitches through 3 boxed bridges
    plus one open tail run instead of 4 bridges — the tail run is its own case (a region reachable
    only from one component's side).
+
+## Comments (cont.)
+
+9. **One criterion revisited by ticket 06 (2026-11-04): both-reused shares banned.** Acceptance
+   criterion 5 — "Foreign tips may share into reused tiles" — still stands and still holds
+   (fresh-tree tips keep birthing pipes in reused cells). But the 30x30 uniqueness-loop measurements
+   in ticket 06 comment 5 showed that shares whose source **and** target cells both host reused
+   pipes ratchet shared-tile counts up iteration over iteration until component borders saturate
+   (the texture the sharing-0.35 default was calibrated to avoid), so that narrower move class is
+   now banned in the engine and the spec. "Reused trees grow like any tree" carries the same caveat:
+   they extend and share into fresh cells like any tree, they no longer share into other components'
+   reused cells.

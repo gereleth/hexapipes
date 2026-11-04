@@ -123,3 +123,41 @@ is deleted. End state: one multipipes generator honoring the spec's interface co
    demotion probability with no deterministic observable on the generate path, and a distribution
    test there would be flaky; the growth-path pass-through is pinned via the tree-count seed-event
    test.
+
+5. **Correction of comment 2's "no ban" call (user pushback, 2026-11-04): the oversharing item
+   bites, and the ban is landed — plus a second fix the decomposition exposed.** The user's 30x30
+   experiments (5–11 iterations, tree borders gaining sharing each iteration until saturation at
+   mostly 3 directions used per tile — the exact texture 0.35 was calibrated to avoid) overruled
+   comment 2's reading. That reading was wrong twice over: the measurement window (≤20x20, ≤11
+   iterations) was too small to see where the "plateau" was heading, and "inheritance is benign"
+   inverted the actual requirement — since the knob is calibrated on fresh boards, any elevation of
+   the delivered board over that calibration is the defect, and inheritance is the accumulated
+   history of the oversharing.
+
+   Reproduced at 30x30, sharing 0.35, 5 runs (all unique, 4–10 iterations): shared tiles 215 →
+   250–270, 3-direction tiles 489 → 510–563, versus fresh baselines of 210/481. Decomposition found
+   **two** mechanisms, roughly co-equal:
+
+   - **Both-reused shares** (`r`-class, the pre-agreed ban case): 5–26 per regrow mid-loop. Both
+     sides are certified territory — the share mutates stable regions for zero coverage and nothing
+     ever removes it, so it is pure ratchet fuel. → **Banned** in `candidateBuckets`: a share move
+     whose source and target cells both host reused pipes is never considered. Ticket 05's "foreign
+     tips may share into reused tiles" criterion still stands (fresh-tip-into-reused shares remain
+     legal and still fire).
+   - **Seed cramming**: fresh seeds topped up to K minus loaded components regardless of erased size
+     — a 52-cell erased region got 13–17 seeds at K=45 (4 cells per tree vs the calibrated ~20), so
+     the regrown patch itself grew at several times the calibrated density. → Fresh seeds are now
+     additionally capped by the erased region's own density (one per ~20 erased cells, floored at
+     one so any regrowable region can open).
+
+   After (same 5-run protocol): both-reused shares 0 everywhere, seeds 1–3, and final boards land
+   **at the fresh-board calibration** — shared 208–219 vs 210 baseline, 3-direction 476–510 vs 481.
+   Convergence preserved (3–10 iterations, all unique, means unchanged ~4.8). Fresh-tip-into-reused
+   shares still fire (1–17 per regrow) but no longer accumulate — with few seeds, additions balance
+   erasures.
+
+   Landed as decisions, not silently: spec.md's Forest mechanism and Uniqueness loop bullets, the
+   design doc's Seeds bullet and uniqueness-loop step 4, and ticket 05's acceptance criterion
+   annotation all record the change with the numbers. Pinned by tests: "Never shares between two
+   reused cells" (replay over 20 randomized regrows, two facing kept components at sharing 1) and
+   the seed-density pin in the updated loads test.

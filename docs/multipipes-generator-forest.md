@@ -88,7 +88,10 @@ no bit-parity obligation with `generator.js`.
   `1 + round(√N)`, tunable [default settled 2026-11-01: `max(3, floor(N/20))`, constant ~20-cell
   trees — linear scaling keeps the sharing knob size-invariant; see ticket 04 comments]. During the
   uniqueness loop, reused components count toward K and fresh seeds top the count up; reuse yielding
-  more than K qualifying components keeps them all (K caps fresh seeds, not reuse).
+  more than K qualifying components keeps them all (K caps fresh seeds, not reuse). Fresh seeds are
+  additionally capped by the erased region's own density — one seed per ~20 erased cells, floored at
+  one [landed 2026-11-04, ticket 06: without it, the loop's shrinking erased regions got crammed
+  with K trees and regrown patches grew at multiples of the calibrated sharing level].
 - **Trees grow independently**, classic-style: extend into fresh cells, add ends to own pipes
   (fattening), never link during growth — not even into reused tiles, which are trees here, not
   absorption targets.
@@ -144,10 +147,15 @@ Classic `generator.js` structure, unchanged in shape:
    they carry no orientation info). Strip pipe ends pointing outside the kept region (a pipe left
    with no ends disappears; a cell left with no pipes is not reused).
 4. Regrow: the reused components are loaded as some of the K trees (their pipes pre-unioned); fresh
-   seeds top the count up to K, and the erased region grows around them. Reused trees grow like any
-   tree: their boundary pipes extend into the erased region — regaining their stripped ends — and
-   foreign tips may share into their tiles. No linking during growth; all linking happens in the
-   merge phase.
+   seeds top the count up to K, capped by the erased region's own density (one per ~20 erased cells,
+   floor one) [ticket 06], and the erased region grows around them. Reused trees grow like any tree:
+   their boundary pipes extend into the erased region — regaining their stripped ends — and foreign
+   tips may share into their tiles. Shares between two cells that both host reused pipes are banned
+   [landed 2026-11-04, ticket 06: both-reused shares mutated certified territory for zero coverage
+   and were never removed, so shared tiles ratcheted up iteration over iteration until component
+   borders saturated — on 30x30 boards, 5–26 such shares per regrow drove shared tiles from the 210
+   fresh baseline to 270 at sharing 0.35; with the ban (and the seed density cap) final boards land
+   back at 208–219]. No linking during growth; all linking happens in the merge phase.
 5. Patience (5 iterations without ambiguity decrease) → new attempt (fresh board). Budgets as in
    classic (100 iterations / 100 attempts).
 

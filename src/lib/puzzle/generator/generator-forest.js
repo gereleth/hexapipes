@@ -699,6 +699,10 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 	const trees = [];
 	/** @type {Number[]} cells holding reused pipes */
 	const reusedCells = [];
+	/** cells hosting at least one kept pipe - components can share a cell,
+	 * so the set dedupes. The reuse set is fixed at load time: reused
+	 * pipes never leave their cell, so it stays valid through growth */
+	const reusedCellSet = new Set();
 
 	// reused components load as some of the K trees: pipes land on the
 	// board together with their locked edges, pre-unioned, and every
@@ -726,6 +730,7 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 					pipes.push(mask);
 				}
 				reusedCells.push(cell);
+				reusedCellSet.add(cell);
 				cells.push({ cell, pipes });
 			}
 			events.push({ type: 'reuse', cells });
@@ -764,9 +769,21 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 	} else {
 		// regrow: fresh trees only top the count up to K, seeded by
 		// farthest point over the erased region around the reused cells
-		// (reused cells at distance 0) - K caps fresh seeds, not reuse
+		// (reused cells at distance 0) - K caps fresh seeds, not reuse.
+		// The erased region also caps them at its own tree density: one
+		// seed per ~20 erased cells (the fresh-board formula's ratio,
+		// floored at one so any regrowable region can open). Without the
+		// density cap, a late-loop region of a few dozen cells crams
+		// K-minus-loaded trees into itself and the regrown patch grows at
+		// several times the calibrated sharing level - the oversharing
+		// ratchet of ticket 06's 30x30 measurements (13-17 seeds in a
+		// 52-cell region with K = 45)
 		const erased = playable.filter((index) => tiles[index].length === 0);
-		const freshCount = Math.min(Math.max(0, treeCount - trees.length), erased.length);
+		const freshCount = Math.min(
+			Math.max(0, treeCount - trees.length),
+			Math.max(1, Math.floor(erased.length / 20)),
+			erased.length
+		);
 		seeds = farthestPointPicks(grid, freshCount, reusedCells);
 	}
 
@@ -858,6 +875,18 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 			// crossings form through the coverage-paying extend exemption
 			// below instead
 			if (kind === MOVE_KIND.SHARE && sourceAfter.full) {
+				continue;
+			}
+			// regrow ban: no shares between two cells hosting reused
+			// pipes. Both sides are certified territory - the share mutates
+			// stable regions for zero coverage and nothing ever removes
+			// it, so shared tiles ratchet up iteration over iteration
+			// until component borders saturate (ticket 06's 30x30 data:
+			// 5-26 both-reused shares per regrow, shared tiles climbing
+			// 215 -> 270 at sharing 0.35). Foreign tips may still share
+			// into reused tiles and reused tips still share into fresh
+			// ones - reused trees grow like any tree otherwise
+			if (kind === MOVE_KIND.SHARE && reusedCellSet.has(cell) && reusedCellSet.has(neighbour)) {
 				continue;
 			}
 			// soft ban: an extend completing a clean fully connected union

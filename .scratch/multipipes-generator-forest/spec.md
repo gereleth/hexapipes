@@ -143,7 +143,14 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   with moves into fresh cells — sharing is woven into growth, not an afterthought once boxed
   [revised 2026-10-31, agreed]. Entering a cell never merges components. A tip that entered foreign
   territory keeps growing there, sharing each cell it passes, producing trails of shared tiles —
-  long crossings arise naturally in winding mode.
+  long crossings arise naturally in winding mode. Regrow caps fresh seeds twice: K minus the loaded
+  reuse components, and the erased region's own density — one seed per ~20 erased cells, floored at
+  one [landed 2026-11-04, ticket 06: without the density cap the loop's shrinking erased regions got
+  crammed with K trees (13–17 seeds in a 52-cell region at K=45) and the regrown patches grew at
+  multiples of the calibrated sharing level]. Shares between two cells that both host reused pipes
+  are banned outright [landed 2026-11-04, ticket 06, from the 30x30 measurements: both-reused shares
+  fired 5–26 times per regrow and shared-tile counts ratcheted 215 → 270 at sharing 0.35, saturating
+  component borders — the texture the 0.35 default was calibrated to avoid].
 - **Merge phase.** After growth ends, link and fuse the forest into one spanning tree in a tier
   order, each tier's candidates shuffled and re-validated as they apply: plain links, clean
   union-completing links (mirroring the growth clean-full demotion), clean fusions — any two pipes
@@ -170,14 +177,18 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   as an inert pass-through node, an isolated one strips to nothing], strip pipe ends pointing
   outside the kept region (a pipe left with no ends disappears; a cell left with no pipes is not
   reused). Regrow: reused components load as some of the K trees with their pipes pre-unioned; fresh
-  seeds top the count up to K; reuse yielding more than K qualifying components keeps them all.
-  Reused trees grow like any tree [reaffirmed 2026-11-04, ticket 06's watch-item measurements:
-  shares into reused cells are few (4–7 per regrow), shared-tile counts plateau instead of
-  ratcheting, and every measured run converged — a both-reused share ban stays parked as the lever
-  if debug-page boards ever read busier than the fresh-board calibration]. Patience (iterations
-  without ambiguity decrease) and attempt budgets match classic. Reused seed pipes may legitimately
-  regain stripped ends when growth extends them again — the invariant is "seed pipes keep their
-  ends", not verbatim equality.
+  seeds top the count up to K and are density-capped to the erased region; reuse yielding more than
+  K qualifying components keeps them all. Reused trees grow like any tree with one exception: shares
+  between two cells that both host reused pipes are banned [landed 2026-11-04, ticket 06: the first
+  measurement round (≤20x20, short loops) read the elevation as a bounded plateau, but the user's
+  30x30 experiments showed the plateau for what it is — border saturation; remeasured, both-reused
+  shares fired 5–26 times per regrow and shared tiles ratcheted 215 → 270 at sharing 0.35, with
+  fresh seeds also cramming K-minus-loaded trees into shrinking erased regions; the ban plus the
+  erased-region seed density cap brings final boards back to the fresh-board calibration (208–219
+  shared vs 210 baseline)]. Foreign tips may still share into reused tiles and reused tips into
+  fresh ones. Patience (iterations without ambiguity decrease) and attempt budgets match classic.
+  Reused seed pipes may legitimately regain stripped ends when growth extends them again — the
+  invariant is "seed pipes keep their ends", not verbatim equality.
 - **Interface.** Generate takes the full knob set: sharing, branching, avoid-obvious, solutions
   number, optional avoid-straights, and tree count (default formula above). Tree count flows through
   the same channel as the other knobs — worker options — and is exposed on the generator debug page

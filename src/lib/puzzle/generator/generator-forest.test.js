@@ -1290,11 +1290,14 @@ describe('Share-source hard ban', () => {
 });
 
 describe('Regrow from reused tiles', () => {
-	it('Loads reused components as trees and tops fresh seeds up to K', () => {
+	it('Loads reused components as trees and caps fresh seeds at the erased region density', () => {
 		for (let run = 0; run < 5; run++) {
 			const grid = new SquareGrid(8, 3, false);
 			// a four-cell kept path in the middle row, everything else
-			// erased: one reused tree loads, three fresh seeds top K up
+			// erased: one reused tree loads, and the 20-cell erased region
+			// takes one fresh seed - the same ~20-cells-per-tree density as
+			// a fresh board (K only caps, it no longer crams a shrinking
+			// regrowth region with seeds) [ticket 06 decision]
 			const startTiles = startTilesFrom(24, { 9: [1], 10: [5], 11: [5], 12: [4] });
 			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
 			const events = [];
@@ -1305,10 +1308,46 @@ describe('Regrow from reused tiles', () => {
 				startTiles
 			);
 			expect(reusedCells(events)).toEqual(new Set([9, 10, 11, 12]));
-			expect(seedCount(events)).toBe(3);
+			expect(seedCount(events)).toBe(1);
 			expect(boardInvariants(grid, tiles).components).toBe(1);
 			expect(new Solver(tiles, grid).markAmbiguousTiles().solvable).toBe(true);
 			replayEvents(grid, tiles, events);
+		}
+	});
+
+	it('Never shares between two reused cells: the ratchet fuel is cut', () => {
+		// two facing kept components (top two rows of a 6x6): before the
+		// ban, reused tips facing each other's cells birthed pipes there
+		// (a both-reused share), mutating certified territory for zero
+		// coverage and ratcheting shared-tile counts up iteration over
+		// iteration until borders saturate [ticket 06 decision, from the
+		// 30x30 measurements: r-class shares fired 5-26 times per regrow]
+		const grid = new SquareGrid(6, 6, false);
+		const startTiles = startTilesFrom(36, {
+			0: [1],
+			1: [5],
+			2: [4],
+			6: [1],
+			7: [5],
+			8: [4]
+		});
+		for (let run = 0; run < 20; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			pregenerateForest(
+				grid,
+				{ sharingAmount: 1, treeCount: 6 },
+				(event) => events.push(event),
+				startTiles
+			);
+			const reused = reusedCells(events);
+			expect(reused.size).toBe(6);
+			for (const event of events) {
+				if (event.type !== 'move' || event.kind !== MOVE_KIND.SHARE) {
+					continue;
+				}
+				expect(reused.has(event.fromCell) && reused.has(event.neighbour)).toBe(false);
+			}
 		}
 	});
 
