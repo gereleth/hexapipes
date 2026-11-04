@@ -158,16 +158,20 @@ ends", not verbatim equality.
 ## Interface contract
 
 - `MultiGenerator(grid, ...)` with
-  `generate(sharingAmount, branchingAmount, avoidObvious, solutionsNumber, avoidStraights?)`,
-  progress callbacks. Forest only: K is a separate `treeCount` constructor param (default
-  `1 + round(√N)`, not plumbed through the worker until wanted).
-- `pregenerate_multi(grid, sharing, branching, avoidObvious, startTiles, reuseMinCount, onMove)` —
-  one growth pass; `onMove` receives growth events for the debug animation.
-- `uniqueIterations(sharing, branching, avoidObvious, maxAmbiguousTiles)` — yields
+  `generate(sharingAmount, branchingAmount, avoidObvious, solutionsNumber, avoidStraights?, treeCount?)`,
+  progress callbacks [tree count moved from a constructor param onto `generate`/`uniqueIterations`
+  at the cutover, ticket 06: it flows through worker options like every other knob; the default is
+  `max(3, floor(N/20))`, ticket 04].
+- `pregenerateForest(grid, knobs, onEvent, startTiles, reuseMinCount)` — one growth pass; `onEvent`
+  receives growth events for the debug animation [the design doc's `pregenerate_multi` positional
+  signature was superseded by the knobs object over tickets 01–05].
+- `uniqueIterations(sharing, branching, avoidObvious, maxAmbiguousTiles, avoidStraights?, treeCount?)`
+  — yields
   `IterationSnapshot {attempt, iteration, tiles, marked, numAmbiguous, unique, keptCount, elapsedMs}`
   per solver iteration.
-- `worker-multi.js` consumes exactly this — keep it working.
-- `worker-multi.js` currently drops `avoidStraights` for multi — close the gap.
+- `worker-multi.js` consumes exactly this [cutover done, ticket 06: `generate` and `debug-start`
+  pass every knob through, `growth-start` accepts optional `startTiles` for the debug page's
+  regrow-from-survivors view; the avoid-straights drop is closed].
 
 ## Known pitfalls (found the hard way in an aborted prototype)
 

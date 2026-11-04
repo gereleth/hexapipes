@@ -18,7 +18,7 @@
 
 	/**
 	 *
-	 * @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorOptions} options
+	 * @param {import('#lib/puzzle/generator/generator-forest.js').GeneratorOptions} options
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 */
 	export function generate(options, grid) {

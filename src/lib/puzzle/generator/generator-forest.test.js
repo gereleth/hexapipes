@@ -6,6 +6,7 @@ import {
 	UnionFind,
 	UnmergeableBoardError,
 	applyForestEvent,
+	applyRotations,
 	buildStartTiles,
 	classifyMoveKind,
 	defaultTreeCount,
@@ -14,7 +15,10 @@ import {
 	mergeForest,
 	moveTier,
 	planReusedComponents,
-	pregenerateForest
+	pregenerateForest,
+	randomRotate,
+	MultiGenerator,
+	validateMulti
 } from '#lib/puzzle/generator/generator-forest.js';
 import { computeCellObviousTiles } from '#lib/puzzle/generator/generator.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
@@ -1728,6 +1732,218 @@ describe('Reuse planning (white-box)', () => {
 		);
 		expect(plan.keptCount).toBe(2);
 	});
+});
+
+describe('Uniqueness loop (public seam)', () => {
+	/**
+	 * Enumerates every solution of a scrambled board with the solver, the
+	 * verifyUnique oracle of the classic generator tests
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {Number[][]} tiles
+	 * @returns {Number}
+	 */
+	function countSolutions(grid, tiles) {
+		const solver = new Solver(tiles, grid);
+		for (const _ of solver.solve(true)) {
+		}
+		return solver.solutions.length;
+	}
+
+	/** @type {Array<{name: String, make: () => import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid}>} */
+	const boards = [
+		{ name: 'square 5x5', make: () => new SquareGrid(5, 5, false) },
+		{ name: 'square 5x5 wrap', make: () => new SquareGrid(5, 5, true) },
+		{ name: 'hex 5x4', make: () => new HexaGrid(5, 4, false) },
+		{ name: 'hex 6x5 wrap', make: () => new HexaGrid(6, 5, true) },
+		{ name: 'trihexagonal 3x3 (mixed)', make: () => new TrihexaGrid(3, 3, false) },
+		{ name: 'snub square 4x4 (mixed)', make: () => new SnubSquareGrid(4, 4, false) },
+		{ name: 'triangular 5x5', make: () => new TriangularGrid(5, 5, false) }
+	];
+
+	for (const board of boards) {
+		it(`Generates a solver-unique puzzle on ${board.name}`, () => {
+			for (let run = 0; run < 3; run++) {
+				const grid = board.make();
+				const generator = new MultiGenerator(grid);
+				const tiles = generator.generate(0.35, 0.5, 0, 'unique');
+				// verifyUnique-style: enumerate every solution, expect one
+				expect(countSolutions(grid, tiles)).toBe(1);
+				const { solvable, unique, marked } = new Solver(tiles, grid).markAmbiguousTiles();
+				expect(solvable).toBe(true);
+				expect(unique).toBe(true);
+				// the scramble is a pure rotation: solving recovers a valid board
+				expect(() => validateMulti(grid, applyRotations(grid, tiles, marked))).not.toThrow();
+			}
+		}, 120000);
+	}
+
+	it('Generates solver-unique puzzles at maximum sharing too', () => {
+		for (let run = 0; run < 3; run++) {
+			const grid = new SquareGrid(5, 5, false);
+			const tiles = new MultiGenerator(grid).generate(1, 0.5, 0, 'unique');
+			expect(countSolutions(grid, tiles)).toBe(1);
+		}
+	}, 120000);
+
+	it('Defaults to the forest knob values (sharing 0.35, tree count formula)', () => {
+		const grid = new SquareGrid(5, 5, false);
+		const tiles = new MultiGenerator(grid).generate();
+		const { solvable, unique } = new Solver(tiles, grid).markAmbiguousTiles();
+		expect(solvable).toBe(true);
+		expect(unique).toBe(true);
+		// classic budgets: patience 5, 100 iterations, 100 attempts
+		const generator = new MultiGenerator(grid);
+		expect(generator.uniqueness_patience).toBe(5);
+		expect(generator.max_uniqueness_iterations).toBe(100);
+		expect(generator.max_attempts).toBe(100);
+		expect(generator.reuse_tiles_min_count).toBe(3);
+	}, 120000);
+
+	it('Whatever mode returns a scrambled, solver-solvable board without uniqueness work', () => {
+		for (let run = 0; run < 3; run++) {
+			const grid = new SquareGrid(5, 5, false);
+			const tiles = new MultiGenerator(grid).generate(0.35, 0.5, 0, 'whatever');
+			const { solvable, marked } = new Solver(tiles, grid).markAmbiguousTiles();
+			expect(solvable).toBe(true);
+			expect(() => validateMulti(grid, applyRotations(grid, tiles, marked))).not.toThrow();
+		}
+	});
+
+	it('Multiple mode returns a board the solver does not find unique', () => {
+		// occasionally no multiple-solution board comes up, retry the way
+		// the old generator's test did
+		for (let attempt = 0; attempt < 5; attempt++) {
+			const grid = new SquareGrid(4, 4, false);
+			try {
+				const tiles = new MultiGenerator(grid, 3, 5, 100).generate(0.35, 0.5, 0, 'multiple');
+				expect(new Solver(tiles, grid).markAmbiguousTiles().unique).toBe(false);
+				return;
+			} catch {
+				// try again
+			}
+		}
+	});
+
+	it('Reports progress and rejects unknown solutionsNumber settings', () => {
+		const grid = new SquareGrid(4, 4, false);
+		/** @type {import('#lib/puzzle/generator/generator-forest.js').GeneratorProgress[]} */
+		const generatorProgress = [];
+		/** @type {import('#lib/puzzle/solver/solver.js').SolverProgress[]} */
+		const solverProgress = [];
+		const generator = new MultiGenerator(
+			grid,
+			3,
+			5,
+			10,
+			10,
+			(progress) => solverProgress.push(progress),
+			(progress) => generatorProgress.push(progress)
+		);
+		generator.generate(0.35, 0.5, 0, 'unique');
+		expect(generatorProgress.length).toBeGreaterThan(0);
+		expect(solverProgress.length).toBeGreaterThan(0);
+		expect(() => generator.generate(0.35, 0.5, 0, /** @type {any} */ ('bogus'))).toThrow(
+			'Unknown setting for solutionsNumber'
+		);
+	}, 60000);
+
+	it('Yields contract-complete snapshots: reuse feeds the next iteration, the loop stops at unique', () => {
+		// small boards are usually unique on iteration one; a 12x12 needs
+		// a retry or two before a multi-iteration run shows up
+		const grid = new SquareGrid(12, 12, false);
+		/** @type {import('#lib/puzzle/generator/generator-forest.js').IterationSnapshot[]|undefined} */
+		let snapshots = undefined;
+		for (let run = 0; run < 15 && snapshots === undefined; run++) {
+			const stepped = [...new MultiGenerator(grid).uniqueIterations(0.35, 0.5)];
+			if (stepped.length > 1) {
+				snapshots = stepped;
+			}
+		}
+		expect(snapshots).not.toBeUndefined();
+		const steps =
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').IterationSnapshot[]} */ (
+				snapshots
+			);
+		const last = steps.at(-1);
+		expect(last?.unique).toBe(true);
+		// only the last snapshot may be unique - the loop stops there
+		expect(steps.slice(0, -1).every((snapshot) => !snapshot.unique)).toBe(true);
+		let previousAttempt = 0;
+		let previousIteration = 0;
+		for (const [index, snapshot] of steps.entries()) {
+			// snapshot fields complete per contract
+			expect(snapshot.tiles.length).toBe(grid.total);
+			expect(snapshot.marked.length).toBe(grid.total);
+			expect(snapshot.numAmbiguous).toBeGreaterThanOrEqual(0);
+			expect(snapshot.elapsedMs).toBeGreaterThanOrEqual(0);
+			// attempt and iteration numbering: attempts count up, iterations
+			// count up within an attempt and restart with each new one
+			if (snapshot.attempt === previousAttempt) {
+				expect(snapshot.iteration).toBe(previousIteration + 1);
+			} else {
+				expect(snapshot.attempt).toBe(previousAttempt + 1);
+				expect(snapshot.iteration).toBe(1);
+			}
+			previousAttempt = snapshot.attempt;
+			previousIteration = snapshot.iteration;
+			if (index === 0) {
+				// the first board of the first attempt is fresh
+				expect(snapshot.keptCount).toBe(0);
+			}
+		}
+		// a non-unique iteration hands its determined tiles to the next
+		// one: some later snapshot reused them
+		expect(steps.slice(1).some((snapshot) => snapshot.keptCount > 0)).toBe(true);
+	}, 120000);
+
+	it('Honors the attempt and iteration budgets', () => {
+		const grid = new SquareGrid(5, 5, false);
+		// one iteration per attempt, two attempts: at most two snapshots,
+		// each the first iteration of its attempt
+		const capped = [...new MultiGenerator(grid, 3, 5, 2, 1).uniqueIterations(0.35, 0.5)];
+		expect(capped.length).toBeLessThanOrEqual(2);
+		expect(capped.every((snapshot) => snapshot.iteration === 1)).toBe(true);
+		if (capped.length === 2) {
+			expect(capped[1].attempt).toBe(2);
+		}
+	}, 60000);
+
+	it('Scrambles all pipes of a tile together: the scrambled board keeps the same unique solution', () => {
+		/**
+		 * A solved board up to pipe order within a tile: a tile's state is
+		 * the multiset of its pipes (which pipe sits at which index is not
+		 * observable - the player rotates the whole tile)
+		 * @param {Number[][]} tiles
+		 */
+		const canonical = (tiles) => tiles.map((pipes) => [...pipes].sort((a, b) => a - b));
+		for (let run = 0; run < 5; run++) {
+			const grid = new SquareGrid(5, 5, false);
+			const generator = new MultiGenerator(grid);
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').IterationSnapshot|undefined} */
+			let unique = undefined;
+			for (const snapshot of generator.uniqueIterations(0.35, 0.5)) {
+				if (snapshot.unique) {
+					unique = snapshot;
+				}
+			}
+			expect(unique).not.toBeUndefined();
+			const snapshotTiles = /** @type {any} */ (unique).tiles;
+			const solved = applyRotations(grid, snapshotTiles, /** @type {any} */ (unique).marked);
+			// the scramble: one random rotation per tile, all its pipes together
+			const scrambled = randomRotate(snapshotTiles, grid);
+			const {
+				solvable,
+				unique: isUnique,
+				marked
+			} = new Solver(scrambled, grid).markAmbiguousTiles();
+			expect(solvable).toBe(true);
+			expect(isUnique).toBe(true);
+			// solving the scramble recovers exactly the snapshot's solved
+			// orientation - only possible when every pipe of a tile moved
+			// by the same rotation
+			expect(canonical(applyRotations(grid, scrambled, marked))).toEqual(canonical(solved));
+		}
+	}, 120000);
 });
 
 /**

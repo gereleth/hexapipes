@@ -18,7 +18,9 @@
 	let branchingAmount = $state(0.6);
 	let avoidObvious = $state(0.0);
 	let avoidStraights = $state(0.0);
-	let sharingAmount = $state(0.6);
+	// forest-engine default sharing (ticket 04: the linear regime of the
+	// knob's response curve)
+	let sharingAmount = $state(0.35);
 	let autosolve = $state(false);
 	/** @type {import('#lib/puzzle/generator/generator.js').SolutionsNumber}*/
 	let solutionsNumber = $state('unique');
@@ -55,6 +57,7 @@
 					sharingAmount,
 					branchingAmount,
 					avoidObvious,
+					avoidStraights,
 					solutionsNumber
 				},
 				grid

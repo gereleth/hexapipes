@@ -165,13 +165,19 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
   scramble (random rotation per tile applied to all its pipes) and return; otherwise compute reused
   tiles — connected components of determined tiles linked by mutual pipe edges in solved
   orientation, keep the largest always plus smaller ones up to the reuse minimum count, exclude
-  rotation-invariant tiles (fully connected single pipes carry no orientation info), strip pipe ends
-  pointing outside the kept region (a pipe left with no ends disappears; a cell left with no pipes
-  is not reused). Regrow: reused components load as some of the K trees with their pipes
-  pre-unioned; fresh seeds top the count up to K; reuse yielding more than K qualifying components
-  keeps them all. Reused trees grow like any tree. Patience (iterations without ambiguity decrease)
-  and attempt budgets match classic. Reused seed pipes may legitimately regain stripped ends when
-  growth extends them again — the invariant is "seed pipes keep their ends", not verbatim equality.
+  rotation-invariant tiles (fully connected single pipes carry no orientation info) [exclusion
+  skipped per ticket 05 session decision, agreed 2026-11-01: keeping them is harmless — a plus lands
+  as an inert pass-through node, an isolated one strips to nothing], strip pipe ends pointing
+  outside the kept region (a pipe left with no ends disappears; a cell left with no pipes is not
+  reused). Regrow: reused components load as some of the K trees with their pipes pre-unioned; fresh
+  seeds top the count up to K; reuse yielding more than K qualifying components keeps them all.
+  Reused trees grow like any tree [reaffirmed 2026-11-04, ticket 06's watch-item measurements:
+  shares into reused cells are few (4–7 per regrow), shared-tile counts plateau instead of
+  ratcheting, and every measured run converged — a both-reused share ban stays parked as the lever
+  if debug-page boards ever read busier than the fresh-board calibration]. Patience (iterations
+  without ambiguity decrease) and attempt budgets match classic. Reused seed pipes may legitimately
+  regain stripped ends when growth extends them again — the invariant is "seed pipes keep their
+  ends", not verbatim equality.
 - **Interface.** Generate takes the full knob set: sharing, branching, avoid-obvious, solutions
   number, optional avoid-straights, and tree count (default formula above). Tree count flows through
   the same channel as the other knobs — worker options — and is exposed on the generator debug page
@@ -203,8 +209,11 @@ becomes a single honest knob: at zero it hard-guarantees boards with one pipe pe
 - Behaviors pinned at the public seam: full coverage of non-empty cells; sharing knob at zero ⇒ no
   shared tiles and exactly one pipe per tile; hard-ban shapes absent across many random runs; the
   growth-event stream replays to exactly the returned tiles (each locked edge appears once);
-  uniqueness snapshots report non-increasing ambiguity trends and a kept count consistent with
-  reuse; the scramble preserves solvability (all pipes of a tile rotated together).
+  uniqueness snapshots report a converging ambiguity trend and a kept count consistent with reuse
+  [revised 2026-11-04, ticket 06: "non-increasing" was drafting optimism — measurements there show
+  the trend wobbles inside classic's patience windows (0–2 of 8 runs per config increase within an
+  attempt) while every run converges; the wobble is what the patience budget is for]; the scramble
+  preserves solvability (all pipes of a tile rotated together).
 - **White-box tests** target the two exported internal units: union-find (union, find, component
   count, cycle refusal) and per-direction claims (FREE/CLAIMED/WALL transitions, tier classification
   of the four move kinds, demotion ordering).

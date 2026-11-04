@@ -1,4 +1,5 @@
 import { computeCellObviousTiles } from './generator.js';
+import { Solver } from '#lib/puzzle/solver/solver.js';
 import { popcount } from '#lib/puzzle/grids/bitmasks.js';
 
 /**
@@ -1486,6 +1487,446 @@ export function pregenerateForest(
 			if (error instanceof IsolatedCellError || attempt >= MAX_ATTEMPTS) {
 				throw error;
 			}
+		}
+	}
+}
+
+/**
+ * OR of all pipe bitmasks = directions already used by some pipe of this tile
+ * @param {Number[]} pipes
+ * @returns {Number}
+ */
+function usedDirections(pipes) {
+	let used = 0;
+	for (let pipe of pipes) {
+		used |= pipe;
+	}
+	return used;
+}
+
+/**
+ * Randomize rotations of multipipes tiles: one random rotation per tile,
+ * applied to all of its pipes together - the tile stays a pure rotation of
+ * its solved shape, the puzzle the player receives
+ * @param {Number[][]} tiles
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @returns {Number[][]}
+ */
+export function randomRotate(tiles, grid) {
+	return tiles.map((pipes, index) => {
+		if (pipes.length === 0) {
+			return [];
+		}
+		const polygon = grid.polygonAt(index);
+		const rotations = Math.floor(Math.random() * polygon.numDirections);
+		return pipes.map((pipe) => polygon.rotate(pipe, rotations));
+	});
+}
+
+/**
+ * Applies solved rotations to multipipes tiles,
+ * Solver sentinel rotations (negative numbers) count as no rotation
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number[][]} tiles
+ * @param {Number[]} rotations - rotation per cell
+ * @returns {Number[][]}
+ */
+export function applyRotations(grid, tiles, rotations) {
+	return tiles.map((pipes, index) => {
+		if (pipes.length === 0) {
+			return [];
+		}
+		const rotation = rotations[index];
+		const amount = typeof rotation === 'number' && rotation > 0 ? rotation : 0;
+		const polygon = grid.polygonAt(index);
+		return pipes.map((pipe) => polygon.rotate(pipe, amount));
+	});
+}
+
+/**
+ * Checks that multipipes tiles form a valid puzzle network. Throws an Error
+ * naming the first broken rule: coverage, direction exclusivity, mutual edge
+ * matching, one spanning tree over all pipe nodes
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {Number[][]} tiles
+ */
+export function validateMulti(grid, tiles) {
+	const total = grid.total;
+	const playable = total - grid.emptyCells.size;
+	/** @type {Map<String, String[]>} adjacency between nodes */
+	const adjacency = new Map();
+	/** @type {(cell: Number, pipeIndex: Number) => String} */
+	const key = (cell, pipeIndex) => `${cell}_${pipeIndex}`;
+	let nodes = 0;
+	let connectionEnds = 0;
+	let first = null;
+
+	for (let index = 0; index < total; index++) {
+		const pipes = tiles[index];
+		if (grid.emptyCells.has(index)) {
+			if (pipes.length > 0) {
+				throw new Error(`Tile ${index} is empty but has pipes`);
+			}
+			continue;
+		}
+		if (pipes.length === 0 && playable > 1) {
+			throw new Error(`Tile ${index} has no pipes`);
+		}
+		const polygon = grid.polygonAt(index);
+		const used = usedDirections(pipes);
+		const xored = pipes.reduce((a, b) => a ^ b, 0);
+		if (used !== xored) {
+			throw new Error(`Tile ${index} uses a direction in more than one pipe`);
+		}
+		for (let pipeIndex = 0; pipeIndex < pipes.length; pipeIndex++) {
+			const pipe = pipes[pipeIndex];
+			if (pipe === 0) {
+				throw new Error(`Tile ${index} pipe ${pipeIndex} has no connections`);
+			}
+			if ((pipe | polygon.fullyConnected) !== polygon.fullyConnected) {
+				throw new Error(`Tile ${index} pipe ${pipeIndex} has invalid direction bits`);
+			}
+			const from = key(index, pipeIndex);
+			adjacency.set(from, []);
+			if (first === null) {
+				first = from;
+			}
+			nodes += 1;
+			let bits = pipe;
+			while (bits > 0) {
+				const direction = bits & -bits;
+				bits ^= direction;
+				connectionEnds += 1;
+				const { neighbour, empty } = grid.findNeighbour(index, direction);
+				if (empty || neighbour < 0) {
+					throw new Error(`Tile ${index} connects outside the board in direction ${direction}`);
+				}
+				const opposite = grid.OPPOSITE.get(direction) || 0;
+				const neighbourPipes = tiles[neighbour];
+				let matched = -1;
+				for (let j = 0; j < neighbourPipes.length; j++) {
+					if ((neighbourPipes[j] & opposite) > 0) {
+						matched = j;
+						break;
+					}
+				}
+				if (matched === -1) {
+					throw new Error(
+						`Tile ${index} direction ${direction} has no matching connection at tile ${neighbour}`
+					);
+				}
+				adjacency.get(from)?.push(key(neighbour, matched));
+			}
+		}
+	}
+
+	if (connectionEnds !== 2 * (nodes - 1)) {
+		throw new Error(
+			`Node graph is not a tree: ${nodes} nodes have ${connectionEnds / 2} connections`
+		);
+	}
+	if (nodes === 0) {
+		return;
+	}
+	const seen = new Set([first]);
+	const queue = [first];
+	while (queue.length > 0) {
+		const current = /** @type {String} */ (queue.pop());
+		for (let next of adjacency.get(current) || []) {
+			if (!seen.has(next)) {
+				seen.add(next);
+				queue.push(next);
+			}
+		}
+	}
+	if (seen.size !== nodes) {
+		throw new Error(`Node graph is disconnected: reached ${seen.size} of ${nodes}`);
+	}
+}
+
+/**
+ * @typedef {'unique'|'multiple'|'whatever'} SolutionsNumber
+ */
+
+/**
+ * @typedef {object} GeneratorProgress
+ * @property {Number} attempt
+ * @property {Number} iteration
+ */
+
+/**
+ * Worker-facing generation options, the channel every knob flows through
+ * @typedef {object} GeneratorOptions
+ * @property {Number} [sharingAmount] - the forest sharing knob, values in
+ * range [0,1], see ForestKnobs (the engine default 0.35 applies when unset)
+ * @property {Number} [branchingAmount] - frontier selection blend, [0,1]
+ * @property {Number} [avoidObvious] - demotes obviously solvable border
+ * orientations, [0,1]
+ * @property {Number} [avoidStraights] - demotes straight-making moves, [0,1]
+ * @property {SolutionsNumber} [solutionsNumber]
+ * @property {Number} [treeCount] - number of trees to grow, 0 = the default
+ * max(3, floor(playable cells / 20)), see defaultTreeCount
+ * @property {Number} [maxAmbiguousTiles] - cap on ambiguities searched per
+ * uniqueness iteration, 0 or undefined means the default max(100, 0.1 * total)
+ */
+
+/**
+ * Cells a regrowth actually loaded from its start tiles: the reuse plan's
+ * kept count, 0 on fresh boards. Recomputes the plan pregenerateForest
+ * builds internally - a cheap pipe flood fill next to the solver run it
+ * accompanies, and the price of keeping pregenerateForest's signature
+ * plan-free
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {StartTiles} startTiles
+ * @param {Number} reuseMinCount
+ * @returns {Number}
+ */
+function keptCellCount(grid, startTiles, reuseMinCount) {
+	if (startTiles.length !== grid.total) {
+		return 0;
+	}
+	return planReusedComponents(grid, startTiles, reuseMinCount).keptCount;
+}
+
+/**
+ * Snapshot of one uniqueness iteration, see MultiGenerator.uniqueIterations
+ * @typedef {object} IterationSnapshot
+ * @property {Number} attempt
+ * @property {Number} iteration
+ * @property {Number[][]} tiles - the freshly generated (unscrambled) board
+ * @property {Number[]} marked - solver-frame rotations per tile, AMBIGUOUS/UNSOLVED sentinels for bad tiles
+ * @property {Number} numAmbiguous
+ * @property {boolean} unique - the search finished and found a unique solution
+ * @property {Number} keptCount - tiles this board reused from the previous iteration
+ * @property {Number} elapsedMs - time spent in the solver for this iteration
+ */
+
+/** @param {GeneratorProgress} progress */
+const emptyGeneratorCallback = (progress) => {};
+
+/**
+ * Generates multipipes puzzles on the forest engine, mirroring the classic
+ * generator's uniqueness loop: solve with the solver's ambiguity marking;
+ * unique → scramble and return; otherwise reuse the determined tiles and
+ * regrow around them (see pregenerateForest), with classic's patience and
+ * attempt budgets
+ */ export class MultiGenerator {
+	/**
+	 * @constructor
+	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+	 * @param {Number} [reuse_tiles_min_count = 3] minimum count of connected cells to reuse when erasing ambiguities
+	 * @param {Number} [uniqueness_patience = 5] abandon generation attempt if the count of ambiguous cells did not decrease in this many iterations
+	 * @param {Number} [max_attempts = 100] abandon generation if no attempt produced a unique puzzle
+	 * @param {Number} [max_uniqueness_iterations = 100] abandon an attempt after this many uniqueness iterations
+	 * @param {(progress: import('#lib/puzzle/solver/solver.js').SolverProgress) => void} [solver_progress_callback] reports solver progress
+	 * @param {(progress: GeneratorProgress) => void} [generator_progress_callback] reports generation progress
+	 */
+	constructor(
+		grid,
+		reuse_tiles_min_count = 3,
+		uniqueness_patience = 5,
+		max_attempts = 100,
+		max_uniqueness_iterations = 100,
+		solver_progress_callback = undefined,
+		generator_progress_callback = undefined
+	) {
+		this.grid = grid;
+		this.reuse_tiles_min_count = reuse_tiles_min_count;
+		this.uniqueness_patience = uniqueness_patience;
+		this.max_attempts = max_attempts;
+		this.max_uniqueness_iterations = max_uniqueness_iterations;
+		this.solver_progress_callback = solver_progress_callback;
+		this.generator_progress_callback = generator_progress_callback || emptyGeneratorCallback;
+	}
+
+	/**
+	 * Builds the forest knobs object the engine consumes
+	 * @param {Number} sharingAmount
+	 * @param {Number} branchingAmount
+	 * @param {Number} avoidObvious
+	 * @param {Number} avoidStraights
+	 * @param {Number} treeCount
+	 * @returns {ForestKnobs}
+	 */
+	knobs(sharingAmount, branchingAmount, avoidObvious, avoidStraights, treeCount) {
+		return { sharingAmount, branchingAmount, avoidObvious, avoidStraights, treeCount };
+	}
+
+	/**
+	 * A solver wired to this generator's progress reporting
+	 * @param {Number[][]} tiles
+	 * @returns {Solver}
+	 */
+	makeSolver(tiles) {
+		const solver = new Solver(tiles, this.grid);
+		if (this.solver_progress_callback) {
+			solver.progressCallback = this.solver_progress_callback;
+		}
+		return solver;
+	}
+
+	/**
+	 * Grows one board from reuse material, reporting what it kept: the
+	 * pregenerate plus the kept cell count of its start tiles, the pair
+	 * every iteration of the loop needs
+	 * @param {ForestKnobs} knobs
+	 * @param {StartTiles} startTiles
+	 * @returns {{tiles: Number[][], keptCount: Number}}
+	 */
+	regrow(knobs, startTiles) {
+		return {
+			tiles: pregenerateForest(this.grid, knobs, undefined, startTiles, this.reuse_tiles_min_count),
+			keptCount: keptCellCount(this.grid, startTiles, this.reuse_tiles_min_count)
+		};
+	}
+
+	/**
+	 * Runs the uniqueness generation loop step by step, yielding a snapshot
+	 * of every solver iteration. The snapshot describes the freshly generated
+	 * (unscrambled) board: non-sentinel `marked` tiles are the ones the solver
+	 * certified, they feed the next iteration as reused start tiles (reported
+	 * as this board's `keptCount`). Stops after yielding a unique snapshot,
+	 * or when the attempts are exhausted. Classic's patience logic: an
+	 * iteration without an ambiguity decrease costs patience; the search cap
+	 * climbs to the true count once the cap is hit, so the patience tracks
+	 * real numbers there too
+	 * @param {Number} sharingAmount - see ForestKnobs
+	 * @param {Number} branchingAmount - value in range [0, 1]
+	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
+	 * @param {Number} [ambiguousLimitOverride = 0] - cap on ambiguities searched per iteration,
+	 * 0 means the default max(100, 0.1 * total). A limit >= total marks every ambiguity
+	 * and lets the patience tracking work on the true counts.
+	 * @param {Number} [avoidStraights = 0] - value in range [0, 1], higher values lead to fewer straight pipes
+	 * @param {Number} [treeCount = 0] - number of trees to grow, 0 = defaultTreeCount
+	 * @returns {Generator<IterationSnapshot, void, void>}
+	 */
+	*uniqueIterations(
+		sharingAmount = 0.35,
+		branchingAmount = 0.5,
+		avoidObvious = 0.0,
+		ambiguousLimitOverride = 0,
+		avoidStraights = 0.0,
+		treeCount = 0
+	) {
+		const knobs = this.knobs(
+			sharingAmount,
+			branchingAmount,
+			avoidObvious,
+			avoidStraights,
+			treeCount
+		);
+		/** @type {StartTiles} */
+		let startTiles = [];
+		let attempt = 0;
+		const ambiguousLimit =
+			ambiguousLimitOverride > 0 ? ambiguousLimitOverride : Math.max(100, 0.1 * this.grid.total); // don't look for more ambiguous tiles than this
+		while (attempt < this.max_attempts) {
+			attempt += 1;
+			let { tiles, keptCount } = this.regrow(knobs, startTiles);
+			let iteration = 0;
+			let patienceLeft = this.uniqueness_patience;
+			let ambiguous = this.grid.total;
+			while (iteration < this.max_uniqueness_iterations) {
+				iteration += 1;
+				const started = performance.now();
+				this.generator_progress_callback({ attempt, iteration });
+				const { solvable, marked, unique, numAmbiguous } = this.makeSolver(
+					tiles
+				).markAmbiguousTiles(Math.min(ambiguous, ambiguousLimit));
+				const elapsedMs = performance.now() - started;
+				if (!solvable) {
+					throw 'Pregeneration returned an unsolvable puzzle';
+				}
+				/** @type {IterationSnapshot} */
+				const snapshot = {
+					attempt,
+					iteration,
+					tiles,
+					marked,
+					numAmbiguous,
+					unique,
+					keptCount,
+					elapsedMs
+				};
+				if (snapshot.unique) {
+					yield snapshot;
+					return;
+				}
+				if (ambiguous > ambiguousLimit && numAmbiguous >= ambiguousLimit) {
+					// the cap saturated: climb it by reusing from the true
+					// markings without spending patience
+					startTiles = buildStartTiles(this.grid, tiles, marked);
+				} else if (numAmbiguous >= ambiguous) {
+					patienceLeft -= 1;
+				} else {
+					ambiguous = numAmbiguous;
+					patienceLeft = this.uniqueness_patience;
+					startTiles = buildStartTiles(this.grid, tiles, marked);
+				}
+				yield snapshot;
+				if (patienceLeft === 0) {
+					break;
+				}
+				({ tiles, keptCount } = this.regrow(knobs, startTiles));
+			}
+		}
+	}
+
+	/**
+	 * Generate a puzzle according to settings
+	 * @param {Number} sharingAmount - see ForestKnobs
+	 * @param {Number} branchingAmount - value in range [0, 1]
+	 * @param {Number} avoidObvious - value in range [0, 1], higher values lead to fewer obvious tiles along borders
+	 * @param {SolutionsNumber} solutionsNumber - unique/multiple solutions or disable this check
+	 * @param {Number} [avoidStraights = 0] - value in range [0, 1], higher values lead to fewer straight pipes
+	 * @param {Number} [treeCount = 0] - number of trees to grow, 0 = defaultTreeCount
+	 * @returns {Number[][]} - generated tiles, random rotated
+	 */
+	generate(
+		sharingAmount = 0.35,
+		branchingAmount = 0.5,
+		avoidObvious = 0.0,
+		solutionsNumber = 'unique',
+		avoidStraights = 0.0,
+		treeCount = 0
+	) {
+		if (solutionsNumber === 'unique') {
+			for (const step of this.uniqueIterations(
+				sharingAmount,
+				branchingAmount,
+				avoidObvious,
+				0,
+				avoidStraights,
+				treeCount
+			)) {
+				if (step.unique) {
+					return randomRotate(step.tiles, this.grid);
+				}
+			}
+			throw 'Could not generate a multipipes puzzle with a unique solution. Maybe try again.';
+		} else if (solutionsNumber === 'whatever') {
+			const tiles = pregenerateForest(
+				this.grid,
+				this.knobs(sharingAmount, branchingAmount, avoidObvious, avoidStraights, treeCount)
+			);
+			return randomRotate(tiles, this.grid);
+		} else if (solutionsNumber === 'multiple') {
+			let attempt = 0;
+			while (attempt < this.max_attempts) {
+				attempt += 1;
+				this.generator_progress_callback({ attempt, iteration: 1 });
+				const tiles = pregenerateForest(
+					this.grid,
+					this.knobs(sharingAmount, branchingAmount, avoidObvious, avoidStraights, treeCount)
+				);
+				const { unique } = this.makeSolver(tiles).markAmbiguousTiles(1);
+				if (!unique) {
+					return randomRotate(tiles, this.grid);
+				}
+			}
+			throw `Could not generate a multipipes puzzle with multiple solutions in ${this.max_attempts} attempts. Maybe try again.`;
+		} else {
+			throw 'Unknown setting for solutionsNumber';
 		}
 	}
 }

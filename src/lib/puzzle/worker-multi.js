@@ -1,18 +1,17 @@
-import { MultiGenerator } from '#lib/puzzle/generator/generator-multi.js';
-import { pregenerateForest } from '#lib/puzzle/generator/generator-forest.js';
+import { MultiGenerator, pregenerateForest } from '#lib/puzzle/generator/generator-forest.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 import { createGrid } from '#lib/puzzle/grids/grids.js';
 
 /**
  *
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
- * @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorOptions} options
+ * @param {import('#lib/puzzle/generator/generator-forest.js').GeneratorOptions} options
  */
 function generate(grid, options) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	const gen = new MultiGenerator(grid_);
-	/** @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorProgress} gen_progress */
+	/** @param {import('#lib/puzzle/generator/generator-forest.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
@@ -20,13 +19,24 @@ function generate(grid, options) {
 	gen.solver_progress_callback = function (progress) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
-	const { sharingAmount, branchingAmount, avoidObvious, solutionsNumber } = options;
+	const {
+		sharingAmount,
+		branchingAmount,
+		avoidObvious,
+		avoidStraights,
+		treeCount,
+		solutionsNumber
+	} = options;
 	try {
+		// unset knobs take the engine defaults (sharing 0.35, tree count
+		// max(3, floor(playable cells / 20)))
 		const tiles = gen.generate(
-			sharingAmount ?? 0.6,
+			sharingAmount,
 			branchingAmount,
 			avoidObvious,
-			solutionsNumber
+			solutionsNumber,
+			avoidStraights,
+			treeCount || 0
 		);
 		postMessage({ msg: 'generated', tiles });
 	} catch (error) {
@@ -37,7 +47,7 @@ function generate(grid, options) {
 // debug mode: step through the uniqueness loop one iteration at a time
 /** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 let debugGrid = undefined;
-/** @type {Generator<import('#lib/puzzle/generator/generator-multi.js').IterationSnapshot, void, void>|undefined} */
+/** @type {Generator<import('#lib/puzzle/generator/generator-forest.js').IterationSnapshot, void, void>|undefined} */
 let debugIterator = undefined;
 /** @type {Number[][]|undefined} */
 let debugTiles = undefined;
@@ -45,14 +55,14 @@ let debugTiles = undefined;
 /**
  *
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
- * @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorOptions} options
+ * @param {import('#lib/puzzle/generator/generator-forest.js').GeneratorOptions} options
  */
 function debugStart(grid, options) {
 	debugStop();
 	const { kind, width, height, wrap, tiles } = grid;
 	debugGrid = createGrid(kind, width, height, wrap, tiles);
 	const gen = new MultiGenerator(debugGrid);
-	/** @param {import('#lib/puzzle/generator/generator-multi.js').GeneratorProgress} gen_progress */
+	/** @param {import('#lib/puzzle/generator/generator-forest.js').GeneratorProgress} gen_progress */
 	gen.generator_progress_callback = function (gen_progress) {
 		postMessage({ msg: 'generator_progress', gen_progress });
 	};
@@ -61,10 +71,12 @@ function debugStart(grid, options) {
 		postMessage({ msg: 'solver_progress', progress: progress });
 	};
 	debugIterator = gen.uniqueIterations(
-		options.sharingAmount ?? 0.6,
+		options.sharingAmount,
 		options.branchingAmount,
 		options.avoidObvious,
-		options.maxAmbiguousTiles || 0
+		options.maxAmbiguousTiles || 0,
+		options.avoidStraights,
+		options.treeCount || 0
 	);
 	postMessage({ msg: 'debug-ready' });
 }
@@ -122,18 +134,22 @@ function debugStop() {
  * until none of them can move; per the sharing knob, tips reaching
  * foreign cells birth new pipes there, braiding trees through each
  * other's territory; the merge phase then links and fuses the trees
- * into one spanning tree
+ * into one spanning tree. With startTiles the pass regrows instead: the
+ * kept reuse components load as some of the trees and the erased region
+ * grows around them
  * @param {import('#lib/puzzle/grids/grids.js').GridOptions} grid
  * @param {import('#lib/puzzle/generator/generator-forest.js').ForestKnobs} options
+ * @param {import('#lib/puzzle/generator/generator-forest.js').StartTiles} [startTiles] -
+ * survivors of a viewed uniqueness iteration, from the debug page
  */
-function growthStart(grid, options) {
+function growthStart(grid, options, startTiles = []) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
 	/** @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent} move */
 	const onMove = (move) => postMessage({ msg: 'growth-move', move });
 	try {
 		// knob defaults live in the engine, pass the options through as-is
-		const grownTiles = pregenerateForest(grid_, options, onMove);
+		const grownTiles = pregenerateForest(grid_, options, onMove, startTiles);
 		postMessage({ msg: 'growth-done', tiles: grownTiles });
 	} catch (error) {
 		postMessage({ msg: 'error', error });
@@ -152,6 +168,6 @@ onmessage = (e) => {
 	} else if (e.data.command === 'debug-stop') {
 		debugStop();
 	} else if (e.data.command === 'growth-start') {
-		growthStart(e.data.grid, e.data.options);
+		growthStart(e.data.grid, e.data.options, e.data.startTiles);
 	}
 };

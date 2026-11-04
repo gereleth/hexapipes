@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import {
 	applyRotations,
-	pregenerate_multi,
+	pregenerateForest,
 	randomRotate,
 	validateMulti
-} from '#lib/puzzle/generator/generator-multi.js';
+} from '#lib/puzzle/generator/generator-forest.js';
 import { Solver as CurrentSolver } from '#lib/puzzle/solver/solver.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
@@ -337,7 +337,11 @@ function fuzzBoard(grid, runIndex, BaselineSolver) {
 	const sharing = 0.5 + Math.random() * 0.3;
 	const branching = Math.random();
 	const avoidObvious = Math.random() * 0.5;
-	const solvedTiles = pregenerate_multi(grid, sharing, branching, avoidObvious);
+	const solvedTiles = pregenerateForest(grid, {
+		sharingAmount: sharing,
+		branchingAmount: branching,
+		avoidObvious
+	});
 	validateMulti(grid, solvedTiles);
 	const tiles = randomRotate(solvedTiles, grid);
 
@@ -401,7 +405,7 @@ describe('Fuzz solve(true) solution lists: solver.js vs baseline snapshot', () =
 	const originalRandom = Math.random;
 	// paired-seed protocol: with FUZZ_SEED set, Math.random is replaced by a
 	// seeded PRNG for the duration of the run so the board sequence is
-	// reproducible; pregenerate_multi and randomRotate both consume it
+	// reproducible; pregenerateForest and randomRotate both consume it
 	beforeAll(() => {
 		if (SEED !== null) {
 			Math.random = mulberry32(SEED);

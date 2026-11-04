@@ -11,10 +11,10 @@ import { Solver } from '#lib/puzzle/solver/solver.js';
 import { SolverTile } from '#lib/puzzle/solver/solver-tile.js';
 import {
 	applyRotations,
-	pregenerate_multi,
+	pregenerateForest,
 	randomRotate,
 	validateMulti
-} from '#lib/puzzle/generator/generator-multi.js';
+} from '#lib/puzzle/generator/generator-forest.js';
 
 describe('Test SolverTile possible states initialization', () => {
 	const grid = new HexaGrid(3, 3, false);
@@ -497,7 +497,7 @@ describe('Test multipipes boards', () => {
 			new SquareGrid(3, 4, true)
 		];
 		for (const grid of grids) {
-			const tiles = pregenerate_multi(grid, 1.0, 0.5);
+			const tiles = pregenerateForest(grid, { sharingAmount: 1.0, branchingAmount: 0.5 });
 			expect(() => validateMulti(grid, tiles)).not.toThrow();
 			const scrambled = randomRotate(tiles, grid);
 			const solver = new Solver(scrambled, grid);
@@ -676,7 +676,11 @@ describe('Test Solver on every grid kind', () => {
 		];
 		for (const [name, makeGrid] of cases) {
 			const grid = makeGrid();
-			const tiles = pregenerate_multi(grid, 0.6, 0.5, 0.25);
+			const tiles = pregenerateForest(grid, {
+				sharingAmount: 0.6,
+				branchingAmount: 0.5,
+				avoidObvious: 0.25
+			});
 			validateMulti(grid, tiles);
 			const solver = new Solver(tiles, grid);
 			const result = solver.markAmbiguousTiles(Math.max(100, 0.1 * grid.total));

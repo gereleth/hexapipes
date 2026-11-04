@@ -6,11 +6,12 @@
 	import MultiTile from '#lib/puzzle/MultiTile.svelte';
 	import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
 	import {
+		applyForestEvent,
 		applyRotations,
 		buildStartTiles,
-		planReuse
-	} from '#lib/puzzle/generator/generator-multi.js';
-	import { applyForestEvent, defaultTreeCount } from '#lib/puzzle/generator/generator-forest.js';
+		defaultTreeCount,
+		planReusedComponents
+	} from '#lib/puzzle/generator/generator-forest.js';
 	import { createGrid, gridKinds, gridInfo } from '#lib/puzzle/grids/grids.js';
 
 	/**
@@ -67,7 +68,7 @@
 	let hasWorker = $state(false);
 	/** @type {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid|undefined} */
 	let runGrid = $state();
-	/** @type {import('#lib/puzzle/generator/generator-multi.js').IterationSnapshot[]} */
+	/** @type {import('#lib/puzzle/generator/generator-forest.js').IterationSnapshot[]} */
 	let snapshots = $state([]);
 	let viewIndex = $state(-1);
 
@@ -152,29 +153,41 @@
 
 	/**
 	 * Exact reuse plan of the viewed snapshot: what the NEXT iteration
-	 * receives. Roles: live = the largest component (seeds the tree),
-	 * island = dormant islands, dissolved = dropped (too small, conflicting,
-	 * or only connected to erased cells). Cells absent from the plan were
-	 * ambiguous in this iteration. Pipe masks are pruned to
-	 * intra-component edges.
+	 * receives. One entry per kept component (the largest always, smaller
+	 * ones at the minimum cell count), pipes stripped to the component's
+	 * interior; a cell can host pipes of several components. Cells absent
+	 * from every component were ambiguous in this iteration (or their
+	 * pipes dissolved).
 	 */
 	const reusePlan = $derived.by(() => {
 		if (!viewSnapshot || !runGrid) {
 			return null;
 		}
-		return planReuse(runGrid, buildStartTiles(runGrid, viewSnapshot.tiles, viewSnapshot.marked), 3);
+		return planReusedComponents(
+			runGrid,
+			buildStartTiles(runGrid, viewSnapshot.tiles, viewSnapshot.marked),
+			3
+		);
 	});
 
 	/**
+	 * Pipes a cell keeps under the reuse plan, and how many components
+	 * claim it (0 = erased)
 	 * @param {Number} index
-	 * @returns {'live'|'island'|'dissolved'|'erased'}
+	 * @returns {{pipes: Number[], components: Number}}
 	 */
-	function reuseRole(index) {
-		const cellPlan = reusePlan?.tiles.get(index);
-		if (!cellPlan) {
-			return 'erased';
+	function reuseCell(index) {
+		/** @type {Number[]} */
+		const pipes = [];
+		let components = 0;
+		for (const component of reusePlan?.components ?? []) {
+			const kept = component.get(index);
+			if (kept) {
+				components += 1;
+				pipes.push(...kept);
+			}
 		}
-		return cellPlan.pipes.length > 0 ? cellPlan.role : 'dissolved';
+		return { pipes, components };
 	}
 
 	/**
@@ -216,6 +229,8 @@
 				sharingAmount,
 				branchingAmount,
 				avoidObvious,
+				avoidStraights,
+				treeCount: Number(treeCount) || 0,
 				maxAmbiguousTiles: Number(maxAmbiguousTiles) || 0
 			}
 		});
@@ -252,7 +267,7 @@
 			stopLiveTimer();
 			liveProgress = null;
 			const snapshot =
-				/** @type {import('#lib/puzzle/generator/generator-multi.js').IterationSnapshot} */ (
+				/** @type {import('#lib/puzzle/generator/generator-forest.js').IterationSnapshot} */ (
 					event.data
 				);
 			snapshots.push(snapshot);
@@ -343,6 +358,19 @@
 		growthVisited.clear();
 		growthLastEvent = null;
 		growthHighlightCells = [];
+		// regrow from the viewed iteration's survivors: the same board
+		// geometry, solver markings turned into start tiles
+		/** @type {import('#lib/puzzle/generator/generator-forest.js').StartTiles} */
+		let startTiles = [];
+		if (
+			growthSeedFromSnapshot &&
+			viewSnapshot &&
+			runGrid &&
+			runGrid.KIND === growthGrid.KIND &&
+			runGrid.total === growthGrid.total
+		) {
+			startTiles = buildStartTiles(runGrid, viewSnapshot.tiles, viewSnapshot.marked);
+		}
 		w.postMessage({
 			command: 'growth-start',
 			grid: growthGrid.export(),
@@ -352,7 +380,8 @@
 				avoidObvious,
 				avoidStraights,
 				treeCount: Number(treeCount) || 0
-			}
+			},
+			startTiles
 		});
 		boardMode = 'growth';
 	}
@@ -471,18 +500,18 @@
 		Solved view: green cells were reused from the previous iteration, red cells are ambiguous, gray cells
 		unresolved, blue cells are newly certified; full-opacity cells changed their status vs the previous
 		iteration, faded cells kept it.<br />
-		Reused (erased) view — exactly what the next iteration receives: green tiles are the largest reused
-		component (it seeds the growing tree), blue tiles are dormant islands (reused when the tree grows
-		into them), red tiles are erased (ambiguous cells and dissolved components); circles mark deadend
-		sinks. The stats line under the board accounts cells and sub-cells per fate (live / islands / carved
-		around claimed cells / too small).<br />
+		Reused (erased) view — exactly what the next iteration receives: green tiles host one kept component's
+		pipes, blue tiles host pipes of several components, red tiles are erased (ambiguous cells and dissolved
+		components); pipes are stripped to their component's interior and circles mark deadend sinks.<br
+		/>
 		Growth view (press Grow): the forest engine's full run, move by move — several trees growing from
 		spread-out seeds (branching 0 winds, branching 1 bushes) until no tree can move. The sharing knob
 		braids trees through each other's territory: a tip reaching a foreign cell may birth a new pipe there
 		(a share move), so tiles can hold several pipes and crossings appear. After growth the merge phase
 		links the trees into one spanning tree (link moves join pipes across free edges; fuse moves combine
 		two pipes of one shared tile into one). Green cells hold pipes, faint cells are not yet reached, blue
-		outlines mark the latest move.
+		outlines mark the latest move. With "grow from viewed iteration's survivors" the pass regrows from
+		the viewed snapshot's reuse plan instead of a fresh board.
 	</p>
 
 	<div class="params">
@@ -563,8 +592,10 @@
 				<input type="number" bind:value={treeCount} min="0" step="1" />
 				(0 = auto {autoTreeCount})
 			</label>
-			<label title="Reused tiles feed the forest engine again once the regrowth ticket lands">
-				<input type="checkbox" bind:checked={growthSeedFromSnapshot} disabled />
+			<label
+				title="Regrow from the viewed iteration's solver-certified survivors instead of a fresh board"
+			>
+				<input type="checkbox" bind:checked={growthSeedFromSnapshot} />
 				grow from viewed iteration's survivors
 			</label>
 		</div>
@@ -678,19 +709,18 @@
 				runGrid.YMIN}"
 		>
 			{#each visibleCells as cell (cell.key)}
-				{@const role = reuseRole(cell.index)}
-				{@const cellPipes = reusePlan.tiles.get(cell.index)?.pipes || []}
+				{@const reuse = reuseCell(cell.index)}
 				<g transform="translate({cell.x},{cell.y})">
 					<path
 						d={runGrid.getCellPath(cell.index)}
-						fill={role === 'live' ? '#dfeadf' : role === 'island' ? '#dbe4f4' : '#f2dede'}
+						fill={reuse.components === 0 ? '#f2dede' : reuse.components > 1 ? '#dbe4f4' : '#dfeadf'}
 						stroke="#ccc"
 						stroke-width="0.02"
 						style="transform: {runGrid.getCellTransformCSS(cell.index) || ''}"
 					/>
-					{#if cellPipes.length > 0}
+					{#if reuse.pipes.length > 0}
 						<g style="transform: {runGrid.getCellTransformCSS(cell.index) || ''}">
-							{#each cellPipes as pipe, pipeIndex (pipeIndex)}
+							{#each reuse.pipes as pipe, pipeIndex (pipeIndex)}
 								{@const path = runGrid.getPipePath(-pipe, cell.index)}
 								{@const pipeWidth = runGrid.PIPE_WIDTH * 0.7}
 								{@const isDeadend = (pipe & (pipe - 1)) === 0 && pipe > 0}
@@ -782,13 +812,10 @@
 	{/if}
 
 	{#if boardMode === 'reused' && viewSnapshot && reusePlan}
-		{@const s = reusePlan.stats}
 		<p class="reuse-stats">
-			keepable {s.keepableCells} cells / {s.keepableNodes} sub-cells · live {s.liveCells}/
-			{s.liveNodes} · islands {s.islandCells}/{s.islandNodes} · carved {s.conflictIslands}
-			islands ({s.conflictWithLive} with live, {s.conflictWithIsland} with island, max
-			{s.conflictMaxIslandSize}): {s.conflictLostNodes} sub-cells at claimed cells +
-			{s.fragmentLostNodes} in fragments · too small {s.tooSmallLostNodes}
+			{reusePlan.components.length} kept components · {reusePlan.keptCount} reused cells · sizes
+			{reusePlan.components.map((component) => component.size).join('/')} · white pipes are the kept (interior-stripped)
+			pipes, green cells host one component, blue cells host several, red cells are erased
 		</p>
 	{/if}
 

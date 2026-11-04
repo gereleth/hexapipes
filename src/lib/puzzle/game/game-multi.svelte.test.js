@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PipesGame } from '#lib/puzzle/game/game.svelte.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
-import { pregenerate_multi, randomRotate } from '#lib/puzzle/generator/generator-multi.js';
+import { pregenerateForest, randomRotate } from '#lib/puzzle/generator/generator-forest.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
 
 describe('Test multipipes game', () => {
@@ -153,7 +153,7 @@ describe('Test multipipes game', () => {
 
 	it('Solves a scrambled generated board', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const solvedTiles = pregenerate_multi(grid, 1.0, 0.5);
+		const solvedTiles = pregenerateForest(grid, { sharingAmount: 1.0, branchingAmount: 0.5 });
 		// rotate every tile by a random amount to scramble the board,
 		const scrambles = solvedTiles.map(() => Math.floor(Math.random() * 4));
 		const scrambled = solvedTiles.map((pipes, index) => {
@@ -190,7 +190,7 @@ describe('Test multipipes solver wiring', () => {
 
 	it('Applies solver solution rotations to solve the game', () => {
 		const grid = new SquareGrid(4, 4, false);
-		const solvedTiles = pregenerate_multi(grid, 1.0, 0.5);
+		const solvedTiles = pregenerateForest(grid, { sharingAmount: 1.0, branchingAmount: 0.5 });
 		const scrambled = randomRotate(solvedTiles, grid);
 		const game = new PipesGame(grid, scrambled, undefined);
 		expect(game.isSolved()).toBe(false);
