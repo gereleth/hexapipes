@@ -85,3 +85,15 @@ cutover):
    interface contract names them), `keptCount` waits for ticket 06's snapshots, `StartTiles` keeps
    the old generator's term to ease the cutover (it names the pre-plan input including nulls; the
    glossary's "reused tiles" names the post-plan survivors).
+8. **Test hardened (follow-up session): the >K test now kills the K-cap mutation itself.** The
+   original 1×19 board (five components, every erased cell boxed in by reused cells) masked the cap
+   mutation — `seedCount === 0` passed vacuously because mutant seeds could never open (noted in
+   `handoff-05.md`). The board now loads four components `[0, 4, 8, 12]` and leaves an open erased
+   tail run (cells 15–18): the correct engine still adds no fresh seeds (4 > K = 3), but the mutant
+   (`freshCount = min(treeCount, erased.length)` — K no longer subtracting loaded trees) places
+   seeds that can open in the run. Verified empirically both ways: the mutant fails this test at the
+   seed-count assertion (`expected 2 to be +0`) and the loads test; restored, the full suite is
+   clean (434 passed). Trade-offs accepted: the >K margin shrinks 2 → 1 (the "load at most K"
+   regression still fails loudly, 9 ≠ 12 cells) and the merge now stitches through 3 boxed bridges
+   plus one open tail run instead of 4 bridges — the tail run is its own case (a region reachable
+   only from one component's side).

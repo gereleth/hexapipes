@@ -1309,12 +1309,16 @@ describe('Regrow from reused tiles', () => {
 	});
 
 	it('Keeps every qualifying component when reuse exceeds K, adding no fresh seeds', () => {
-		// five three-cell components on a strip, K = 3: K caps fresh
-		// seeds, not reuse - all five load as trees and grow
+		// four three-cell components on a strip, K = 3: K caps fresh
+		// seeds, not reuse - all four load as trees and grow. The open
+		// erased tail run leaves room where a seed could open, so the
+		// zero-seed expectation genuinely pins the cap: on a board
+		// whose erased cells are all boxed in by reused cells it would
+		// hold vacuously, mutant seeds never opening
 		const grid = new SquareGrid(19, 1, false);
 		/** @type {Record<Number, Number[]>} */
 		const solved = {};
-		for (const start of [0, 4, 8, 12, 16]) {
+		for (const start of [0, 4, 8, 12]) {
 			solved[start] = [1];
 			solved[start + 1] = [5];
 			solved[start + 2] = [4];
@@ -1330,10 +1334,10 @@ describe('Regrow from reused tiles', () => {
 				startTiles
 			);
 			expect(seedCount(events)).toBe(0);
-			expect(reusedCells(events).size).toBe(15);
-			// no linking during growth: the five reused trees reach the
-			// merge phase as five components
-			expect(pipeComponents(grid, replayGrowthPrefix(grid, events))).toBe(5);
+			expect(reusedCells(events).size).toBe(12);
+			// no linking during growth: the four reused trees reach the
+			// merge phase as four components
+			expect(pipeComponents(grid, replayGrowthPrefix(grid, events))).toBe(4);
 			expect(boardInvariants(grid, tiles).components).toBe(1);
 			expect(new Solver(tiles, grid).markAmbiguousTiles().solvable).toBe(true);
 			replayEvents(grid, tiles, events);
