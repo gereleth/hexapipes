@@ -2065,7 +2065,10 @@ function isMergeEvent(event) {
 
 /**
  * Start tiles from solved pipes: every unlisted (or empty) cell holds
- * null, the listed cells hold their solved pipes as given
+ * null, the listed cells hold their solved pipes as given. Caveat for
+ * white-box boards: pipes of one tile never connect, so a multi-pipe
+ * tile lands in reuse planning as one component per pipe, joined only
+ * through mutual edges in other cells (see planReusedComponents)
  * @param {Number} total
  * @param {Record<Number, Number[]>} solved
  * @returns {(Number[]|null)[]}
