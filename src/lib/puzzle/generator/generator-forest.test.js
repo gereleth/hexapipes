@@ -17,7 +17,6 @@ import {
 	planReusedComponents,
 	pregenerateForest,
 	randomRotate,
-	usedDirections,
 	MultiGenerator,
 	validateMulti
 } from '#lib/puzzle/generator/generator-forest.js';
@@ -28,7 +27,7 @@ import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { TrihexaGrid } from '#lib/puzzle/grids/trihexagrid.js';
 import { SnubSquareGrid } from '#lib/puzzle/grids/snubsquaregrid.js';
 import { TriangularGrid } from '#lib/puzzle/grids/triangulargrid.js';
-import { popcount } from '#lib/puzzle/grids/bitmasks.js';
+import { popcount, union } from '#lib/puzzle/grids/bitmasks.js';
 
 describe('UnionFind over pipe nodes', () => {
 	it('Registers nodes as singleton components', () => {
@@ -423,7 +422,7 @@ describe('Forest growth knobs', () => {
 			const tiles = growthBoard(grid, knobs);
 			for (const [index, forbidden] of obviousTiles) {
 				covered += 1;
-				obvious += forbidden.has(usedDirections(tiles[index])) ? 1 : 0;
+				obvious += forbidden.has(union(tiles[index])) ? 1 : 0;
 			}
 		}
 		return obvious / covered;
@@ -1371,7 +1370,7 @@ describe('Avoid-obvious union demotion (white-box)', () => {
 			// the share never fired, so tile 1's union stays its E|W
 			// deadend pair - no newborn S end ever joins it
 			const tileOne = replayGrowthPrefix(grid, events)[1];
-			expect(usedDirections(tileOne)).toBe(5);
+			expect(union(tileOne)).toBe(5);
 		}
 	});
 });

@@ -26,3 +26,17 @@ export function* iterate_directions(bitmask) {
 		bits ^= direction;
 	}
 }
+
+/**
+ * Unions a list of bitmasks into one - every direction any of them uses.
+ * The pipe union of a tile is the common case
+ * @param {Number[]} bitmasks
+ * @returns {Number}
+ */
+export function union(bitmasks) {
+	let result = 0;
+	for (const bitmask of bitmasks) {
+		result |= bitmask;
+	}
+	return result;
+}

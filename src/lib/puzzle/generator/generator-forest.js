@@ -1,6 +1,6 @@
 import { computeCellObviousTiles } from './generator.js';
 import { Solver } from '#lib/puzzle/solver/solver.js';
-import { popcount } from '#lib/puzzle/grids/bitmasks.js';
+import { popcount, union } from '#lib/puzzle/grids/bitmasks.js';
 
 /**
  * The four kinds of an atomic edge move, classified by what exists on each
@@ -818,7 +818,7 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 		// the tile's pipe union, what the obvious demotion below keys
 		// on; invariant across the loop - a FREE direction is unclaimed
 		// by definition, so or-ing it in never double counts
-		const tileUnion = usedDirections(tiles[cell]);
+		const tileUnion = union(tiles[cell]);
 		const nogo = obviousTiles.get(cell);
 		// one roll per pick: with probability sharingAmount share candidates
 		// join this pick at all - and when they join they rank with moves
@@ -928,8 +928,7 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 			const sourceObvious = nogo !== undefined && nogo.has(tileUnion | direction);
 			const neighbourNogo = kind === MOVE_KIND.SHARE ? obviousTiles.get(neighbour) : undefined;
 			const neighbourObvious =
-				neighbourNogo !== undefined &&
-				neighbourNogo.has(usedDirections(tiles[neighbour]) | backDirection);
+				neighbourNogo !== undefined && neighbourNogo.has(union(tiles[neighbour]) | backDirection);
 			const obvious = (sourceObvious || neighbourObvious) && Math.random() < knobs.avoidObvious;
 			// the obvious tier is extend-only: shares carry no coverage,
 			// so nothing owes them an obvious-texture trade (ticket 07
@@ -1554,19 +1553,6 @@ export function pregenerateForest(
 }
 
 /**
- * OR of all pipe bitmasks = directions already used by some pipe of this tile
- * @param {Number[]} pipes
- * @returns {Number}
- */
-export function usedDirections(pipes) {
-	let used = 0;
-	for (let pipe of pipes) {
-		used |= pipe;
-	}
-	return used;
-}
-
-/**
  * Randomize rotations of multipipes tiles: one random rotation per tile,
  * applied to all of its pipes together - the tile stays a pure rotation of
  * its solved shape, the puzzle the player receives
@@ -1635,7 +1621,7 @@ export function validateMulti(grid, tiles) {
 			throw new Error(`Tile ${index} has no pipes`);
 		}
 		const polygon = grid.polygonAt(index);
-		const used = usedDirections(pipes);
+		const used = union(pipes);
 		const xored = pipes.reduce((a, b) => a ^ b, 0);
 		if (used !== xored) {
 			throw new Error(`Tile ${index} uses a direction in more than one pipe`);
