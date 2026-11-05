@@ -522,12 +522,9 @@ describe('Sharing knob', () => {
 				}
 				if (event.kind === MOVE_KIND.SHARE) {
 					const polygon = grid.polygonAt(event.fromCell);
-					let union = 0;
-					for (const pipe of board[event.fromCell]) {
-						union |= pipe;
-					}
+					const tileUnion = union(board[event.fromCell]);
 					for (const direction of polygon.directions) {
-						if (direction === event.direction || (union & direction) > 0) {
+						if (direction === event.direction || (tileUnion & direction) > 0) {
 							continue;
 						}
 						const { neighbour, empty } = grid.findNeighbour(event.fromCell, direction);
@@ -535,11 +532,11 @@ describe('Sharing knob', () => {
 							continue;
 						}
 						const back = grid.OPPOSITE.get(direction) || 0;
-						let neighbourUnion = 0;
-						for (const pipe of board[neighbour]) {
-							neighbourUnion |= pipe;
-						}
-						if ((neighbourUnion & back) === 0 && (union | direction) !== polygon.fullyConnected) {
+						const neighbourUnion = union(board[neighbour]);
+						if (
+							(neighbourUnion & back) === 0 &&
+							(tileUnion | direction) !== polygon.fullyConnected
+						) {
 							competingShares += 1;
 							break;
 						}
@@ -1045,24 +1042,18 @@ describe('Last-resort parking', () => {
 				continue;
 			}
 			const polygon = grid.polygonAt(cell);
-			let union = 0;
-			for (const pipe of board[cell]) {
-				union |= pipe;
-			}
+			const tileUnion = union(board[cell]);
 			for (const direction of polygon.directions) {
-				if ((union & direction) > 0) {
+				if ((tileUnion & direction) > 0) {
 					continue;
 				}
 				const { neighbour, empty } = grid.findNeighbour(cell, direction);
 				if (empty || board[neighbour].length > 0) {
 					continue;
 				}
-				let neighbourUnion = 0;
-				for (const pipe of board[neighbour]) {
-					neighbourUnion |= pipe;
-				}
+				const neighbourUnion = union(board[neighbour]);
 				const back = grid.OPPOSITE.get(direction) || 0;
-				if ((neighbourUnion & back) > 0 || (union | direction) === polygon.fullyConnected) {
+				if ((neighbourUnion & back) > 0 || (tileUnion | direction) === polygon.fullyConnected) {
 					continue;
 				}
 				return { cell, direction };
@@ -1097,13 +1088,7 @@ describe('Last-resort parking', () => {
 		 * @param {Number} cell
 		 * @param {Number} direction
 		 */
-		const unionAfter = (cell, direction) => {
-			let union = 0;
-			for (const pipe of board[cell]) {
-				union |= pipe;
-			}
-			return union | direction;
-		};
+		const unionAfter = (cell, direction) => union(board[cell]) | direction;
 		let drains = 0;
 		for (const move of moves) {
 			if (move.type === 'move') {
@@ -1208,17 +1193,14 @@ describe('Last-resort parking', () => {
 			const board = Array.from({ length: grid.total }, () => []);
 			for (const event of events) {
 				if (event.type === 'move' && event.kind === MOVE_KIND.EXTEND) {
-					let union = 0;
-					for (const pipe of board[event.fromCell]) {
-						union |= pipe;
-					}
+					const tileUnion = union(board[event.fromCell]);
 					const pipeFull =
 						(board[event.fromCell][event.fromPipeIndex] | event.direction) ===
 						grid.polygonAt(event.fromCell).fullyConnected;
 					if (
 						board[event.fromCell].length > 1 &&
 						!pipeFull &&
-						(union | event.direction) === grid.polygonAt(event.fromCell).fullyConnected &&
+						(tileUnion | event.direction) === grid.polygonAt(event.fromCell).fullyConnected &&
 						findFreshExtend(grid, board) !== null
 					) {
 						midGrowthCompletions += 1;
@@ -1253,14 +1235,12 @@ describe('Share-source hard ban', () => {
 			}
 			if (move.kind === MOVE_KIND.SHARE) {
 				const polygon = grid.polygonAt(move.fromCell);
-				let union = 0;
-				for (let i = 0; i < board[move.fromCell].length; i++) {
-					union |=
-						i === move.fromPipeIndex
-							? board[move.fromCell][i] | move.direction
-							: board[move.fromCell][i];
-				}
-				if (union === polygon.fullyConnected) {
+				// the tile's post-move union: the acting pipe's
+				// hypothetical end included
+				const afterMove = board[move.fromCell].map((pipe, i) =>
+					i === move.fromPipeIndex ? pipe | move.direction : pipe
+				);
+				if (union(afterMove) === polygon.fullyConnected) {
 					throw new Error(`share move at ${move.fromCell} completes its tile's union`);
 				}
 			}
@@ -2183,7 +2163,6 @@ function boardInvariants(grid, tiles) {
 			throw new Error(`tile ${index} holds no pipes`);
 		}
 		const polygon = grid.polygonAt(index);
-		let union = 0;
 		let claimed = 0;
 		let deadend = false;
 		for (let p = 0; p < tiles[index].length; p++) {
@@ -2195,7 +2174,6 @@ function boardInvariants(grid, tiles) {
 				throw new Error(`tile ${index} has two pipes on direction ${pipe & claimed}`);
 			}
 			claimed |= pipe;
-			union |= pipe;
 			deadend ||= popcount(pipe) === 1;
 			adjacency.set(`${index}_${p}`, []);
 			first ||= `${index}_${p}`;
@@ -2221,7 +2199,7 @@ function boardInvariants(grid, tiles) {
 					?.push(`${neighbour}_${tiles[neighbour].indexOf(matches[0])}`);
 			}
 		}
-		if (union === polygon.fullyConnected && deadend) {
+		if (union(tiles[index]) === polygon.fullyConnected && deadend) {
 			throw new Error(`tile ${index} is fully connected and contains a deadend`);
 		}
 	}
@@ -2277,13 +2255,8 @@ function replayEvents(grid, tiles, events) {
 	 */
 	const fullyConnectedDeadend = (cell) => {
 		const polygon = grid.polygonAt(cell);
-		let union = 0;
-		let deadend = false;
-		for (const mask of board[cell]) {
-			union |= mask;
-			deadend ||= popcount(mask) === 1;
-		}
-		return union === polygon.fullyConnected && deadend;
+		const deadend = board[cell].some((mask) => popcount(mask) === 1);
+		return union(board[cell]) === polygon.fullyConnected && deadend;
 	};
 	/**
 	 * Rebuilds a union-find from the board's locked edges - an oracle
