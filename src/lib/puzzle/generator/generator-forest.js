@@ -815,6 +815,10 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 		}
 		const polygon = grid.polygonAt(cell);
 		const pipe = pipeIndex >= 0 ? tiles[cell][pipeIndex] : 0;
+		// the tile's pipe union, what the obvious demotion below keys
+		// on; invariant across the loop - a FREE direction is unclaimed
+		// by definition, so or-ing it in never double counts
+		const tileUnion = usedDirections(tiles[cell]);
 		const nogo = obviousTiles.get(cell);
 		// one roll per pick: with probability sharingAmount share candidates
 		// join this pick at all - and when they join they rank with moves
@@ -907,12 +911,41 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 				sourceAfter.full &&
 				!sourceAfter.deadend &&
 				!(polygon.numDirections === 4 && !pipeFull);
+			// avoid-obvious keys on the tile's post-move union, not the
+			// acting pipe: rotating a tile rotates every pipe in it, so
+			// the instantly-solvable object near a wall is the union mask
+			// - a west-wall tile of N and S deadends is the vertical
+			// straight 10 whichever pipe acts. A share also writes an
+			// end into its occupied neighbour (a newborn pipe joins that
+			// tile, the union grows), so the neighbour's post-move union
+			// is checked too; extends skip the neighbour side, their
+			// target is fresh and demoting them could only postpone a
+			// visit that coverage demands anyway. One roll per candidate
+			// guards both masks - either side landing on a forbidden
+			// orientation demotes the move. computeCellObviousTiles
+			// needs no adaptation: pipeShapes enumerates every non-empty
+			// direction mask, so union masks are first-class nogo keys
+			const sourceObvious = nogo !== undefined && nogo.has(tileUnion | direction);
+			const neighbourNogo = kind === MOVE_KIND.SHARE ? obviousTiles.get(neighbour) : undefined;
+			const neighbourObvious =
+				neighbourNogo !== undefined &&
+				neighbourNogo.has(usedDirections(tiles[neighbour]) | backDirection);
+			const obvious = (sourceObvious || neighbourObvious) && Math.random() < knobs.avoidObvious;
+			// the obvious tier is extend-only: shares carry no coverage,
+			// so nothing owes them an obvious-texture trade (ticket 07
+			// decision 11's rationale) - the obvious-tier sibling of the
+			// share-source full-union ban above. An obvious share is
+			// dropped at bucketing, never bucketed at all, and a tip
+			// whose only candidate is one dies; it never parks carrying
+			// an unfirable move
+			if (obvious && kind === MOVE_KIND.SHARE) {
+				continue;
+			}
 			const demotions = {
 				straight:
 					polygon.pipeShapes.get(pipe | direction)?.isStraight &&
 					Math.random() < knobs.avoidStraights,
-				obvious:
-					nogo !== undefined && Math.random() < knobs.avoidObvious && nogo.has(pipe | direction),
+				obvious,
 				cleanFull
 			};
 			buckets[moveTier(demotions)].push({ direction, neighbour, kind });
@@ -1525,7 +1558,7 @@ export function pregenerateForest(
  * @param {Number[]} pipes
  * @returns {Number}
  */
-function usedDirections(pipes) {
+export function usedDirections(pipes) {
 	let used = 0;
 	for (let pipe of pipes) {
 		used |= pipe;

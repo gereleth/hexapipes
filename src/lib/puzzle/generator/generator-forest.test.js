@@ -17,6 +17,7 @@ import {
 	planReusedComponents,
 	pregenerateForest,
 	randomRotate,
+	usedDirections,
 	MultiGenerator,
 	validateMulti
 } from '#lib/puzzle/generator/generator-forest.js';
@@ -403,9 +404,11 @@ describe('Forest growth knobs', () => {
 	});
 
 	/**
-	 * Fraction of tiles whose pipe orientation is instantly solvable from
-	 * walls, over tiles the precompute covers at all, growth prefix only
-	 * (see growthBoard: merge links change tile orientations too)
+	 * Fraction of tiles whose pipe union is instantly solvable from
+	 * walls, over tiles the precompute covers at all, growth prefix
+	 * only (see growthBoard: merge links change tile orientations
+	 * too). Rotating a tile rotates every pipe in it, so the solvable
+	 * object is the union of all its pipes, not any single one
 	 * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
 	 * @param {import('#lib/puzzle/generator/generator-forest.js').ForestKnobs} knobs
 	 */
@@ -420,7 +423,7 @@ describe('Forest growth knobs', () => {
 			const tiles = growthBoard(grid, knobs);
 			for (const [index, forbidden] of obviousTiles) {
 				covered += 1;
-				obvious += forbidden.has(tiles[index][0]) ? 1 : 0;
+				obvious += forbidden.has(usedDirections(tiles[index])) ? 1 : 0;
 			}
 		}
 		return obvious / covered;
@@ -1285,6 +1288,90 @@ describe('Share-source hard ban', () => {
 				moves.push(move)
 			);
 			expect(() => replayShareSourceBan(grid, moves)).not.toThrow();
+		}
+	});
+});
+
+describe('Avoid-obvious union demotion (white-box)', () => {
+	it('Demotes by the post-move tile union: the two-deadend wall-straight extend parks', () => {
+		// 4x3 board, four reused two-cell deadend pairs (reuseMinCount
+		// 2): the west-column tile 4 holds deadends N and S - union 10,
+		// the wall-hugging vertical straight - one per component, and
+		// its only candidate direction is E into fresh cell 5. Acting
+		// on either deadend the pipe alone becomes a bend (3 or 9),
+		// never a unique survivor of its shape class, so the pipe-keyed
+		// demotion passes the move; the union-keyed demotion sees
+		// 10|E = 11, the only tee that fits a west wall, and parks it.
+		// Tree 2's tile 6 sits in the interior (no nogo entry at all)
+		// and covers cell 5 with a normal-tier extend while the parked
+		// tips wait, so the tips at 4 can never fire afterwards:
+		// sharing is off and their east neighbour is foreign-held.
+		// Tile 4 keeps its two deadends in every run
+		const grid = new SquareGrid(4, 3, false);
+		const startTiles = startTilesFrom(12, {
+			0: [8],
+			4: [2, 8],
+			8: [2],
+			2: [8],
+			6: [2, 8],
+			10: [2]
+		});
+		for (let run = 0; run < 30; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			pregenerateForest(
+				grid,
+				{ sharingAmount: 0, avoidObvious: 1, treeCount: 4, branchingAmount: Math.random() },
+				(event) => events.push(event),
+				startTiles,
+				2
+			);
+			const board = replayGrowthPrefix(grid, events);
+			expect(board[4]).toEqual([2, 8]);
+		}
+	});
+
+	it('Drops obvious-demoted shares at bucketing: they never fire, the tip dies instead', () => {
+		// 3x3 board, three reused two-cell deadend pairs (reuseMinCount
+		// 2). Tile 1 on the north edge holds E and W deadends (union 5);
+		// the interior tile 4 holds an S deadend with its N direction
+		// free. Across their edge both shares are obvious by union:
+		// 1's tips would grow the source union to 5|S = 13, the only
+		// tee that fits cell 1's north wall, and 4's tip - source
+		// interior, no nogo of its own - would grow the NEIGHBOUR'S
+		// union to the same 13. Pipe-keyed, both shares pass today
+		// (9 and 10 are never unique survivors), so the tips at 1 fire
+		// theirs straight from the frontier. Union-keyed, every share
+		// on this board is dropped at bucketing - never bucketed, so
+		// never fired from any pool - and a tip whose only candidate
+		// is one (the tips at 1) dies instead of parking. Coverage
+		// still completes through extends, which may use the obvious
+		// tier
+		const grid = new SquareGrid(3, 3, false);
+		const startTiles = startTilesFrom(9, {
+			0: [1],
+			1: [1, 4],
+			2: [4],
+			4: [8],
+			7: [2]
+		});
+		for (let run = 0; run < 30; run++) {
+			/** @type {import('#lib/puzzle/generator/generator-forest.js').ForestEvent[]} */
+			const events = [];
+			pregenerateForest(
+				grid,
+				{ sharingAmount: 1, avoidObvious: 1, treeCount: 3, branchingAmount: Math.random() },
+				(event) => events.push(event),
+				startTiles,
+				2
+			);
+			expect(events.some((event) => event.type === 'move' && event.kind === MOVE_KIND.SHARE)).toBe(
+				false
+			);
+			// the share never fired, so tile 1's union stays its E|W
+			// deadend pair - no newborn S end ever joins it
+			const tileOne = replayGrowthPrefix(grid, events)[1];
+			expect(usedDirections(tileOne)).toBe(5);
 		}
 	});
 });
