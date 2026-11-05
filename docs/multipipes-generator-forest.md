@@ -54,8 +54,8 @@ no bit-parity obligation with `generator.js`.
 ## Forest growth
 
 - **Seeds.** K cells are chosen by farthest-point sampling over non-empty cells (BFS hop distance).
-- **Trees grow independently**: they extend into fresh cells, share into other trees' cells. A tree
-  to grow is picked randomly at every turn.
+- **Trees grow independently**: they extend into fresh cells, share into _other trees'_ cells (never
+  their own). A tree to grow is picked randomly at every turn.
 - **Branching** (classic-like) a `branchingAmount` roll picks which frontier node to grow from.
 - **Candidate moves**. Extend moves are always considered, share moves are only considered if a
   `sharingAmount` roll is successful. If the node has no valid moves (no fresh neighbours and failed
@@ -72,16 +72,13 @@ no bit-parity obligation with `generator.js`.
       ban is inactive
     - in square cells (on any grid that has them) multitiles like I+I or L+L are also considered
       acceptable because they are visually interesting.
-- **Move demotions** - `avoidObvious` and `avoidStraights` rolls may demote some moves to lower
-  tiers like in the classic generator. The obvious check is union-keyed, not pipe-keyed: rotating a
-  tile rotates every pipe in it, so the instantly-solvable object near a wall is the tile's
-  post-move pipe union, and every move checks its acting tile's. A _share_ also writes an end into
-  its occupied neighbour, so shares check the neighbour's post-move union too (one roll per
-  candidate guards both masks); extends skip the neighbour check - their target is fresh, and
-  demoting the extend could only postpone a visit that coverage demands anyway. The obvious tier is
-  extend-only: a share demoted to it is dropped at bucketing and never fires, because shares carry
-  no coverage that would pay for the obvious-texture trade. A tip whose only candidate is an obvious
-  share dies.
+- **avoidObvious** knob steers away from creating tiles for which outer walls or empty cells force a
+  single possible rotation. A single roll per candidate move decides if obvious checks are made. The
+  obvious check looks at the union of the tile's pipes. _Share_ moves additionally check if the
+  neighbour's union would become obvious. Obvious-making share moves are dropped and never taken. If
+  a pipe node's best move is an obvious-making extend then the node gets parked in avoidObvious
+  tier.
+- **avoidStraights** works like in classic - demotes a move that creates a straight pipe.
 
 ## Forest merge
 
