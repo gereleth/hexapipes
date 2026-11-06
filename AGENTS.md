@@ -7,8 +7,8 @@ Web-based logic puzzle game, SvelteKit + Svelte 5.
 Classic rules: every grid cell has a rotatable tile with a pipe piece. Rotate all tiles so that
 pipes form a single spanning tree - everything connected, no loops.
 
-Current branch focuses on developing the multipipes variant where every tile may hold not one but
-several independent pipes:
+Current branch (`layers`) focuses on developing the multipipes variant where every tile may hold not
+one but several independent pipes:
 
 - pipes don't connect to each other within a tile
 - at most one pipe can use any of the tile's directions
