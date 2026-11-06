@@ -25,9 +25,7 @@ const libDir = 'src/lib/';
  * entry after its script is fixed or deleted - prune it then.
  */
 const KNOWN_UNRESOLVED = {
-	'#lib/puzzle/generator.js': 'classic Generator moved into generator/ (pre-refactor path)',
 	'#lib/puzzle/generator-layers.js': 'layers-branch engine, absent on this branch',
-	'#lib/puzzle/solver.js': 'Solver moved into solver/ (pre-refactor path)',
 	'#lib/puzzle/solver-baseline': 'deliberately untracked frozen solver copy, per-machine'
 };
 

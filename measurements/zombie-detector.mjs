@@ -35,7 +35,7 @@
 //   MODE=clean RUNS=200 node measurements/zombie-detector.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers } from '#lib/puzzle/generator-layers.js';
-import { Solver } from '#lib/puzzle/solver.js';
+import { Solver } from '#lib/puzzle/solver/solver.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 

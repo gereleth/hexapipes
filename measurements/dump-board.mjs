@@ -8,7 +8,7 @@
 // re-scramble (randomRotate, seeded) with its own solve facts.
 import { writeFileSync, readFileSync } from 'node:fs';
 import { pregenerate_layers, validateLayers, randomRotate } from '#lib/puzzle/generator-layers.js';
-import { Solver } from '#lib/puzzle/solver.js';
+import { Solver } from '#lib/puzzle/solver/solver.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 

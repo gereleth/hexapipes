@@ -10,10 +10,10 @@
 //   node measurements/generator-surveys.mjs <name>
 //   node measurements/generator-surveys.mjs   # lists the available names
 import fs from 'node:fs';
-import { Generator } from '#lib/puzzle/generator.js';
+import { Generator } from '#lib/puzzle/generator/generator.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
-import { Solver } from '#lib/puzzle/solver.js';
+import { Solver } from '#lib/puzzle/solver/solver.js';
 import { EtratGrid } from '#lib/puzzle/grids/etratgrid.js';
 import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
 import { CubeGrid } from '#lib/puzzle/grids/cubegrid.js';

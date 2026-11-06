@@ -21,7 +21,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import inspector from 'node:inspector';
 import { pregenerate_layers, validateLayers } from '#lib/puzzle/generator-layers.js';
-import { Solver } from '#lib/puzzle/solver.js';
+import { Solver } from '#lib/puzzle/solver/solver.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 
@@ -72,7 +72,7 @@ function mulberry32(seed) {
 /**
  * One untimed markAmbiguousTiles run on a fresh solver, mirroring the
  * benchmark's call (ambiguousLimit = max(100, 0.1 * total))
- * @param {import('#lib/puzzle/solver.js').Solver} SolverClass
+ * @param {import('#lib/puzzle/solver/solver.js').Solver} SolverClass
  * @param {Number[][]} layers
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  */

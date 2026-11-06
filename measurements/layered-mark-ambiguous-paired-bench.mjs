@@ -24,7 +24,7 @@
 //     (default 60000); capped runs are excluded from the statistics
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers, validateLayers } from '#lib/puzzle/generator-layers.js';
-import { Solver as CurrentSolver } from '#lib/puzzle/solver.js';
+import { Solver as CurrentSolver } from '#lib/puzzle/solver/solver.js';
 import { SquareGrid } from '#lib/puzzle/grids/squaregrid.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
 import { OctaGrid } from '#lib/puzzle/grids/octagrid.js';
@@ -44,7 +44,7 @@ const LAYERING = 0.6;
  * Loads the baseline solver snapshot. The snapshot is an untracked scratch
  * file (a verbatim copy of solver.js frozen at the last intentional decision
  * shift), so it may be missing on a fresh checkout
- * @returns {Promise<typeof import('#lib/puzzle/solver.js').Solver>}
+ * @returns {Promise<typeof import('#lib/puzzle/solver/solver.js').Solver>}
  */
 async function loadBaselineSolver() {
 	try {
@@ -290,7 +290,7 @@ function flush() {
 
 /**
  * Runs markAmbiguousTiles once on a fresh solver instance
- * @param {typeof import('#lib/puzzle/solver.js').Solver} SolverClass
+ * @param {typeof import('#lib/puzzle/solver/solver.js').Solver} SolverClass
  * @param {import('#lib/puzzle/generator-layers.js').LayeredTiles} layers
  * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
  * @returns {SolverRunRecord}
