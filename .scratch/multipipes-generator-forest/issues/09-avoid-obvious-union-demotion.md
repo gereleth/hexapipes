@@ -34,9 +34,9 @@ coverage-free shares:
 ticket 03 built them. At sharing 0 the whole ticket is inert: shares are disabled, every tile holds
 at most one pipe (the union equals the acting pipe), and the share-only neighbour check never runs.
 
-**Blocked by:** None.
+Blocked by: None.
 
-**Status:** resolved
+Status: resolved
 
 - [x] Obvious demotion keys on post-move tile unions — source side on every move, neighbour side on
       shares; a white-box test pins the two-deadend wall-straight case that passes today

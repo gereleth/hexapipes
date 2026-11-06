@@ -12,9 +12,9 @@ complete, solver-valid puzzle — and at sharing zero the board degenerates to a
 single-pipe-per-tile puzzle. Boards that cannot be merged (a square X-tile-sealed seam between
 components) fail cleanly so the caller can retry — never a malformed board.
 
-**Blocked by:** 02 (sharing events).
+Blocked by: 02 (sharing events).
 
-**Status:** resolved
+Status: resolved
 
 - [x] Pregeneration output is solver-solvable — a single spanning tree over all pipe nodes — across
       grid kinds including mixed-polygon, wrap and non-wrap, at sharing extremes and mid values

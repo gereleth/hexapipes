@@ -19,11 +19,10 @@ at sharing 0: 0.5 (winding) to 18.4 (bushy), all of them single-pipe pluses; at 
 (crossings) are a separate phenomenon handled by ticket 08 — this ticket must not reduce them beyond
 what parking incidentally does.
 
-**Blocked by:** None (independent of 03-06). Recommended order: 07 → 08 → evaluate boards on the
-debug page → then 03 (the spec front-loads the aesthetic gate before the merge/uniqueness
-investment).
+Blocked by: None (independent of 03-06). Recommended order: 07 → 08 → evaluate boards on the debug
+page → then 03 (the spec front-loads the aesthetic gate before the merge/uniqueness investment).
 
-**Status:** resolved
+Status: resolved
 
 **Open design questions (decide before or while implementing):**
 

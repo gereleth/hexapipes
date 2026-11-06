@@ -11,9 +11,9 @@ per-move tier order. Boards are still multi-component when growth ends (the merg
 03), but the sharing knob now visibly changes board texture on the debug animation: at zero nothing
 shares, higher values braid trees through each other's territory.
 
-**Blocked by:** 01 (growth engine core).
+Blocked by: 01 (growth engine core).
 
-**Status:** resolved
+Status: resolved
 
 - [x] Sharing knob at zero hard-guarantees no shared tiles — no tile ever holds two pipes,
       stress-tested across runs

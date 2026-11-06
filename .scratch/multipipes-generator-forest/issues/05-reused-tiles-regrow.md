@@ -15,9 +15,9 @@ extend into the erased region, regaining stripped ends — the invariant is "see
 ends", not verbatim equality. Reuse yielding more than K qualifying components keeps them all (K
 caps fresh seeds, not reuse).
 
-**Blocked by:** 04 (gate — forest verdict must say proceed).
+Blocked by: 04 (gate — forest verdict must say proceed).
 
-**Status:** resolved
+Status: resolved
 
 - [x] Reuse computation honors all rules above, pinned by white-box tests on hand-built solver
       markings (largest always kept, minimum count threshold, ~~rotation-invariant exclusion~~

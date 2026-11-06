@@ -13,9 +13,9 @@ in this file: forest proceeds (tickets 05–06 start), or forest disappoints (05
 the scheduled-sharing design becomes the plan). The evenness statistic from the design doc is
 deliberately out of scope — this is a looked-at-the-boards call.
 
-**Blocked by:** 03 (merge phase).
+Blocked by: 03 (merge phase).
 
-**Status:** resolved
+Status: resolved
 
 - [x] Tree count reaches the engine via worker options on the growth path, defaulting to the formula
       when unset

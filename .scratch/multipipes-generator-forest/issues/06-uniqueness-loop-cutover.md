@@ -13,9 +13,9 @@ page's step-through. The worker's generate and debug commands cut over to the ne
 avoid-straights knob stops being silently dropped for multipipes, and the old module with its tests
 is deleted. End state: one multipipes generator honoring the spec's interface contract exactly.
 
-**Blocked by:** 05 (reused tiles + regrow).
+Blocked by: 05 (reused tiles + regrow).
 
-**Status:** resolved
+Status: resolved
 
 - [x] Generate with the unique setting yields puzzles with exactly one solver solution across grid
       kinds and wrap, verifyUnique-style with extended timeouts (prior art: classic generator tests)

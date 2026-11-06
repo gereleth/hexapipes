@@ -18,9 +18,9 @@ prefers fresh extends, so sharing fires mainly for boxed tips, which pre-coverag
 carry the variant's texture. The quota keeps a bounded post-coverage sharing tail: low-value calm
 boards, high-value braided boards, ceiling included.
 
-**Blocked by:** None technically; recommended after 07 (parking first, then this bounds the tail
-that would otherwise drain the parked tips — together they drive degenerate pluses to classic's zero
-AND cap saturation; re-measure the full grid of knob values after both).
+Blocked by: None technically; recommended after 07 (parking first, then this bounds the tail that
+would otherwise drain the parked tips — together they drive degenerate pluses to classic's zero AND
+cap saturation; re-measure the full grid of knob values after both).
 
 **Status:** dropped (2026-11-01, see Comments)
 

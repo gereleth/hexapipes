@@ -15,9 +15,9 @@ this engine through the worker's growth command: K trees visibly winding (branch
 (branching 1) until every non-empty cell is covered. Union-find state and the per-direction
 claim/tier machinery are exported as importable units for white-box tests.
 
-**Blocked by:** None (can start immediately).
+Blocked by: None (can start immediately).
 
-**Status:** resolved
+Status: resolved
 
 - [x] Growth from seeds covers every non-empty cell on hex, square, and at least one mixed-polygon
       grid, wrap and non-wrap; empty cells are walls
