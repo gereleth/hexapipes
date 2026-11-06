@@ -164,7 +164,7 @@ describe('Test multipipes generation worker', () => {
 		/** @type {Number[][]} */
 		const board = Array.from({ length: grid.total }, () => []);
 		for (const message of moveMessages) {
-			applyForestEvent(grid, board, message.move);
+			applyForestEvent(grid, board, message.event);
 		}
 		expect(board).toStrictEqual(done?.tiles);
 	});
@@ -183,8 +183,8 @@ describe('Test multipipes generation worker', () => {
 		const seeds = messages.filter(
 			(message) =>
 				message.msg === 'growth-move' &&
-				message.move?.type === 'move' &&
-				message.move?.kind === MOVE_KIND.SEED
+				message.event?.type === 'move' &&
+				message.event?.kind === MOVE_KIND.SEED
 		);
 		expect(seeds.length).toBe(1);
 	});
@@ -211,9 +211,9 @@ describe('Test multipipes generation worker', () => {
 		]);
 		expect(messages.some((message) => message.msg === 'error')).toBe(false);
 		const reuse = messages.find(
-			(message) => message.msg === 'growth-move' && message.move?.type === 'reuse'
+			(message) => message.msg === 'growth-move' && message.event?.type === 'reuse'
 		);
-		expect(reuse?.move?.cells?.map((/** @type {any} */ entry) => entry.cell)).toEqual([
+		expect(reuse?.event?.cells?.map((/** @type {any} */ entry) => entry.cell)).toEqual([
 			7, 8, 9, 10
 		]);
 		const done = messages.find((message) => message.msg === 'growth-done');

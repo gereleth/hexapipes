@@ -92,18 +92,18 @@ function shuffleInPlace(array) {
  * @returns {{full: boolean, deadend: boolean}}
  */
 function tileStateAfter(pipes, fullyConnected, pipeIndex, addedMask) {
-	let union = 0;
+	let pipeUnion = 0;
 	let deadend = false;
 	for (let i = 0; i < pipes.length; i++) {
 		const mask = i === pipeIndex ? pipes[i] | addedMask : pipes[i];
-		union |= mask;
+		pipeUnion |= mask;
 		deadend ||= popcount(mask) === 1;
 	}
 	if (pipeIndex < 0) {
-		union |= addedMask;
+		pipeUnion |= addedMask;
 		deadend ||= popcount(addedMask) === 1;
 	}
-	return { full: union === fullyConnected, deadend };
+	return { full: pipeUnion === fullyConnected, deadend };
 }
 
 /**
@@ -201,6 +201,26 @@ export function farthestPointSeeds(grid, count, firstSeed) {
 }
 
 /**
+ * Pipe node id of the pipe answering backDirection at cell, or -1 when
+ * the cell is erased or none of its pipes uses the direction. The one
+ * definition of an edge's far end: at most one pipe of a tile can use
+ * any direction, so the answer is unique whenever it exists
+ * @param {import('#lib/puzzle/grids/abstractgrid.js').AbstractGrid} grid
+ * @param {(Number[]|null)[]} tiles - board tiles, erased cells may hold null
+ * @param {Number} cell
+ * @param {Number} backDirection
+ * @returns {Number}
+ */
+function matchingPipeNode(grid, tiles, cell, backDirection) {
+	const pipes = tiles[cell];
+	if (!pipes) {
+		return -1;
+	}
+	const pipeIndex = pipes.findIndex((pipe) => (pipe & backDirection) > 0);
+	return pipeIndex < 0 ? -1 : grid.pipeNodeId(cell, pipeIndex);
+}
+
+/**
  * Multitiles for reuse, see planReusedComponents: a keepable cell holds
  * its pipes in solved orientation, a cell that should be regenerated
  * holds null
@@ -265,24 +285,15 @@ export function planReusedComponents(grid, startTiles, reuseMinCount = 3) {
 	const opposite = grid.OPPOSITE;
 
 	/**
-	 * Pipe node id (in start-tile indexing) answering backDirection at
-	 * cell, or -1 when the cell is erased or no pipe answers
+	 * matchingPipeNode bound to this plan's grid and start tiles: pipe
+	 * node id (in start-tile indexing) answering backDirection at cell,
+	 * or -1 when the cell is erased or no pipe answers
 	 * @param {Number} cell
 	 * @param {Number} backDirection
 	 * @returns {Number}
 	 */
-	const matchingNode = (cell, backDirection) => {
-		const pipes = startTiles[cell];
-		if (!pipes) {
-			return -1;
-		}
-		for (let pipeIndex = 0; pipeIndex < pipes.length; pipeIndex++) {
-			if ((pipes[pipeIndex] & backDirection) > 0) {
-				return grid.pipeNodeId(cell, pipeIndex);
-			}
-		}
-		return -1;
-	};
+	const matchingNode = (cell, backDirection) =>
+		matchingPipeNode(grid, startTiles, cell, backDirection);
 
 	/**
 	 * One component mid-collection: the flood fill's node set plus the
@@ -749,9 +760,9 @@ function growAttempt(grid, knobs, events, startTiles = [], reuseMinCount = 3) {
 						continue;
 					}
 					const back = /** @type {Number} */ (opposite.get(direction));
-					const other = tiles[neighbour].findIndex((pipe) => (pipe & back) > 0);
+					const other = matchingPipeNode(grid, tiles, neighbour, back);
 					if (other >= 0) {
-						uf.union(node, grid.pipeNodeId(neighbour, other));
+						uf.union(node, other);
 					}
 				}
 			}
@@ -1134,11 +1145,11 @@ function unionFindFromBoard(grid, tiles) {
 					continue;
 				}
 				const back = /** @type {Number} */ (grid.OPPOSITE.get(direction));
-				const other = tiles[neighbour].findIndex((pipe) => (pipe & back) > 0);
+				const other = matchingPipeNode(grid, tiles, neighbour, back);
 				// every locked end has exactly one match across the edge, so
 				// other >= 0 holds; the second visit of an edge unions nothing
 				if (other >= 0) {
-					uf.union(grid.pipeNodeId(cell, pipeIndex), grid.pipeNodeId(neighbour, other));
+					uf.union(grid.pipeNodeId(cell, pipeIndex), other);
 				}
 			}
 		}
@@ -1473,7 +1484,7 @@ export function mergeForest(grid, tiles, events = []) {
 			// one fusion per round: a splice shifts pipe indices of its
 			// tile, so the other collected candidates' indices would go
 			// stale. The next round recollects against the rebased board
-			applyFusion(fusions[Math.floor(Math.random() * fusions.length)]);
+			applyFusion(getRandomElement(fusions));
 			continue;
 		}
 		if (completingPlus.length > 0) {
@@ -1481,7 +1492,7 @@ export function mergeForest(grid, tiles, events = []) {
 			continue;
 		}
 		if (plusFusions.length > 0) {
-			applyFusion(plusFusions[Math.floor(Math.random() * plusFusions.length)]);
+			applyFusion(getRandomElement(plusFusions));
 			continue;
 		}
 		throw new UnmergeableBoardError(
@@ -1601,13 +1612,11 @@ export function applyRotations(grid, tiles, rotations) {
 export function validateMulti(grid, tiles) {
 	const total = grid.total;
 	const playable = total - grid.emptyCells.size;
-	/** @type {Map<String, String[]>} adjacency between nodes */
+	/** @type {Map<Number, Number[]>} adjacency between pipe node ids */
 	const adjacency = new Map();
-	/** @type {(cell: Number, pipeIndex: Number) => String} */
-	const key = (cell, pipeIndex) => `${cell}_${pipeIndex}`;
 	let nodes = 0;
 	let connectionEnds = 0;
-	let first = null;
+	let first = -1;
 
 	for (let index = 0; index < total; index++) {
 		const pipes = tiles[index];
@@ -1634,9 +1643,9 @@ export function validateMulti(grid, tiles) {
 			if ((pipe | polygon.fullyConnected) !== polygon.fullyConnected) {
 				throw new Error(`Tile ${index} pipe ${pipeIndex} has invalid direction bits`);
 			}
-			const from = key(index, pipeIndex);
+			const from = grid.pipeNodeId(index, pipeIndex);
 			adjacency.set(from, []);
-			if (first === null) {
+			if (first < 0) {
 				first = from;
 			}
 			nodes += 1;
@@ -1650,20 +1659,13 @@ export function validateMulti(grid, tiles) {
 					throw new Error(`Tile ${index} connects outside the board in direction ${direction}`);
 				}
 				const opposite = grid.OPPOSITE.get(direction) || 0;
-				const neighbourPipes = tiles[neighbour];
-				let matched = -1;
-				for (let j = 0; j < neighbourPipes.length; j++) {
-					if ((neighbourPipes[j] & opposite) > 0) {
-						matched = j;
-						break;
-					}
-				}
-				if (matched === -1) {
+				const matched = matchingPipeNode(grid, tiles, neighbour, opposite);
+				if (matched < 0) {
 					throw new Error(
 						`Tile ${index} direction ${direction} has no matching connection at tile ${neighbour}`
 					);
 				}
-				adjacency.get(from)?.push(key(neighbour, matched));
+				adjacency.get(from)?.push(matched);
 			}
 		}
 	}
@@ -1679,7 +1681,7 @@ export function validateMulti(grid, tiles) {
 	const seen = new Set([first]);
 	const queue = [first];
 	while (queue.length > 0) {
-		const current = /** @type {String} */ (queue.pop());
+		const current = /** @type {Number} */ (queue.pop());
 		for (let next of adjacency.get(current) || []) {
 			if (!seen.has(next)) {
 				seen.add(next);

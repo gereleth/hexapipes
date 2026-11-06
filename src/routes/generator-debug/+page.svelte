@@ -293,7 +293,7 @@
 			};
 			trueCountRunning = false;
 		} else if (event.data.msg === 'growth-move') {
-			growthEvents.push(event.data.move);
+			growthEvents.push(event.data.event);
 		} else if (event.data.msg === 'growth-done') {
 			growthApplied = 0;
 			growthLastEvent = null;

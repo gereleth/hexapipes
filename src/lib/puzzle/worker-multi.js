@@ -145,11 +145,11 @@ function debugStop() {
 function growthStart(grid, options, startTiles = []) {
 	const { kind, width, height, wrap, tiles } = grid;
 	const grid_ = createGrid(kind, width, height, wrap, tiles);
-	/** @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent} move */
-	const onMove = (move) => postMessage({ msg: 'growth-move', move });
+	/** @param {import('#lib/puzzle/generator/generator-forest.js').ForestEvent} event */
+	const onEvent = (event) => postMessage({ msg: 'growth-move', event });
 	try {
 		// knob defaults live in the engine, pass the options through as-is
-		const grownTiles = pregenerateForest(grid_, options, onMove, startTiles);
+		const grownTiles = pregenerateForest(grid_, options, onEvent, startTiles);
 		postMessage({ msg: 'growth-done', tiles: grownTiles });
 	} catch (error) {
 		postMessage({ msg: 'error', error });
