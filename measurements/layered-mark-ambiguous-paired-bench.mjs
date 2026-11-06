@@ -15,7 +15,7 @@
 // import error.
 //
 // Usage:
-//   BENCH_SEED=<seed> node scratch/layered-mark-ambiguous-paired-bench.mjs
+//   BENCH_SEED=<seed> node measurements/layered-mark-ambiguous-paired-bench.mjs
 // Optional environment:
 //   BENCH_SEED - seed for a reproducible board sequence (mulberry32 PRNG);
 //     also controls pregenerate_layers internals

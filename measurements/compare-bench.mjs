@@ -3,17 +3,17 @@
 // layered-mark-ambiguous-paired-bench.mjs).
 //
 // One file - baseline vs candidate within the paired run:
-//   node scratch/compare-bench.mjs generator_stats/layered_mark_ambiguous_20x20_paired.json
+//   node measurements/compare-bench.mjs generator_stats/layered_mark_ambiguous_20x20_paired.json
 //
 // Two files - candidate side of the first run vs candidate side of the
 // second (e.g. before/after a solver change). The board sequences must come
 // from the same BENCH_SEED:
-//   node scratch/compare-bench.mjs before_paired.json after_paired.json
+//   node measurements/compare-bench.mjs before_paired.json after_paired.json
 import { readFileSync } from 'node:fs';
 
 const [pathA, pathB] = process.argv.slice(2);
 if (!pathA) {
-	console.error('usage: node scratch/compare-bench.mjs <paired.json> [<paired2.json>]');
+	console.error('usage: node measurements/compare-bench.mjs <paired.json> [<paired2.json>]');
 	process.exit(1);
 }
 

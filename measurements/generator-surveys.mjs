@@ -7,8 +7,8 @@
 // scales (1000+ boards) that only made sense when they were written.
 //
 // Usage:
-//   node scratch/generator-surveys.mjs <name>
-//   node scratch/generator-surveys.mjs   # lists the available names
+//   node measurements/generator-surveys.mjs <name>
+//   node measurements/generator-surveys.mjs   # lists the available names
 import fs from 'node:fs';
 import { Generator } from '#lib/puzzle/generator.js';
 import { HexaGrid } from '#lib/puzzle/grids/hexagrid.js';
@@ -343,7 +343,7 @@ const surveys = {
 
 const name = process.argv[2];
 if (!name || !surveys[name]) {
-	console.log(`usage: node scratch/generator-surveys.mjs <${Object.keys(surveys).join('|')}>`);
+	console.log(`usage: node measurements/generator-surveys.mjs <${Object.keys(surveys).join('|')}>`);
 	process.exit(1);
 }
 surveys[name]();

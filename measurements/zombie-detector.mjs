@@ -31,8 +31,8 @@
 // means the instrumentation changed behavior - a bug in this script).
 //
 // Usage:
-//   MODE=instr RUNS=200 node scratch/zombie-detector.mjs
-//   MODE=clean RUNS=200 node scratch/zombie-detector.mjs
+//   MODE=instr RUNS=200 node measurements/zombie-detector.mjs
+//   MODE=clean RUNS=200 node measurements/zombie-detector.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pregenerate_layers } from '#lib/puzzle/generator-layers.js';
 import { Solver } from '#lib/puzzle/solver.js';
@@ -47,7 +47,7 @@ const OUT = `/tmp/opencode/prof/zombie-${MODE}.json`;
 
 /**
  * Deterministic PRNG (mulberry32), verbatim from
- * scratch/layered-mark-ambiguous-paired-bench.mjs
+ * measurements/layered-mark-ambiguous-paired-bench.mjs
  * @param {Number} seed
  * @returns {() => Number}
  */

@@ -2,10 +2,10 @@
 // See agent-doc/solver-perf-plan.md, Phase 0.
 //
 // Usage:
-//   BENCH_SEED=<seed> node scratch/profile-driver.mjs <square|hexa> <index> [reps=3] [intervalUs=100]
+//   BENCH_SEED=<seed> node measurements/profile-driver.mjs <square|hexa> <index> [reps=3] [intervalUs=100]
 //
 // Replays the paired benchmark's exact board sequence (same mulberry32
-// protocol and draw order as scratch/layered-mark-ambiguous-paired-bench.mjs:
+// protocol and draw order as measurements/layered-mark-ambiguous-paired-bench.mjs:
 // one warmup board
 // per grid, then per board branching = Math.random(), avoidObvious =
 // Math.random() * 0.5, pregenerate_layers(grid, 0.6, b, a); square grids
@@ -40,7 +40,7 @@ const [kindArg, indexArg, repsArg, intervalArg] = process.argv.slice(2);
 const KIND = kindArg === 'hexa' ? 'hexagonal' : kindArg === 'square' ? 'square' : null;
 if (!KIND) {
 	console.error(
-		'usage: scratch/profile-driver.mjs <square|hexa> <boardIndex0based> [reps=3] [intervalUs=100]'
+		'usage: measurements/profile-driver.mjs <square|hexa> <boardIndex0based> [reps=3] [intervalUs=100]'
 	);
 	process.exit(1);
 }
@@ -54,7 +54,7 @@ if (!Number.isInteger(index) || index < 0 || index >= NUM_RUNS) {
 
 /**
  * Deterministic PRNG (mulberry32), verbatim from
- * scratch/layered-mark-ambiguous-paired-bench.mjs
+ * measurements/layered-mark-ambiguous-paired-bench.mjs
  * @param {Number} seed
  * @returns {() => Number}
  */

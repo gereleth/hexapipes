@@ -6,8 +6,8 @@
 // generated board.
 //
 // Usage:
-//   node scratch/pregenerate-forest-stats.mjs            # full sweep, 100 boards/combo
-//   node scratch/pregenerate-forest-stats.mjs 2          # smoke run, 2 boards/combo
+//   node measurements/pregenerate-forest-stats.mjs            # full sweep, 100 boards/combo
+//   node measurements/pregenerate-forest-stats.mjs 2          # smoke run, 2 boards/combo
 //
 // Writes generator_stats/forest-sharing-sweep-20x20-wrap.csv, one line per
 // generated board.

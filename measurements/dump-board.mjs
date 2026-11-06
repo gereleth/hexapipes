@@ -1,8 +1,8 @@
 // Dumps boards of the paired benchmark sequence as JSON for offline study.
 // Usage:
-//   BENCH_SEED=<seed> node scratch/dump-board.mjs <square|hexa> <index>[,index...] [outPath]
+//   BENCH_SEED=<seed> node measurements/dump-board.mjs <square|hexa> <index>[,index...] [outPath]
 // Replays the exact PRNG draw order of
-// scratch/layered-mark-ambiguous-paired-bench.mjs, verifies
+// measurements/layered-mark-ambiguous-paired-bench.mjs, verifies
 // each replay against the paired benchmark record (verdict + counters), then
 // writes the scrambled tiles as handed to Solver, plus a fresh
 // re-scramble (randomRotate, seeded) with its own solve facts.
@@ -24,7 +24,9 @@ const PAIRED_JSON = 'generator_stats/layered_mark_ambiguous_20x20_paired.json';
 const [kindArg, indexArg, outArg] = process.argv.slice(2);
 const KIND = kindArg === 'hexa' ? 'hexagonal' : kindArg === 'square' ? 'square' : null;
 if (!KIND || indexArg === undefined) {
-	console.error('usage: scratch/dump-board.mjs <square|hexa> <index0based[,index...]> [outPath]');
+	console.error(
+		'usage: measurements/dump-board.mjs <square|hexa> <index0based[,index...]> [outPath]'
+	);
 	process.exit(1);
 }
 const indices = indexArg.split(',').map(Number);
@@ -36,7 +38,7 @@ const wanted = new Set(indices);
 
 /**
  * Deterministic PRNG (mulberry32), verbatim from
- * scratch/layered-mark-ambiguous-paired-bench.mjs
+ * measurements/layered-mark-ambiguous-paired-bench.mjs
  * @param {Number} seed
  * @returns {() => Number}
  */

@@ -1,8 +1,8 @@
-// Analyzer for V8 .cpuprofile files written by scratch/profile-driver.mjs
+// Analyzer for V8 .cpuprofile files written by measurements/profile-driver.mjs
 // (or any node --cpu-prof run - same format).
 //
 // Usage:
-//   node scratch/analyze-cpuprofile.mjs <profile.cpuprofile> [<more.cpuprofile> ...]
+//   node measurements/analyze-cpuprofile.mjs <profile.cpuprofile> [<more.cpuprofile> ...]
 //
 // Prints, per profile:
 //  - a phase breakdown of SELF time (innermost-matching-frame attribution:
